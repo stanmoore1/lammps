@@ -34,13 +34,13 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 ComputeCoordAtom::ComputeCoordAtom(LAMMPS *lmp, int narg, char **arg) :
-    Compute(lmp, narg, arg), typelo(nullptr), typehi(nullptr), cvec(nullptr), carray(nullptr),
-    group2(nullptr), id_orientorder(nullptr), normv(nullptr)
+    Compute(lmp, narg, arg), list(nullptr), typelo(nullptr), typehi(nullptr), cvec(nullptr),
+    carray(nullptr), group2(nullptr), c_orientorder(nullptr), id_orientorder(nullptr),
+    normv(nullptr)
 {
   if (narg < 5) error->all(FLERR, "Illegal compute coord/atom command");
 
-  jgroup = group->find("all");
-  jgroupbit = group->bitmask[jgroup];
+  jgroupbit = group->get_bitmask_by_id(FLERR, "all", "compute coord/atom");
   cstyle = NONE;
 
   if (strcmp(arg[3], "cutoff") == 0) {
@@ -50,11 +50,10 @@ ComputeCoordAtom::ComputeCoordAtom(LAMMPS *lmp, int narg, char **arg) :
 
     int iarg = 5;
     if ((narg > 6) && (strcmp(arg[5], "group") == 0)) {
+      delete[] group2;
       group2 = utils::strdup(arg[6]);
       iarg += 2;
-      jgroup = group->find(group2);
-      if (jgroup == -1) error->all(FLERR, "Compute coord/atom group2 ID does not exist");
-      jgroupbit = group->bitmask[jgroup];
+      jgroupbit = group->get_bitmask_by_id(FLERR, group2, "compute coord/atom");
     }
 
     ncol = narg - iarg + 1;
@@ -82,7 +81,7 @@ ComputeCoordAtom::ComputeCoordAtom(LAMMPS *lmp, int narg, char **arg) :
 
     id_orientorder = utils::strdup(arg[4]);
 
-    auto iorientorder = modify->get_compute_by_id(id_orientorder);
+    auto *iorientorder = modify->get_compute_by_id(id_orientorder);
     if (!iorientorder)
       error->all(FLERR, "Could not find compute coord/atom compute ID {}", id_orientorder);
     if (!utils::strmatch(iorientorder->style, "^orientorder/atom"))

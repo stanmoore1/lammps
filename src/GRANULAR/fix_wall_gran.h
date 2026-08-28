@@ -50,19 +50,31 @@ class FixWallGran : public Fix {
   int maxsize_restart() override;
   void reset_dt() override;
 
+  int image(int *&, double **&) override;
+
+  // for granular model choices
+  class Granular_NS::GranularModel *model;
+
  protected:
   int wallstyle, wiggle, wshear, axis;
   int nlevels_respa;
   bigint time_origin;
 
-  // for granular model choices
-  class Granular_NS::GranularModel *model;
-
-  double lo, hi, cylradius;
+  double lo, hi;
   double amplitude, period, omega, vshear;
   double dt;
   double Twall;
   char *idregion;
+
+  // wall positions set by equal-style variables
+
+  int xstyle[2], xvar[2];    // style and variable index for lo/hi wall position
+  char *xstr[2];             // variable names for lo/hi wall position
+  double velwall[2];         // current velocity of lo/hi wall
+  double prevwall[2];        // lo/hi wall position at previous evaluation
+  bigint velstep;            // timestep of last wall velocity update
+  int velflag;               // 1 if any wall position is set by a variable
+  int varflag;               // 1 if any wall attribute is set by a variable
 
   int use_history;       // if particle/wall interaction stores history
   int history_update;    // flag for whether shear history is updated
@@ -82,9 +94,15 @@ class FixWallGran : public Fix {
   double *mass_rigid;      // rigid mass for owned+ghost atoms
   int nmax;                // allocated size of mass_rigid
 
+  // dump image data
+
+  int numwalls;
+  int *imgobjs;
+  double **imgparms;
+
   // store particle interactions
 
-  int store;
+  int nsvector;
 
   void clear_stored_contacts();
 };

@@ -29,15 +29,15 @@ class CommBrickDirectKokkos : public CommBrickDirect {
   using CommBrick::forward_comm;
   using CommBrick::reverse_comm;
   void forward_comm(int dummy = 0) override;    // forward comm of atom coords
-  void reverse_comm() override;                 // reverse comm of atom coords
+  void reverse_comm() override;                 // reverse comm of forces
   void exchange() override;                     // move atoms to new procs
   void borders() override;                      // setup list of atoms to comm
 
   template<class DeviceType> void forward_comm_device();
 
  private:
-  DAT::tdual_xfloat_1d k_buf_send_direct,k_buf_recv_direct;
-  DAT::tdual_int_2d k_sendatoms_list;
+  DAT::tdual_double_2d_lr k_buf_send_direct,k_buf_recv_direct;
+  DAT::tdual_int_2d_lr k_sendatoms_list;
   DAT::tdual_int_1d k_swap2list;
   DAT::tdual_int_2d k_pbc_direct;
   DAT::tdual_int_1d k_pbc_flag_direct;

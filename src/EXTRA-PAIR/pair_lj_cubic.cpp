@@ -25,6 +25,7 @@
 #include "neigh_list.h"
 
 #include <cmath>
+#include <cstring>
 
 #include "pair_lj_cubic_const.h"
 
@@ -33,12 +34,18 @@ using namespace PairLJCubicConstants;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJCubic::PairLJCubic(LAMMPS *_lmp) : Pair(_lmp) {}
+PairLJCubic::PairLJCubic(LAMMPS *_lmp) :
+    Pair(_lmp), cut(nullptr), cut_inner(nullptr), cut_inner_sq(nullptr), epsilon(nullptr),
+    sigma(nullptr), lj1(nullptr), lj2(nullptr), lj3(nullptr), lj4(nullptr)
+{
+}
 
 /* ---------------------------------------------------------------------- */
 
 PairLJCubic::~PairLJCubic()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -184,7 +191,7 @@ void PairLJCubic::settings(int narg, char ** /*arg*/)
 
 void PairLJCubic::coeff(int narg, char **arg)
 {
-  if (narg != 4) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg != 4) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -207,7 +214,7 @@ void PairLJCubic::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -346,4 +353,14 @@ double PairLJCubic::single(int /*i*/, int /*j*/, int itype, int jtype, double rs
     philj = epsilon[itype][jtype] * (PHIS + DPHIDS * t - A3 * t * t * t / 6.0);
 
   return factor_lj * philj;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void *PairLJCubic::extract(const char *str, int &dim)
+{
+  dim = 2;
+  if (strcmp(str, "epsilon") == 0) return (void *) epsilon;
+  if (strcmp(str, "sigma") == 0) return (void *) sigma;
+  return nullptr;
 }

@@ -15,9 +15,7 @@
 
 #include "error_stats.h"
 #include "test_config.h"
-#include "test_config_reader.h"
 #include "test_main.h"
-#include "yaml_reader.h"
 #include "yaml_writer.h"
 
 #include "gmock/gmock.h"
@@ -26,42 +24,32 @@
 #include "atom.h"
 #include "bond.h"
 #include "compute.h"
-#include "exceptions.h"
 #include "fix.h"
-#include "fmt/format.h"
 #include "force.h"
 #include "info.h"
 #include "input.h"
-#include "lammps.h"
 #include "modify.h"
-#include "platform.h"
-#include "universe.h"
 
-#include <cctype>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <mpi.h>
-
-#include <map>
-#include <string>
+#include <exception>
+#include <iostream>
+#include <set>
 #include <utility>
-#include <vector>
 
 using ::testing::HasSubstr;
 using ::testing::StartsWith;
 
 using namespace LAMMPS_NS;
 
-void cleanup_lammps(LAMMPS *lmp, const TestConfig &cfg)
+void cleanup_lammps(LAMMPS *&lmp, const TestConfig &cfg)
 {
     platform::unlink(cfg.basename + ".restart");
     platform::unlink(cfg.basename + ".data");
     platform::unlink(cfg.basename + "-coeffs.in");
     delete lmp;
+    lmp = nullptr;
 }
 
-LAMMPS *init_lammps(LAMMPS::argv &args, const TestConfig &cfg, const bool newton = true)
+LAMMPS *init_lammps(LAMMPS::argv &args, const TestConfig &cfg, const bool newton)
 {
     LAMMPS *lmp;
 
@@ -92,21 +80,7 @@ LAMMPS *init_lammps(LAMMPS::argv &args, const TestConfig &cfg, const bool newton
 
     // utility lambdas to improve readability
     auto command = [&](const std::string &line) {
-        try {
-            lmp->input->one(line);
-        } catch (LAMMPSAbortException &ae) {
-            fprintf(stderr, "LAMMPS Error: %s\n", ae.what());
-            exit(2);
-        } catch (LAMMPSException &e) {
-            fprintf(stderr, "LAMMPS Error: %s\n", e.what());
-            exit(3);
-        } catch (fmt::format_error &fe) {
-            fprintf(stderr, "fmt::format_error: %s\n", fe.what());
-            exit(4);
-        } catch (std::exception &e) {
-            fprintf(stderr, "General exception: %s\n", e.what());
-            exit(5);
-        }
+        lmp->input->one(line);
     };
     auto parse_input_script = [&](const std::string &filename) {
         lmp->input->file(filename.c_str());
@@ -230,7 +204,13 @@ void generate_yaml_file(const char *outfile, const TestConfig &config)
     // initialize system geometry
     LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite"};
 
-    LAMMPS *lmp = init_lammps(args, config);
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, config, true);
+    } catch (std::exception &e) {
+        FAIL() << e.what();
+    }
+
     if (!lmp) {
         std::cerr << "One or more prerequisite styles are not available "
                      "in this LAMMPS configuration:\n";
@@ -321,8 +301,14 @@ TEST(BondStyle, plain)
     LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite"};
 
     ::testing::internal::CaptureStdout();
-    LAMMPS *lmp = init_lammps(args, test_config, true);
-
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, test_config, true);
+    } catch (std::exception &e) {
+        std::string output = ::testing::internal::GetCapturedStdout();
+        if (verbose) std::cout << output;
+        FAIL() << e.what();
+    }
     std::string output = ::testing::internal::GetCapturedStdout();
     if (verbose) std::cout << output;
 
@@ -371,7 +357,12 @@ TEST(BondStyle, plain)
 
     if (!verbose) ::testing::internal::CaptureStdout();
     cleanup_lammps(lmp, test_config);
-    lmp = init_lammps(args, test_config, false);
+    try {
+        lmp = init_lammps(args, test_config, false);
+    } catch (std::exception &e) {
+        if (!verbose) ::testing::internal::GetCapturedStdout();
+        FAIL() << e.what();
+    }
     if (!verbose) ::testing::internal::GetCapturedStdout();
 
     // skip over these tests if newton bond is forced to be on
@@ -434,15 +425,21 @@ TEST(BondStyle, plain)
 
 TEST(BondStyle, omp)
 {
-    if (!LAMMPS::is_installed_pkg("OPENMP")) GTEST_SKIP();
+    if (!Info::has_package("OPENMP")) GTEST_SKIP();
     if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
 
     LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite",
                          "-pk",       "omp",  "4",    "-sf",   "omp"};
 
     ::testing::internal::CaptureStdout();
-    LAMMPS *lmp = init_lammps(args, test_config, true);
-
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, test_config, true);
+    } catch (std::exception &e) {
+        std::string output = ::testing::internal::GetCapturedStdout();
+        if (verbose) std::cout << output;
+        FAIL() << e.what();
+    }
     std::string output = ::testing::internal::GetCapturedStdout();
     if (verbose) std::cout << output;
 
@@ -495,7 +492,12 @@ TEST(BondStyle, omp)
 
     if (!verbose) ::testing::internal::CaptureStdout();
     cleanup_lammps(lmp, test_config);
-    lmp = init_lammps(args, test_config, false);
+    try {
+        lmp = init_lammps(args, test_config, false);
+    } catch (std::exception &e) {
+        if (!verbose) ::testing::internal::GetCapturedStdout();
+        FAIL() << e.what();
+    }
     if (!verbose) ::testing::internal::GetCapturedStdout();
 
     // skip over these tests if newton bond is forced to be on
@@ -534,18 +536,25 @@ TEST(BondStyle, omp)
     if (!verbose) ::testing::internal::GetCapturedStdout();
 };
 
-TEST(BondStyle, kokkos_omp)
+// precision of the KOKKOS package as selected with -D KOKKOS_PREC at compile time
+static std::string kokkos_precision()
 {
-    if (!LAMMPS::is_installed_pkg("KOKKOS")) GTEST_SKIP();
-    if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
-    if (!Info::has_accelerator_feature("KOKKOS", "api", "openmp")) GTEST_SKIP();
+    if (Info::has_accelerator_feature("KOKKOS", "precision", "mixed")) return "mixed";
+    if (Info::has_accelerator_feature("KOKKOS", "precision", "single")) return "single";
+    return "double";
+}
 
-    LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite",
-                         "-k",        "on",   "t",    "4",     "-sf",    "kk"};
-
+static void run_kokkos_test(LAMMPS::argv &args)
+{
     ::testing::internal::CaptureStdout();
-    LAMMPS *lmp = init_lammps(args, test_config, true);
-
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, test_config, true);
+    } catch (std::exception &e) {
+        std::string output = ::testing::internal::GetCapturedStdout();
+        if (verbose) std::cout << output;
+        FAIL() << e.what();
+    }
     std::string output = ::testing::internal::GetCapturedStdout();
     if (verbose) std::cout << output;
 
@@ -567,6 +576,12 @@ TEST(BondStyle, kokkos_omp)
 
     // relax error a bit for KOKKOS package
     double epsilon = 5.0 * test_config.epsilon;
+    // relax error a lot for reduced precision KOKKOS builds
+    const std::string kk_precision = kokkos_precision();
+    if (kk_precision == "mixed")
+        epsilon *= 2.0e9;
+    else if (kk_precision == "single")
+        epsilon *= 1.0e10;
 
     ErrorStats stats;
     auto bond = lmp->force->bond;
@@ -599,7 +614,12 @@ TEST(BondStyle, kokkos_omp)
 
     if (!verbose) ::testing::internal::CaptureStdout();
     cleanup_lammps(lmp, test_config);
-    lmp = init_lammps(args, test_config, false);
+    try {
+        lmp = init_lammps(args, test_config, false);
+    } catch (std::exception &e) {
+        if (!verbose) ::testing::internal::GetCapturedStdout();
+        FAIL() << e.what();
+    }
     if (!verbose) ::testing::internal::GetCapturedStdout();
 
     // skip over these tests if newton bond is forced to be on
@@ -638,18 +658,100 @@ TEST(BondStyle, kokkos_omp)
     if (!verbose) ::testing::internal::CaptureStdout();
     cleanup_lammps(lmp, test_config);
     if (!verbose) ::testing::internal::GetCapturedStdout();
+}
+
+TEST(BondStyle, kokkos_omp)
+{
+    if (!Info::has_package("KOKKOS")) GTEST_SKIP();
+    if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
+    // skip entries may also be qualified by the KOKKOS package precision,
+    // e.g. "kokkos_omp_single" skips only single precision KOKKOS builds
+    if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // this test requires the OpenMP backend of KOKKOS
+    if (!Info::has_accelerator_feature("KOKKOS", "api", "openmp"))
+        GTEST_SKIP() << "KOKKOS OpenMP backend not enabled";
+    // if KOKKOS has GPU support enabled, it *must* be used. We cannot test OpenMP only.
+    if (Info::has_accelerator_feature("KOKKOS", "api", "cuda") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "hip") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
+        GTEST_SKIP() << "Cannot test KOKKOS/OpenMP with GPU support enabled";
+
+    LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite",
+                         "-k",        "on",   "t",    "4",     "-sf",    "kk"};
+
+    run_kokkos_test(args);
+};
+
+TEST(BondStyle, kokkos_serial)
+{
+    if (!Info::has_package("KOKKOS")) GTEST_SKIP();
+    if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
+    // skip entries may also be qualified by the KOKKOS package precision,
+    // e.g. "kokkos_serial_single" skips only single precision KOKKOS builds
+    if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // this test requires the KOKKOS package compiled with only the Serial backend: when the
+    // OpenMP (or a GPU) backend is enabled, the host execution space is not Serial
+    if (!Info::has_accelerator_feature("KOKKOS", "api", "serial"))
+        GTEST_SKIP() << "KOKKOS Serial backend not enabled";
+    if (Info::has_accelerator_feature("KOKKOS", "api", "openmp") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "pthreads"))
+        GTEST_SKIP() << "Cannot test KOKKOS/Serial with threading support enabled";
+    if (Info::has_accelerator_feature("KOKKOS", "api", "cuda") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "hip") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
+        GTEST_SKIP() << "Cannot test KOKKOS/Serial with GPU support enabled";
+
+    LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite",
+                         "-k",        "on",   "t",    "1",     "-sf",    "kk"};
+
+    run_kokkos_test(args);
+};
+
+TEST(BondStyle, kokkos_gpu)
+{
+    if (!Info::has_package("KOKKOS")) GTEST_SKIP();
+    if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
+    // skip entries may also be qualified by the KOKKOS package precision,
+    // e.g. "kokkos_gpu_single" skips only single precision KOKKOS builds
+    if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // this test requires a GPU backend of the KOKKOS package
+    if (!Info::has_accelerator_feature("KOKKOS", "api", "cuda") &&
+        !Info::has_accelerator_feature("KOKKOS", "api", "hip") &&
+        !Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
+        GTEST_SKIP() << "KOKKOS GPU backend not enabled";
+    // transparently skip when no compatible GPU device is present
+    if (!Info::has_kokkos_gpu_device())
+        GTEST_SKIP() << "No compatible GPU device available";
+
+    // use a half neighbor list so the GPU kernels run with the input's default
+    // "newton on"; with the default "neigh full" the KOKKOS package requires
+    // newton off, which the force-style input templates do not use
+    LAMMPS::argv args = {"BondStyle", "-log",  "none",   "-echo", "screen", "-nocite", "-k", "on",
+                         "g",         "1",     "-sf",    "kk",    "-pk",     "kokkos",  "neigh",
+                         "half", "newton", "on"};
+
+    run_kokkos_test(args);
 };
 
 TEST(BondStyle, numdiff)
 {
-    if (!LAMMPS::is_installed_pkg("EXTRA-FIX")) GTEST_SKIP();
+    if (!Info::has_package("EXTRA-FIX")) GTEST_SKIP();
     if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
 
     LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite"};
 
     ::testing::internal::CaptureStdout();
-    LAMMPS *lmp = init_lammps(args, test_config, true);
-
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, test_config, true);
+    } catch (std::exception &e) {
+        std::string output = ::testing::internal::GetCapturedStdout();
+        if (verbose) std::cout << output;
+        FAIL() << e.what();
+    }
     std::string output = ::testing::internal::GetCapturedStdout();
     if (verbose) std::cout << output;
 
@@ -701,7 +803,13 @@ TEST(BondStyle, single)
 
     // create a LAMMPS instance with standard settings to detect the number of atom types
     if (!verbose) ::testing::internal::CaptureStdout();
-    LAMMPS *lmp = init_lammps(args, test_config);
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, test_config, true);
+    } catch (std::exception &e) {
+        if (!verbose) ::testing::internal::GetCapturedStdout();
+        FAIL() << e.what();
+    }
     if (!verbose) ::testing::internal::GetCapturedStdout();
 
     if (!lmp) {
@@ -955,7 +1063,13 @@ TEST(BondStyle, extract)
     LAMMPS::argv args = {"BondStyle", "-log", "none", "-echo", "screen", "-nocite"};
 
     if (!verbose) ::testing::internal::CaptureStdout();
-    LAMMPS *lmp = init_lammps(args, test_config, true);
+    LAMMPS *lmp = nullptr;
+    try {
+        lmp = init_lammps(args, test_config, true);
+    } catch (std::exception &e) {
+        if (!verbose) ::testing::internal::GetCapturedStdout();
+        FAIL() << e.what();
+    }
     if (!verbose) ::testing::internal::GetCapturedStdout();
 
     if (!lmp) {

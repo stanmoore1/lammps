@@ -31,7 +31,7 @@
 using namespace LAMMPS_NS;
 
 static const char cite_relres[] =
-  "Pair style lj/relres: doi:10.1021/acs.jctc.0c01003, doi:10.1021/acs.jctc.0c01003\n\n"
+  "Pair style lj/relres: https://doi.org/10.1021/acs.jctc.0c01003, https://doi.org/10.1021/acs.jctc.0c01003\n\n"
   "@Article{Chaimovich1,\n"
   " author = {A. Chaimovich, C. Peter, K. Kremer},\n"
   " title = {Relative Resolution: {A} Hybrid Formalism for Fluid Mixtures},\n"
@@ -50,7 +50,14 @@ static const char cite_relres[] =
 
 /* ---------------------------------------------------------------------- */
 
-PairLJRelRes::PairLJRelRes(LAMMPS *lmp) : Pair(lmp)
+PairLJRelRes::PairLJRelRes(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cut_inner(nullptr), cut_inner_sq(nullptr), cutf(nullptr),
+    cutfsq(nullptr), cutf_inner(nullptr), cutf_inner_sq(nullptr), epsilon(nullptr), sigma(nullptr),
+    epsilonf(nullptr), sigmaf(nullptr), lj1(nullptr), lj2(nullptr), lj3(nullptr), lj4(nullptr),
+    ljf1(nullptr), ljf2(nullptr), ljf3(nullptr), ljf4(nullptr), ljsw0(nullptr), ljsw1(nullptr),
+    ljsw2(nullptr), ljsw3(nullptr), ljsw4(nullptr), ljswf0(nullptr), ljswf1(nullptr),
+    ljswf2(nullptr), ljswf3(nullptr), ljswf4(nullptr), offset(nullptr), offsetsp(nullptr),
+    offsetsm(nullptr)
 {
   if (lmp->citeme) lmp->citeme->add(cite_relres);
   writedata = 1;
@@ -297,7 +304,7 @@ void PairLJRelRes::settings(int narg, char **arg)
 void PairLJRelRes::coeff(int narg, char **arg)
 {
   if (narg != 6 && narg != 10)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -322,11 +329,11 @@ void PairLJRelRes::coeff(int narg, char **arg)
   }
 
   if (cut_inner_one <= 0.0 || cut_inner_one > cut_one)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (cutf_inner_one <= 0.0 || cutf_inner_one > cutf_one)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (cutf_one > cut_inner_one)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (epsilon_one == 0.0) {  //set cutoff for fg interactions
     cut_inner_one = cutf_one;
     cut_one = cutf_one;
@@ -348,7 +355,7 @@ void PairLJRelRes::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

@@ -19,6 +19,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 
@@ -44,6 +45,8 @@ PairBornGauss::PairBornGauss(LAMMPS *lmp) :
 
 PairBornGauss::~PairBornGauss()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -159,7 +162,7 @@ void PairBornGauss::allocate()
 
 void PairBornGauss::settings(int narg, char **arg)
 {
-  if (narg != 1) error->all(FLERR, "Pair style bond/gauss must have exactly one argument");
+  if (narg != 1) error->all(FLERR, "Pair style born/gauss must have exactly one argument");
   cut_global = utils::numeric(FLERR, arg[0], false, lmp);
 
   // reset per-type pair cutoffs that have been explicitly set previously
@@ -177,7 +180,7 @@ void PairBornGauss::settings(int narg, char **arg)
 
 void PairBornGauss::coeff(int narg, char **arg)
 {
-  if (narg < 7 || narg > 8) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg < 7 || narg > 8) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -206,7 +209,7 @@ void PairBornGauss::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -215,7 +218,9 @@ void PairBornGauss::coeff(int narg, char **arg)
 
 double PairBornGauss::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR, "All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   if (offset_flag) {
     double dr = cut[i][j] - r0[i][j];

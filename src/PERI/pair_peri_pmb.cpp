@@ -24,6 +24,7 @@
 #include "error.h"
 #include "fix_peri_neigh.h"
 #include "force.h"
+#include "info.h"
 #include "lattice.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -61,6 +62,7 @@ void PairPeriPMB::compute(int eflag, int vflag)
 
   double *vfrac = atom->vfrac;
   double *s0 = atom->s0;
+  double *smin = atom->smin;
   double **x0 = atom->x0;
   double **r0   = fix_peri_neigh->r0;
   tagint **partner = fix_peri_neigh->partner;
@@ -109,7 +111,7 @@ void PairPeriPMB::compute(int eflag, int vflag)
       delx0 = xtmp0 - x0[j][0];
       dely0 = ytmp0 - x0[j][1];
       delz0 = ztmp0 - x0[j][2];
-      if (periodic) domain->minimum_image(delx0,dely0,delz0);
+      if (periodic) domain->minimum_image(FLERR, delx0,dely0,delz0);
       rsq0 = delx0*delx0 + dely0*dely0 + delz0*delz0;
       jtype = type[j];
 
@@ -152,8 +154,10 @@ void PairPeriPMB::compute(int eflag, int vflag)
 
   if (atom->nmax > nmax) {
     memory->destroy(s0_new);
+    memory->destroy(smin_new);
     nmax = atom->nmax;
     memory->create(s0_new,nmax,"pair:s0_new");
+    memory->create(smin_new,nmax,"pair:smin_new");
   }
 
   // loop over my particles and their partners
@@ -170,6 +174,7 @@ void PairPeriPMB::compute(int eflag, int vflag)
     itype = type[i];
     jnum = npartner[i];
     s0_new[i] = DBL_MAX;
+    smin_new[i] = DBL_MAX;
     first = true;
 
     for (jj = 0; jj < jnum; jj++) {
@@ -188,7 +193,7 @@ void PairPeriPMB::compute(int eflag, int vflag)
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
       delz = ztmp - x[j][2];
-      if (periodic) domain->minimum_image(delx,dely,delz);
+      if (periodic) domain->minimum_image(FLERR, delx,dely,delz);
       rsq = delx*delx + dely*dely + delz*delz;
       jtype = type[j];
       delta = cut[itype][jtype];
@@ -221,12 +226,19 @@ void PairPeriPMB::compute(int eflag, int vflag)
       if (evflag) ev_tally(i,i,nlocal,0,0.5*evdwl,0.0,0.5*fbond*vfrac[i],delx,dely,delz);
 
       // find stretch in bond I-J and break if necessary
-      // use s0 from previous timestep
+      // use the minimum stretch (smin) from the previous timestep to form the
+      // per-bond critical stretch s0 = s00 - alpha*smin (Parks 2008, eq. 9).
+      // Evaluating s00/alpha per bond (instead of collapsing s0 into one
+      // per-particle scalar) is required when these coeffs depend on the type
+      // pair; min(s0_i,s0_j) = s00 - alpha*max(smin_i,smin_j).
 
-      if (stretch > MIN(s0[i],s0[j])) partner[i][jj] = 0;
+      if (stretch > s00[itype][jtype] - alpha[itype][jtype]*MAX(smin[i],smin[j]))
+        partner[i][jj] = 0;
 
-      // update s0 for next timestep
+      // update minimum stretch smin (for breaking) and s0 (for diagnostic
+      // output) for the next timestep
 
+      smin_new[i] = MIN(smin_new[i],stretch);
       if (first)
          s0_new[i] = s00[itype][jtype] - (alpha[itype][jtype] * stretch);
       else
@@ -235,8 +247,14 @@ void PairPeriPMB::compute(int eflag, int vflag)
     }
   }
 
-  // store new s0
-  for (i = 0; i < nlocal; i++) s0[i] = s0_new[i];
+  // store new s0 (diagnostic) and smin (used for bond breaking)
+  // an atom with no surviving bonds keeps the no-breaking sentinel (-DBL_MAX)
+  // so that via the max() in the criterion it cannot trigger breaking of a
+  // neighbor's bond (and so the implied critical stretch stays +infinity)
+  for (i = 0; i < nlocal; i++) {
+    s0[i] = s0_new[i];
+    smin[i] = (smin_new[i] == DBL_MAX) ? -DBL_MAX : smin_new[i];
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -245,7 +263,7 @@ void PairPeriPMB::compute(int eflag, int vflag)
 
 void PairPeriPMB::coeff(int narg, char **arg)
 {
-  if (narg != 6) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg != 6) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -269,7 +287,7 @@ void PairPeriPMB::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -278,7 +296,9 @@ void PairPeriPMB::coeff(int narg, char **arg)
 
 double PairPeriPMB::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
 
   kspring[j][i] = kspring[i][j];
   alpha[j][i] = alpha[i][j];
@@ -358,7 +378,7 @@ double PairPeriPMB::single(int i, int j, int itype, int jtype, double rsq,
   dely0 = x0[i][1] - x0[j][1];
   delz0 = x0[i][2] - x0[j][2];
   int periodic = domain->xperiodic || domain->yperiodic || domain->zperiodic;
-  if (periodic) domain->minimum_image(delx0,dely0,delz0);
+  if (periodic) domain->minimum_image(FLERR, delx0,dely0,delz0);
   rsq0 = delx0*delx0 + dely0*dely0 + delz0*delz0;
 
   d_ij = MIN(0.9*sqrt(rsq0),1.35*lc);

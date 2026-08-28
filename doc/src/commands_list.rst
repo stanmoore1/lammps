@@ -33,6 +33,7 @@ Commands
    displace_atoms
    dynamical_matrix
    echo
+   fenix
    fix
    fix_modify
    fitpod_command
@@ -82,6 +83,7 @@ Commands
    read_dump
    read_restart
    region
+   region2vmd
    replicate
    rerun
    reset_atoms
@@ -112,4 +114,5 @@ Commands
    write_coeff
    write_data
    write_dump
+   write_molecule
    write_restart

@@ -36,7 +36,6 @@
 #include "variable.h"
 
 #include <cmath>
-#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -44,7 +43,8 @@ using namespace MathSpecial;
 
 /* ---------------------------------------------------------------------- */
 
-PairBrownian::PairBrownian(LAMMPS *lmp) : Pair(lmp)
+PairBrownian::PairBrownian(LAMMPS *lmp) :
+    Pair(lmp), wallfix(nullptr), cut_inner(nullptr), cut(nullptr)
 {
   single_enable = 0;
   random = nullptr;
@@ -54,6 +54,8 @@ PairBrownian::PairBrownian(LAMMPS *lmp) : Pair(lmp)
 
 PairBrownian::~PairBrownian()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -401,7 +403,7 @@ void PairBrownian::settings(int narg, char **arg)
 
 void PairBrownian::coeff(int narg, char **arg)
 {
-  if (narg != 2 && narg != 4) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg != 2 && narg != 4) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 
   if (!allocated) allocate();
 
@@ -426,7 +428,7 @@ void PairBrownian::coeff(int narg, char **arg)
       count++;
     }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -478,7 +480,7 @@ void PairBrownian::init_style()
   flagdeform = flagwall = 0;
   wallfix = nullptr;
 
-  if (modify->get_fix_by_style("^deform").size() > 0) flagdeform = 1;
+  if (!modify->get_fix_by_style("^deform").empty()) flagdeform = 1;
   auto fixes = modify->get_fix_by_style("^wall");
   if (fixes.size() > 1)
     error->all(FLERR, "Cannot use multiple fix wall commands with pair brownian");

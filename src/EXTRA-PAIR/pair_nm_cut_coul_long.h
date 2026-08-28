@@ -50,10 +50,9 @@ class PairNMCutCoulLong : public Pair {
   double cut_coul, cut_coulsq;
   double **e0, **r0, **nn, **mm;
   double **nm, **e0nm, **r0n, **r0m, **offset;
-  double qdist;    // TIP4P distance from O site to negative charge
   double g_ewald;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

@@ -17,6 +17,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "math_special.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -166,7 +167,7 @@ void PairMorseSoft::allocate()
 
 void PairMorseSoft::coeff(int narg, char **arg)
 {
-  if (narg < 6 || narg > 7) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg < 6 || narg > 7) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -194,7 +195,7 @@ void PairMorseSoft::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -225,7 +226,9 @@ void PairMorseSoft::settings(int narg, char **arg)
 
 double PairMorseSoft::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR, "All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   morse1[i][j] = 2.0 * d0[i][j] * alpha[i][j];
 
@@ -331,7 +334,7 @@ void PairMorseSoft::read_restart(FILE *fp)
 
 void PairMorseSoft::write_restart_settings(FILE *fp)
 {
-  fwrite(&nlambda, sizeof(double), 1, fp);
+  fwrite(&nlambda, sizeof(int), 1, fp);
   fwrite(&shift_range, sizeof(double), 1, fp);
   fwrite(&cut_global, sizeof(double), 1, fp);
   fwrite(&offset_flag, sizeof(int), 1, fp);
@@ -346,7 +349,7 @@ void PairMorseSoft::read_restart_settings(FILE *fp)
 {
   int me = comm->me;
   if (me == 0) {
-    utils::sfread(FLERR, &nlambda, sizeof(double), 1, fp, nullptr, error);
+    utils::sfread(FLERR, &nlambda, sizeof(int), 1, fp, nullptr, error);
     utils::sfread(FLERR, &shift_range, sizeof(double), 1, fp, nullptr, error);
     utils::sfread(FLERR, &cut_global, sizeof(double), 1, fp, nullptr, error);
     utils::sfread(FLERR, &offset_flag, sizeof(int), 1, fp, nullptr, error);

@@ -23,6 +23,49 @@ class KSpace : protected Pointers {
   friend class FixOMP;
 
  public:
+  enum {
+    REVERSE_RHO,
+    REVERSE_RHO_GEOM,
+    REVERSE_RHO_ARITH,
+    REVERSE_RHO_NONE,
+    REVERSE_RHO_GPU,
+    REVERSE_RHO_G,
+    REVERSE_RHO_A,
+    REVERSE_AD,
+    REVERSE_AD_PERATOM,
+    REVERSE_MU,
+    REVERSE_MU_PERATOM
+  };
+  enum {
+    FORWARD_RHO,
+    FORWARD_IK,
+    FORWARD_AD,
+    FORWARD_MU,
+    FORWARD_IK_PERATOM,
+    FORWARD_AD_PERATOM,
+    FORWARD_MU_PERATOM,
+    FORWARD_IK_GEOM,
+    FORWARD_AD_GEOM,
+    FORWARD_IK_PERATOM_GEOM,
+    FORWARD_AD_PERATOM_GEOM,
+    FORWARD_IK_ARITH,
+    FORWARD_AD_ARITH,
+    FORWARD_IK_PERATOM_ARITH,
+    FORWARD_AD_PERATOM_ARITH,
+    FORWARD_IK_NONE,
+    FORWARD_AD_NONE,
+    FORWARD_IK_PERATOM_NONE,
+    FORWARD_AD_PERATOM_NONE,
+    FORWARD_IK_G,
+    FORWARD_AD_G,
+    FORWARD_IK_PERATOM_G,
+    FORWARD_AD_PERATOM_G,
+    FORWARD_IK_A,
+    FORWARD_AD_A,
+    FORWARD_IK_PERATOM_A,
+    FORWARD_AD_PERATOM_A
+  };
+
   double energy;    // accumulated energies
   double energy_1, energy_6;
   double virial[6];          // accumulated virial: xx,yy,zz,xy,xz,yz
@@ -33,11 +76,15 @@ class KSpace : protected Pointers {
 
   int ewaldflag;         // 1 if a Ewald solver
   int pppmflag;          // 1 if a PPPM solver
+  int espflag;           // 1 if a ESP solver
   int msmflag;           // 1 if a MSM solver
   int dispersionflag;    // 1 if a LJ/dispersion solver
   int tip4pflag;         // 1 if a TIP4P solver
   int dipoleflag;        // 1 if a dipole solver
   int spinflag;          // 1 if a spin solver
+  int xtbflag;           // 1 if compatible with the QMMM-XTB package
+  int rk_flag;           /* 1 if a solver uses two distinct communicator worlds for
+                            r-space and k-space computations*/
   int differentiation_flag;
   int neighrequest_flag;    // used to avoid obsolete construction
                             // of neighbor lists
@@ -45,6 +92,7 @@ class KSpace : protected Pointers {
                             // for LJ coefficients
   bool conp_one_step;       // calculate A matrix in one step with pppm
   int slabflag, wireflag;
+  int slab_auto;
   int scalar_pressure_flag;    // 1 if using MSM fast scalar pressure
   double slab_volfactor, wire_volfactor;
 
@@ -68,6 +116,22 @@ class KSpace : protected Pointers {
                                // charges separated by 1 Angstrom
 
   double g_ewald, g_ewald_6;
+
+  // Parameters required for ESP methods (automatically determined based on the user-specified force accuracy)
+
+  double *force_poly_coeff, *energy_poly_coeff,
+      *fourier_split_poly_coeff;    // polynomial coefficients
+  int num_of_force_poly, num_of_energy_poly,
+      num_of_Fourier_poly;    // order of polynomial approximations
+  double select_c;            // the c value for ESP
+  double Lambda_0;            // the Lambda_0 value for ESP
+
+  double spreading_accuracy;    // using the pswf as the spreading function
+  double spreading_select_c;    // select the c value for the spreading step
+  double spreading_Lambda_0;    // select the Lambda_0 value for the spreading step
+  int poly_order, fourier_spreading_order;
+  double *fourier_spread_poly_coeff;
+
   int nx_pppm, ny_pppm, nz_pppm;          // global FFT grid for Coulombics
   int nx_pppm_6, ny_pppm_6, nz_pppm_6;    // global FFT grid for dispersion
   int nx_msm_max, ny_msm_max, nz_msm_max;
@@ -82,13 +146,18 @@ class KSpace : protected Pointers {
   // KOKKOS host/device flag and data masks
 
   ExecutionSpace execution_space;
-  unsigned int datamask_read, datamask_modify;
-  int copymode;
+  uint64_t datamask_read, datamask_modify;
+  int copymode, kokkosable;
 
-  int compute_flag;       // 0 if skip compute()
-  int fftbench;           // 0 if skip FFT timing
-  int collective_flag;    // 1 if use MPI collectives for FFT/remap
-  int stagger_flag;       // 1 if using staggered PPPM grids
+  int compute_flag;        // 0 if skip compute()
+  int fftbench;            // 0 if skip FFT timing
+  int collective_flag;     // 1 if use MPI collectives for FFT/remap
+  int nonblocking_flag;    // 1 if use MPI_Isend for FFT/remap
+  int selfcopy_flag;       // collective self-copy mode
+                           // 0 if no self-copy
+                           // 1 if always self-copy
+                           // 2 if only use self-copy for one rank runs
+  int stagger_flag;        // 1 if using staggered PPPM grids
 
   double splittol;    // tolerance for when to truncate splitting
 
@@ -98,7 +167,7 @@ class KSpace : protected Pointers {
   void triclinic_check();
   void modify_params(int, char **);
   void *extract(const char *);
-  void compute_dummy(int, int);
+  void compute_dummy(int eflag, int vflag, int alloc = 1);
 
   // triclinic
 
@@ -112,31 +181,41 @@ class KSpace : protected Pointers {
 
   // general child-class methods
 
-  virtual void settings(int, char **){};
+  virtual void settings(int, char **) {};
   virtual void init() = 0;
   virtual void setup() = 0;
-  virtual void reset_grid(){};
+  virtual void reset_grid() {};
   virtual void compute(int, int) = 0;
-  virtual void compute_group_group(int, int, int){};
+  virtual void compute_group_group(int, int, int) {};
 
-  virtual void pack_forward_grid(int, void *, int, int *){};
-  virtual void unpack_forward_grid(int, void *, int, int *){};
-  virtual void pack_reverse_grid(int, void *, int, int *){};
-  virtual void unpack_reverse_grid(int, void *, int, int *){};
+  virtual void pack_forward_grid(int, void *, int, int *) {};
+  virtual void unpack_forward_grid(int, void *, int, int *) {};
+  virtual void pack_reverse_grid(int, void *, int, int *) {};
+  virtual void unpack_reverse_grid(int, void *, int, int *) {};
 
   virtual int timing(int, double &, double &) { return 0; }
   virtual int timing_1d(int, double &) { return 0; }
   virtual int timing_3d(int, double &) { return 0; }
 
   virtual int modify_param(int, char **) { return 0; }
-  virtual double memory_usage() { return 0.0; }
+  virtual double memory_usage()
+  {
+    double bytes = (double) maxeatom * sizeof(double);
+    bytes += (double) maxvatom * 6 * sizeof(double);
+    return bytes;
+  }
+
+  // to be overridden in the *RK subclasses for which rk_flag == 1
+  virtual void r2k_comm(int &, int &) {};               //rk_flag == 1
+  virtual void k2r_comm(int, int) {};                   //rk_flag == 1
+  virtual void compute_grid_potentials(int, int) {};    //rk_flag == 1
 
   /* ----------------------------------------------------------------------
    compute gamma for MSM and pair styles
    see Eq 4 from Parallel Computing 35 (2009) 164-177
 ------------------------------------------------------------------------- */
 
-  double gamma(const double &rho) const
+  [[nodiscard]] double gamma(const double &rho) const
   {
     if (rho <= 1.0) {
       const int split_order = order / 2;
@@ -157,7 +236,7 @@ class KSpace : protected Pointers {
    see Eq 4 from Parallel Computing 35 (2009) 164-177
 ------------------------------------------------------------------------- */
 
-  double dgamma(const double &rho) const
+  [[nodiscard]] double dgamma(const double &rho) const
   {
     if (rho <= 1.0) {
       const int split_order = order / 2;
@@ -188,7 +267,7 @@ class KSpace : protected Pointers {
   double **gcons, **dgcons;    // accumulated per-atom energy/virial
 
   int evflag, evflag_atom;
-  int eflag_either, eflag_global, eflag_atom;
+  int eflag_either, eflag_global, eflag_atom, eflag_only;
   int vflag_either, vflag_global, vflag_atom;
   int maxeatom, maxvatom;
 
@@ -201,7 +280,7 @@ class KSpace : protected Pointers {
     if (eflag || vflag)
       ev_setup(eflag, vflag, alloc);
     else
-      evflag = evflag_atom = eflag_either = eflag_global = eflag_atom = vflag_either =
+      evflag = evflag_atom = eflag_either = eflag_global = eflag_atom = eflag_only = vflag_either =
           vflag_global = vflag_atom = 0;
   }
   void ev_setup(int, int, int alloc = 1);

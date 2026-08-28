@@ -30,18 +30,16 @@ class PPPMDispDielectric : public PPPMDisp {
   ~PPPMDispDielectric() override;
   double memory_usage() override;
   void compute(int, int) override;
-  void slabcorr(int) override;
+  void qsum_qsq(int warning_flag = 1) override;
 
   double **efield;
-  double *phi;
-  int potflag;    // 1/0 if per-atom electrostatic potential phi is needed
 
  protected:
   void make_rho_c() override;
   void fieldforce_c_ik() override;
   void fieldforce_c_ad() override;
   void fieldforce_c_peratom() override;
-  void qsum_qsq(int warning_flag = 1) override;
+  void slabcorr(int) override;
 
   class AtomVecDielectric *avec;
   bool use_qscaled;

@@ -50,13 +50,12 @@ MLIAPData::MLIAPData(LAMMPS *lmp, int gradgradflag_in, int *map_in, class MLIAPM
   ndims_virial = 6;
   yoffset = nparams * nelements;
   zoffset = 2 * yoffset;
-  natoms = atom->natoms;
-
   // must check before assigning bigint expression to regular int
 
-  if (1 + ndims_force * natoms + ndims_virial > MAXSMALLINT)
+  if (1 + ndims_force * atom->natoms + ndims_virial > MAXSMALLINT)
     error->all(FLERR, "Too many atoms for MLIAP package");
 
+  natoms = atom->natoms;
   size_array_rows = 1 + ndims_force * natoms + ndims_virial;
   size_array_cols = nparams * nelements + 1;
   size_gradforce = ndims_force * nparams * nelements;
@@ -185,7 +184,6 @@ void MLIAPData::generate_neighdata(NeighList *list_in, int eflag_in, int vflag_i
       int jtype = type[j];
       const int jelem = map[jtype];
 
-      lmp_firstneigh[ii][jj] = firstneigh[i][jj];
       if (rsq < descriptor->cutsq[ielem][jelem]) {
         pair_i[ij] = i;
         jatoms[ij] = j;
@@ -193,6 +191,7 @@ void MLIAPData::generate_neighdata(NeighList *list_in, int eflag_in, int vflag_i
         rij[ij][0] = delx;
         rij[ij][1] = dely;
         rij[ij][2] = delz;
+        lmp_firstneigh[ii][ninside] = firstneigh[i][jj];
         ij++;
         ninside++;
       }
@@ -228,6 +227,7 @@ void MLIAPData::grow_neigharrays()
     memory->grow(ielems, natomneigh, "MLIAPData:ielems");
     memory->grow(itypes, natomneigh, "MLIAPData:itypes");
     memory->grow(numneighs, natomneigh, "MLIAPData:numneighs");
+    memory->grow(lmp_firstneigh, natomneigh, nneigh_max, "MLIAPData:lmp_firstneigh");
     natomneigh_max = natomneigh;
   }
 

@@ -43,7 +43,7 @@ class Angle : protected Pointers {
   // KOKKOS host/device flag and data masks
 
   ExecutionSpace execution_space;
-  unsigned int datamask_read, datamask_modify;
+  uint64_t datamask_read, datamask_modify;
   int copymode, kokkosable;
 
   Angle(class LAMMPS *);
@@ -52,12 +52,12 @@ class Angle : protected Pointers {
   virtual void compute(int, int) = 0;
   virtual void settings(int, char **);
   virtual void coeff(int, char **) = 0;
-  virtual void init_style(){};
+  virtual void init_style() {};
   virtual double equilibrium_angle(int) = 0;
   virtual void write_restart(FILE *) = 0;
   virtual void read_restart(FILE *) = 0;
-  virtual void write_restart_settings(FILE *){};
-  virtual void read_restart_settings(FILE *){};
+  virtual void write_restart_settings(FILE *) {};
+  virtual void read_restart_settings(FILE *) {};
   virtual void write_data(FILE *) {}
   virtual double single(int, int, int, int) = 0;
   virtual void born_matrix(int /*atype*/, int /*at1*/, int /*at2*/, int /*at3*/, double &du,
@@ -74,7 +74,7 @@ class Angle : protected Pointers {
   int suffix_flag;    // suffix compatibility flag
 
   int evflag;
-  int eflag_either, eflag_global, eflag_atom;
+  int eflag_either, eflag_global, eflag_atom, eflag_only;
   int vflag_either, vflag_global, vflag_atom, cvflag_atom;
   int maxeatom, maxvatom, maxcvatom;
 
@@ -83,8 +83,8 @@ class Angle : protected Pointers {
     if (eflag || vflag)
       ev_setup(eflag, vflag, alloc);
     else
-      evflag = eflag_either = eflag_global = eflag_atom = vflag_either = vflag_global = vflag_atom =
-          cvflag_atom = 0;
+      evflag = eflag_either = eflag_global = eflag_atom = eflag_only = vflag_either = vflag_global =
+          vflag_atom = cvflag_atom = 0;
   }
   void ev_setup(int, int, int alloc = 1);
   void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double,

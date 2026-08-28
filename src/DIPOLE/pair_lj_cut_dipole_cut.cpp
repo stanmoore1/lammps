@@ -30,7 +30,10 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJCutDipoleCut::PairLJCutDipoleCut(LAMMPS *lmp) : Pair(lmp)
+PairLJCutDipoleCut::PairLJCutDipoleCut(LAMMPS *lmp) :
+    Pair(lmp), cut_lj(nullptr), cut_ljsq(nullptr), cut_coul(nullptr), cut_coulsq(nullptr),
+    epsilon(nullptr), sigma(nullptr), lj1(nullptr), lj2(nullptr), lj3(nullptr), lj4(nullptr),
+    offset(nullptr)
 {
   single_enable = 0;
 }
@@ -325,7 +328,7 @@ void PairLJCutDipoleCut::settings(int narg, char **arg)
 void PairLJCutDipoleCut::coeff(int narg, char **arg)
 {
   if (narg < 4 || narg > 6)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -352,7 +355,7 @@ void PairLJCutDipoleCut::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

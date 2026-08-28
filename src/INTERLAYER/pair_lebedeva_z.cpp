@@ -29,6 +29,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neighbor.h"
 #include "neigh_list.h"
@@ -43,7 +44,7 @@ static constexpr int DELTA = 4;
 
 /* ---------------------------------------------------------------------- */
 
-PairLebedevaZ::PairLebedevaZ(LAMMPS *lmp) : Pair(lmp)
+PairLebedevaZ::PairLebedevaZ(LAMMPS *lmp) : Pair(lmp), offset(nullptr)
 {
   single_enable = 0;
   restartinfo = 0;
@@ -198,9 +199,9 @@ void PairLebedevaZ::allocate()
 
 void PairLebedevaZ::settings(int narg, char **arg)
 {
-  if (narg != 1) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 1) error->all(FLERR,"Pair style lebedeva/z requires exactly one argument");
   if (!utils::strmatch(force->pair_style,"^hybrid/overlay"))
-    error->all(FLERR,"Pair style lebedeva/z requires using hybrid/overlay");
+    error->all(FLERR,"Pair style lebedeva/z must be used as hybrid/overlay sub-style");
 
   cut_global = utils::numeric(FLERR,arg[0],false,lmp);
 }
@@ -232,7 +233,7 @@ void PairLebedevaZ::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -253,9 +254,11 @@ void PairLebedevaZ::init_style()
 
 double PairLebedevaZ::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
   if (!offset_flag)
-    error->all(FLERR,"Must use 'pair_modify shift yes' with this pair style");
+    error->all(FLERR, Error::NOLASTLINE, "Must use 'pair_modify shift yes' with this pair style");
 
   if (offset_flag && (cut_global > 0.0)) {
     int iparam_ij = elem2param[map[i]][map[j]];

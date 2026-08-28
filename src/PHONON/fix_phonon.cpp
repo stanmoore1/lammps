@@ -28,6 +28,7 @@
 
 #include "atom.h"
 #include "citeme.h"
+#include "comm.h"
 #include "compute.h"
 #include "domain.h"
 #include "error.h"
@@ -36,6 +37,7 @@
 #include "group.h"
 #include "memory.h"
 #include "modify.h"
+#include "safe_pointers.h"
 #include "tokenizer.h"
 #include "update.h"
 
@@ -47,60 +49,61 @@ using namespace FixConst;
 
 static constexpr int MAXLINE = 512;
 
-enum{ FORWARD=-1, BACKWARD=1 };
+enum { FORWARD = -1, BACKWARD = 1 };
 
 static const char cite_fix_phonon[] =
-  "fix phonon command: doi:10.1016/j.cpc.2011.04.019\n\n"
-  "@Article{Kong11,\n"
-  " author = {L. T. Kong},\n"
-  " title = {Phonon Dispersion Measured Directly from Molecular Dynamics Simulations},\n"
-  " journal = {Comput.\\ Phys.\\ Commun.},\n"
-  " year =    2011,\n"
-  " volume =  182,\n"
-  " pages =   {2201--2207}\n"
-  "}\n\n";
+    "fix phonon command: https://doi.org/10.1016/j.cpc.2011.04.019\n\n"
+    "@Article{Kong11,\n"
+    " author = {L. T. Kong},\n"
+    " title = {Phonon Dispersion Measured Directly from Molecular Dynamics Simulations},\n"
+    " journal = {Comput.\\ Phys.\\ Commun.},\n"
+    " year =    2011,\n"
+    " volume =  182,\n"
+    " pages =   {2201--2207}\n"
+    "}\n\n";
 
 /* ---------------------------------------------------------------------- */
 
-FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
+FixPhonon::FixPhonon(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 {
   if (lmp->citeme) lmp->citeme->add(cite_fix_phonon);
 
-  MPI_Comm_rank(world,&me);
-  MPI_Comm_size(world,&nprocs);
+  if (narg < 8) utils::missing_cmd_args(FLERR, "fix phonon", error);
 
-  if (narg < 8) error->all(FLERR,"Illegal fix phonon command: number of arguments < 8");
+  // Calculate this fix every n steps
+  nevery = utils::inumeric(FLERR, arg[3], false, lmp);
+  if (nevery < 1) error->all(FLERR, 3, "Illegal fix phonon nevery value {}", nevery);
 
-  nevery = utils::inumeric(FLERR, arg[3],false,lmp);   // Calculate this fix every n steps!
-  if (nevery < 1) error->all(FLERR,"Illegal fix phonon command");
+  // frequency to output result
+  nfreq = utils::inumeric(FLERR, arg[4], false, lmp);
+  if (nfreq < 1) error->all(FLERR, 4, "Illegal fix phonon nfreq value {}", nfreq);
 
-  nfreq  = utils::inumeric(FLERR, arg[4],false,lmp);   // frequency to output result
-  if (nfreq < 1) error->all(FLERR,"Illegal fix phonon command");
-
-  waitsteps = utils::bnumeric(FLERR,arg[5],false,lmp); // Wait this many timesteps before actually measuring
-  if (waitsteps < 0) error->all(FLERR,"Illegal fix phonon command: waitsteps < 0 !");
+  // Wait this many timesteps before actually measuring
+  waitsteps = utils::bnumeric(FLERR, arg[5], false, lmp);
+  if (waitsteps < 0) error->all(FLERR, "Illegal fix phonon waitsteps value {}", waitsteps);
 
   mapfile = utils::strdup(arg[6]);
   prefix = utils::strdup(arg[7]);
-  logfile = utils::strdup(std::string(prefix)+".log");
+  logfile = utils::strdup(std::string(prefix) + ".log");
 
   int sdim = sysdim = domain->dimension;
   int iarg = 8;
   nasr = 20;
 
-  // other command line options
+  // other command-line options
   while (iarg < narg) {
-    if (strcmp(arg[iarg],"sysdim") == 0) {
-      if (++iarg >= narg) error->all(FLERR,"Illegal fix phonon command: incomplete command line options.");
-      sdim = utils::inumeric(FLERR, arg[iarg],false,lmp);
-      if (sdim < 1) error->all(FLERR,"Illegal fix phonon command: sysdim should not be less than 1.");
+    if (strcmp(arg[iarg], "sysdim") == 0) {
+      if (++iarg >= narg) utils::missing_cmd_args(FLERR, "fix phonon sysdim", error);
+      sdim = utils::inumeric(FLERR, arg[iarg], false, lmp);
+      if (sdim < 1)
+        error->all(FLERR, iarg, "Illegal fix phonon command: sysdim should not be less than 1");
 
-    } else if (strcmp(arg[iarg],"nasr") == 0) {
-      if (++iarg >= narg) error->all(FLERR,"Illegal fix phonon command: incomplete command line options.");
-      nasr = utils::inumeric(FLERR, arg[iarg],false,lmp);
+    } else if (strcmp(arg[iarg], "nasr") == 0) {
+      if (++iarg >= narg) utils::missing_cmd_args(FLERR, "fix phonon nasr", error);
+      nasr = utils::inumeric(FLERR, arg[iarg], false, lmp);
 
     } else {
-      error->all(FLERR,"Illegal fix phonon command: unknown option read!");
+      error->all(FLERR, iarg, "Unknown fix phonon keyword {}", arg[iarg]);
     }
 
     ++iarg;
@@ -112,10 +115,13 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
 
   // get the total number of atoms in group and run min/max checks
   bigint ng = group->count(igroup);
-  if (ng > MAXSMALLINT) error->all(FLERR,"Too many atoms for fix phonon");
-  if (ng < 1) error->all(FLERR,"No atom found for fix phonon!");
+  if (ng > MAXSMALLINT)
+    error->all(FLERR, Error::COMMAND, "Too many atoms for fix phonon: {}", ng);
+  if (ng < 1) error->all(FLERR, 1, "No atoms in fix phonon group {}", arg[1]);
   ngroup = static_cast<int>(ng);
 
+  int me = comm->me;
+  int nprocs = comm->nprocs;
 
   // MPI gatherv related variables
   recvcnts = new int[nprocs];
@@ -157,9 +163,9 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
   fft_disp[0] = 0;
   for (int i = 0; i < nprocs; ++i) fft_cnts[i] = nx_loc[i] * ny * nz * fft_dim;
   for (int i = 1; i < nprocs; ++i) fft_disp[i] = fft_disp[i-1] + fft_cnts[i-1];
-  delete []nx_loc;
+  delete[] nx_loc;
 
-  fft = new FFT3d(lmp,world,nz,ny,nx,0,nz-1,0,ny-1,nxlo,nxhi,0,nz-1,0,ny-1,nxlo,nxhi,0,0,&mysize,0);
+  fft = new FFT3d(lmp,world,nz,ny,nx,0,nz-1,0,ny-1,nxlo,nxhi,0,nz-1,0,ny-1,nxlo,nxhi,0,0,&mysize,0,0);
   memory->create(fft_data, MAX(1,mynq)*2, "fix_phonon:fft_data");
 
   // allocate variables; MAX(1,... is used because a null buffer will result in error for MPI
@@ -185,22 +191,22 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
   if (me == 0) {
     flog = fopen(logfile, "w");
     if (flog == nullptr)
-      error->one(FLERR,"Can not open output file {}: {}", logfile,utils::getsyserror());
-    fmt::print(flog,"############################################################\n");
-    fmt::print(flog,"# group name of the atoms under study      : {}\n", group->names[igroup]);
-    fmt::print(flog,"# total number of atoms in the group       : {}\n", ngroup);
-    fmt::print(flog,"# dimension of the system                  : {} D\n", sysdim);
-    fmt::print(flog,"# number of atoms per unit cell            : {}\n", nucell);
-    fmt::print(flog,"# dimension of the FFT mesh                : {} x {} x {}\n", nx, ny, nz);
-    fmt::print(flog,"# number of wait steps before measurement  : {}\n", waitsteps);
-    fmt::print(flog,"# frequency of the measurement             : {}\n", nevery);
-    fmt::print(flog,"# output result after this many measurement: {}\n", nfreq);
-    fmt::print(flog,"# number of processors used by this run    : {}\n", nprocs);
-    fmt::print(flog,"############################################################\n");
-    fmt::print(flog,"# mapping information between lattice indices and atom id\n");
-    fmt::print(flog,"# nx ny nz nucell\n");
-    fmt::print(flog,"{} {} {} {}\n", nx, ny, nz, nucell);
-    fmt::print(flog,"# l1 l2 l3 k atom_id\n");
+      error->one(FLERR, 7, "Can not open output file {}: {}", logfile, utils::getsyserror());
+    utils::print(flog,"############################################################\n");
+    utils::print(flog,"# group name of the atoms under study      : {}\n", group->names[igroup]);
+    utils::print(flog,"# total number of atoms in the group       : {}\n", ngroup);
+    utils::print(flog,"# dimension of the system                  : {} D\n", sysdim);
+    utils::print(flog,"# number of atoms per unit cell            : {}\n", nucell);
+    utils::print(flog,"# dimension of the FFT mesh                : {} x {} x {}\n", nx, ny, nz);
+    utils::print(flog,"# number of wait steps before measurement  : {}\n", waitsteps);
+    utils::print(flog,"# frequency of the measurement             : {}\n", nevery);
+    utils::print(flog,"# output result after this many measurement: {}\n", nfreq);
+    utils::print(flog,"# number of processors used by this run    : {}\n", nprocs);
+    utils::print(flog,"############################################################\n");
+    utils::print(flog,"# mapping information between lattice indices and atom id\n");
+    utils::print(flog,"# nx ny nz nucell\n");
+    utils::print(flog,"{} {} {} {}\n", nx, ny, nz, nucell);
+    utils::print(flog,"# l1 l2 l3 k atom_id\n");
     int ix, iy, iz, iu;
     for (idx = 0; idx < ngroup; ++idx) {
       itag = surf2tag[idx];
@@ -208,9 +214,9 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
       iz   = (idx/nucell)%nz;
       iy   = (idx/(nucell*nz))%ny;
       ix   = (idx/(nucell*nz*ny))%nx;
-      fmt::print(flog,"{} {} {} {} {}\n", ix, iy, iz, iu, itag);
+      utils::print(flog,"{} {} {} {} {}\n", ix, iy, iz, iu, itag);
     }
-    fmt::print(flog,"############################################################\n");
+    utils::print(flog,"############################################################\n");
     fflush(flog);
   }
   surf2tag.clear();
@@ -218,10 +224,8 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
   // default temperature is from thermo
   TempSum = new double[sysdim];
   id_temp = utils::strdup("thermo_temp");
-  int icompute = modify->find_compute(id_temp);
-  temperature = modify->compute[icompute];
+  temperature = modify->get_compute_by_id(id_temp);
   inv_nTemp = 1.0/group->count(temperature->igroup);
-
 } // end of constructor
 
 /* ---------------------------------------------------------------------- */
@@ -230,7 +234,7 @@ void FixPhonon::post_run()
 {
   // compute and output final results
   if (ifreq > 0 && ifreq != nfreq) postprocess();
-  if (me == 0) fclose(flog);
+  if (comm->me == 0) fclose(flog);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -251,16 +255,16 @@ FixPhonon::~FixPhonon()
   memory->destroy(Phi_q);
   memory->destroy(Phi_all);
 
-  delete []recvcnts;
-  delete []displs;
-  delete []prefix;
-  delete []logfile;
-  delete []fft_cnts;
-  delete []fft_disp;
-  delete []id_temp;
-  delete []TempSum;
-  delete []M_inv_sqrt;
-  delete []basetype;
+  delete[] recvcnts;
+  delete[] displs;
+  delete[] prefix;
+  delete[] logfile;
+  delete[] fft_cnts;
+  delete[] fft_disp;
+  delete[] id_temp;
+  delete[] TempSum;
+  delete[] M_inv_sqrt;
+  delete[] basetype;
 
   // destroy FFT
   delete fft;
@@ -287,9 +291,8 @@ return mask;
 void FixPhonon::init()
 {
   // warn if more than one fix-phonon
-  int count = 0;
-  for (int i = 0; i < modify->nfix; ++i) if (strcmp(modify->fix[i]->style,"phonon") == 0) ++count;
-  if (count > 1 && me == 0) error->warning(FLERR,"More than one fix phonon defined"); // just warn, but allowed.
+  if (modify->get_fix_by_style("^phonon").size() > 1)
+    error->warning(FLERR,"More than one fix phonon defined");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -330,6 +333,9 @@ void FixPhonon::end_of_step()
 
   int i,idim,jdim,ndim;
   double xcur[3];
+
+  int me = comm->me;
+  int nprocs = comm->nprocs;
 
   // to get the current temperature
   if (!(temperature->invoked_flag & Compute::INVOKED_VECTOR)) temperature->compute_vector();
@@ -400,7 +406,7 @@ void FixPhonon::end_of_step()
       ndim = sysdim;
       for (i = 1; i < nucell; ++i) {
         for (idim = 0; idim < sysdim; ++idim) dist2orig[idim] = Rnow[idx][ndim++] - Rnow[idx][idim];
-        domain->minimum_image(dist2orig);
+        domain->minimum_image_big(FLERR, dist2orig);
         for (idim = 0; idim < sysdim; ++idim) basis[i][idim] += dist2orig[idim];
       }
     }
@@ -425,7 +431,7 @@ double FixPhonon::memory_usage()
                + sizeof(double)*(ngroup*(3*sysdim+2)+mynpt*fft_dim*2)
                + sizeof(std::complex<double>)*MAX(1,mynq)*fft_dim *(1+2*fft_dim)
                + sizeof(std::complex<double>)*ntotal*fft_dim2
-               + sizeof(int) * nprocs * 4;
+               + sizeof(int) * comm->nprocs * 4;
   return bytes;
 }
 
@@ -434,16 +440,16 @@ double FixPhonon::memory_usage()
 int FixPhonon::modify_param(int narg, char **arg)
 {
   if (strcmp(arg[0],"temp") == 0) {
-    if (narg < 2) error->all(FLERR,"Illegal fix_modify command");
-    delete [] id_temp;
+    if (narg < 2) utils::missing_cmd_args(FLERR, "fix_modify", error);
+    delete[] id_temp;
     id_temp = utils::strdup(arg[1]);
 
-    int icompute = modify->find_compute(id_temp);
-    if (icompute < 0) error->all(FLERR,"Could not find fix_modify temp ID");
-    temperature = modify->compute[icompute];
+    temperature = modify->get_compute_by_id(id_temp);
+    if (!temperature)
+      error->all(FLERR, Error::NOLASTLINE, "Could not find fix_modify temp ID {}", id_temp);
 
     if (temperature->tempflag == 0)
-      error->all(FLERR,"Fix_modify temp ID does not compute temperature");
+      error->all(FLERR, Error::NOLASTLINE, "Fix_modify temp ID {} does not compute temperature", id_temp);
     inv_nTemp = 1.0/group->count(temperature->igroup);
 
     return 2;
@@ -506,10 +512,10 @@ void FixPhonon::getmass()
 
     basetype[i] = int(type_all[i]*inv_total);
   }
-  delete []mass_one;
-  delete []mass_all;
-  delete []type_one;
-  delete []type_all;
+  delete[] mass_one;
+  delete[] mass_all;
+  delete[] type_one;
+  delete[] type_all;
 }
 
 
@@ -538,9 +544,9 @@ void FixPhonon::readmap()
 
     // gather IDs on local proc
     displs[0] = 0;
-    for (int i = 0; i < nprocs; ++i) recvcnts[i] = 0;
+    for (int i = 0; i < comm->nprocs; ++i) recvcnts[i] = 0;
     MPI_Allgather(&nfind,1,MPI_INT,recvcnts,1,MPI_INT,world);
-    for (int i = 1; i < nprocs; ++i) displs[i] = displs[i-1] + recvcnts[i-1];
+    for (int i = 1; i < comm->nprocs; ++i) displs[i] = displs[i-1] + recvcnts[i-1];
 
     MPI_Allgatherv(tag_loc,nfind,MPI_LMP_TAGINT,tag_all,recvcnts,displs,MPI_LMP_TAGINT,world);
     for (int i = 0; i < ngroup; ++i) {
@@ -556,12 +562,12 @@ void FixPhonon::readmap()
 
   // read from map file for others
   char line[MAXLINE] = {'\0'};
-  FILE *fp = fopen(mapfile, "r");
+  SafeFilePtr fp = fopen(mapfile, "r");
   if (fp == nullptr)
-    error->all(FLERR,"Cannot open input map file {}: {}", mapfile, utils::getsyserror());
+    error->all(FLERR, Error::NOLASTLINE, "Cannot open input map file {}: {}", mapfile, utils::getsyserror());
 
   if (fgets(line,MAXLINE,fp) == nullptr)
-    error->all(FLERR,"Error while reading header of mapping file!");
+    error->all(FLERR, Error::NOLASTLINE, "Error while reading header of mapping file");
   try {
     ValueTokenizer values(line);
 
@@ -570,16 +576,16 @@ void FixPhonon::readmap()
     nz = values.next_int();
     nucell = values.next_int();
   } catch (TokenizerException &e) {
-    error->all(FLERR, "Incorrect header format: {}", e.what());
+    error->all(FLERR, Error::NOLASTLINE, "Incorrect header format: {}", e.what());
   }
 
   ntotal = nx*ny*nz;
   if (ntotal*nucell != ngroup)
-    error->all(FLERR,"FFT mesh and number of atoms in group mismatch!");
+    error->all(FLERR,"FFT mesh and number of atoms in group mismatch");
 
   // second line of mapfile is comment
   if (fgets(line,MAXLINE,fp) == nullptr)
-    error->all(FLERR,"Error while reading comment of mapping file!");
+    error->all(FLERR, Error::NOLASTLINE, "Error while reading comment of mapping file");
 
   try {
     int ix, iy, iz, iu;
@@ -603,14 +609,13 @@ void FixPhonon::readmap()
       surf2tag[idx]  = itag;
     }
   } catch (TokenizerException &e) {
-    error->all(FLERR, "Incorrect map file format: {}", e.what());
+    error->all(FLERR, Error::NOLASTLINE, "Incorrect map file format: {}", e.what());
   }
-  fclose(fp);
 
   if (tag2surf.size() != surf2tag.size() ||
       tag2surf.size() != static_cast<std::size_t>(ngroup) )
-    error->all(FLERR,"The mapping is incomplete!");
-  if (info) error->all(FLERR,"Error while reading mapping file!");
+    error->all(FLERR,"The mapping is incomplete");
+  if (info) error->all(FLERR, Error::NOLASTLINE, "Error while reading mapping file");
 
   // check the correctness of mapping
   int *mask  = atom->mask;
@@ -622,7 +627,7 @@ void FixPhonon::readmap()
       itag = tag[i];
       idx  = tag2surf[itag];
       if (itag != surf2tag[idx])
-        error->one(FLERR,"The mapping info read is incorrect!");
+        error->one(FLERR, Error::NOLASTLINE, "The mapping info read is incorrect");
     }
   }
 }
@@ -672,7 +677,7 @@ void FixPhonon::postprocess( )
 
   // to get Phi = KT.G^-1; normalization of FFTW data is done here
   double boltz = force->boltz, TempAve = 0.;
-  auto kbtsqrt = new double[sysdim];
+  auto *kbtsqrt = new double[sysdim];
   double TempFac = inv_neval * inv_nTemp;
   double NormFac = TempFac * double(ntotal);
 
@@ -691,15 +696,15 @@ void FixPhonon::postprocess( )
 
   // to collect all local Phi_q to root
   displs[0]=0;
-  for (int i = 0; i < nprocs; ++i) recvcnts[i] = fft_cnts[i]*fft_dim*2;
-  for (int i = 1; i < nprocs; ++i) displs[i] = displs[i-1] + recvcnts[i-1];
+  for (int i = 0; i < comm->nprocs; ++i) recvcnts[i] = fft_cnts[i]*fft_dim*2;
+  for (int i = 1; i < comm->nprocs; ++i) displs[i] = displs[i-1] + recvcnts[i-1];
   MPI_Gatherv(Phi_q[0],mynq*fft_dim2*2,MPI_DOUBLE,Phi_all[0],recvcnts,displs,MPI_DOUBLE,0,world);
 
   // to collect all basis info and averaged it on root
-  auto basis_root = new double[fft_dim];
+  auto *basis_root = new double[fft_dim];
   if (fft_dim > sysdim) MPI_Reduce(&basis[1][0], &basis_root[sysdim], fft_dim-sysdim, MPI_DOUBLE, MPI_SUM, 0, world);
 
-  if (me == 0) { // output dynamic matrix by root
+  if (comm->me == 0) { // output dynamic matrix by root
 
     // get basis info
     for (idim = 0;      idim < sysdim;  ++idim) basis_root[idim]  = 0.;
@@ -717,7 +722,7 @@ void FixPhonon::postprocess( )
     // write binary file, in fact, it is the force constants matrix that is written
     // Enforcement of ASR and the conversion of dynamical matrix is done in the postprocessing code
     auto fname = fmt::format("{}.bin.{}",prefix,update->ntimestep);
-    FILE *fp_bin = fopen(fname.c_str(),"wb");
+    SafeFilePtr fp_bin = fopen(fname.c_str(),"wb");
 
     fwrite(&sysdim, sizeof(int),    1, fp_bin);
     fwrite(&nx,     sizeof(int),    1, fp_bin);
@@ -734,19 +739,18 @@ void FixPhonon::postprocess( )
     fwrite(basetype,      sizeof(int),   nucell, fp_bin);
     fwrite(M_inv_sqrt,    sizeof(double),nucell, fp_bin);
 
-    fclose(fp_bin);
 
     // write log file, here however, it is the dynamical matrix that is written
-    fmt::print(flog,"############################################################\n");
-    fmt::print(flog,"# Current time step                      : {}\n", update->ntimestep);
-    fmt::print(flog,"# Total number of measurements           : {}\n", neval);
-    fmt::print(flog,"# Average temperature of the measurement : {}\n", TempAve);
-    fmt::print(flog,"# Boltzmann constant under current units : {}\n", boltz);
-    fmt::print(flog,"# basis vector A1 = [{} {} {}]\n", basevec[0], basevec[1], basevec[2]);
-    fmt::print(flog,"# basis vector A2 = [{} {} {}]\n", basevec[3], basevec[4], basevec[5]);
-    fmt::print(flog,"# basis vector A3 = [{} {} {}]\n", basevec[6], basevec[7], basevec[8]);
-    fmt::print(flog,"############################################################\n");
-    fmt::print(flog,"# qx\t qy \t qz \t\t Phi(q)\n");
+    utils::print(flog,"############################################################\n");
+    utils::print(flog,"# Current time step                      : {}\n", update->ntimestep);
+    utils::print(flog,"# Total number of measurements           : {}\n", neval);
+    utils::print(flog,"# Average temperature of the measurement : {}\n", TempAve);
+    utils::print(flog,"# Boltzmann constant under current units : {}\n", boltz);
+    utils::print(flog,"# basis vector A1 = [{} {} {}]\n", basevec[0], basevec[1], basevec[2]);
+    utils::print(flog,"# basis vector A2 = [{} {} {}]\n", basevec[3], basevec[4], basevec[5]);
+    utils::print(flog,"# basis vector A3 = [{} {} {}]\n", basevec[6], basevec[7], basevec[8]);
+    utils::print(flog,"############################################################\n");
+    utils::print(flog,"# qx\t qy \t qz \t\t Phi(q)\n");
 
     EnforceASR();
 
@@ -765,10 +769,10 @@ void FixPhonon::postprocess( )
         double qy = double(iy)/double(ny);
         for (int iz = 0; iz < nz; ++iz) {
           double qz = double(iz)/double(nz);
-          fmt::print(flog,"{} {} {}", qx, qy, qz);
+          utils::print(flog,"{} {} {}", qx, qy, qz);
           for (idim = 0; idim < fft_dim2; ++idim)
-            fmt::print(flog, " {} {}", std::real(Phi_all[idq][idim]), std::imag(Phi_all[idq][idim]));
-          fmt::print(flog, "\n");
+            utils::print(flog, " {} {}", std::real(Phi_all[idq][idim]), std::imag(Phi_all[idq][idim]));
+          utils::print(flog, "\n");
           ++idq;
         }
       }
@@ -799,6 +803,7 @@ void FixPhonon::GaussJordan(int n, std::complex<double> *Mat)
   for (i = 0; i < n; ++i) ipiv[i] = 0;
   for (i = 0; i < n; ++i) {
     big = 0.;
+    irow = icol = -1;
     for (j = 0; j < n; ++j) {
       if (ipiv[j] != 1) {
         for (k = 0; k < n; ++k) {
@@ -810,10 +815,12 @@ void FixPhonon::GaussJordan(int n, std::complex<double> *Mat)
               irow = j;
               icol = k;
             }
-          } else if (ipiv[k] > 1) error->one(FLERR,"Singular matrix in complex GaussJordan!");
+          } else if (ipiv[k] > 1)
+            error->one(FLERR, Error::NOLASTLINE, "Singular matrix in complex GaussJordan");
         }
       }
     }
+    if (icol < 0) error->one(FLERR, Error::NOLASTLINE, "Singular matrix in complex GaussJordan");
     ipiv[icol] += 1;
     if (irow != icol) {
       for (l = 0; l < n; ++l) {
@@ -827,7 +834,8 @@ void FixPhonon::GaussJordan(int n, std::complex<double> *Mat)
     indxr[i] = irow;
     indxc[i] = icol;
     idr = icol*n+icol;
-    if (Mat[idr] == std::complex<double>(0.,0.)) error->one(FLERR,"Singular matrix in complex GaussJordan!");
+    if (Mat[idr] == std::complex<double>(0.,0.))
+      error->one(FLERR, Error::NOLASTLINE, "Singular matrix in complex GaussJordan");
 
     pivinv = 1./ Mat[idr];
     Mat[idr] = std::complex<double>(1.,0.);
@@ -857,9 +865,9 @@ void FixPhonon::GaussJordan(int n, std::complex<double> *Mat)
       }
     }
   }
-  delete []indxr;
-  delete []indxc;
-  delete []ipiv;
+  delete[] indxr;
+  delete[] indxc;
+  delete[] ipiv;
 }
 
 /* ----------------------------------------------------------------------

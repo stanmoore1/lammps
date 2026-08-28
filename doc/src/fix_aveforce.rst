@@ -1,7 +1,10 @@
 .. index:: fix aveforce
+.. index:: fix aveforce/kk
 
 fix aveforce command
 ====================
+
+Accelerator Variant: *aveforce/kk*
 
 Syntax
 """"""
@@ -71,10 +74,6 @@ to it.
 
 ----------
 
-.. include:: accel_styles.rst
-
-----------
-
 Restart, fix_modify, output, run start/stop, minimize info
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -99,9 +98,15 @@ specify force components with a variable that has time-dependence for
 use with a minimizer, since the minimizer increments the timestep as
 the iteration count during the minimization.
 
+----------
+
+.. include:: accel_styles.rst
+
+----------
+
 Restrictions
 """"""""""""
- none
+none
 
 Related commands
 """"""""""""""""

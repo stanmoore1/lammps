@@ -30,7 +30,8 @@ using MathConst::MY_CUBEROOT2;
 
 /* ---------------------------------------------------------------------- */
 
-BondFENE::BondFENE(LAMMPS *_lmp) : Bond(_lmp)
+BondFENE::BondFENE(LAMMPS *_lmp) :
+    Bond(_lmp), k(nullptr), r0(nullptr), epsilon(nullptr), sigma(nullptr)
 {
   born_matrix_enable = 1;
 }
@@ -149,7 +150,7 @@ void BondFENE::allocate()
 
 void BondFENE::coeff(int narg, char **arg)
 {
-  if (narg != 5) error->all(FLERR, "Incorrect args for bond coefficients");
+  if (narg != 5) error->all(FLERR, "Incorrect args for bond coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi;
@@ -170,7 +171,7 @@ void BondFENE::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

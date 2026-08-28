@@ -3,6 +3,8 @@
 region command
 ==============
 
+Accelerator Variants: *block/kk*, *sphere/kk*
+
 Syntax
 """"""
 
@@ -18,13 +20,13 @@ Syntax
        *delete* = no args
        *block* args = xlo xhi ylo yhi zlo zhi
          xlo,xhi,ylo,yhi,zlo,zhi = bounds of block in all dimensions (distance units)
-         xlo,xhi,ylo,yhi,zlo,zhi can be a variable
+           xlo,xhi,ylo,yhi,zlo,zhi can be a variable (see below)
        *cone* args = dim c1 c2 radlo radhi lo hi
          dim = *x* or *y* or *z* = axis of cone
          c1,c2 = coords of cone axis in other 2 dimensions (distance units)
          radlo,radhi = cone radii at lo and hi end (distance units)
          lo,hi = bounds of cone in dim (distance units)
-         c1,c2,radlo,radhi,lo,hi can be a variable (see below)
+           c1,c2,radlo,radhi,lo,hi can be a variable (see below)
        *cylinder* args = dim c1 c2 radius lo hi
          dim = *x* or *y* or *z* = axis of cylinder
          c1,c2 = coords of cylinder axis in other 2 dimensions (distance units)
@@ -38,11 +40,13 @@ Syntax
        *plane* args = px py pz nx ny nz
          px,py,pz = point on the plane (distance units)
          nx,ny,nz = direction normal to plane (distance units)
+           px,py,pz,nx,ny,nz can be a variable (see below)
        *prism* args = xlo xhi ylo yhi zlo zhi xy xz yz
          xlo,xhi,ylo,yhi,zlo,zhi = bounds of untilted prism (distance units)
          xy = distance to tilt y in x direction (distance units)
          xz = distance to tilt z in x direction (distance units)
          yz = distance to tilt z in y direction (distance units)
+           xlo,xhi,ylo,yhi,zlo,zhi,xy,xz,yz can be a variable (see below)
        *sphere* args = x y z radius
          x,y,z = center of sphere (distance units)
          radius = radius of sphere (distance units)
@@ -73,7 +77,7 @@ Syntax
          Rx,Ry,Rz = axis of rotation vector
        *open* value = integer from 1-6 corresponding to face index (see below)
 
-* accelerated styles (with same args) = *block/kk*
+* accelerated styles (with same args) = *block/kk, sphere/kk*
 
 Examples
 """"""""
@@ -93,13 +97,14 @@ Description
 """""""""""
 
 This command defines a geometric region of space.  Various other
-commands use regions.  For example, the region can be filled with
-atoms via the :doc:`create_atoms <create_atoms>` command.  Or a bounding
-box around the region, can be used to define the simulation box via
-the :doc:`create_box <create_box>` command.  Or the atoms in the region
-can be identified as a group via the :doc:`group <group>` command, or
+commands use regions.  For example, the region can be filled with atoms
+via the :doc:`create_atoms <create_atoms>` command.  Or a bounding box
+around the region, can be used to define the simulation box via the
+:doc:`create_box <create_box>` command.  Or the atoms in the region can
+be identified as a group via the :doc:`group <group>` command, or
 deleted via the :doc:`delete_atoms <delete_atoms>` command.  Or the
-surface of the region can be used as a boundary wall via the :doc:`fix wall/region <fix_wall_region>` command.
+surface of the region can be used as a boundary wall via the :doc:`fix
+wall/region <fix_wall_region>` command.
 
 Commands which use regions typically test whether an atom's position
 is contained in the region or not.  For this purpose, coordinates
@@ -110,13 +115,16 @@ defined with the *side in* keyword, but would not be part of the
 region if it were defined using the *side out* keyword.  See more
 details on the *side* keyword below.
 
-Normally, regions in LAMMPS are "static", meaning their geometric
-extent does not change with time.  If the *move* or *rotate* keyword
-is used, as described below, the region becomes "dynamic", meaning
-it's location or orientation changes with time.  This may be useful,
-for example, when thermostatting a region, via the compute temp/region
-command, or when the fix wall/region command uses a region surface as
-a bounding wall on particle motion, i.e. a rotating container.
+Normally, regions in LAMMPS are "static", meaning their geometric extent
+does not change with time unless their geometry is defined using
+references to :doc:`equal style variables <variable>` where the value
+changes over time.  See below for more details on "variable shapes".  If
+the *move* or *rotate* keyword is used, as described below, the region
+becomes "dynamic", meaning its location or orientation can change with
+time.  This may be useful, for example, when thermostatting a region,
+via the compute temp/region command, or when the fix wall/region command
+uses a region surface as a bounding wall on particle motion, i.e. a
+rotating container.
 
 The *delete* style removes the named region.  Since there is little
 overhead to defining extra regions, there is normally no need to do
@@ -166,7 +174,7 @@ extending in the y-direction from -5.0 to the upper box boundary.
 
 .. versionadded:: 4May2022
 
-For style *ellipsoid*, an axis-aligned ellipsoid is defined. The
+For style *ellipsoid*, an axis-aligned ellipsoid is defined.  The
 ellipsoid has its center at (x,y,z) and is defined by 3 axis-aligned
 vectors given by A = (a,0,0); B = (0,b,0); C = (0,0,c).  Note that
 although the ellipsoid is specified as axis-aligned it can be rotated
@@ -178,7 +186,7 @@ not have to be of unit length.  The "inside" of the plane is the
 half-space in the direction of the normal vector; see the discussion
 of the *side* option below.
 
-For style *prism*, a parallelepiped is defined (it's too hard to spell
+For style *prism*, a parallelepiped is defined (it is too hard to spell
 parallelepiped in an input script!).  The parallelepiped has its
 "origin" at (xlo,ylo,zlo) and is defined by 3 edge vectors starting
 from the origin given by A = (xhi-xlo,0,0); B = (xy,yhi-ylo,0); C =
@@ -206,9 +214,12 @@ parameters a,b,c for style *ellipsoid*, can each be specified as an
 equal-style :doc:`variable <variable>`.  Likewise, for style *sphere*
 and *ellipsoid* the x-, y-, and z- coordinates of the center of the
 sphere/ellipsoid can be specified as an equal-style variable.  And for
-style *cylinder* the two center positions c1 and c2 for the location
-of the cylinder axes can be specified as a equal-style variable. For style *cone*
-all properties can be defined via equal-style variables.
+style *cylinder* the two center positions c1 and c2 for the location of
+the cylinder axes can be specified as a equal-style variable.  For styles
+*block*, *cone*, *prism*, and *plane* all properties can be defined via
+equal-style variables.  For style *plane*, the components of the direction
+vector normal to plane should be either all constants or all defined by
+equal-style variables.
 
 If the value is a variable, it should be specified as v_name, where
 name is the variable name.  In this case, the variable will be
@@ -220,6 +231,21 @@ functions, and include :doc:`thermo_style <thermo_style>` command
 keywords for the simulation box parameters and timestep and elapsed
 time.  Thus it is easy to specify a time-dependent radius or have
 a time dependent position of the sphere or cylinder region.
+
+.. note::
+
+   Whenever a region property, such as a coordinate or an upper/lower
+   bound, is defined via an equal-style variable, the variable should
+   not cause any of the region boundaries to move too far within a
+   single timestep. Otherwise, bad dynamics will occur.  "Too far" means
+   a small fraction of the approximate distance of closest approach
+   between two particles, which for the case of Lennard-Jones particles
+   is the distance of the energy minimum while for granular particles it
+   is their diameter. An example is a rapidly varying direction vector
+   in region plane since a small change in the normal to plane will
+   shift the region surface far away from the region point by a large
+   displacement.  Similarly, bad dynamics can also occur for fast
+   changing variables employed in the move/rotate options.
 
 See the :doc:`Howto tricilinc <Howto_triclinic>` page for a
 geometric description of triclinic boxes, as defined by LAMMPS, and
@@ -289,17 +315,16 @@ define the lattice spacings which are used as follows:
 
 If the *move* or *rotate* keywords are used, the region is "dynamic",
 meaning its location or orientation changes with time.  These keywords
-cannot be used with a *union* or *intersect* style region.  Instead,
-the keywords should be used to make the individual sub-regions of the
-*union* or *intersect* region dynamic.  Normally, each sub-region
-should be "dynamic" in the same manner (e.g. rotate around the same
-point), though this is not a requirement.
+cannot be used with a *union* or *intersect* style region.  Instead, the
+keywords should be used to make the individual sub-regions of the
+*union* or *intersect* region dynamic.
 
-The *move* keyword allows one or more :doc:`equal-style variables <variable>` to be used to specify the x,y,z displacement
-of the region, typically as a function of time.  A variable is
-specified as v_name, where name is the variable name.  Any of the
-three variables can be specified as NULL, in which case no
-displacement is calculated in that dimension.
+The *move* keyword allows one or more :doc:`equal-style variables
+<variable>` to be used to specify the x,y,z displacement of the region,
+typically as a function of time.  A variable is specified as v_name,
+where name is the variable name.  Any of the three variables can be
+specified as NULL, in which case no displacement is calculated in that
+dimension.
 
 Note that equal-style variables can specify formulas with various
 mathematical functions, and include :doc:`thermo_style <thermo_style>`
@@ -307,7 +332,8 @@ command keywords for the simulation box parameters and timestep and
 elapsed time.  Thus it is easy to specify a region displacement that
 change as a function of time or spans consecutive runs in a continuous
 fashion.  For the latter, see the *start* and *stop* keywords of the
-:doc:`run <run>` command and the *elaplong* keyword of :doc:`thermo_style custom <thermo_style>` for details.
+:doc:`run <run>` command and the *elaplong* keyword of
+:doc:`thermo_style custom <thermo_style>` for details.
 
 For example, these commands would displace a region from its initial
 position, in the positive x direction, effectively at a constant
@@ -340,7 +366,8 @@ wrap around the axis in the direction of rotation.
 
 The *move* and *rotate* keywords can be used together.  In this case,
 the displacement specified by the *move* keyword is applied to the *P*
-point of the *rotate* keyword.
+point of the *rotate* keyword which is equivalent to applying the
+rotation *first* and then the translation.
 
 ----------
 
@@ -399,9 +426,9 @@ sub-regions can be defined with the *open* keyword.
 
 .. note::
 
-  Currently, only *block* style regions are supported by Kokkos.  The
+  Currently, only *block* and *sphere* style regions are supported by KOKKOS.  The
   code using the region (such as a fix or compute) must also be
-  supported by Kokkos or no acceleration will occur.
+  supported by KOKKOS or no acceleration will occur.
 
 ----------
 

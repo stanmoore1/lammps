@@ -28,7 +28,8 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-BondNonlinear::BondNonlinear(LAMMPS *lmp) : Bond(lmp)
+BondNonlinear::BondNonlinear(LAMMPS *lmp) :
+    Bond(lmp), epsilon(nullptr), r0(nullptr), lamda(nullptr)
 {
   born_matrix_enable = 1;
 }
@@ -37,6 +38,7 @@ BondNonlinear::BondNonlinear(LAMMPS *lmp) : Bond(lmp)
 
 BondNonlinear::~BondNonlinear()
 {
+  if (copymode) return;
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(epsilon);
@@ -123,7 +125,7 @@ void BondNonlinear::allocate()
 
 void BondNonlinear::coeff(int narg, char **arg)
 {
-  if (narg != 4) error->all(FLERR,"Incorrect args for bond coefficients");
+  if (narg != 4) error->all(FLERR,"Incorrect args for bond coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi;
@@ -142,7 +144,7 @@ void BondNonlinear::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for bond coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for bond coefficients" + utils::errorurl(21));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -228,6 +230,7 @@ void BondNonlinear::born_matrix(int type, double rsq, int /*i*/, int /*j*/, doub
 void *BondNonlinear::extract(const char *str, int &dim)
 {
   dim = 1;
+  if (strcmp(str,"lamda")==0) return (void*) lamda;
   if (strcmp(str,"epsilon")==0) return (void*) epsilon;
   if (strcmp(str,"r0")==0) return (void*) r0;
   return nullptr;

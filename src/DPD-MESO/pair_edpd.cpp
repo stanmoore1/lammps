@@ -24,6 +24,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 #include "neighbor.h"
@@ -41,7 +42,7 @@ using namespace LAMMPS_NS;
 static constexpr double EPSILON = 1.0e-10;
 
 static const char cite_pair_edpd[] =
-  "pair edpd command: doi:10.1016/j.jcp.2014.02.003\n\n"
+  "pair edpd command: https://doi.org/10.1016/j.jcp.2014.02.003\n\n"
   "@Article{ZLi2014_JCP,\n"
   " author = {Li, Z. and Tang, Y.-H. and Lei, H. and Caswell, B. and Karniadakis, G. E.},\n"
   " title = {Energy-Conserving Dissipative Particle Dynamics with Temperature-Dependent Properties},\n"
@@ -61,12 +62,15 @@ static const char cite_pair_edpd[] =
 
 /* ---------------------------------------------------------------------- */
 
-PairEDPD::PairEDPD(LAMMPS *lmp) : Pair(lmp)
+PairEDPD::PairEDPD(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cutT(nullptr), a0(nullptr), gamma(nullptr), power(nullptr),
+    slope(nullptr), kappa(nullptr), powerT(nullptr), sc(nullptr), kc(nullptr)
 {
   if (lmp->citeme) lmp->citeme->add(cite_pair_edpd);
   writedata = 1;
   random = nullptr;
   randomT = nullptr;
+  power_flag = kappa_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -89,8 +93,8 @@ PairEDPD::~PairEDPD()
   if (power_flag) memory->destroy(sc);
   if (kappa_flag) memory->destroy(kc);
 
-  if (random) delete random;
-  if (randomT) delete randomT;
+  delete random;
+  delete randomT;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -188,13 +192,13 @@ void PairEDPD::compute(int eflag, int vflag)
         f[i][2] += delz*fpair;
 
         // heat transfer
-        double dQc,dQd,dQr;
+        double dQc = 0.0, dQd = 0.0, dQr = 0.0;
         if (r < cutT[itype][jtype]) {
           double wrT = 1.0 - r/cutT[itype][jtype];
           wrT = MAX(0.0,MIN(1.0,wrT));
           wrT = pow(wrT, 0.5*powerT[itype][jtype]);
           double randnumT = randomT->gaussian();
-          randnumT = MAX(-5.0,MIN(randnum,5.0));
+          randnumT = MAX(-5.0,MIN(randnumT,5.0));
 
           double kappaT = kappa[itype][jtype];
           if (kappa_flag) {
@@ -280,6 +284,7 @@ void PairEDPD::settings(int narg, char **arg)
 
   delete random;
   random = new RanMars(lmp,(seed + comm->me) % 900000000);
+  delete randomT;
   randomT = new RanMars(lmp,(2*seed + comm->me) % 900000000);
 
   // reset cutoffs that have been explicitly set
@@ -300,7 +305,7 @@ void PairEDPD::settings(int narg, char **arg)
 void PairEDPD::coeff(int narg, char **arg)
 {
   if (narg < 9)
-    error->all(FLERR,"Incorrect args for pair edpd coefficients");
+    error->all(FLERR,"Incorrect args for pair edpd coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -321,20 +326,20 @@ void PairEDPD::coeff(int narg, char **arg)
   int n = atom->ntypes;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"power") == 0) {
-      if (iarg+5 > narg) error->all(FLERR,"Illegal pair edpd coefficients");
+      if (iarg+5 > narg) error->all(FLERR,"Illegal pair edpd coefficients" + utils::errorurl(21));
       for (int i = 0; i < 4; i++)
         sc_one[i] = utils::numeric(FLERR,arg[iarg+i+1],false,lmp);
       iarg += 5;
       power_flag = 1;
       memory->create(sc,n+1,n+1,4,"pair:sc");
     } else if (strcmp(arg[iarg],"kappa") == 0) {
-      if (iarg+5 > narg) error->all(FLERR,"Illegal pair edpd coefficients");
+      if (iarg+5 > narg) error->all(FLERR,"Illegal pair edpd coefficients" + utils::errorurl(21));
       for (int i = 0; i < 4; i++)
         kc_one[i] = utils::numeric(FLERR,arg[iarg+i+1],false,lmp);
       iarg += 5;
       kappa_flag = 1;
       memory->create(kc,n+1,n+1,4,"pair:kc");
-    } else error->all(FLERR,"Illegal pair edpd coefficients");
+    } else error->all(FLERR,"Illegal pair edpd coefficients" + utils::errorurl(21));
   }
 
   int count = 0;
@@ -360,7 +365,7 @@ void PairEDPD::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -387,7 +392,9 @@ void PairEDPD::init_style()
 
 double PairEDPD::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   cut[j][i]   = cut[i][j];
   cutT[j][i]  = cutT[i][j];
@@ -448,6 +455,11 @@ void PairEDPD::read_restart(FILE *fp)
 
   allocate();
 
+  // the optional sc and kc arrays are only created by coeff()
+
+  if (power_flag && !sc) memory->create(sc,atom->ntypes+1,atom->ntypes+1,4,"pair:sc");
+  if (kappa_flag && !kc) memory->create(kc,atom->ntypes+1,atom->ntypes+1,4,"pair:kc");
+
   int me = comm->me;
   for (int i = 1; i <= atom->ntypes; i++)
     for (int j = i; j <= atom->ntypes; j++) {
@@ -497,6 +509,8 @@ void PairEDPD::write_restart_settings(FILE *fp)
   fwrite(&cut_global,sizeof(double),1,fp);
   fwrite(&seed,sizeof(int),1,fp);
   fwrite(&mix_flag,sizeof(int),1,fp);
+  fwrite(&power_flag,sizeof(int),1,fp);
+  fwrite(&kappa_flag,sizeof(int),1,fp);
 }
 
 /* ----------------------------------------------------------------------
@@ -509,18 +523,58 @@ void PairEDPD::read_restart_settings(FILE *fp)
     utils::sfread(FLERR,&cut_global,sizeof(double),1,fp,nullptr,error);
     utils::sfread(FLERR,&seed,sizeof(int),1,fp,nullptr,error);
     utils::sfread(FLERR,&mix_flag,sizeof(int),1,fp,nullptr,error);
+    utils::sfread(FLERR,&power_flag,sizeof(int),1,fp,nullptr,error);
+    utils::sfread(FLERR,&kappa_flag,sizeof(int),1,fp,nullptr,error);
   }
   MPI_Bcast(&cut_global,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&seed,1,MPI_INT,0,world);
   MPI_Bcast(&mix_flag,1,MPI_INT,0,world);
+  MPI_Bcast(&power_flag,1,MPI_INT,0,world);
+  MPI_Bcast(&kappa_flag,1,MPI_INT,0,world);
 
   // initialize Marsaglia RNG with processor-unique seed
   // same seed that pair_style command initially specified
 
-  if (random) delete random;
+  delete random;
   random = new RanMars(lmp,seed + comm->me);
-  if (randomT) delete randomT;
+  delete randomT;
   randomT = new RanMars(lmp,seed + comm->me);
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 writes to data file
+------------------------------------------------------------------------- */
+
+void PairEDPD::write_data(FILE *fp)
+{
+  for (int i = 1; i <= atom->ntypes; i++) {
+    fprintf(fp,"%d %g %g %g %g %g %g %g",i,a0[i][i],gamma[i][i],power[i][i],
+            cut[i][i],kappa[i][i],powerT[i][i],cutT[i][i]);
+    if (power_flag)
+      fprintf(fp," power %g %g %g %g",sc[i][i][0],sc[i][i][1],sc[i][i][2],sc[i][i][3]);
+    if (kappa_flag)
+      fprintf(fp," kappa %g %g %g %g",kc[i][i][0],kc[i][i][1],kc[i][i][2],kc[i][i][3]);
+    fputs("\n",fp);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 writes all pairs to data file
+------------------------------------------------------------------------- */
+
+void PairEDPD::write_data_all(FILE *fp)
+{
+  for (int i = 1; i <= atom->ntypes; i++) {
+    for (int j = i; j <= atom->ntypes; j++) {
+      fprintf(fp,"%d %d %g %g %g %g %g %g %g",i,j,a0[i][j],gamma[i][j],power[i][j],
+              cut[i][j],kappa[i][j],powerT[i][j],cutT[i][j]);
+      if (power_flag)
+        fprintf(fp," power %g %g %g %g",sc[i][j][0],sc[i][j][1],sc[i][j][2],sc[i][j][3]);
+      if (kappa_flag)
+        fprintf(fp," kappa %g %g %g %g",kc[i][j][0],kc[i][j][1],kc[i][j][2],kc[i][j][3]);
+      fputs("\n",fp);
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */

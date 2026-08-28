@@ -31,15 +31,19 @@ class FixQEqSlater : public FixQEq {
   void init() override;
   void pre_force(int) override;
 
- private:
+ protected:
   void init_matvec();
   void sparse_matvec(sparse_matrix *, double *, double *) override;
   void compute_H();
   double calculate_H(double, double, double, double, double &);
   double calculate_H_wolf(double, double, double, double, double &);
+  double calculate_H_dsf(double, double, double, double, double &);
   void extract_streitz();
 
   class PairCoulStreitz *streitz;
+  double alpha;
+  double drtap;
+  int vtype;
 };
 }    // namespace LAMMPS_NS
 #endif

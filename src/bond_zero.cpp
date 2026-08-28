@@ -29,7 +29,8 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-BondZero::BondZero(LAMMPS *lmp) : Bond(lmp), coeffflag(1) {}
+BondZero::BondZero(LAMMPS *lmp) : Bond(lmp), r0(nullptr), coeffflag(1)
+{}
 
 /* ---------------------------------------------------------------------- */
 
@@ -80,7 +81,7 @@ void BondZero::allocate()
 void BondZero::coeff(int narg, char **arg)
 {
   if ((narg < 1) || (coeffflag && narg > 2))
-    error->all(FLERR,"Incorrect args for bond coefficients");
+    error->all(FLERR,"Incorrect args for bond coefficients" + utils::errorurl(21));
 
   if (!allocated) allocate();
 
@@ -98,7 +99,7 @@ void BondZero::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for bond coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for bond coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

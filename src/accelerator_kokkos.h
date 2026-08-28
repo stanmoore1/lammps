@@ -24,10 +24,12 @@
 #include "comm_brick_direct_kokkos.h" // IWYU pragma: export
 #include "comm_tiled_kokkos.h"        // IWYU pragma: export
 #include "domain_kokkos.h"            // IWYU pragma: export
+#include "group_kokkos.h"             // IWYU pragma: export
 #include "kokkos.h"                   // IWYU pragma: export
 #include "memory_kokkos.h"            // IWYU pragma: export
 #include "modify_kokkos.h"            // IWYU pragma: export
 #include "neighbor_kokkos.h"          // IWYU pragma: export
+#include "variable_kokkos.h"          // IWYU pragma: export
 
 #define LAMMPS_INLINE KOKKOS_INLINE_FUNCTION
 
@@ -41,9 +43,11 @@
 #include "comm_brick_direct.h"
 #include "comm_tiled.h"
 #include "domain.h"
+#include "group.h"
 #include "memory.h"
 #include "modify.h"
 #include "neighbor.h"
+#include "variable.h"
 
 #define LAMMPS_INLINE inline
 
@@ -54,13 +58,15 @@ class KokkosLMP {
   int kokkos_exists;
   int nthreads;
   int ngpus;
+  int kk_fp32;
 
   KokkosLMP(class LAMMPS *, int, char **) { kokkos_exists = 0; }
-  ~KokkosLMP() {}
+  ~KokkosLMP() = default;
   static void finalize() {}
   void accelerator(int, char **) {}
   int neigh_list_kokkos(int) { return 0; }
   int neigh_count(int) { return 0; }
+  void newton_check() {};
 };
 
 class AtomKokkos : public Atom {
@@ -93,6 +99,11 @@ class DomainKokkos : public Domain {
   DomainKokkos(class LAMMPS *lmp) : Domain(lmp) {}
 };
 
+class GroupKokkos : public Group {
+ public:
+  GroupKokkos(class LAMMPS *lmp) : Group(lmp) {}
+};
+
 class NeighborKokkos : public Neighbor {
  public:
   NeighborKokkos(class LAMMPS *lmp) : Neighbor(lmp) {}
@@ -109,6 +120,12 @@ class ModifyKokkos : public Modify {
   ModifyKokkos(class LAMMPS *lmp) : Modify(lmp) {}
 };
 
+class VariableKokkos : public Variable {
+ public:
+  VariableKokkos(class LAMMPS *lmp) : Variable(lmp) {}
+};
+
+// NOLINTBEGIN
 class DAT {
  public:
   typedef double tdual_xfloat_1d;
@@ -116,6 +133,7 @@ class DAT {
   typedef int tdual_int_1d;
   typedef int tdual_int_2d;
 };
+// NOLINTEND
 
 }    // namespace LAMMPS_NS
 

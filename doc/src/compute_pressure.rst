@@ -125,10 +125,6 @@ where thermo_temp is the ID of a similarly defined compute of style
 
 ----------
 
-.. include:: accel_styles.rst
-
-----------
-
 Output info
 """""""""""
 
@@ -147,7 +143,7 @@ The scalar and vector values will be in pressure :doc:`units <units>`.
 
 Restrictions
 """"""""""""
- none
+none
 
 Related commands
 """"""""""""""""

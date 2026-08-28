@@ -23,9 +23,6 @@ PairStyle(hybrid/scaled/omp,PairHybridScaled);
 
 #include "pair_hybrid.h"
 
-#include <string>
-#include <vector>
-
 namespace LAMMPS_NS {
 
 class PairHybridScaled : public PairHybrid {
@@ -41,8 +38,8 @@ class PairHybridScaled : public PairHybrid {
   double single(int, int, int, int, double, double, double, double &) override;
   void born_matrix(int, int, int, int, double, double, double, double &, double &) override;
 
-  void init_svector() override;
-  void copy_svector(int, int) override;
+  int pack_forward_comm(int, int *, double *, int, int *) override;
+  void unpack_forward_comm(int, int, double *) override;
 
  protected:
   double **fsum, **tsum;
@@ -50,6 +47,11 @@ class PairHybridScaled : public PairHybrid {
   int *scaleidx;
   std::vector<std::string> scalevars;
   int nmaxfsum;
+  int *atomvar;         // indices of atom-style variables
+  double *atomscale;    // vector of atom-style variable values
+
+  void init_svector() override;
+  void copy_svector(int, int) override;
 };
 
 }    // namespace LAMMPS_NS

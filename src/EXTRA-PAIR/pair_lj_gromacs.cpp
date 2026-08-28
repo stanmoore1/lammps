@@ -25,12 +25,16 @@
 #include "neigh_list.h"
 
 #include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJGromacs::PairLJGromacs(LAMMPS *lmp) : Pair(lmp)
+PairLJGromacs::PairLJGromacs(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cut_inner(nullptr), cut_inner_sq(nullptr), epsilon(nullptr),
+    sigma(nullptr), lj1(nullptr), lj2(nullptr), lj3(nullptr), lj4(nullptr), ljsw1(nullptr),
+    ljsw2(nullptr), ljsw3(nullptr), ljsw4(nullptr), ljsw5(nullptr)
 {
   writedata = 1;
 }
@@ -213,7 +217,7 @@ void PairLJGromacs::settings(int narg, char **arg)
 
 void PairLJGromacs::coeff(int narg, char **arg)
 {
-  if (narg != 4 && narg != 6) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg != 4 && narg != 6) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -231,7 +235,7 @@ void PairLJGromacs::coeff(int narg, char **arg)
   }
 
   if (cut_inner_one <= 0.0 || cut_inner_one > cut_one)
-    error->all(FLERR, "Incorrect args for pair coefficients");
+    error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
@@ -245,7 +249,7 @@ void PairLJGromacs::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -431,4 +435,14 @@ double PairLJGromacs::single(int /*i*/, int /*j*/, int itype, int jtype, double 
   }
 
   return factor_lj * philj;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void *PairLJGromacs::extract(const char *str, int &dim)
+{
+  dim = 2;
+  if (strcmp(str, "epsilon") == 0) return (void *) epsilon;
+  if (strcmp(str, "sigma") == 0) return (void *) sigma;
+  return nullptr;
 }

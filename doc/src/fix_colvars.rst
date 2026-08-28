@@ -1,7 +1,10 @@
 .. index:: fix colvars
+.. index:: fix colvars/kk
 
 fix colvars command
 ===================
+
+Accelerator Variants: *colvars/kk*
 
 Syntax
 """"""
@@ -118,6 +121,16 @@ thermostat target temperature.
 The *seed* keyword contains the seed for the random number generator
 that will be used in the colvars module.
 
+----------
+
+.. note::
+
+   Fix colvars/kk is not really ported to KOKKOS, since the colvars
+   library has not been ported to KOKKOS.  It merely has some
+   optimizations to reduce the data transfers between host and device
+   for KOKKOS with GPUs.
+
+----------
 
 Restarting
 """"""""""
@@ -154,6 +167,16 @@ Aside from the state information in a ".colvars.state" file, other
 <https://colvars.github.io/colvars-refman-lammps/colvars-refman-lammps.html#sec:colvars_output>`_
 are produced by Colvars depending on the type of simulation.  For this
 reason, the "output" keyword is required for fix colvars.
+
+.. versionadded:: 30Mar2026
+
+This fix provides access to a global array of the current values of each
+collective variable computed in the Colvars module.  The number of rows
+of the global array is equal to the number of collective variables and
+the columns are:
+
+* `f_ID[I][1]` for a scalar-valued collective variable
+* `f_ID[I][1], ..., f_ID[I][N]` for a vector-valued collective variable
 
 
 Controlling Colvars via `fix_modify`

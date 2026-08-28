@@ -36,19 +36,14 @@
 #include "omp_compat.h"
 
 using namespace LAMMPS_NS;
+using namespace EwaldConst;
 using namespace MathConst;
 using namespace MathSpecial;
 
 static constexpr int OFFSET = 16384;
 static constexpr FFT_SCALAR ZEROF = 0.0;
 
-enum{GEOMETRIC,ARITHMETIC,SIXTHPOWER};
-enum{REVERSE_RHO, REVERSE_RHO_G, REVERSE_RHO_A, REVERSE_RHO_NONE};
-enum{FORWARD_IK, FORWARD_AD, FORWARD_IK_PERATOM, FORWARD_AD_PERATOM,
-     FORWARD_IK_G, FORWARD_AD_G, FORWARD_IK_PERATOM_G, FORWARD_AD_PERATOM_G,
-     FORWARD_IK_A, FORWARD_AD_A, FORWARD_IK_PERATOM_A, FORWARD_AD_PERATOM_A,
-     FORWARD_IK_NONE, FORWARD_AD_NONE, FORWARD_IK_PERATOM_NONE,
-     FORWARD_AD_PERATOM_NONE};
+enum{ GEOMETRIC, ARITHMETIC, SIXTHPOWER };
 
 /* ---------------------------------------------------------------------- */
 
@@ -101,13 +96,6 @@ void PPPMDispIntel::init()
   fix = static_cast<FixIntel *>(modify->get_fix_by_id("package_intel"));
   if (!fix) error->all(FLERR, "The 'package intel' command is required for /intel styles");
 
-  #ifdef _LMP_INTEL_OFFLOAD
-  _use_base = 0;
-  if (fix->offload_balance() != 0.0) {
-    _use_base = 1;
-    return;
-  }
-  #endif
 
   fix->kspace_init_check();
 
@@ -152,12 +140,6 @@ void PPPMDispIntel::init()
 
 void PPPMDispIntel::compute(int eflag, int vflag)
 {
-  #ifdef _LMP_INTEL_OFFLOAD
-  if (_use_base) {
-    PPPMDisp::compute(eflag, vflag);
-    return;
-  }
-  #endif
 
   int i;
 
@@ -176,13 +158,13 @@ void PPPMDispIntel::compute(int eflag, int vflag)
 
   if (atom->nmax > nmax) {
 
-    if (function[0]) memory->destroy(part2grid);
-    if (function[1] + function[2] + function[3]) memory->destroy(part2grid_6);
+    if (termflag[TERM_COUL]) memory->destroy(part2grid);
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) memory->destroy(part2grid_6);
     if (differentiation_flag == 1) {
       memory->destroy(particle_ekx);
       memory->destroy(particle_eky);
       memory->destroy(particle_ekz);
-      if (function[2] == 1) {
+      if (termflag[TERM_DISP_ARITH] == 1) {
         memory->destroy(particle_ekx0);
         memory->destroy(particle_eky0);
         memory->destroy(particle_ekz0);
@@ -208,14 +190,14 @@ void PPPMDispIntel::compute(int eflag, int vflag)
 
     }
     nmax = atom->nmax;
-    if (function[0]) memory->create(part2grid,nmax,3,"pppm/disp:part2grid");
-    if (function[1] + function[2] + function[3])
+    if (termflag[TERM_COUL]) memory->create(part2grid,nmax,3,"pppm/disp:part2grid");
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE])
       memory->create(part2grid_6,nmax,3,"pppm/disp:part2grid_6");
     if (differentiation_flag == 1) {
       memory->create(particle_ekx, nmax, "pppmdispintel:pekx");
       memory->create(particle_eky, nmax, "pppmdispintel:peky");
       memory->create(particle_ekz, nmax, "pppmdispintel:pekz");
-      if (function[2] == 1) {
+      if (termflag[TERM_DISP_ARITH] == 1) {
         memory->create(particle_ekx0, nmax, "pppmdispintel:pekx0");
         memory->create(particle_eky0, nmax, "pppmdispintel:peky0");
         memory->create(particle_ekz0, nmax, "pppmdispintel:pekz0");
@@ -252,7 +234,7 @@ void PPPMDispIntel::compute(int eflag, int vflag)
   // communication between processors
   // calculation of forces
 
-  if (function[0]) {
+  if (termflag[TERM_COUL]) {
 
     //perform calculations for coulomb interactions only
 
@@ -333,7 +315,7 @@ void PPPMDispIntel::compute(int eflag, int vflag)
     if (evflag_atom) fieldforce_c_peratom();
   }
 
-  if (function[1]) {
+  if (termflag[TERM_DISP_GEOM]) {
 
     //perform calculations for geometric mixing
 
@@ -419,7 +401,7 @@ void PPPMDispIntel::compute(int eflag, int vflag)
     if (evflag_atom) fieldforce_g_peratom();
   }
 
-  if (function[2]) {
+  if (termflag[TERM_DISP_ARITH]) {
     //perform calculations for arithmetic mixing
 
     if (fix->precision() == FixIntel::PREC_MODE_MIXED) {
@@ -533,7 +515,7 @@ void PPPMDispIntel::compute(int eflag, int vflag)
     if (evflag_atom) fieldforce_a_peratom();
   }
 
-  if (function[3]) {
+  if (termflag[TERM_DISP_NONE]) {
 
     // perform calculations if no mixing rule applies
 
@@ -659,7 +641,7 @@ void PPPMDispIntel::compute(int eflag, int vflag)
     for (i = 0; i < 6; i++) virial[i] = 0.5*qscale*volume*virial_all[i];
     MPI_Allreduce(virial_6,virial_all,6,MPI_DOUBLE,MPI_SUM,world);
     for (i = 0; i < 6; i++) virial[i] += 0.5*volume*virial_all[i];
-    if (function[1]+function[2]+function[3]) {
+    if (termflag[TERM_DISP_GEOM]+termflag[TERM_DISP_ARITH]+termflag[TERM_DISP_NONE]) {
       double a =  MY_PI*MY_PIS/(6*volume)*std::pow(g_ewald_6,3)*csumij;
       virial[0] -= a;
       virial[1] -= a;
@@ -668,14 +650,14 @@ void PPPMDispIntel::compute(int eflag, int vflag)
   }
 
   if (eflag_atom) {
-    if (function[0]) {
+    if (termflag[TERM_COUL]) {
       double *q = atom->q;
       for (i = 0; i < atom->nlocal; i++) {
         eatom[i] -= qscale*g_ewald*q[i]*q[i]/MY_PIS + qscale*MY_PI2*q[i]*
           qsum / (g_ewald*g_ewald*volume); //coulomb self energy correction
       }
     }
-    if (function[1] + function[2] + function[3]) {
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) {
       int tmp;
       for (i = 0; i < atom->nlocal; i++) {
         tmp = atom->type[i];
@@ -686,7 +668,7 @@ void PPPMDispIntel::compute(int eflag, int vflag)
   }
 
   if (vflag_atom) {
-    if (function[1] + function[2] + function[3]) {
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) {
       int tmp;
       for (i = 0; i < atom->nlocal; i++) {
         tmp = atom->type[i];
@@ -701,8 +683,8 @@ void PPPMDispIntel::compute(int eflag, int vflag)
   // 2d slab correction
 
   if (slabflag) slabcorr(eflag);
-  if (function[0]) energy += energy_1;
-  if (function[1] + function[2] + function[3]) energy += energy_6;
+  if (termflag[TERM_COUL]) energy += energy_1;
+  if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) energy += energy_6;
 
   // convert atoms back from lamda to box coords
 
@@ -729,7 +711,7 @@ void PPPMDispIntel::particle_map_intel(double delx, double dely, double delz,
   int nthr = comm->nthreads;
 
   if (!std::isfinite(boxlo[0]) || !std::isfinite(boxlo[1]) || !std::isfinite(boxlo[2]))
-    error->one(FLERR,"Non-numeric box dimensions - simulation unstable");
+    error->one(FLERR,"Non-numeric box dimensions - simulation unstable" + utils::errorurl(6));
 
   int flag = 0;
 
@@ -783,7 +765,7 @@ void PPPMDispIntel::particle_map_intel(double delx, double dely, double delz,
   }
   }
 
-  if (flag) error->one(FLERR,"Out of range atoms - cannot compute PPPMDisp");
+  if (flag) error->one(FLERR, Error::NOLASTLINE, "Out of range atoms - cannot compute PPPMDisp" + utils::errorurl(4));
 }
 
 /* ----------------------------------------------------------------------
@@ -3123,7 +3105,7 @@ void PPPMDispIntel::precompute_rho()
   half_rho_scale = (rho_points - 1.)/2.;
   half_rho_scale_plus = half_rho_scale + 0.5;
 
-  if (function[0]) {
+  if (termflag[TERM_COUL]) {
     for (int i = 0; i < rho_points; i++) {
       FFT_SCALAR dx = -1. + 1./half_rho_scale * (FFT_SCALAR)i;
       #if defined(LMP_SIMD_COMPILER)
@@ -3165,7 +3147,7 @@ void PPPMDispIntel::precompute_rho()
     }
   }
 
-  if (function[1]+function[2]+function[3]) {
+  if (termflag[TERM_DISP_GEOM]+termflag[TERM_DISP_ARITH]+termflag[TERM_DISP_NONE]) {
     for (int i = 0; i < rho_points; i++) {
       FFT_SCALAR dx = -1. + 1./half_rho_scale * (FFT_SCALAR)i;
       #if defined(LMP_SIMD_COMPILER)
@@ -3209,11 +3191,6 @@ void PPPMDispIntel::precompute_rho()
 }
 
 /* ----------------------------------------------------------------------
-   Returns 0 if Intel optimizations for PPPM ignored due to offload
+   Returns 0 if Intel optimizations for PPPM are not in use
 ------------------------------------------------------------------------- */
 
-#ifdef _LMP_INTEL_OFFLOAD
-int PPPMDispIntel::use_base() {
-  return _use_base;
-}
-#endif

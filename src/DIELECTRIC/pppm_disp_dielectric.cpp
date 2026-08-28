@@ -33,23 +33,15 @@
 #include <cstring>
 
 using namespace LAMMPS_NS;
+using namespace EwaldConst;
 using namespace MathConst;
 
 static constexpr double SMALL = 0.00001;
 static constexpr FFT_SCALAR ZEROF = 0.0;
 
-enum{REVERSE_RHO,REVERSE_RHO_GEOM,REVERSE_RHO_ARITH,REVERSE_RHO_NONE};
-enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM,
-     FORWARD_IK_GEOM,FORWARD_AD_GEOM,
-     FORWARD_IK_PERATOM_GEOM,FORWARD_AD_PERATOM_GEOM,
-     FORWARD_IK_ARITH,FORWARD_AD_ARITH,
-     FORWARD_IK_PERATOM_ARITH,FORWARD_AD_PERATOM_ARITH,
-     FORWARD_IK_NONE,FORWARD_AD_NONE,FORWARD_IK_PERATOM_NONE,
-     FORWARD_AD_PERATOM_NONE};
-
 /* ---------------------------------------------------------------------- */
 
-PPPMDispDielectric::PPPMDispDielectric(LAMMPS *_lmp) : PPPMDisp(_lmp)
+PPPMDispDielectric::PPPMDispDielectric(LAMMPS *_lmp) : PPPMDisp(_lmp), efield(nullptr)
 {
   dipoleflag = 0; // turned off for now, until dipole works
   group_group_enable = 0;
@@ -60,10 +52,6 @@ PPPMDispDielectric::PPPMDispDielectric(LAMMPS *_lmp) : PPPMDisp(_lmp)
   // no warnings about non-neutral systems from qsum_qsq()
   warn_nonneutral = 2;
 
-  efield = nullptr;
-  phi = nullptr;
-  potflag = 0;
-
   avec = dynamic_cast<AtomVecDielectric *>(atom->style_match("dielectric"));
   if (!avec) error->all(FLERR,"pppm/dielectric requires atom style dielectric");
 }
@@ -73,7 +61,6 @@ PPPMDispDielectric::PPPMDispDielectric(LAMMPS *_lmp) : PPPMDisp(_lmp)
 PPPMDispDielectric::~PPPMDispDielectric()
 {
   memory->destroy(efield);
-  memory->destroy(phi);
 }
 
 /* ----------------------------------------------------------------------
@@ -103,19 +90,17 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
 
   if (atom->nmax > nmax) {
 
-    if (function[0]) {
+    if (termflag[TERM_COUL]) {
       memory->destroy(part2grid);
       memory->destroy(efield);
-      memory->destroy(phi);
     }
-    if (function[1] + function[2] + function[3]) memory->destroy(part2grid_6);
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) memory->destroy(part2grid_6);
     nmax = atom->nmax;
-    if (function[0]) {
+    if (termflag[TERM_COUL]) {
       memory->create(part2grid,nmax,3,"pppm/disp:part2grid");
       memory->create(efield,nmax,3,"pppm/disp:efield");
-      memory->create(phi,nmax,"pppm/disp:phi");
     }
-    if (function[1] + function[2] + function[3])
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE])
       memory->create(part2grid_6,nmax,3,"pppm/disp:part2grid_6");
   }
 
@@ -131,7 +116,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
   // communication between processors
   // calculation of forces
 
-  if (function[0]) {
+  if (termflag[TERM_COUL]) {
 
     // perform calculations for coulomb interactions only
 
@@ -187,7 +172,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
     if (evflag_atom) fieldforce_c_peratom();
   }
 
-  if (function[1]) {
+  if (termflag[TERM_DISP_GEOM]) {
 
     // perform calculations for geometric mixing
 
@@ -247,7 +232,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
     if (evflag_atom) fieldforce_g_peratom();
   }
 
-  if (function[2]) {
+  if (termflag[TERM_DISP_ARITH]) {
 
     // perform calculations for arithmetic mixing
 
@@ -342,7 +327,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
     if (evflag_atom) fieldforce_a_peratom();
   }
 
-  if (function[3]) {
+  if (termflag[TERM_DISP_NONE]) {
 
     // perform calculations if no mixing rule applies
 
@@ -418,7 +403,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
 
   if (eflag_global) {
 
-    if (function[0]) {
+    if (termflag[TERM_COUL]) {
 
       // switch to unscaled charges to find charge density
 
@@ -486,7 +471,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
     for (i = 0; i < 6; i++) virial[i] = 0.5*qscale*volume*virial_all[i];
     MPI_Allreduce(virial_6,virial_all,6,MPI_DOUBLE,MPI_SUM,world);
     for (i = 0; i < 6; i++) virial[i] += 0.5*volume*virial_all[i];
-    if (function[1]+function[2]+function[3]) {
+    if (termflag[TERM_DISP_GEOM]+termflag[TERM_DISP_ARITH]+termflag[TERM_DISP_NONE]) {
       double a =  MY_PI*MY_PIS/(6*volume)*pow(g_ewald_6,3)*csumij;
       virial[0] -= a;
       virial[1] -= a;
@@ -495,7 +480,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
   }
 
   if (eflag_atom) {
-    if (function[0]) {
+    if (termflag[TERM_COUL]) {
       double *q = atom->q;
       // coulomb self energy correction
       for (i = 0; i < atom->nlocal; i++) {
@@ -503,7 +488,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
           qscale*MY_PI2*q[i]*qsum / (g_ewald*g_ewald*volume);
       }
     }
-    if (function[1] + function[2] + function[3]) {
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) {
       int tmp;
       for (i = 0; i < atom->nlocal; i++) {
         tmp = atom->type[i];
@@ -514,7 +499,7 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
   }
 
   if (vflag_atom) {
-    if (function[1] + function[2] + function[3]) {
+    if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) {
       int tmp;
       // dispersion self virial correction
       for (i = 0; i < atom->nlocal; i++) {
@@ -528,8 +513,8 @@ void PPPMDispDielectric::compute(int eflag, int vflag)
   // 2d slab correction
 
   if (slabflag) slabcorr(eflag);
-  if (function[0]) energy += energy_1;
-  if (function[1] + function[2] + function[3]) energy += energy_6;
+  if (termflag[TERM_COUL]) energy += energy_1;
+  if (termflag[TERM_DISP_GEOM] + termflag[TERM_DISP_ARITH] + termflag[TERM_DISP_NONE]) energy += energy_6;
 
   // convert atoms back from lamda to box coords
 
@@ -572,7 +557,7 @@ void PPPMDispDielectric::qsum_qsq(int warning_flag)
   double qsqsume;
 
 #if defined(_OPENMP)
-#pragma omp parallel for default(shared) reduction(+:qsum_local,qsqsum_local)
+#pragma omp parallel for default(shared) reduction(+:qsum_local,qsqsum_local,qsqsume_local)
 #endif
   for (int i = 0; i < nlocal; i++) {
     qsum_local += q[i];
@@ -596,8 +581,8 @@ void PPPMDispDielectric::qsum_qsq(int warning_flag)
   // so issue warning or error
 
   if (fabs(qsum) > SMALL) {
-    std::string message = fmt::format("System is not charge neutral, net "
-                                      "charge = {:.8}",qsum);
+    std::string message = fmt::format("System is not charge neutral, net charge = {:.8}{}",
+                                      qsum, utils::errorurl(29));
     if (!warn_nonneutral) error->all(FLERR,message);
     if (warn_nonneutral == 1 && comm->me == 0) error->warning(FLERR,message);
     warn_nonneutral = 2;
@@ -666,7 +651,7 @@ void PPPMDispDielectric::fieldforce_c_ik()
 {
   int i,l,m,n,nx,ny,nz,mx,my,mz;
   FFT_SCALAR dx,dy,dz,x0,y0,z0;
-  FFT_SCALAR ekx,eky,ekz,u;
+  FFT_SCALAR ekx,eky,ekz;
 
   // loop over my charges, interpolate electric field from nearby grid points
   // (nx,ny,nz) = global coords of grid pt to "lower left" of charge
@@ -690,7 +675,7 @@ void PPPMDispDielectric::fieldforce_c_ik()
 
     compute_rho1d(dx,dy,dz, order, rho_coeff, rho1d);
 
-    u = ekx = eky = ekz = ZEROF;
+    ekx = eky = ekz = ZEROF;
     for (n = nlower; n <= nupper; n++) {
       mz = n+nz;
       z0 = rho1d[2][n];
@@ -700,17 +685,12 @@ void PPPMDispDielectric::fieldforce_c_ik()
         for (l = nlower; l <= nupper; l++) {
           mx = l+nx;
           x0 = y0*rho1d[0][l];
-          if (potflag) u += x0*u_brick[mz][my][mx];
           ekx -= x0*vdx_brick[mz][my][mx];
           eky -= x0*vdy_brick[mz][my][mx];
           ekz -= x0*vdz_brick[mz][my][mx];
         }
       }
     }
-
-    // electrostatic potential
-
-    if (potflag) phi[i] = u;
 
     // convert E-field to force
 
@@ -736,7 +716,7 @@ void PPPMDispDielectric::fieldforce_c_ad()
 {
   int i,l,m,n,nx,ny,nz,mx,my,mz;
   FFT_SCALAR dx,dy,dz;
-  FFT_SCALAR ekx,eky,ekz,u;
+  FFT_SCALAR ekx,eky,ekz;
   double s1,s2,s3;
   double sf = 0.0;
 
@@ -776,14 +756,13 @@ void PPPMDispDielectric::fieldforce_c_ad()
     compute_rho1d(dx,dy,dz, order, rho_coeff, rho1d);
     compute_drho1d(dx,dy,dz, order, drho_coeff, drho1d);
 
-    u = ekx = eky = ekz = ZEROF;
+    ekx = eky = ekz = ZEROF;
     for (n = nlower; n <= nupper; n++) {
       mz = n+nz;
       for (m = nlower; m <= nupper; m++) {
         my = m+ny;
         for (l = nlower; l <= nupper; l++) {
           mx = l+nx;
-          u += rho1d[0][l]*rho1d[1][m]*rho1d[2][n]*u_brick[mz][my][mx];
           ekx += drho1d[0][l]*rho1d[1][m]*rho1d[2][n]*u_brick[mz][my][mx];
           eky += rho1d[0][l]*drho1d[1][m]*rho1d[2][n]*u_brick[mz][my][mx];
           ekz += rho1d[0][l]*rho1d[1][m]*drho1d[2][n]*u_brick[mz][my][mx];
@@ -793,10 +772,6 @@ void PPPMDispDielectric::fieldforce_c_ad()
     ekx *= hx_inv;
     eky *= hy_inv;
     ekz *= hz_inv;
-
-    // electrical potential
-
-    if (potflag) phi[i] = u;
 
     // convert E-field to force and substract self forces
     const double qfactor = qqrd2e * scale;
@@ -874,10 +849,6 @@ void PPPMDispDielectric::fieldforce_c_peratom()
         }
       }
     }
-
-    // electrostatic potential
-
-    phi[i] = u_pa;
 
     // convert E-field to force
 

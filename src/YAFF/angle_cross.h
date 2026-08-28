@@ -35,11 +35,12 @@ class AngleCross : public Angle {
   void read_restart(FILE *) override;
   void write_data(FILE *) override;
   double single(int, int, int, int) override;
+  void *extract(const char *, int &) override;
 
  protected:
   double *kss, *kbs0, *kbs1, *r00, *r01, *theta0;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

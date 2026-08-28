@@ -38,10 +38,10 @@ BaseChargeT::~BaseCharge() {
   delete nbor;
   k_pair_fast.clear();
   k_pair.clear();
-  if (pair_program) delete pair_program;
+  delete pair_program;
   #if defined(LAL_OCL_EV_JIT)
   k_pair_noev.clear();
-  if (pair_program_noev) delete pair_program_noev;
+  delete pair_program_noev;
   #endif
 }
 
@@ -184,6 +184,30 @@ inline void BaseChargeT::build_nbor_list(const int inum, const int host_inum,
     _max_an_bytes=bytes;
 }
 
+template <class numtyp, class acctyp>
+inline void BaseChargeT::build_nbor_list(const int inum, const int host_inum,
+                                         const int nall, double **host_x,
+                                         int *host_type, double *sublo,
+                                         double *subhi, tagint *tag,
+                                         int **nspecial, tagint **special,
+                                         double* prd, int* periodicity, bool &success) {
+  success=true;
+  resize_atom(inum,nall,success);
+  resize_local(inum,host_inum,nbor->max_nbors(),success);
+  if (!success)
+    return;
+  atom->cast_copy_x(host_x,host_type);
+
+  int mn;
+  nbor->build_nbor_list(host_x, inum, host_inum, nall, *atom, sublo, subhi,
+                        tag, nspecial, special, success, mn, prd, periodicity,
+                        ans->error_flag);
+
+  double bytes=ans->gpu_bytes()+nbor->gpu_bytes();
+  if (bytes>_max_an_bytes)
+    _max_an_bytes=bytes;
+}
+
 // ---------------------------------------------------------------------------
 // Copy nbor list from host if necessary and then calculate forces, virials,..
 // ---------------------------------------------------------------------------
@@ -257,7 +281,8 @@ int** BaseChargeT::compute(const int ago, const int inum_full,
                            const bool eatom, const bool vatom, int &host_start,
                            int **ilist, int **jnum,
                            const double cpu_time, bool &success,
-                           double *host_q, double *boxlo, double *prd) {
+                           double *host_q, double *boxlo, double *prd,
+                           int* periodicity) {
   acc_timers();
   int eflag, vflag;
   if (eatom) eflag=2;
@@ -289,7 +314,9 @@ int** BaseChargeT::compute(const int ago, const int inum_full,
   // Build neighbor list on GPU if necessary
   if (ago==0) {
     build_nbor_list(inum, inum_full-inum, nall, host_x, host_type,
-                    sublo, subhi, tag, nspecial, special, success);
+                    sublo, subhi, tag, nspecial, special,
+                    prd, periodicity, success);
+
     if (!success)
       return nullptr;
     atom->cast_q_data(host_q);
@@ -329,7 +356,7 @@ void BaseChargeT::compile_kernels(UCL_Device &dev, const void *pair_str,
     return;
 
   std::string s_fast=std::string(kname)+"_fast";
-  if (pair_program) delete pair_program;
+  delete pair_program;
   pair_program=new UCL_Program(dev);
   std::string device_compile_string;
   if (disable_fast_math)
@@ -345,7 +372,7 @@ void BaseChargeT::compile_kernels(UCL_Device &dev, const void *pair_str,
 
   #if defined(LAL_OCL_EV_JIT)
   oclstring = device_compile_string+" -DEVFLAG=0";
-  if (pair_program_noev) delete pair_program_noev;
+  delete pair_program_noev;
   pair_program_noev=new UCL_Program(dev);
   pair_program_noev->load_string(pair_str,oclstring.c_str(),nullptr,screen);
   k_pair_noev.set_function(*pair_program_noev,s_fast.c_str());

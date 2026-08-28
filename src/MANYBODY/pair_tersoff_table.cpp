@@ -27,6 +27,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "math_const.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -605,7 +606,7 @@ void PairTersoffTable::allocateGrids()
     double d = params[iparam].d;
     double beta = params[iparam].beta;
 
-    numGridPointsBetaZetaPower=(int)(((1.0+(c*c)/(d*d)-(c*c)/(d*d+4))*beta*leadingDimensionInteractionList*GRIDDENSITY_BIJ))+2;
+    numGridPointsBetaZetaPower=(int)((1.0+(c*c)/(d*d)-(c*c)/(d*d+4))*beta*leadingDimensionInteractionList*GRIDDENSITY_BIJ)+2;
     zeta_max = MAX(zeta_max,numGridPointsBetaZetaPower);
 
     for (j=0; j<nelements; j++) {
@@ -670,7 +671,7 @@ void PairTersoffTable::allocateGrids()
     double d = params[iparam].d;
     double beta = params[iparam].beta;
 
-    numGridPointsBetaZetaPower=(int)(((1.0+(c*c)/(d*d)-(c*c)/(d*d+4))*beta*leadingDimensionInteractionList*GRIDDENSITY_BIJ))+2;
+    numGridPointsBetaZetaPower=(int)((1.0+(c*c)/(d*d)-(c*c)/(d*d+4))*beta*leadingDimensionInteractionList*GRIDDENSITY_BIJ)+2;
 
     r=0.0;
     deltaArgumentBetaZetaPower = 1.0 / GRIDDENSITY_BIJ;
@@ -750,7 +751,9 @@ void PairTersoffTable::init_style()
 
 double PairTersoffTable::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
 
   return cutmax;
 }

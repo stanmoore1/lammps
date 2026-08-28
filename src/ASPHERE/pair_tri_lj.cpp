@@ -13,16 +13,17 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_tri_lj.h"
-#include <cmath>
-#include "math_extra.h"
+
 #include "atom.h"
 #include "atom_vec_tri.h"
-#include "force.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "memory.h"
 #include "error.h"
+#include "force.h"
+#include "math_extra.h"
+#include "memory.h"
+#include "neigh_list.h"
+#include "neighbor.h"
 
+#include <cmath>
 
 using namespace LAMMPS_NS;
 
@@ -30,7 +31,9 @@ static constexpr int DELTA = 20;
 
 /* ---------------------------------------------------------------------- */
 
-PairTriLJ::PairTriLJ(LAMMPS *lmp) : Pair(lmp)
+PairTriLJ::PairTriLJ(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), epsilon(nullptr), sigma(nullptr), lj1(nullptr), lj2(nullptr),
+    lj3(nullptr), lj4(nullptr), avec(nullptr)
 {
   dmax = nmax = 0;
   discrete = nullptr;
@@ -273,7 +276,7 @@ void PairTriLJ::compute(int eflag, int vflag)
           ti[0] = dyi*fi[2] - dzi*fi[1];
           ti[1] = dzi*fi[0] - dxi*fi[2];
           ti[2] = dxi*fi[1] - dyi*fi[0];
-          torque[i][2] += ti[0];
+          torque[i][0] += ti[0];
           torque[i][1] += ti[1];
           torque[i][2] += ti[2];
 
@@ -375,6 +378,17 @@ void PairTriLJ::compute(int eflag, int vflag)
         }
       }
 
+      // for interactions involving a discretized triangle, fpair/delx/
+      // dely/delz hold values of the last sub-particle pair inside the
+      // sub cutoff (or stale data if there was none); the sub-particle
+      // forces were applied at the atom centers and the virial is
+      // obtained via fdotr, so only tally the accumulated energy
+
+      if ((tri[i] >= 0) || (tri[j] >= 0)) {
+        fpair = 0.0;
+        delx = dely = delz = 0.0;
+      }
+
       if (evflag) ev_tally(i,j,nlocal,newton_pair,evdwl,0.0,fpair,delx,dely,delz);
     }
   }
@@ -434,7 +448,7 @@ void PairTriLJ::settings(int narg, char **arg)
 void PairTriLJ::coeff(int narg, char **arg)
 {
   if (narg < 4 || narg > 5)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -458,7 +472,7 @@ void PairTriLJ::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

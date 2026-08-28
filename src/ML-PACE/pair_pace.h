@@ -49,13 +49,14 @@ class PairPACE : public Pair {
 
   void *extract(const char *, int &) override;
   void *extract_peratom(const char *, int &) override;
+  double memory_usage() override;
 
  protected:
   struct ACEImpl *aceimpl;
   int nmax_corerep;
 
   virtual void allocate();
-  double *corerep_factor;                    //per-atom core-rep factor (= 1 - fcut)
+  double *corerep_factor;    //per-atom core-rep factor (= 1 - fcut)
   int flag_corerep_factor;
 
   double **scale;

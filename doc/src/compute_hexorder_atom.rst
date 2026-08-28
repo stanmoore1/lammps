@@ -1,7 +1,10 @@
 .. index:: compute hexorder/atom
+.. index:: compute hexorder/atom/omp
 
 compute hexorder/atom command
 =============================
+
+Accelerator Variants: *hexorder/atom/omp*
 
 Syntax
 """"""
@@ -40,7 +43,7 @@ is a complex number (stored as two real numbers) defined as follows:
 
 .. math::
 
-   q_n = \frac{1}{nnn}\sum_{j = 1}^{nnn} e^{n i \theta({\bf r}_{ij})}
+   q_n = \frac{1}{nnn}\sum_{j = 1}^{nnn} e^{n i \theta({\textbf{r}}_{ij})}
 
 where the sum is over the *nnn* nearest neighbors
 of the central atom. The angle :math:`\theta`
@@ -107,6 +110,12 @@ unit disk of the complex plane (i.e., :math:`\Re(q_n)^2 + \Im(q_n)^2 \le 1`).
 These values can be accessed by any command that uses per-atom values
 from a compute as input.  See the :doc:`Howto output <Howto_output>` doc
 page for an overview of LAMMPS output options.
+
+----------
+
+.. include:: accel_styles.rst
+
+----------
 
 Restrictions
 """"""""""""

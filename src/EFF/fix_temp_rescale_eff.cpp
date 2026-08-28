@@ -38,7 +38,7 @@ enum{NOBIAS,BIAS};
 /* ---------------------------------------------------------------------- */
 
 FixTempRescaleEff::FixTempRescaleEff(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+    Fix(lmp, narg, arg), temperature(nullptr)
 {
   if (narg < 8) error->all(FLERR,"Illegal fix temp/rescale/eff command");
 
@@ -89,13 +89,15 @@ int FixTempRescaleEff::setmask()
 
 void FixTempRescaleEff::init()
 {
-  int icompute = modify->find_compute(id_temp);
-  if (icompute < 0)
-    error->all(FLERR,"Temperature ID for fix temp/rescale/eff does not exist");
-  temperature = modify->compute[icompute];
-
-  if (temperature->tempbias) which = BIAS;
-  else which = NOBIAS;
+  temperature = modify->get_compute_by_id(id_temp);
+  if (!temperature) {
+    error->all(FLERR,"Temperature compute ID {} for fix {} does not exist", id_temp, style);
+  } else {
+    if (temperature->tempflag == 0)
+      error->all(FLERR, "Compute ID {} for fix {} does not compute a temperature", id_temp, style);
+    if (temperature->tempbias) which = BIAS;
+    else which = NOBIAS;
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -168,9 +170,8 @@ int FixTempRescaleEff::modify_param(int narg, char **arg)
     delete [] id_temp;
     id_temp = utils::strdup(arg[1]);
 
-    int icompute = modify->find_compute(id_temp);
-    if (icompute < 0) error->all(FLERR,"Could not find fix_modify temperature ID");
-    temperature = modify->compute[icompute];
+    temperature = modify->get_compute_by_id(id_temp);
+    if (!temperature) error->all(FLERR,"Could not find fix_modify temperature ID");
 
     if (temperature->tempflag == 0)
       error->all(FLERR,"Fix_modify temperature ID does not compute temperature");

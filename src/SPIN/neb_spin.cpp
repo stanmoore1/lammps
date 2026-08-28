@@ -16,7 +16,7 @@
    Contributing authors: Julien Tranchida (SNL)
 
    Please cite the related publication:
-   Bessarab, P. F., Uzdin, V. M., & Jónsson, H. (2015).
+   Bessarab, P. F., Uzdin, V. M., & Jonsson, H. (2015).
    Method for finding mechanism and activation energy of magnetic transitions,
    applied to skyrmion and antivortex annihilation.
    Computer Physics Communications, 196, 335-347.
@@ -49,7 +49,7 @@
 using namespace LAMMPS_NS;
 
 static const char cite_neb_spin[] =
-  "neb/spin command: doi:10.1016/j.cpc.2015.07.001\n\n"
+  "neb/spin command: https://doi.org/10.1016/j.cpc.2015.07.001\n\n"
   "@article{bessarab2015method,\n"
   "title={Method for Finding Mechanism and Activation Energy of\n"
   "  Magnetic Transitions, Applied to Skyrmion and Antivortex\n"
@@ -71,7 +71,10 @@ static constexpr int ATTRIBUTE_PERLINE = 8;
 
 /* ---------------------------------------------------------------------- */
 
-NEBSpin::NEBSpin(LAMMPS *lmp) : Command(lmp), fp(nullptr) {
+NEBSpin::NEBSpin(LAMMPS *lmp) :
+    Command(lmp), fp(nullptr), inpfile(nullptr), fneb(nullptr), all(nullptr), rdist(nullptr),
+    freplica(nullptr), fmaxatomInRepl(nullptr)
+{
   if (lmp->citeme) lmp->citeme->add(cite_neb_spin);
 }
 
@@ -79,7 +82,7 @@ NEBSpin::NEBSpin(LAMMPS *lmp) : Command(lmp), fp(nullptr) {
 
 NEBSpin::~NEBSpin()
 {
-  MPI_Comm_free(&roots);
+  if (roots != MPI_COMM_NULL) MPI_Comm_free(&roots);
   memory->destroy(all);
   delete[] rdist;
   if (fp) {
@@ -95,7 +98,7 @@ NEBSpin::~NEBSpin()
 void NEBSpin::command(int narg, char **arg)
 {
   if (domain->box_exist == 0)
-    error->all(FLERR,"NEBSpin command before simulation box is defined");
+    error->all(FLERR,"NEBSpin command before simulation box is defined" + utils::errorurl(33));
 
   if (narg < 6) error->universe_all(FLERR,"Illegal NEBSpin command");
 
@@ -164,8 +167,10 @@ void NEBSpin::run()
   // create MPI communicator for root proc from each world
 
   int color;
-  if (me == 0) color = 0;
-  else color = 1;
+  if (me == 0)
+    color = 0;
+  else
+    color = MPI_UNDEFINED;
   MPI_Comm_split(uworld,color,0,&roots);
 
   // search for neb_spin fix, allocate it
@@ -395,8 +400,11 @@ void NEBSpin::readfile(char *file, int flag)
         start = &line[strspn(line," \t\n\v\f\r")];
         if (*start != '\0' && *start != '#') break;
       }
-      int rv = sscanf(line,"%d",&nlines);
-      if (rv != 1) nlines = -1;
+      try {
+        nlines = ValueTokenizer(line).next_int();
+      } catch (TokenizerException &) {
+        nlines = -1;
+      }
     }
     MPI_Bcast(&nlines,1,MPI_INT,0,uworld);
     if (nlines < 0)
@@ -411,8 +419,11 @@ void NEBSpin::readfile(char *file, int flag)
           start = &line[strspn(line," \t\n\v\f\r")];
           if (*start != '\0' && *start != '#') break;
         }
-        int rv = sscanf(line,"%d",&nlines);
-        if (rv != 1) nlines = -1;
+        try {
+          nlines = ValueTokenizer(line).next_int();
+        } catch (TokenizerException &) {
+          nlines = -1;
+        }
       } else nlines = 0;
     }
     MPI_Bcast(&nlines,1,MPI_INT,0,world);
@@ -420,7 +431,7 @@ void NEBSpin::readfile(char *file, int flag)
       error->all(FLERR,"Incorrectly formatted NEB file");
   }
 
-  auto buffer = new char[CHUNK*MAXLINE];
+  auto *buffer = new char[CHUNK*MAXLINE];
   double fraction = ireplica/(nreplica-1.0);
   double **x = atom->x;
   double **sp = atom->sp;
@@ -728,19 +739,21 @@ void NEBSpin::print_status()
     local_norm_inf = MAX(temp_inf,local_norm_inf);
   }
 
-  double fmaxreplica;
-  MPI_Allreduce(&tnorm2,&fmaxreplica,1,MPI_DOUBLE,MPI_MAX,roots);
+  double fmaxreplica = 0.0;
+  double fmaxatom = 0.0;
 
   double fnorminf = 0.0;
   MPI_Allreduce(&local_norm_inf,&fnorminf,1,MPI_DOUBLE,MPI_MAX,world);
-  double fmaxatom;
-  MPI_Allreduce(&fnorminf,&fmaxatom,1,MPI_DOUBLE,MPI_MAX,roots);
 
-  if (verbose) {
-    freplica = new double[nreplica];
-    MPI_Allgather(&tnorm2,1,MPI_DOUBLE,&freplica[0],1,MPI_DOUBLE,roots);
-    fmaxatomInRepl = new double[nreplica];
-    MPI_Allgather(&fnorminf,1,MPI_DOUBLE,&fmaxatomInRepl[0],1,MPI_DOUBLE,roots);
+  if (me == 0) {
+    MPI_Allreduce(&tnorm2,&fmaxreplica,1,MPI_DOUBLE,MPI_MAX,roots);
+    MPI_Allreduce(&fnorminf,&fmaxatom,1,MPI_DOUBLE,MPI_MAX,roots);
+    if (verbose) {
+      freplica = new double[nreplica];
+      MPI_Allgather(&tnorm2,1,MPI_DOUBLE,&freplica[0],1,MPI_DOUBLE,roots);
+      fmaxatomInRepl = new double[nreplica];
+      MPI_Allgather(&fnorminf,1,MPI_DOUBLE,&fmaxatomInRepl[0],1,MPI_DOUBLE,roots);
+    }
   }
 
   double one[7];
@@ -801,7 +814,7 @@ void NEBSpin::print_status()
     FILE *uscreen = universe->uscreen;
     FILE *ulogfile = universe->ulogfile;
     if (uscreen) {
-      fmt::print(uscreen,"{} {:12.8g} {:12.8g} ",update->ntimestep,fmaxreplica,fmaxatom);
+      utils::print(uscreen,"{} {:12.8g} {:12.8g} ",update->ntimestep,fmaxreplica,fmaxatom);
       fprintf(uscreen,"%12.8g %12.8g %12.8g ",gradvnorm0,gradvnorm1,gradvnormc);
       fprintf(uscreen,"%12.8g %12.8g %12.8g ",ebf,ebr,endpt);
       for (int i = 0; i < nreplica; i++)
@@ -815,7 +828,7 @@ void NEBSpin::print_status()
     }
 
     if (ulogfile) {
-      fmt::print(ulogfile,"{} {:12.8} {:12.8g} ",update->ntimestep,fmaxreplica,fmaxatom);
+      utils::print(ulogfile,"{} {:12.8} {:12.8g} ",update->ntimestep,fmaxreplica,fmaxatom);
       fprintf(ulogfile,"%12.8g %12.8g %12.8g ",gradvnorm0,gradvnorm1,gradvnormc);
       fprintf(ulogfile,"%12.8g %12.8g %12.8g ",ebf,ebr,endpt);
       for (int i = 0; i < nreplica; i++)
@@ -827,6 +840,10 @@ void NEBSpin::print_status()
       }
       fprintf(ulogfile,"\n");
       fflush(ulogfile);
+    }
+    if ((me == 0) && verbose) {
+      delete[] freplica;
+      delete[] fmaxatomInRepl;
     }
   }
 }

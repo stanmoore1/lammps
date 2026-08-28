@@ -24,6 +24,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 #include "neighbor.h"
@@ -40,7 +41,7 @@ using namespace LAMMPS_NS;
 static constexpr double EPSILON = 1.0e-10;
 
 static const char cite_pair_tdpd[] =
-  "pair tdpd command: doi:10.1063/1.4923254\n\n"
+  "pair tdpd command: https://doi.org/10.1063/1.4923254\n\n"
   "@Article{ZLi2015_JCP,\n"
   " author = {Li, Z. and Yazdani, A. and Tartakovsky, A. and Karniadakis, G. E.},\n"
   " title = {Transport Dissipative Particle Dynamics Model for Mesoscopic Advection-Diffusion-Reaction Problems},\n"
@@ -53,7 +54,9 @@ static const char cite_pair_tdpd[] =
 
 /* ---------------------------------------------------------------------- */
 
-PairTDPD::PairTDPD(LAMMPS *lmp) : Pair(lmp)
+PairTDPD::PairTDPD(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cutcc(nullptr), a0(nullptr), gamma(nullptr), sigma(nullptr),
+    power(nullptr), kappa(nullptr), epsilon(nullptr), powercc(nullptr)
 {
   if (lmp->citeme) lmp->citeme->add(cite_pair_tdpd);
   cc_species = atom->cc_species;
@@ -83,7 +86,7 @@ PairTDPD::~PairTDPD()
     memory->destroy(powercc);
   }
 
-  if (random) delete random;
+  delete random;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -268,7 +271,7 @@ void PairTDPD::settings(int narg, char **arg)
 void PairTDPD::coeff(int narg, char **arg)
 {
   if (narg != 7 + 3*cc_species)
-    error->all(FLERR,"Incorrect args for pair tdpd coefficients");
+    error->all(FLERR,"Incorrect args for pair tdpd coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -280,9 +283,9 @@ void PairTDPD::coeff(int narg, char **arg)
   double power_one = utils::numeric(FLERR,arg[4],false,lmp);
   double cut_one   = utils::numeric(FLERR,arg[5],false,lmp);
   double cutcc_one = utils::numeric(FLERR,arg[6],false,lmp);
-  auto kappa_one = new double[cc_species];
-  auto epsilon_one = new double[cc_species];
-  auto powercc_one = new double[cc_species];
+  auto *kappa_one = new double[cc_species];
+  auto *epsilon_one = new double[cc_species];
+  auto *powercc_one = new double[cc_species];
   for (int k=0; k<cc_species; k++) {
     kappa_one[k]   = utils::numeric(FLERR,arg[7+3*k],false,lmp);
     epsilon_one[k] = utils::numeric(FLERR,arg[8+3*k],false,lmp);
@@ -310,7 +313,7 @@ void PairTDPD::coeff(int narg, char **arg)
   delete[] epsilon_one;
   delete[] powercc_one;
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -340,7 +343,9 @@ void PairTDPD::init_style()
 
 double PairTDPD::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   sigma[i][j] = sqrt(2.0*force->boltz*temperature*gamma[i][j]);
 
@@ -458,8 +463,38 @@ void PairTDPD::read_restart_settings(FILE *fp)
   // initialize Marsaglia RNG with processor-unique seed
   // same seed that pair_style command initially specified
 
-  if (random) delete random;
+  delete random;
   random = new RanMars(lmp,seed + comm->me);
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 writes to data file
+------------------------------------------------------------------------- */
+
+void PairTDPD::write_data(FILE *fp)
+{
+  for (int i = 1; i <= atom->ntypes; i++) {
+    fprintf(fp,"%d %g %g %g %g %g",i,a0[i][i],gamma[i][i],power[i][i],cut[i][i],cutcc[i][i]);
+    for (int k = 0; k < cc_species; k++)
+      fprintf(fp," %g %g %g",kappa[i][i][k],epsilon[i][i][k],powercc[i][i][k]);
+    fputs("\n",fp);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 writes all pairs to data file
+------------------------------------------------------------------------- */
+
+void PairTDPD::write_data_all(FILE *fp)
+{
+  for (int i = 1; i <= atom->ntypes; i++) {
+    for (int j = i; j <= atom->ntypes; j++) {
+      fprintf(fp,"%d %d %g %g %g %g %g",i,j,a0[i][j],gamma[i][j],power[i][j],cut[i][j],cutcc[i][j]);
+      for (int k = 0; k < cc_species; k++)
+        fprintf(fp," %g %g %g",kappa[i][j][k],epsilon[i][j][k],powercc[i][j][k]);
+      fputs("\n",fp);
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------- */

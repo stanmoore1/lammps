@@ -37,7 +37,16 @@ static constexpr double SMALL =     0.0000001;
 
 /* ---------------------------------------------------------------------- */
 
-DihedralClass2::DihedralClass2(LAMMPS *lmp) : Dihedral(lmp)
+DihedralClass2::DihedralClass2(LAMMPS *lmp) :
+    Dihedral(lmp), k1(nullptr), k2(nullptr), k3(nullptr), phi1(nullptr), phi2(nullptr),
+    phi3(nullptr), mbt_f1(nullptr), mbt_f2(nullptr), mbt_f3(nullptr), mbt_r0(nullptr),
+    ebt_f1_1(nullptr), ebt_f2_1(nullptr), ebt_f3_1(nullptr), ebt_r0_1(nullptr), ebt_f1_2(nullptr),
+    ebt_f2_2(nullptr), ebt_f3_2(nullptr), ebt_r0_2(nullptr), at_f1_1(nullptr), at_f2_1(nullptr),
+    at_f3_1(nullptr), at_theta0_1(nullptr), at_f1_2(nullptr), at_f2_2(nullptr), at_f3_2(nullptr),
+    at_theta0_2(nullptr), aat_k(nullptr), aat_theta0_1(nullptr), aat_theta0_2(nullptr),
+    bb13t_k(nullptr), bb13t_r10(nullptr), bb13t_r30(nullptr), setflag_d(nullptr),
+    setflag_mbt(nullptr), setflag_ebt(nullptr), setflag_at(nullptr), setflag_aat(nullptr),
+    setflag_bb13t(nullptr)
 {
   writedata = 1;
 }
@@ -632,7 +641,7 @@ void DihedralClass2::coeff(int narg, char **arg)
   int count = 0;
 
   if (strcmp(arg[1],"mbt") == 0) {
-    if (narg != 6) error->all(FLERR,"Incorrect args for dihedral coefficients");
+    if (narg != 6) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
     double f1_one = utils::numeric(FLERR,arg[2],false,lmp);
     double f2_one = utils::numeric(FLERR,arg[3],false,lmp);
@@ -650,7 +659,7 @@ void DihedralClass2::coeff(int narg, char **arg)
 
   } else if (strcmp(arg[1],"ebt") == 0) {
     if (narg != 10)
-      error->all(FLERR,"Incorrect args for dihedral coefficients");
+      error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
     double f1_1_one = utils::numeric(FLERR,arg[2],false,lmp);
     double f2_1_one = utils::numeric(FLERR,arg[3],false,lmp);
@@ -676,7 +685,7 @@ void DihedralClass2::coeff(int narg, char **arg)
 
   } else if (strcmp(arg[1],"at") == 0) {
     if (narg != 10)
-      error->all(FLERR,"Incorrect args for dihedral coefficients");
+      error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
     double f1_1_one = utils::numeric(FLERR,arg[2],false,lmp);
     double f2_1_one = utils::numeric(FLERR,arg[3],false,lmp);
@@ -703,7 +712,7 @@ void DihedralClass2::coeff(int narg, char **arg)
     }
 
   } else if (strcmp(arg[1],"aat") == 0) {
-    if (narg != 5) error->all(FLERR,"Incorrect args for dihedral coefficients");
+    if (narg != 5) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
     double k_one = utils::numeric(FLERR,arg[2],false,lmp);
     double theta0_1_one = utils::numeric(FLERR,arg[3],false,lmp);
@@ -720,7 +729,7 @@ void DihedralClass2::coeff(int narg, char **arg)
     }
 
   } else if (strcmp(arg[1],"bb13") == 0) {
-    if (narg != 5) error->all(FLERR,"Incorrect args for dihedral coefficients");
+    if (narg != 5) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
     double k_one = utils::numeric(FLERR,arg[2],false,lmp);
     double r10_one = utils::numeric(FLERR,arg[3],false,lmp);
@@ -735,7 +744,7 @@ void DihedralClass2::coeff(int narg, char **arg)
     }
 
   } else {
-    if (narg != 7) error->all(FLERR,"Incorrect args for dihedral coefficients");
+    if (narg != 7) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
     double k1_one = utils::numeric(FLERR,arg[1],false,lmp);
     double phi1_one = utils::numeric(FLERR,arg[2],false,lmp);
@@ -758,7 +767,7 @@ void DihedralClass2::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for dihedral coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 
   for (int i = ilo; i <= ihi; i++)
     if (setflag_d[i] == 1 && setflag_mbt[i] == 1 && setflag_ebt[i] == 1 &&
@@ -946,3 +955,18 @@ void DihedralClass2::write_data(FILE *fp)
             at_theta0_1[i]*180.0/MY_PI,at_theta0_2[i]*180.0/MY_PI);
 }
 
+/* ----------------------------------------------------------------------
+    return ptr to internal members upon request
+ ------------------------------------------------------------------------ */
+
+ void *DihedralClass2::extract(const char *str, int &dim)
+ {
+   dim = 1;
+   if (strcmp(str, "k1") == 0) return (void *) k1;
+   if (strcmp(str, "k2") == 0) return (void *) k2;
+   if (strcmp(str, "k3") == 0) return (void *) k3;
+   if (strcmp(str, "phi1") == 0) return (void *) phi1;
+   if (strcmp(str, "phi2") == 0) return (void *) phi2;
+   if (strcmp(str, "phi3") == 0) return (void *) phi3;
+   return nullptr;
+ }

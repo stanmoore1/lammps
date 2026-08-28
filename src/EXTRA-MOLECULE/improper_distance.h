@@ -33,11 +33,12 @@ class ImproperDistance : public Improper {
   void write_restart(FILE *) override;
   void read_restart(FILE *) override;
   void write_data(FILE *) override;
+  void *extract(const char *, int &) override;
 
- private:
+ protected:
   double *k, *chi;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

@@ -38,6 +38,8 @@ class FixIndent : public Fix {
   double compute_scalar() override;
   double compute_vector(int) override;
 
+  int image(int *&, double **&) override;
+
  private:
   int istyle, scaleflag, side;
   double k, k3;
@@ -53,6 +55,11 @@ class FixIndent : public Fix {
   int rlovar, rhivar, lovar, hivar;
   double rlovalue, rhivalue, lovalue, hivalue;
 
+  // arrays for dump image rendering
+
+  int *imgobjs;
+  double **imgparms;
+
   // methods for argument parsing
 
   int geometry(int, char **);
@@ -61,10 +68,10 @@ class FixIndent : public Fix {
   // methods for conical indenter
 
   bool PointInsideCone(int, double *, double, double, double, double, double *);
-  void DistanceExteriorPoint(int, double *, double, double, double, double,
-                             double &, double &, double &);
-  void DistanceInteriorPoint(int, double *, double, double, double, double,
-                             double &, double &, double &);
+  void DistanceExteriorPoint(int, double *, double, double, double, double, double &, double &,
+                             double &);
+  void DistanceInteriorPoint(int, double *, double, double, double, double, double &, double &,
+                             double &);
   void point_on_line_segment(double *, double *, double *, double *);
   double closest(double *, double *, double *, double);
 };

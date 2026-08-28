@@ -28,9 +28,7 @@ class PairAIPWATER2DM : virtual public PairILPTMD {
  public:
   PairAIPWATER2DM(class LAMMPS *);
 
- protected:
   void settings(int, char **) override;
-
 };
 
 }    // namespace LAMMPS_NS

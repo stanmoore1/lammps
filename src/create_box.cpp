@@ -38,7 +38,8 @@ void CreateBox::command(int narg, char **arg)
 {
   if (narg < 2) utils::missing_cmd_args(FLERR, "create_box", error);
 
-  if (domain->box_exist) error->all(FLERR, "Cannot create_box after simulation box is defined");
+  if (domain->box_exist)
+    error->all(FLERR, "Cannot create_box after simulation box is defined" + utils::errorurl(34));
   if (domain->dimension == 2 && domain->zperiodic == 0)
     error->all(FLERR, "Cannot run 2d simulation with nonperiodic Z dimension");
 
@@ -49,11 +50,13 @@ void CreateBox::command(int narg, char **arg)
   Region *region = nullptr;
   int triclinic_general = 0;
 
-  if (strcmp(arg[1],"NULL") == 0) triclinic_general = 1;
+  if (strcmp(arg[1], "NULL") == 0)
+    triclinic_general = 1;
   else {
     region = domain->get_region_by_id(arg[1]);
     if (!region) error->all(FLERR, "Create_box region {} does not exist", arg[1]);
-    if (region->bboxflag == 0) error->all(FLERR, "Create_box region does not support a bounding box");
+    if (region->bboxflag == 0)
+      error->all(FLERR, "Create_box region does not support a bounding box");
     region->init();
   }
 
@@ -77,13 +80,13 @@ void CreateBox::command(int narg, char **arg)
       domain->boxlo[2] = region->extent_zlo;
       domain->boxhi[2] = region->extent_zhi;
 
-    // region is prism
-    // seutp restricted triclinic box
-    // set simulation domain from prism params
+      // region is prism
+      // seutp restricted triclinic box
+      // set simulation domain from prism params
 
     } else {
       domain->triclinic = 1;
-      auto prism = dynamic_cast<RegPrism *>(region);
+      auto *prism = dynamic_cast<RegPrism *>(region);
       domain->boxlo[0] = prism->xlo;
       domain->boxhi[0] = prism->xhi;
       domain->boxlo[1] = prism->ylo;
@@ -97,17 +100,17 @@ void CreateBox::command(int narg, char **arg)
 
     if (domain->dimension == 2) {
       if (domain->boxlo[2] >= 0.0 || domain->boxhi[2] <= 0.0)
-        error->all(FLERR,"Create_box region zlo/zhi for 2d simulation must straddle 0.0");
+        error->all(FLERR, "Create_box region zlo/zhi for 2d simulation must straddle 0.0");
     }
 
-  // setup general triclinic box (with no region)
-  // read next box extent arguments to create ABC edge vectors + origin
-  // define_general_triclinic() converts
-  //   ABC edge vectors + origin to restricted triclinic
+    // setup general triclinic box (with no region)
+    // read next box extent arguments to create ABC edge vectors + origin
+    // define_general_triclinic() converts
+    //   ABC edge vectors + origin to restricted triclinic
 
   } else if (triclinic_general) {
     if (!domain->lattice->is_general_triclinic())
-      error->all(FLERR,"Create_box for general triclinic requires triclnic/general lattice");
+      error->all(FLERR, "Create_box for general triclinic requires triclnic/general lattice");
 
     if (iarg + 6 > narg) utils::missing_cmd_args(FLERR, "create_box general triclinic", error);
 
@@ -121,42 +124,50 @@ void CreateBox::command(int narg, char **arg)
 
     if (domain->dimension == 2)
       if (clo != -0.5 || chi != 0.5)
-        error->all(FLERR,"Create_box for general triclinic requires clo = -0.5 and chi = 0.5");
+        error->all(FLERR, "Create_box for general triclinic requires clo = -0.5 and chi = 0.5");
 
     // use lattice2box() to generate origin and ABC vectors
     // origin = abc lo
     // ABC vectors = hi in one dim - origin
 
-    double avec[3],bvec[3],cvec[3],origin[3];
-    double px,py,pz;
+    double avec[3], bvec[3], cvec[3], origin[3];
+    double px, py, pz;
 
-    px = alo; py = blo; pz = clo;
-    domain->lattice->lattice2box(px,py,pz);
+    px = alo;
+    py = blo;
+    pz = clo;
+    domain->lattice->lattice2box(px, py, pz);
     origin[0] = px;
     origin[1] = py;
     origin[2] = pz;
 
-    px = ahi; py = blo; pz = clo;
-    domain->lattice->lattice2box(px,py,pz);
+    px = ahi;
+    py = blo;
+    pz = clo;
+    domain->lattice->lattice2box(px, py, pz);
     avec[0] = px - origin[0];
     avec[1] = py - origin[1];
     avec[2] = pz - origin[2];
 
-    px = alo; py = bhi; pz = clo;
-    domain->lattice->lattice2box(px,py,pz);
+    px = alo;
+    py = bhi;
+    pz = clo;
+    domain->lattice->lattice2box(px, py, pz);
     bvec[0] = px - origin[0];
     bvec[1] = py - origin[1];
     bvec[2] = pz - origin[2];
 
-    px = alo; py = blo; pz = chi;
-    domain->lattice->lattice2box(px,py,pz);
+    px = alo;
+    py = blo;
+    pz = chi;
+    domain->lattice->lattice2box(px, py, pz);
     cvec[0] = px - origin[0];
     cvec[1] = py - origin[1];
     cvec[2] = pz - origin[2];
 
     // define general triclinic box within Domain class
 
-    domain->define_general_triclinic(avec,bvec,cvec,origin);
+    domain->define_general_triclinic(avec, bvec, cvec, origin);
   }
 
   // if molecular, zero out topology info
@@ -182,6 +193,7 @@ void CreateBox::command(int narg, char **arg)
 
   // process optional args that can overwrite default settings
 
+  int maxexchange = atom->avec->maxexchange;
   while (iarg < narg) {
     if (strcmp(arg[iarg], "bond/types") == 0) {
       if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "create_box bond/type", error);
@@ -212,12 +224,14 @@ void CreateBox::command(int narg, char **arg)
       if (!atom->avec->bonds_allow)
         error->all(FLERR, "No bonds allowed with atom style {}", atom->get_style());
       atom->bond_per_atom = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+      maxexchange += 2 * atom->bond_per_atom;
       iarg += 2;
     } else if (strcmp(arg[iarg], "extra/angle/per/atom") == 0) {
       if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "create_box extra/angle/per/atom", error);
       if (!atom->avec->angles_allow)
         error->all(FLERR, "No angles allowed with atom style {}", atom->get_style());
       atom->angle_per_atom = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+      maxexchange += 4 * atom->angle_per_atom;
       iarg += 2;
     } else if (strcmp(arg[iarg], "extra/dihedral/per/atom") == 0) {
       if (iarg + 2 > narg)
@@ -225,6 +239,7 @@ void CreateBox::command(int narg, char **arg)
       if (!atom->avec->dihedrals_allow)
         error->all(FLERR, "No dihedrals allowed with atom style {}", atom->get_style());
       atom->dihedral_per_atom = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+      maxexchange += 5 * atom->dihedral_per_atom;
       iarg += 2;
     } else if (strcmp(arg[iarg], "extra/improper/per/atom") == 0) {
       if (iarg + 2 > narg)
@@ -232,6 +247,7 @@ void CreateBox::command(int narg, char **arg)
       if (!atom->avec->impropers_allow)
         error->all(FLERR, "No impropers allowed with atom style {}", atom->get_style());
       atom->improper_per_atom = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+      maxexchange += 5 * atom->improper_per_atom;
       iarg += 2;
     } else if (strcmp(arg[iarg], "extra/special/per/atom") == 0) {
       if (iarg + 2 > narg)
@@ -242,6 +258,10 @@ void CreateBox::command(int narg, char **arg)
     } else
       error->all(FLERR, "Unknown create_box keyword: {}", arg[iarg]);
   }
+
+  // set per-atom communication buffersize for contributions like bonds, angles, etc.
+
+  atom->avec->maxexchange = maxexchange;
 
   // setup the simulation box and initial system
   // deallocate/grow ensures any extra settings are used for topology arrays

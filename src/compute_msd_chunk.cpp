@@ -21,6 +21,7 @@
 #include "group.h"
 #include "memory.h"
 #include "modify.h"
+#include "update.h"
 
 using namespace LAMMPS_NS;
 
@@ -30,7 +31,7 @@ ComputeMSDChunk::ComputeMSDChunk(LAMMPS *lmp, int narg, char **arg) :
     ComputeChunk(lmp, narg, arg), id_fix(nullptr), fix(nullptr), massproc(nullptr),
     masstotal(nullptr), com(nullptr), comall(nullptr), msd(nullptr)
 {
-  if (narg != 4) error->all(FLERR, "Illegal compute msd/chunk command");
+  if (narg != 4) error->all(FLERR, "Incorrect number of arguments for compute msd/chunk");
 
   msdnchunk = 0;
   array_flag = 1;
@@ -57,9 +58,7 @@ ComputeMSDChunk::ComputeMSDChunk(LAMMPS *lmp, int narg, char **arg) :
 
 ComputeMSDChunk::~ComputeMSDChunk()
 {
-  // check nfix in case all fixes have already been deleted
-
-  if (modify->nfix) modify->delete_fix(id_fix);
+  modify->delete_fix(id_fix);
 
   delete[] id_fix;
   memory->destroy(massproc);
@@ -114,6 +113,8 @@ void ComputeMSDChunk::setup()
 
 void ComputeMSDChunk::compute_array()
 {
+  invoked_array = update->ntimestep;
+
   int index;
   double massone;
   double unwrap[3];
@@ -124,9 +125,10 @@ void ComputeMSDChunk::compute_array()
   // first time call, allocate per-chunk arrays
   // thereafter, require nchunk remain the same
 
-  if (firstflag) msdnchunk = nchunk;
+  if (firstflag)
+    msdnchunk = nchunk;
   else if (msdnchunk != nchunk)
-    error->all(FLERR, "Compute msd/chunk nchunk is not static");
+    error->all(FLERR, Error::NOLASTLINE, "Compute msd/chunk nchunk is not static");
 
   // zero local per-chunk values
 

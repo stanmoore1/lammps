@@ -15,10 +15,10 @@
 #include "pair_sph_taitwater.h"
 
 #include "atom.h"
-#include "comm.h"
 #include "domain.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 
@@ -28,7 +28,8 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairSPHTaitwater::PairSPHTaitwater(LAMMPS *lmp) : Pair(lmp)
+PairSPHTaitwater::PairSPHTaitwater(LAMMPS *lmp) :
+    Pair(lmp), rho0(nullptr), soundspeed(nullptr), B(nullptr), cut(nullptr), viscosity(nullptr)
 {
   if ((atom->esph_flag != 1) || (atom->rho_flag != 1) || (atom->vest_flag != 1))
     error->all(FLERR, "Pair sph/taitwater requires atom attributes energy, density, and velocity estimates, e.g. in atom_style sph");
@@ -226,18 +227,18 @@ void PairSPHTaitwater::coeff(int narg, char **arg)
 {
   if (narg != 6)
     error->all(FLERR,
-        "Incorrect args for pair_style sph/taitwater coefficients");
+        "Incorrect args for pair_style sph/taitwater coefficients" + utils::errorurl(21));
   if (!allocated)
     allocate();
 
   int ilo, ihi, jlo, jhi;
-  utils::bounds(FLERR,arg[0], 1, atom->ntypes, ilo, ihi, error);
-  utils::bounds(FLERR,arg[1], 1, atom->ntypes, jlo, jhi, error);
+  utils::bounds(FLERR, arg[0], 1, atom->ntypes, ilo, ihi, error);
+  utils::bounds(FLERR, arg[1], 1, atom->ntypes, jlo, jhi, error);
 
-  double rho0_one = utils::numeric(FLERR,arg[2],false,lmp);
-  double soundspeed_one = utils::numeric(FLERR,arg[3],false,lmp);
-  double viscosity_one = utils::numeric(FLERR,arg[4],false,lmp);
-  double cut_one = utils::numeric(FLERR,arg[5],false,lmp);
+  double rho0_one = utils::numeric(FLERR, arg[2], false, lmp);
+  double soundspeed_one = utils::numeric(FLERR, arg[3], false, lmp);
+  double viscosity_one = utils::numeric(FLERR, arg[4], false, lmp);
+  double cut_one = utils::numeric(FLERR, arg[5], false, lmp);
   double B_one = soundspeed_one * soundspeed_one * rho0_one / 7.0;
 
   int count = 0;
@@ -254,7 +255,7 @@ void PairSPHTaitwater::coeff(int narg, char **arg)
   }
 
   if (count == 0)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -264,7 +265,9 @@ void PairSPHTaitwater::coeff(int narg, char **arg)
 double PairSPHTaitwater::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) {
-    error->all(FLERR,"All pair sph/taitwater coeffs are set");
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair sph/taitwater coeffs are not set. Status:\n"
+               + Info::get_pair_coeff_status(lmp));
   }
 
   cut[j][i] = cut[i][j];

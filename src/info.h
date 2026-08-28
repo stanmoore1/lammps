@@ -22,8 +22,6 @@ CommandStyle(info,Info);
 
 #include "command.h"
 
-#include <vector>
-
 namespace LAMMPS_NS {
 
 class Info : public Command {
@@ -49,12 +47,22 @@ class Info : public Command {
   static bool has_accelerator_feature(const std::string &, const std::string &,
                                       const std::string &);
   static std::string get_fft_info();
+  static std::string get_fmt_info();
+  static std::string get_json_info();
   static bool has_gpu_device();
+  static bool has_kokkos_gpu_device();
+  static void gpu_defer_device_clear(int);
   static std::string get_gpu_device_info();
   static std::string get_accelerator_info(const std::string &pkg = "");
 
+  static std::string get_pair_coeff_status(const LAMMPS *lmp);
+  static std::string get_bond_coeff_status(const LAMMPS *lmp);
+  static std::string get_angle_coeff_status(const LAMMPS *lmp);
+  static std::string get_dihedral_coeff_status(const LAMMPS *lmp);
+  static std::string get_improper_coeff_status(const LAMMPS *lmp);
+
   void get_memory_info(double *);
-  char **get_variable_names(int &num);
+  std::vector<std::string> get_variable_names(int &num);
   std::string get_variable_info(int num);
 
  private:

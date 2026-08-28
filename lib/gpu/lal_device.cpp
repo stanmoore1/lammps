@@ -53,13 +53,23 @@ const char *device=0;
 #include "device_cubin.h"
 #endif
 
+// When set, defer the GPU device teardown: clear_device() skips deleting the
+// UCL_Device (which would reset the whole GPU device). This is used only by the
+// unit test harness so the GPU package does not reset a device that the KOKKOS
+// package is also using -- that reset invalidates the KOKKOS device context and
+// crashes at Kokkos::finalize(). The device is reclaimed at process exit.
+// Toggled through lmp_gpu_defer_device_clear().
+static bool lal_defer_device_clear = false;
+
 namespace LAMMPS_AL {
 #define DeviceT Device<numtyp, acctyp>
 
 template <class numtyp, class acctyp>
 DeviceT::Device() : _init_count(0), _device_init(false),
+                    _comm_gpu_allocated(false),
                     _gpu_mode(GPU_FORCE), _first_device(0),
-                    _last_device(0), _platform_id(-1), _compiled(false) {
+                    _last_device(0), _platform_id(-1), _compiled(false),
+                    _use_old_nbor_build(0), _use_device_sort(0) {
 }
 
 template <class numtyp, class acctyp>
@@ -292,6 +302,8 @@ int DeviceT::init_device(MPI_Comm /*world*/, MPI_Comm replica, const int ngpu,
   // Set up a per device communicator
   MPI_Comm_split(node_comm,my_gpu,0,&_comm_gpu);
   MPI_Comm_rank(_comm_gpu,&_gpu_rank);
+  _comm_gpu_allocated=true;
+  MPI_Comm_free(&node_comm);
 
   #if !defined(CUDA_MPS_SUPPORT)
   if (_procs_per_gpu>1 && !gpu->sharing_supported(my_gpu))
@@ -370,6 +382,12 @@ int DeviceT::init_device(MPI_Comm /*world*/, MPI_Comm replica, const int ngpu,
   _use_old_nbor_build = 1;
   #endif
 
+  #if defined(USE_CUDPP) || defined(USE_HIP_DEVICE_SORT)
+  _use_device_sort = 1;
+  #else
+  _use_device_sort = 0;
+  #endif
+
   return flag;
 }
 
@@ -379,7 +397,7 @@ int DeviceT::set_ocl_params(std::string s_config, const std::string &extra_args)
 
   #include "lal_pre_ocl_config.h"
 
-  if (s_config=="" || s_config=="none")
+  if (s_config.empty() || s_config=="none")
     s_config="generic";
 
   int config_index=-1;
@@ -520,11 +538,13 @@ int DeviceT::init(Answer<numtyp,acctyp> &ans, const bool charge,
   // NOTE: enforce the hybrid mode (binning on the CPU)
   // when not using sorting on the device
   #if !defined(USE_CUDPP) && !defined(USE_HIP_DEVICE_SORT)
-  if (gpu_nbor==1) gpu_nbor=2;
+  if (gpu_nbor==1)
+    gpu_nbor=2;
   #endif
   // or when the device supports subgroups
   #ifndef LAL_USE_OLD_NEIGHBOR
-  if (gpu_nbor==1) gpu_nbor=2;
+  if (gpu_nbor==1)
+    gpu_nbor=2;
   #endif
 
   if (_init_count==0) {
@@ -596,18 +616,27 @@ int DeviceT::init_nbor(Neighbor *nbor, const int nlocal,
   if (_particle_split<1.0 && _particle_split>0.0)
     ef_nlocal=static_cast<int>(_particle_split*nlocal);
 
+  // NOTE: enforce the hybrid mode (binning on the CPU)
+  // when not using sorting on the device
   int gpu_nbor=0;
   if (_gpu_mode==Device<numtyp,acctyp>::GPU_NEIGH)
     gpu_nbor=1;
   else if (_gpu_mode==Device<numtyp,acctyp>::GPU_HYB_NEIGH)
     gpu_nbor=2;
   #if !defined(USE_CUDPP) && !defined(USE_HIP_DEVICE_SORT)
-  if (gpu_nbor==1)
+  if (gpu_nbor==1) {
     gpu_nbor=2;
+    _gpu_mode=Device<numtyp,acctyp>::GPU_HYB_NEIGH;
+  }
   #endif
   #ifndef LAL_USE_OLD_NEIGHBOR
   if (gpu_nbor==1)
     gpu_nbor=2;
+  #endif
+
+  #ifdef USE_OPENCL
+  if (_ocl_config_name == "AMD_GPU" && gpu->shared_memory(_first_device) && gpu_nbor > 0)
+    return -17;
   #endif
 
   if (!nbor->init(&_neighbor_shared,ef_nlocal,host_nlocal,max_nbors,maxspecial,
@@ -859,6 +888,7 @@ void DeviceT::output_times(UCL_Timer &time_pair, Answer<numtyp,acctyp> &ans,
   single[7]=ans.cpu_idle_time();
   single[8]=nbor.bin_time();
 
+  // we cannot use MPI calls after MPI is already finalized which may happen on errors.
   MPI_Finalized(&post_final);
   if (post_final) return;
 
@@ -913,14 +943,20 @@ void DeviceT::output_times(UCL_Timer &time_pair, Answer<numtyp,acctyp> &ans,
       fprintf(screen,"Neigh block:     %d.\n",_block_nbor_build);
       if (nbor.gpu_nbor()==2) {
         fprintf(screen,"Neigh mode:      Hybrid (binning on host)");
-        if (_use_old_nbor_build == 1) fprintf(screen," - legacy\n");
-        else  fprintf(screen," with subgroup support\n");
+        if (_use_old_nbor_build == 1) fprintf(screen," - legacy.\n");
+        else fprintf(screen," with subgroup support.\n");
+        if (_use_device_sort == 0)
+          fprintf(screen,"Neigh sorting:   Unavailable or disabled.\n");
       } else if (nbor.gpu_nbor()==1) {
         fprintf(screen,"Neigh mode:      Device");
-        if (_use_old_nbor_build == 1) fprintf(screen," - legacy\n");
-        else  fprintf(screen," - with subgroup support\n");
+        if (_use_old_nbor_build == 1) fprintf(screen," - legacy.\n");
+        else fprintf(screen," - with subgroup support.\n");
+        if (_use_device_sort == 1)
+          fprintf(screen,"Neigh sorting:   Enabled.\n");
+        else
+          fprintf(screen,"Neigh sorting:   Unavailable or disabled.\n");
       } else if (nbor.gpu_nbor()==0)
-        fprintf(screen,"Neigh mode:      Host\n");
+        fprintf(screen,"Neigh mode:      Host.\n");
 
       fprintf(screen,"-------------------------------------");
       fprintf(screen,"--------------------------------\n\n");
@@ -938,6 +974,7 @@ void DeviceT::output_kspace_times(UCL_Timer &time_in,
                                   const double cpu_time,
                                   const double idle_time, FILE *screen) {
   double single[9], times[9];
+  int post_final = 0;
 
   single[0]=time_out.total_seconds();
   single[1]=time_in.total_seconds()+atom.transfer_time()+atom.cast_time();
@@ -948,6 +985,10 @@ void DeviceT::output_kspace_times(UCL_Timer &time_in,
   single[6]=cpu_time;
   single[7]=idle_time;
   single[8]=ans.cast_time();
+
+  // we cannot use MPI calls after MPI is already finalized which may happen on errors.
+  MPI_Finalized(&post_final);
+  if (post_final) return;
 
   MPI_Reduce(single,times,9,MPI_DOUBLE,MPI_SUM,0,_comm_replica);
 
@@ -1018,9 +1059,17 @@ void DeviceT::clear_device() {
     delete dev_program;
     _compiled=false;
   }
-  if (_device_init) {
+  if (_device_init && !lal_defer_device_clear) {
     delete gpu;
     _device_init=false;
+  }
+  // the global Device instance is destroyed after MPI_Finalize(), so the
+  // per-device communicator can only be freed when torn down before that
+  if (_comm_gpu_allocated) {
+    int mpi_finalized;
+    MPI_Finalized(&mpi_finalized);
+    if (!mpi_finalized) MPI_Comm_free(&_comm_gpu);
+    _comm_gpu_allocated=false;
   }
 }
 
@@ -1154,6 +1203,29 @@ bool lmp_has_compatible_gpu_device()
   return compatible_gpu;
 }
 
+// check if a GPU requires neighbor lists on the host.
+bool lmp_gpu_requires_host_neighbor()
+{
+  UCL_Device gpu;
+
+#if defined(USE_OPENCL)
+  // AMD GPUs with shared (unified) host/device memory cannot reliably build
+  // neighbor lists on the device with the OpenCL API.
+  if (gpu.num_platforms() > 0) {
+    auto name = gpu.platform_name();
+    if ((name.find("AMD") != std::string::npos) && gpu.shared_memory(0)) return true;
+  }
+#elif defined(USE_HIP)
+  // Integrated AMD GPUs (APUs sharing host memory) cannot reliably build neighbor
+  // lists on the device with the HIP API either: device neighbor builds trigger a
+  // memory access fault (e.g. lj/cut/dipole/cut) or hit the ellipsoid/sphere-mix
+  // restriction (e.g. gayberne). Force host-side neighbor lists, matching OpenCL.
+  if (gpu.num_devices() > 0 && gpu.integrated(0)) return true;
+#endif
+
+  return false;
+}
+
 std::string lmp_gpu_device_info()
 {
   std::ostringstream out;
@@ -1177,6 +1249,12 @@ int lmp_init_device(MPI_Comm world, MPI_Comm replica, const int ngpu,
 
 void lmp_clear_device() {
   global_device.clear_device();
+}
+
+// defer (flag != 0) or restore (flag == 0) the GPU device teardown.
+// see the comment on lal_defer_device_clear above. test-harness use only.
+void lmp_gpu_defer_device_clear(int flag) {
+  lal_defer_device_clear = (flag != 0);
 }
 
 double lmp_gpu_forces(double **f, double **tor, double *eatom, double **vatom,

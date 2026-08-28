@@ -44,7 +44,11 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-TAD::TAD(LAMMPS *lmp) : Command(lmp)
+TAD::TAD(LAMMPS *lmp) :
+    Command(lmp), min_style(nullptr), min_style_neb(nullptr), neb(nullptr), fix_neb(nullptr),
+    compute_event(nullptr), fix_event(nullptr), fix_revert(nullptr), fix_event_list(nullptr),
+    neb_logfilename(nullptr), uscreen_neb(nullptr), ulogfile_neb(nullptr), uscreen_lammps(nullptr),
+    ulogfile_lammps(nullptr), finish(nullptr)
 {
   deltconf = deltstop = deltfirst = 0.0;
 }
@@ -54,7 +58,7 @@ TAD::TAD(LAMMPS *lmp) : Command(lmp)
 TAD::~TAD()
 {
   memory->sfree(fix_event_list);
-  if (neb_logfilename != nullptr) delete[] neb_logfilename;
+  delete[] neb_logfilename;
   delete[] min_style;
   delete[] min_style_neb;
 }
@@ -74,7 +78,7 @@ void TAD::command(int narg, char **arg)
   // error checks
 
   if (domain->box_exist == 0)
-    error->all(FLERR,"Tad command before simulation box is defined");
+    error->all(FLERR,"Tad command before simulation box is defined" + utils::errorurl(33));
   if (universe->nworlds == 1)
     error->all(FLERR,"Cannot use TAD with a single replica for NEB");
   if (universe->nworlds != universe->nprocs)
@@ -144,9 +148,8 @@ void TAD::command(int narg, char **arg)
   // assign FixEventTAD to event-detection compute
   // necessary so it will know atom coords at last event
 
-  int icompute = modify->find_compute(id_compute);
-  if (icompute < 0) error->all(FLERR,"Could not find compute ID for TAD");
-  compute_event = modify->compute[icompute];
+  compute_event = modify->get_compute_by_id(id_compute);
+  if (!compute_event) error->all(FLERR,"Could not find compute ID for TAD");
   compute_event->reset_extra_compute_fix("tad_event");
 
   // reset reneighboring criteria since will perform minimizations
@@ -366,8 +369,8 @@ void TAD::command(int narg, char **arg)
   if (me_universe == 0) {
     auto mesg = fmt::format("Loop time of {} on {} procs for {} steps with {} atoms\n",
                             timer->get_wall(Timer::TOTAL), nprocs_universe, nsteps,atom->natoms);
-    if (universe->uscreen) fmt::print(universe->uscreen, mesg);
-    if (universe->ulogfile) fmt::print(universe->ulogfile, mesg);
+    if (universe->uscreen) utils::print(universe->uscreen, mesg);
+    if (universe->ulogfile) utils::print(universe->ulogfile, mesg);
   }
 
   if ((me_universe == 0) && ulogfile_neb) fclose(ulogfile_neb);
@@ -470,8 +473,8 @@ void TAD::quench()
 
   update->ntimestep = ntimestep_hold;
   update->endstep = update->laststep = endstep_hold;
-  for (int i = 0; i < modify->ncompute; i++)
-    if (modify->compute[i]->timeflag) modify->compute[i]->clearstep();
+  for (const auto &icompute : modify->get_compute_list())
+    if (icompute->timeflag) icompute->clearstep();
 }
 
 /* ----------------------------------------------------------------------
@@ -504,8 +507,8 @@ void TAD::log_event(int ievent)
                             fix_event->event_number, ievent, "E ", fix_event->ebarrier,
                             tfrac, fix_event->tlo, deltfirst);
 
-    if (universe->uscreen) fmt::print(universe->uscreen, mesg);
-    if (universe->ulogfile) fmt::print(universe->ulogfile, mesg);
+    if (universe->uscreen) utils::print(universe->uscreen, mesg);
+    if (universe->ulogfile) utils::print(universe->ulogfile, mesg);
   }
 
   // dump snapshot of quenched coords
@@ -872,7 +875,7 @@ void TAD::compute_tlo(int ievent)
 
   // update first event
 
-  auto  statstr = (char *) "D ";
+  auto *  statstr = (char *) "D ";
 
   if (ievent == 0) {
     deltfirst = deltlo;
@@ -895,8 +898,8 @@ void TAD::compute_tlo(int ievent)
                             fix_event->event_number, ievent, statstr, ebarrier, tfrac,
                             fix_event->tlo, deltlo);
 
-    if (universe->uscreen) fmt::print(universe->uscreen, mesg);
-    if (universe->ulogfile) fmt::print(universe->ulogfile, mesg);
+    if (universe->uscreen) utils::print(universe->uscreen, mesg);
+    if (universe->ulogfile) utils::print(universe->ulogfile, mesg);
   }
 }
 

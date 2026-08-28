@@ -33,7 +33,9 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairThole::PairThole(LAMMPS *lmp) : Pair(lmp) {
+PairThole::PairThole(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), scale(nullptr), polar(nullptr), thole(nullptr), ascreen(nullptr)
+{
     fix_drude = nullptr;
 }
 
@@ -216,7 +218,7 @@ void PairThole::settings(int narg, char **arg)
 void PairThole::coeff(int narg, char **arg)
 {
   if (narg < 3 || narg > 5)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -242,7 +244,7 @@ void PairThole::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 
@@ -254,11 +256,9 @@ void PairThole::init_style()
 {
   if (!atom->q_flag)
     error->all(FLERR,"Pair style thole requires atom attribute q");
-  int ifix;
-  for (ifix = 0; ifix < modify->nfix; ifix++)
-    if (strcmp(modify->fix[ifix]->style,"drude") == 0) break;
-  if (ifix == modify->nfix) error->all(FLERR, "Pair thole requires fix drude");
-  fix_drude = dynamic_cast<FixDrude *>(modify->fix[ifix]);
+  auto drude_fixes = modify->get_fix_by_style("^drude$");
+  if (drude_fixes.empty()) error->all(FLERR, "Pair thole requires fix drude");
+  fix_drude = dynamic_cast<FixDrude *>(drude_fixes.front());
 
   neighbor->add_request(this);
 }

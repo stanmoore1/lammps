@@ -24,10 +24,11 @@ Syntax
 
   .. parsed-literal::
 
-     keyword = *dual* or *maxiter* or *nowarn*
+     keyword = *dual* or *maxiter* or *nowarn* or *matfree*
        *dual* = process S and T matrix in parallel (only for qeq/reaxff/omp)
        *maxiter* N = limit the number of iterations to *N*
        *nowarn* = do not print a warning message if the maximum number of iterations was reached
+       *matfree* = use a matrix-free approach for applying the H matrix (only for qeq/reaxff/kk)
 
 Examples
 """"""""
@@ -59,7 +60,7 @@ extracted from the :doc:`pair_style reaxff <pair_reaxff>` command and
 the ReaxFF force field file it reads in.  If a file name is specified
 for *params*, then the parameters are taken from the specified file
 and the file must contain one line for each atom type.  The latter
-form must be used when performing QeQ with a non-ReaxFF potential.
+form must be used when performing QEq with a non-ReaxFF potential.
 Each line should be formatted as follows:
 
 .. parsed-literal::
@@ -89,6 +90,14 @@ useful for comparing serial and parallel results where having the
 same fixed number of QEq iterations is desired, which can be achieved
 by using a very small tolerance and setting *maxiter* to the desired
 number of iterations.
+
+The optional *matfree* keyword replaces the sequence of
+explicitly constructing the H matrix, then (repeatedly) applying it
+with a matrix-free approach where the H matrix is effectively
+regenerated each time it is applied. This trades performance for
+reduced memory requirements because it avoids the overheads of
+storing the matrix. This is only supported for the *qeq/reaxff/kk*
+style, with both full and half qeq neighbor lists supported.
 
 .. note::
 
@@ -124,7 +133,8 @@ LAMMPS was built with that package. See the :doc:`Build package
 
 This fix does not correctly handle interactions involving multiple
 periodic images of the same atom.  Hence, it should not be used for
-periodic cell dimensions less than 10 Angstroms.
+periodic cell dimensions smaller than the non-bonded cutoff radius,
+which is typically :math:`10~\AA` for ReaxFF simulations.
 
 This fix may be used in combination with :doc:`fix efield <fix_efield>`
 and will apply the external electric field during charge equilibration,
@@ -138,7 +148,9 @@ as an atom-style variable using the *potential* keyword for `fix efield`.
 Related commands
 """"""""""""""""
 
-:doc:`pair_style reaxff <pair_reaxff>`, :doc:`fix qeq/shielded <fix_qeq>`
+:doc:`pair_style reaxff <pair_reaxff>`, :doc:`fix qeq/shielded <fix_qeq>`,
+:doc:`fix acks2/reaxff <fix_acks2_reaxff>`, :doc:`fix qtpie/reaxff <fix_qtpie_reaxff>`,
+:doc:`fix qeq/rel/reaxff <fix_qeq_rel_reaxff>`
 
 Default
 """""""

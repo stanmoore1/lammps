@@ -17,21 +17,21 @@
 #include "error.h"
 #include "input.h"
 #include "update.h"
+#include "math_extra.h"
 #include "variable.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
 using namespace LAMMPS_NS;
 
-static constexpr double BIG = 1.0e20;
-
-enum { CONSTANT, VARIABLE };
+static constexpr double BIG = 1.0e200;
 
 /* ---------------------------------------------------------------------- */
 
 RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
-    Region(lmp, narg, arg), c1str(nullptr), c2str(nullptr), rstr(nullptr)
+  Region(lmp, narg, arg), c1str(nullptr), c2str(nullptr), rstr(nullptr)
 {
   c1style = c2style = CONSTANT;
   options(narg - 8, &arg[8]);
@@ -56,6 +56,7 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
       c1 = yscale * utils::numeric(FLERR, arg[3], false, lmp);
       c1style = CONSTANT;
     }
+
     if (utils::strmatch(arg[4], "^v_")) {
       c2str = utils::strdup(arg[4] + 2);
       c2 = 0.0;
@@ -65,7 +66,9 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
       c2 = zscale * utils::numeric(FLERR, arg[4], false, lmp);
       c2style = CONSTANT;
     }
+
   } else if (axis == 'y') {
+
     if (utils::strmatch(arg[3], "^v_")) {
       c1str = utils::strdup(arg[3] + 2);
       c1 = 0.0;
@@ -75,6 +78,7 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
       c1 = xscale * utils::numeric(FLERR, arg[3], false, lmp);
       c1style = CONSTANT;
     }
+
     if (utils::strmatch(arg[4], "^v_")) {
       c2str = utils::strdup(arg[4] + 2);
       c2 = 0.0;
@@ -85,6 +89,7 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
       c2style = CONSTANT;
     }
   } else if (axis == 'z') {
+
     if (utils::strmatch(arg[3], "^v_")) {
       c1str = utils::strdup(arg[3] + 2);
       c1 = 0.0;
@@ -94,6 +99,7 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
       c1 = xscale * utils::numeric(FLERR, arg[3], false, lmp);
       c1style = CONSTANT;
     }
+
     if (utils::strmatch(arg[4], "^v_")) {
       c2str = utils::strdup(arg[4] + 2);
       c2 = 0.0;
@@ -199,42 +205,42 @@ RegCylinder::RegCylinder(LAMMPS *lmp, int narg, char **arg) :
 
   if (interior) {
     bboxflag = 1;
-    if (axis == 'x') {
-      extent_xlo = lo;
-      extent_xhi = hi;
-      extent_ylo = c1 - radius;
-      extent_yhi = c1 + radius;
-      extent_zlo = c2 - radius;
-      extent_zhi = c2 + radius;
+    if (dynamic || varshape) {
+      RegCylinder::bbox_update();
+    } else {
+      if (axis == 'x') {
+        extent_xlo = lo;
+        extent_xhi = hi;
+        extent_ylo = c1 - radius;
+        extent_yhi = c1 + radius;
+        extent_zlo = c2 - radius;
+        extent_zhi = c2 + radius;
+      }
+      if (axis == 'y') {
+        extent_xlo = c1 - radius;
+        extent_xhi = c1 + radius;
+        extent_ylo = lo;
+        extent_yhi = hi;
+        extent_zlo = c2 - radius;
+        extent_zhi = c2 + radius;
+      }
+      if (axis == 'z') {
+        extent_xlo = c1 - radius;
+        extent_xhi = c1 + radius;
+        extent_ylo = c2 - radius;
+        extent_yhi = c2 + radius;
+        extent_zlo = lo;
+        extent_zhi = hi;
+      }
     }
-    if (axis == 'y') {
-      extent_xlo = c1 - radius;
-      extent_xhi = c1 + radius;
-      extent_ylo = lo;
-      extent_yhi = hi;
-      extent_zlo = c2 - radius;
-      extent_zhi = c2 + radius;
-    }
-    if (axis == 'z') {
-      extent_xlo = c1 - radius;
-      extent_xhi = c1 + radius;
-      extent_ylo = c2 - radius;
-      extent_yhi = c2 + radius;
-      extent_zlo = lo;
-      extent_zhi = hi;
-    }
-  } else
-    bboxflag = 0;
+  }
 
   // particle could be close to cylinder surface and 2 ends
   // particle can only touch surface and 1 end
 
   cmax = 3;
   contact = new Contact[cmax];
-  if (interior)
-    tmax = 2;
-  else
-    tmax = 1;
+  tmax = (interior ? 2 : 1);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -453,6 +459,10 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
   double xp, yp, zp;
   double dx, dr, dr2, d2, d2prev;
 
+  // with all three faces open there is no surface left to contact
+
+  if (open_faces[0] && open_faces[1] && open_faces[2]) return 0;
+
   // radius of curvature for granular
   // 0 for flat surfaces (infinite case), 2*radius for curved portion
 
@@ -513,6 +523,10 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           xp = x[0];
         }
         d2 = d2prev = dr2 + dx * dx;
+        if (r > radius) {
+          crad = 2.0 * radius;
+          varflag = 1;
+        }
       }
 
       // closest point on bottom cap
@@ -528,6 +542,9 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           if (r < radius) {
             yp = x[1];
             zp = x[2];
+          } else {
+            yp = c1 + del1 * radius / r;
+            zp = c2 + del2 * radius / r;
           }
           d2prev = d2;
         }
@@ -546,6 +563,9 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           if (r < radius) {
             yp = x[1];
             zp = x[2];
+          } else {
+            yp = c1 + del1 * radius / r;
+            zp = c2 + del2 * radius / r;
           }
         }
       }
@@ -612,6 +632,10 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           yp = x[1];
         }
         d2 = d2prev = dr2 + dx * dx;
+        if (r > radius) {
+          crad = 2.0 * radius;
+          varflag = 1;
+        }
       }
 
       // closest point on bottom cap
@@ -627,6 +651,9 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           if (r < radius) {
             xp = x[0];
             zp = x[2];
+          } else {
+            xp = c1 + del1 * radius / r;
+            zp = c2 + del2 * radius / r;
           }
           d2prev = d2;
         }
@@ -645,6 +672,9 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           if (r < radius) {
             xp = x[0];
             zp = x[2];
+          } else {
+            xp = c1 + del1 * radius / r;
+            zp = c2 + del2 * radius / r;
           }
         }
       }
@@ -711,6 +741,10 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           zp = x[2];
         }
         d2prev = dr2 + dx * dx;
+        if (r > radius) {
+          crad = 2.0 * radius;
+          varflag = 1;
+        }
       }
 
       // closest point on bottom cap
@@ -726,6 +760,9 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           if (r < radius) {
             xp = x[0];
             yp = x[1];
+          } else {
+            xp = c1 + del1 * radius / r;
+            yp = c2 + del2 * radius / r;
           }
           d2prev = d2;
         }
@@ -744,6 +781,9 @@ int RegCylinder::surface_exterior(double *x, double cutoff)
           if (r < radius) {
             xp = x[0];
             yp = x[1];
+          } else {
+            xp = c1 + del1 * radius / r;
+            yp = c2 + del2 * radius / r;
           }
         }
       }
@@ -783,6 +823,104 @@ void RegCylinder::shape_update()
     if (c1style == VARIABLE) c1 *= xscale;
     if (c2style == VARIABLE) c2 *= yscale;
     if (rstyle == VARIABLE) radius *= xscale;
+  }
+}
+
+/* update the boundary information */
+
+void RegCylinder::bbox_update()
+{
+  if (varshape || dynamic) {
+    double corners[2][4][3], pos[3];
+    double xmin, xmax, ymin, ymax, zmin, zmax;
+
+    // define bounding box corners in region internal positions
+
+    if (axis == 'x') {
+      xmin = lo;
+      xmax = hi;
+      ymin = c1 - radius;
+      ymax = c1 + radius;
+      zmin = c2 - radius;
+      zmax = c2 + radius;
+    } else if (axis == 'y') {
+      xmin = c1 - radius;
+      xmax = c1 + radius;
+      ymin = lo;
+      ymax = hi;
+      zmin = c2 - radius;
+      zmax = c2 + radius;
+    } else { // (axis == 'z')
+      xmin = c1 - radius;
+      xmax = c1 + radius;
+      ymin = c2 - radius;
+      ymax = c2 + radius;
+      zmin = lo;
+      zmax = hi;
+    }
+
+    // face[0]
+
+    corners[0][0][0] = xmin;
+    corners[0][0][1] = ymin;
+    corners[0][0][2] = zmin;
+    corners[0][1][0] = xmin;
+    corners[0][1][1] = ymin;
+    corners[0][1][2] = zmax;
+    corners[0][2][0] = xmin;
+    corners[0][2][1] = ymax;
+    corners[0][2][2] = zmax;
+    corners[0][3][0] = xmin;
+    corners[0][3][1] = ymax;
+    corners[0][3][2] = zmin;
+
+    // face[1]
+
+    corners[1][0][0] = xmax;
+    corners[1][0][1] = ymin;
+    corners[1][0][2] = zmin;
+    corners[1][1][0] = xmax;
+    corners[1][1][1] = ymin;
+    corners[1][1][2] = zmax;
+    corners[1][2][0] = xmax;
+    corners[1][2][1] = ymax;
+    corners[1][2][2] = zmax;
+    corners[1][3][0] = xmax;
+    corners[1][3][1] = ymax;
+    corners[1][3][2] = zmin;
+
+    // the corners of face[0] and face[1] cover the full extent of the region
+    // transform and get min/max in x-, y-, and z-direction for each corner
+
+    xmin = ymin = zmin = BIG;
+    xmax = ymax = zmax = -BIG;
+
+    for (int i = 0; i < 4; ++i) {
+      MathExtra::copy3(corners[0][i], pos);
+      forward_transform(pos[0], pos[1], pos[2]);
+      xmin = std::min(xmin, pos[0]);
+      xmax = std::max(xmax, pos[0]);
+      ymin = std::min(ymin, pos[1]);
+      ymax = std::max(ymax, pos[1]);
+      zmin = std::min(zmin, pos[2]);
+      zmax = std::max(zmax, pos[2]);
+
+      MathExtra::copy3(corners[1][i], pos);
+      forward_transform(pos[0], pos[1], pos[2]);
+      xmin = std::min(xmin, pos[0]);
+      xmax = std::max(xmax, pos[0]);
+      ymin = std::min(ymin, pos[1]);
+      ymax = std::max(ymax, pos[1]);
+      zmin = std::min(zmin, pos[2]);
+      zmax = std::max(zmax, pos[2]);
+    }
+
+    extent_xlo = xmin;
+    extent_xhi = xmax;
+    extent_ylo = ymin;
+    extent_yhi = ymax;
+    extent_zlo = zmin;
+    extent_zhi = zmax;
   }
 }
 

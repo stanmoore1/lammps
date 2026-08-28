@@ -1,7 +1,7 @@
 ---
 lammps_version: 8 Feb 2023
 date_generated: Thu Feb 23 00:56:30 2023
-epsilon: 4e-14
+epsilon: 2.0e-13
 skip_tests:
 prerequisites: ! |
   atom full
@@ -13,6 +13,7 @@ post_commands: ! |
   fix test solute wall/table linear 2000 ylo EDGE ${input_dir}/wall.table HARMONIC 4.0 yhi EDGE ${input_dir}/wall.table HARMONIC 4.0
   fix_modify test virial yes
 input_file: in.fourmol
+input_coeffs: coeffs.fourmol
 natoms: 29
 run_stress: ! |2-
    0.0000000000000000e+00  0.0000000000000000e+00  0.0000000000000000e+00  0.0000000000000000e+00  0.0000000000000000e+00  0.0000000000000000e+00

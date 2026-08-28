@@ -30,9 +30,9 @@ class MSMDielectric : public MSM {
   ~MSMDielectric() override;
   void init() override;
   void compute(int, int) override;
+  double memory_usage() override;
 
   double **efield;
-  double *phi;
 
  protected:
   void fieldforce() override;

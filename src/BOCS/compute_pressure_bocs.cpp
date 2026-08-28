@@ -27,6 +27,7 @@
 #include "force.h"
 #include "improper.h"
 #include "kspace.h"
+#include "math_special.h"
 #include "modify.h"
 #include "pair.h"
 #include "update.h"
@@ -35,15 +36,15 @@
 #include <cstring>
 
 using namespace LAMMPS_NS;
+using MathSpecial::powint;
 
 /* ---------------------------------------------------------------------- */
 
 ComputePressureBocs::ComputePressureBocs(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg),
-  vptr(nullptr), id_temp(nullptr)
+    Compute(lmp, narg, arg), vptr(nullptr), kspace_virial(nullptr), id_temp(nullptr)
 {
   if (narg < 4) utils::missing_cmd_args(FLERR,"compute pressure/bocs", error);
-  if (igroup) error->all(FLERR,"Compute pressure/bocs must use group all");
+  if (igroup) error->all(FLERR, 1, "Compute pressure/bocs must use group all");
 
   scalar_flag = vector_flag = 1;
   size_vector = 6;
@@ -55,6 +56,13 @@ ComputePressureBocs::ComputePressureBocs(LAMMPS *lmp, int narg, char **arg) :
   p_match_flag = 0;
   phi_coeff = nullptr;
 
+  // no pressure correction is applied until fix bocs provides one via send_cg_info()
+
+  p_basis_type = -1;
+  N_basis = 0;
+  N_mol = 0;
+  vavg = 0.0;
+
   // store temperature ID used by pressure computation
   // ensure it is valid for temperature computation
 
@@ -64,9 +72,9 @@ ComputePressureBocs::ComputePressureBocs(LAMMPS *lmp, int narg, char **arg) :
 
     temperature = modify->get_compute_by_id(id_temp);
     if (!temperature)
-      error->all(FLERR,"Could not find compute pressure/bocs temperature compute {}", id_temp);
+      error->all(FLERR, 3, "Could not find compute pressure/bocs temperature compute {}", id_temp);
     if (temperature->tempflag == 0)
-      error->all(FLERR,"Compute pressure/bocs temperature compute {} does not compute "
+      error->all(FLERR, 3, "Compute pressure/bocs temperature compute {} does not compute "
                  "temperature", id_temp);
   }
 
@@ -104,24 +112,29 @@ ComputePressureBocs::ComputePressureBocs(LAMMPS *lmp, int narg, char **arg) :
   // error check
 
   if (keflag && id_temp == nullptr)
-    error->all(FLERR,"Compute pressure/bocs requires temperature ID "
-               "to include kinetic energy");
+    error->all(FLERR, 3,
+               "Compute pressure/bocs requires temperature ID to include kinetic energy");
 
   vector = new double[size_vector];
+  dimension = domain->dimension;
+  boltz = force->boltz;
+  nktv2p = force->nktv2p;
+  inv_volume = 0.0;
   nvirial = 0;
   vptr = nullptr;
 
   splines = nullptr;
   spline_length = 0;
+  temperature = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
 
 ComputePressureBocs::~ComputePressureBocs()
 {
-  delete [] id_temp;
-  delete [] vector;
-  delete [] vptr;
+  delete[] id_temp;
+  delete[] vector;
+  delete[] vptr;
   if (phi_coeff) free(phi_coeff);
 }
 
@@ -139,7 +152,8 @@ void ComputePressureBocs::init()
   if (keflag) {
     temperature = modify->get_compute_by_id(id_temp);
     if (!temperature)
-      error->all(FLERR,"Could not find compute pressure/bocs temperature compute {}", id_temp);
+      error->all(FLERR, Error::NOLASTLINE,
+                 "Could not find compute pressure/bocs temperature compute {}", id_temp);
   }
 
   // detect contributions to virial
@@ -193,8 +207,7 @@ double ComputePressureBocs::get_cg_p_corr(int N_basis, double *phi_coeff,
 {
   double correction = 0.0;
   for (int i = 1; i <= N_basis; ++i)
-    correction -= phi_coeff[i-1] * ( N_mol * i / vavg ) *
-      pow( ( 1 / vavg ) * ( vCG - vavg ),i-1);
+    correction -= phi_coeff[i-1] * (N_mol * i / vavg) * powint((1 / vavg) * (vCG - vavg), i - 1);
   return correction;
 }
 
@@ -202,25 +215,20 @@ double ComputePressureBocs::get_cg_p_corr(int N_basis, double *phi_coeff,
    Find the relevant index position if using a spline basis set
 ------------------------------------------------------------------------- */
 
-double ComputePressureBocs::find_index(double * grid, double value)
+int ComputePressureBocs::find_index(double * grid, double value)
 {
   int i;
   double spacing = fabs(grid[1]-grid[0]);
   int gridsize = spline_length;
   for (i = 0; i < (gridsize-1); ++i)
   {
-    if (value >= grid[i] && value <= grid[i+1]) { return i; }
+    if (value >= grid[i] && value <= grid[i+1]) return i;
   }
 
-  if (value >= grid[i] && value <= (grid[i] + spacing)) { return i; }
+  if (value >= grid[i] && value <= (grid[i] + spacing)) return i;
 
-  error->all(FLERR,"find_index could not find value in grid for value: {}", value);
-  for (int i = 0; i < gridsize; ++i)
-  {
-    fprintf(stderr, "grid %d: %f\n",i,grid[i]);
-  }
-
-  exit(1);
+  error->all(FLERR, Error::NOLASTLINE,
+             "find_index could not find index in grid for value: {}", value);
 }
 
 /* ----------------------------------------------------------------------
@@ -234,10 +242,10 @@ double ComputePressureBocs::get_cg_p_corr(double ** grid, int basis_type,
   double deltax = vCG - grid[0][i];
 
   if (basis_type == BASIS_LINEAR_SPLINE)
-    return grid[1][i] + (deltax) * ( grid[1][i+1] - grid[1][i] ) / ( grid[0][i+1] - grid[0][i] );
+    return grid[1][i] + deltax * (grid[1][i+1] - grid[1][i]) / (grid[0][i+1] - grid[0][i]);
   else if (basis_type == BASIS_CUBIC_SPLINE)
-    return grid[1][i] + (grid[2][i] * deltax) + (grid[3][i] * pow(deltax,2)) + (grid[4][i] * pow(deltax,3));
-  else error->all(FLERR,"bad spline type passed to get_cg_p_corr()\n");
+    return grid[1][i] + (grid[2][i] * deltax) + (grid[3][i] * powint(deltax,2)) + (grid[4][i] * powint(deltax,3));
+  else error->all(FLERR, Error::NOLASTLINE, "bad spline type passed to get_cg_p_corr()");
   return 0.0;
 }
 
@@ -251,7 +259,7 @@ void ComputePressureBocs::send_cg_info(int basis_type, int sent_N_basis,
                                        double sent_vavg)
 {
   if (basis_type == BASIS_ANALYTIC) p_basis_type = BASIS_ANALYTIC;
-  else error->all(FLERR,"Incorrect basis type passed to ComputePressureBocs\n");
+  else error->all(FLERR, Error::NOLASTLINE, "Incorrect basis type passed to ComputePressureBocs");
 
   p_match_flag = 1;
 
@@ -276,7 +284,7 @@ void ComputePressureBocs::send_cg_info(int basis_type,
   else if (basis_type == BASIS_CUBIC_SPLINE) { p_basis_type = BASIS_CUBIC_SPLINE; }
   else
   {
-    error->all(FLERR,"Incorrect basis type passed to ComputePressureBocs\n");
+    error->all(FLERR, Error::NOLASTLINE, "Incorrect basis type passed to ComputePressureBocs");
   }
   splines = in_splines;
   spline_length = gridsize;
@@ -293,7 +301,7 @@ double ComputePressureBocs::compute_scalar()
 {
   invoked_scalar = update->ntimestep;
   if (update->vflag_global != invoked_scalar)
-    error->all(FLERR,"Virial was not tallied on needed timestep");
+    error->all(FLERR, Error::NOLASTLINE, "Virial was not tallied on needed timestep{}", utils::errorurl(22));
 
   // invoke temperature if it hasn't been already
 
@@ -310,12 +318,9 @@ double ComputePressureBocs::compute_scalar()
     volume = (domain->xprd * domain->yprd * domain->zprd);
 
     /* MRD NJD if block */
-    if (p_basis_type == BASIS_ANALYTIC)
-    {
+    if (p_basis_type == BASIS_ANALYTIC) {
       correction = get_cg_p_corr(N_basis,phi_coeff,N_mol,vavg,volume);
-    }
-    else if (p_basis_type == BASIS_LINEAR_SPLINE || p_basis_type == BASIS_CUBIC_SPLINE)
-    {
+    } else if (p_basis_type == BASIS_LINEAR_SPLINE || p_basis_type == BASIS_CUBIC_SPLINE) {
       correction = get_cg_p_corr(splines, p_basis_type, volume);
     }
 
@@ -323,14 +328,13 @@ double ComputePressureBocs::compute_scalar()
     if (keflag)
       scalar = (temperature->dof * boltz * t +
                 virial[0] + virial[1] + virial[2]) / 3.0 *
-                inv_volume * nktv2p + (correction);
+                inv_volume * nktv2p + correction;
     else
       scalar = (virial[0] + virial[1] + virial[2]) / 3.0 *
-               inv_volume * nktv2p + (correction);
+               inv_volume * nktv2p + correction;
   } else {
-    if (p_match_flag)
-    {
-      error->all(FLERR,"Pressure matching not implemented in 2-d.\n");
+    if (p_match_flag) {
+      error->all(FLERR, Error::NOLASTLINE, "Pressure matching not implemented in 2-d.");
       exit(1);
     } // The rest of this can probably be deleted.
     inv_volume = 1.0 / (domain->xprd * domain->yprd);
@@ -354,10 +358,10 @@ void ComputePressureBocs::compute_vector()
 {
   invoked_vector = update->ntimestep;
   if (update->vflag_global != invoked_vector)
-    error->all(FLERR,"Virial was not tallied on needed timestep");
+    error->all(FLERR, Error::NOLASTLINE, "Virial was not tallied on needed timestep{}", utils::errorurl(22));
 
   if (force->kspace && kspace_virial && force->kspace->scalar_pressure_flag)
-    error->all(FLERR,"Must use 'kspace_modify pressure/scalar no' for "
+    error->all(FLERR, Error::NOLASTLINE, "Must use 'kspace_modify pressure/scalar no' for "
                "tensor components with kspace_style msm");
 
   // invoke temperature if it hasn't been already

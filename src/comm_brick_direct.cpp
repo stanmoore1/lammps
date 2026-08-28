@@ -151,9 +151,8 @@ void CommBrickDirect::init()
 
   // disallow options not supported by CommBrickDirect
 
-  if (mode == Comm::MULTI || mode == Comm::MULTIOLD)
-    error->all(FLERR,
-               "Comm brick/direct does not yet support multi or multi/old");
+  if (mode == Comm::MULTI)
+    error->all(FLERR,"Comm brick/direct does not yet support comm_modify mode multi");
 
   if (bordergroup)
     error->all(FLERR,
@@ -939,12 +938,14 @@ void CommBrickDirect::borders()
    SOLUTION: add isize arg like forward_comm() for fixes
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::forward_comm(Pair *pair)
+void CommBrickDirect::forward_comm(Pair *pair, int size)
 {
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = pair->comm_forward;
+  int nsize;
+  if (size) nsize = size;
+  else nsize = pair->comm_forward;
 
   // post all receives for ghost atoms
   // except for self copies
@@ -999,7 +1000,7 @@ void CommBrickDirect::forward_comm(Pair *pair)
    nsize used to set recv buffer offsets and limits
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::reverse_comm(Pair *pair)
+void CommBrickDirect::reverse_comm(Pair *pair, int size)
 {
   int n,iswap,irecv;
   double *buf;
@@ -1057,7 +1058,7 @@ void CommBrickDirect::reverse_comm(Pair *pair)
    nsize used only to set recv buffer limit
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::forward_comm(Bond *bond)
+void CommBrickDirect::forward_comm(Bond * /*bond*/, int /*size*/)
 {
   error->all(FLERR,"Comm_style brick/direct forward_comm for "
              "bond styles has not yet been implemented");
@@ -1068,7 +1069,7 @@ void CommBrickDirect::forward_comm(Bond *bond)
    nsize used only to set recv buffer limit
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::reverse_comm(Bond *bond)
+void CommBrickDirect::reverse_comm(Bond * /*bond*/, int /*size*/)
 {
   error->all(FLERR,"Comm_style brick/direct reverse_comm for "
              "bond styles has not yet been implemented");
@@ -1221,12 +1222,14 @@ void CommBrickDirect::reverse_comm_variable(Fix *fix)
    nsize used only to set recv buffer offsets and limits
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::forward_comm(Compute *compute)
+void CommBrickDirect::forward_comm(Compute *compute, int size)
 {
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = compute->comm_forward;
+  int nsize;
+  if (size) nsize = size;
+  else nsize = compute->comm_forward;
 
   // post all receives for ghost atoms
   // except for self copies
@@ -1281,12 +1284,14 @@ void CommBrickDirect::forward_comm(Compute *compute)
    nsize used only to set recv buffer offsets and limits
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::reverse_comm(Compute *compute)
+void CommBrickDirect::reverse_comm(Compute *compute, int size)
 {
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = compute->comm_reverse;
+  int nsize;
+  if (size) nsize = size;
+  else nsize = compute->comm_reverse;
 
   // post all receives for owned atoms
   // except for self copy/sums
@@ -1339,12 +1344,14 @@ void CommBrickDirect::reverse_comm(Compute *compute)
    nsize used only to set recv buffer offsets and limits
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::forward_comm(Dump *dump)
+void CommBrickDirect::forward_comm(Dump *dump, int size)
 {
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = dump->comm_forward;
+  int nsize;
+  if (size) nsize = size;
+  else nsize = dump->comm_forward;
 
   // post all receives for ghost atoms
   // except for self copies
@@ -1399,12 +1406,14 @@ void CommBrickDirect::forward_comm(Dump *dump)
    nsize used only to set recv buffer offsets and limits
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::reverse_comm(Dump *dump)
+void CommBrickDirect::reverse_comm(Dump *dump, int size)
 {
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = dump->comm_reverse;
+  int nsize;
+  if (size) nsize = size;
+  else nsize = dump->comm_reverse;
 
   // post all receives for owned atoms
   // except for self copy/sums

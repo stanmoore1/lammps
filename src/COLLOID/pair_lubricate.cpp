@@ -43,7 +43,8 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairLubricate::PairLubricate(LAMMPS *lmp) : Pair(lmp)
+PairLubricate::PairLubricate(LAMMPS *lmp) :
+    Pair(lmp), wallfix(nullptr), cut_inner(nullptr), cut(nullptr)
 {
   single_enable = 0;
 
@@ -493,7 +494,7 @@ void PairLubricate::settings(int narg, char **arg)
 void PairLubricate::coeff(int narg, char **arg)
 {
   if (narg != 2 && narg != 4)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 
   if (!allocated) allocate();
 
@@ -518,7 +519,7 @@ void PairLubricate::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -560,7 +561,7 @@ void PairLubricate::init_style()
   shearing = flagdeform = flagwall = 0;
 
   auto fixes = modify->get_fix_by_style("^deform");
-  if (fixes.size() > 0) {
+  if (!fixes.empty()) {
     shearing = flagdeform = 1;
     auto *myfix = dynamic_cast<FixDeform *>(fixes[0]);
     if (myfix && (myfix->remapflag != Domain::V_REMAP))

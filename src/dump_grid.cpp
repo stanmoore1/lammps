@@ -26,6 +26,7 @@
 #include "update.h"
 
 #include <cstring>
+#include <map>
 
 using namespace LAMMPS_NS;
 
@@ -131,7 +132,7 @@ DumpGrid::DumpGrid(LAMMPS *lmp, int narg, char **arg) :
   for (int iarg = 0; iarg < nfield; iarg++) {
     key2col[earg[iarg]] = iarg;
     keyword_user[iarg].clear();
-    if (cols.size()) cols += " ";
+    if (!cols.empty()) cols += " ";
     cols += earg[iarg];
   }
   columns_default = utils::strdup(cols);
@@ -189,8 +190,8 @@ void DumpGrid::init_style()
   std::string combined;
   int icol = 0;
   for (const auto &item : utils::split_words(columns_default)) {
-    if (combined.size()) combined += " ";
-    if (keyword_user[icol].size()) combined += keyword_user[icol];
+    if (!combined.empty()) combined += " ";
+    if (!keyword_user[icol].empty()) combined += keyword_user[icol];
     else combined += item;
     ++icol;
   }
@@ -431,19 +432,19 @@ void DumpGrid::header_item(bigint /*ndump*/)
 {
   if (unit_flag && !unit_count) {
     ++unit_count;
-    fmt::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
+    utils::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
   }
-  if (time_flag) fmt::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
+  if (time_flag) utils::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
 
-  fmt::print(fp,"ITEM: TIMESTEP\n{}\n",update->ntimestep);
-  fmt::print(fp,"ITEM: BOX BOUNDS {}\n"
+  utils::print(fp,"ITEM: TIMESTEP\n{}\n",update->ntimestep);
+  utils::print(fp,"ITEM: BOX BOUNDS {}\n"
              "{:>1.16e} {:>1.16e}\n"
              "{:>1.16e} {:>1.16e}\n"
              "{:>1.16e} {:>1.16e}\n",
              boundstr,boxxlo,boxxhi,boxylo,boxyhi,boxzlo,boxzhi);
-  fmt::print(fp,"ITEM: DIMENSION\n{}\n",domain->dimension);
-  fmt::print(fp,"ITEM: GRID SIZE nx ny nz\n{} {} {}\n",nxgrid,nygrid,nzgrid);
-  fmt::print(fp,"ITEM: GRID CELLS {}\n",columns);
+  utils::print(fp,"ITEM: DIMENSION\n{}\n",domain->dimension);
+  utils::print(fp,"ITEM: GRID SIZE nx ny nz\n{} {} {}\n",nxgrid,nygrid,nzgrid);
+  utils::print(fp,"ITEM: GRID CELLS {}\n",columns);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -452,19 +453,19 @@ void DumpGrid::header_item_triclinic(bigint /*ndump*/)
 {
   if (unit_flag && !unit_count) {
     ++unit_count;
-    fmt::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
+    utils::print(fp,"ITEM: UNITS\n{}\n",update->unit_style);
   }
-  if (time_flag) fmt::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
+  if (time_flag) utils::print(fp,"ITEM: TIME\n{:.16}\n",compute_time());
 
-  fmt::print(fp,"ITEM: TIMESTEP\n{}\n",update->ntimestep);
-  fmt::print(fp,"ITEM: BOX BOUNDS xy xz yz {}\n"
+  utils::print(fp,"ITEM: TIMESTEP\n{}\n",update->ntimestep);
+  utils::print(fp,"ITEM: BOX BOUNDS xy xz yz {}\n"
              "{:>1.16e} {:>1.16e} {:>1.16e}\n"
              "{:>1.16e} {:>1.16e} {:>1.16e}\n"
              "{:>1.16e} {:>1.16e} {:>1.16e}\n",
              boundstr,boxxlo,boxxhi,boxxy,boxylo,boxyhi,boxxz,boxzlo,boxzhi,boxyz);
-  fmt::print(fp,"ITEM: DIMENSION\n{}\n",domain->dimension);
-  fmt::print(fp,"ITEM: GRID SIZE nx ny nz\n{} {} {}\n",nxgrid,nygrid,nzgrid);
-  fmt::print(fp,"ITEM: GRID CELLS {}\n",columns);
+  utils::print(fp,"ITEM: DIMENSION\n{}\n",domain->dimension);
+  utils::print(fp,"ITEM: GRID SIZE nx ny nz\n{} {} {}\n",nxgrid,nygrid,nzgrid);
+  utils::print(fp,"ITEM: GRID CELLS {}\n",columns);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -669,11 +670,11 @@ int DumpGrid::parse_fields(int narg, char **arg)
     // grid reference is to a compute or fix
 
     if (iflag == ArgInfo::COMPUTE) {
-      auto icompute = lmp->modify->get_compute_by_id(id);
+      auto *icompute = lmp->modify->get_compute_by_id(id);
       field2index[iarg] = add_compute(id,icompute);
       field2source[iarg] = COMPUTE;
     } else if (iflag == ArgInfo::FIX) {
-      auto ifix = modify->get_fix_by_id(id);
+      auto *ifix = modify->get_fix_by_id(id);
       field2index[iarg] = add_fix(id,ifix);
       field2source[iarg] = FIX;
     }
@@ -768,19 +769,15 @@ int DumpGrid::modify_param(int narg, char **arg)
     if (strcmp(arg[1],"int") == 0) {
       delete[] format_int_user;
       format_int_user = utils::strdup(arg[2]);
-      delete[] format_bigint_user;
-      int n = strlen(format_int_user) + 8;
-      format_bigint_user = new char[n];
       // replace "d" in format_int_user with bigint format specifier
-      // use of &str[1] removes leading '%' from BIGINT_FORMAT string
-      char *ptr = strchr(format_int_user,'d');
-      if (ptr == nullptr)
+      // which is BIGINT_FORMAT without the leading '%'
+      std::string ifmt = format_int_user;
+      auto found = ifmt.find('d');
+      if (found == std::string::npos)
         error->all(FLERR,"Dump_modify int format does not contain d character");
-      char str[8];
-      snprintf(str,8,"%s",BIGINT_FORMAT);
-      *ptr = '\0';
-      snprintf(format_bigint_user,n,"%s%s%s",format_int_user,&str[1],ptr+1);
-      *ptr = 'd';
+      ifmt.replace(found, 1, std::string(BIGINT_FORMAT).substr(1));
+      delete[] format_bigint_user;
+      format_bigint_user = utils::strdup(ifmt);
 
     } else if (strcmp(arg[1],"float") == 0) {
       delete[] format_float_user;

@@ -28,7 +28,7 @@ static constexpr int EXTRA = 1000;
 
 /* ---------------------------------------------------------------------- */
 
-BondHybrid::BondHybrid(LAMMPS *lmp) : Bond(lmp)
+BondHybrid::BondHybrid(LAMMPS *lmp) : Bond(lmp), styles(nullptr), keywords(nullptr), map(nullptr)
 {
   writedata = 0;
   nstyles = 0;
@@ -52,7 +52,7 @@ BondHybrid::~BondHybrid()
 
   delete[] svector;
 
-  deallocate();
+  BondHybrid::deallocate();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -96,8 +96,7 @@ void BondHybrid::compute(int eflag, int vflag)
       bondlist[m][n][0] = bondlist_orig[i][0];
       bondlist[m][n][1] = bondlist_orig[i][1];
       bondlist[m][n][2] = bondlist_orig[i][2];
-      if (partial_flag)
-        orig_map[m][n] = i;
+      if (partial_flag) orig_map[m][n] = i;
       nbondlist[m]++;
     }
   }
@@ -258,7 +257,7 @@ void BondHybrid::settings(int narg, char **arg)
     // by looking for the next known bond style name.
 
     int jarg = i + 1;
-    while ((jarg < narg) && !force->bond_map->count(arg[jarg]) &&
+    while ((jarg < narg) && !Force::bond_styles().contains(arg[jarg]) &&
            !lmp->match_style("bond", arg[jarg]))
       jarg++;
 
@@ -381,8 +380,18 @@ void BondHybrid::init_style()
   // bond style quartic will set broken bonds to bond type 0, so we need
   // to create an entry for it in the bond type to sub-style map
 
-  if (has_quartic >= 0) map[0] = has_quartic;
-  else map[0] = -1;
+  if (has_quartic >= 0)
+    map[0] = has_quartic;
+  else
+    map[0] = -1;
+}
+
+/* ---------------------------------------------------------------------- */
+
+int BondHybrid::check_itype(int itype, char *substyle)
+{
+  if (strcmp(keywords[map[itype]], substyle) == 0) return 1;
+  return 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -421,6 +430,8 @@ void BondHybrid::read_restart(FILE *fp)
   int me = comm->me;
   if (me == 0) utils::sfread(FLERR, &nstyles, sizeof(int), 1, fp, nullptr, error);
   MPI_Bcast(&nstyles, 1, MPI_INT, 0, world);
+  if ((nstyles < 1) || (nstyles > 64))
+    error->all(FLERR, "Invalid number of sub-styles in restart file");
   styles = new Bond *[nstyles];
   keywords = new char *[nstyles];
 
@@ -430,6 +441,7 @@ void BondHybrid::read_restart(FILE *fp)
   for (int m = 0; m < nstyles; m++) {
     if (me == 0) utils::sfread(FLERR, &n, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&n, 1, MPI_INT, 0, world);
+    if ((n < 1) || (n > 65536)) error->all(FLERR, "Invalid style name length in restart file");
     keywords[m] = new char[n];
     if (me == 0) utils::sfread(FLERR, keywords[m], sizeof(char), n, fp, nullptr, error);
     MPI_Bcast(keywords[m], n, MPI_CHAR, 0, world);
@@ -460,7 +472,7 @@ void BondHybrid::copy_svector(int type)
   // there is only one style in bond style hybrid for a bond type
   Bond *this_style = styles[map[type]];
 
-  for (int l = 0; this_style->single_extra; ++l) { svector[l] = this_style->svector[l]; }
+  for (int l = 0; l < this_style->single_extra; ++l) { svector[l] = this_style->svector[l]; }
 }
 
 /* ----------------------------------------------------------------------

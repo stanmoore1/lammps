@@ -26,9 +26,13 @@
 #include "error.h"
 #include "force.h"
 #include "gran_sub_mod.h"
+#include "gran_sub_mod_damping.h"
+#include "gran_sub_mod_heat.h"
+#include "gran_sub_mod_normal.h"
+#include "gran_sub_mod_rolling.h"
+#include "gran_sub_mod_tangential.h"
+#include "gran_sub_mod_twisting.h"
 #include "math_extra.h"
-
-#include "style_gran_sub_mod.h"    // IWYU pragma: keep
 
 #include <cmath>
 #include <cstring>
@@ -38,20 +42,14 @@ using namespace LAMMPS_NS;
 using namespace Granular_NS;
 using namespace MathExtra;
 
-/* ----------------------------------------------------------------------
-   one instance per GranSubMod style in style_gran_sub_mod.h
-------------------------------------------------------------------------- */
-
-template <typename T> static GranSubMod *gran_sub_mod_creator(GranularModel *gm, LAMMPS *lmp)
-{
-  return new T(gm, lmp);
-}
-
 /* ---------------------------------------------------------------------- */
 
-GranularModel::GranularModel(LAMMPS *lmp) : Pointers(lmp)
+GranularModel::GranularModel(LAMMPS *lmp) :
+    Pointers(lmp), sub_models{}, history(nullptr), xi(nullptr), xj(nullptr), vi(nullptr),
+    vj(nullptr), omegai(nullptr), omegaj(nullptr)
 {
   limit_damping = 0;
+  synchronized_verlet = 0;
   beyond_contact = 0;
   nondefault_history_transfer = 0;
   classic_model = 0;
@@ -64,32 +62,15 @@ GranularModel::GranularModel(LAMMPS *lmp) : Pointers(lmp)
   twisting_model = nullptr;
   heat_model = nullptr;
 
+  calculate_svector = 0;
+  nsvector = 0;
+  svector = nullptr;
+
   for (int i = 0; i < NSUBMODELS; i++) sub_models[i] = nullptr;
   transfer_history_factor = nullptr;
 
-  // extract info from GranSubMod classes listed in style_gran_sub_mod.h
-
-  nclass = 0;
-
-#define GRAN_SUB_MOD_CLASS
-#define GranSubModStyle(key, Class, type) nclass++;
-#include "style_gran_sub_mod.h"    // IWYU pragma: keep
-#undef GranSubModStyle
-#undef GRAN_SUB_MOD_CLASS
-
-  gran_sub_mod_class = new GranSubModCreator[nclass];
-  gran_sub_mod_names = new char *[nclass];
-  gran_sub_mod_types = new int[nclass];
-  nclass = 0;
-
-#define GRAN_SUB_MOD_CLASS
-#define GranSubModStyle(key, Class, type)                    \
-  gran_sub_mod_class[nclass] = &gran_sub_mod_creator<Class>; \
-  gran_sub_mod_names[nclass] = (char *) #key;                \
-  gran_sub_mod_types[nclass++] = type;
-#include "style_gran_sub_mod.h"    // IWYU pragma: keep
-#undef GranSubModStyle
-#undef GRAN_SUB_MOD_CLASS
+  // the list of available sub-models is the gran_sub_mod_table[] defined in
+  // gran_sub_mod_register.cpp (see that file to add a new sub-model)
 }
 
 /* ---------------------------------------------------------------------- */
@@ -97,9 +78,7 @@ GranularModel::GranularModel(LAMMPS *lmp) : Pointers(lmp)
 GranularModel::~GranularModel()
 {
   delete[] transfer_history_factor;
-  delete[] gran_sub_mod_class;
-  delete[] gran_sub_mod_names;
-  delete[] gran_sub_mod_types;
+  delete[] svector;
 
   for (int i = 0; i < NSUBMODELS; i++) delete sub_models[i];
 }
@@ -138,18 +117,17 @@ int GranularModel::add_sub_model(char **arg, int iarg, int narg, SubModelType mo
 void GranularModel::construct_sub_model(std::string model_name, SubModelType model_type)
 {
   int i;
-  for (i = 0; i < nclass; i++) {
-    if (gran_sub_mod_types[i] == model_type) {
-      if (strcmp(gran_sub_mod_names[i], model_name.c_str()) == 0) {
-        GranSubModCreator &gran_sub_mod_creator = gran_sub_mod_class[i];
+  for (i = 0; i < num_gran_sub_mod; i++) {
+    if (gran_sub_mod_table[i].type == model_type) {
+      if (strcmp(gran_sub_mod_table[i].name, model_name.c_str()) == 0) {
         delete sub_models[model_type];
-        sub_models[model_type] = gran_sub_mod_creator(this, lmp);
+        sub_models[model_type] = gran_sub_mod_table[i].creator(this, lmp);
         break;
       }
     }
   }
 
-  if (i == nclass)
+  if (i == num_gran_sub_mod)
     error->all(FLERR, "Illegal model type {}", model_name);
 
   sub_models[model_type]->name.assign(model_name);
@@ -217,12 +195,15 @@ int GranularModel::define_classic_model(char **arg, int iarg, int narg)
   normal_model->coeffs[0] = kn;
   normal_model->coeffs[1] = gamman;
 
+  // avoid division by zero for undamped (elastic) classic models
+  const double gamma_ratio = (gamman != 0.0) ? gammat / gamman : 0.0;
+
   if (tangential_model->num_coeffs == 2) {
-    tangential_model->coeffs[0] = gammat / gamman;
+    tangential_model->coeffs[0] = gamma_ratio;
     tangential_model->coeffs[1] = xmu;
   } else {
     tangential_model->coeffs[0] = kt;
-    tangential_model->coeffs[1] = gammat / gamman;
+    tangential_model->coeffs[1] = gamma_ratio;
     tangential_model->coeffs[2] = xmu;
   }
 
@@ -270,6 +251,14 @@ void GranularModel::init()
   if (limit_damping && normal_model->get_cohesive_flag())
     error->all(FLERR,"Cannot limit damping with a cohesive normal model, {}", normal_model->name);
 
+  if (synchronized_verlet && !tangential_model->allow_synchronization)
+    error->all(FLERR,"Cannot use synchronized verlet with a non-synchronized tangential model, {}",
+                     tangential_model->name);
+
+  if (synchronized_verlet && !rolling_model->allow_synchronization)
+    error->all(FLERR,"Cannot use synchronized verlet with a non-synchronized rolling model, {}",
+                     rolling_model->name);
+
   if (nondefault_history_transfer) {
     transfer_history_factor = new double[size_history];
 
@@ -293,6 +282,21 @@ void GranularModel::init()
   }
 
   for (int i = 0; i < NSUBMODELS; i++) sub_models[i]->init();
+
+  nsvector = 0;
+  int index_svector = 0;
+  for (int i = 0; i < NSUBMODELS; i++) {
+    if (sub_models[i]->nsvector != 0) {
+      sub_models[i]->index_svector = index_svector;
+      nsvector += sub_models[i]->nsvector;
+      index_svector += sub_models[i]->nsvector;
+    }
+  }
+
+  if (nsvector != 0) {
+    delete[] svector;
+    svector = new double[nsvector];
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -339,6 +343,8 @@ void GranularModel::read_restart(FILE *fp)
     if (comm->me == 0)
       utils::sfread(FLERR, &num_char, sizeof(int), 1, fp, nullptr, error);
     MPI_Bcast(&num_char, 1, MPI_INT, 0, world);
+    if ((num_char < 0) || (num_char > 65536))
+      error->all(FLERR, "Invalid granular model name in restart file");
 
     std::string model_name(num_char, ' ');
     if (comm->me == 0)
@@ -383,6 +389,12 @@ bool GranularModel::check_contact()
     radsum = radi;
     if (radj == 0) Reff = radi;
     else Reff = radi * radj / (radi + radj);
+  } else if (contact_type == SURFACE) {
+    // Used by GRANSURF package
+    sub3(xi, xj, dx);
+    rsq = lensq3(dx);
+    radsum = radi;
+    Reff = radi;
   } else {
     sub3(xi, xj, dx);
     rsq = lensq3(dx);
@@ -391,6 +403,7 @@ bool GranularModel::check_contact()
   }
 
   touch = normal_model->touch();
+
   return touch;
 }
 
@@ -401,13 +414,25 @@ void GranularModel::calculate_forces()
   // Standard geometric quantities
 
   if (contact_type != WALLREGION) r = sqrt(rsq);
+
   rinv = 1.0 / r;
   delta = radsum - r;
   dR = delta * Reff;
-  scale3(rinv, dx, nx);
 
   // relative translational velocity
   sub3(vi, vj, vr);
+
+  if (synchronized_verlet == 1 && contact_type != WALL && contact_type != SURFACE) {
+    //Calculating half step normal for synchronized verlet
+    double temp1[3], nhalf[3];
+    scale3(rinv, dx, nx_unrotated);
+    scale3(0.5 * dt, vr, temp1);
+    sub3(dx, temp1, nhalf);
+    norm3(nhalf);
+    copy3(nhalf, nx);
+  } else {
+    scale3(rinv, dx, nx);
+  }
 
   // normal component
   vnnr = dot3(vr, nx);
@@ -430,8 +455,8 @@ void GranularModel::calculate_forces()
   if (contact_radius_flag)
     contact_radius = normal_model->calculate_contact_radius();
   Fnormal = normal_model->calculate_forces();
-
   Fdamp = damping_model->calculate_forces();
+
   Fntot = Fnormal + Fdamp;
   if (limit_damping && Fntot < 0.0) Fntot = 0.0;
 
@@ -439,12 +464,11 @@ void GranularModel::calculate_forces()
   tangential_model->calculate_forces();
 
   // sum normal + tangential contributions
-
   scale3(Fntot, nx, forces);
   add3(forces, fs, forces);
 
   // May need to eventually rethink tris..
-  cross3(nx, fs, torquesi);
+  cross3(nx, fs, torquesi); //h has been rotated to full-step so we can use nx here
   scale3(-1, torquesi);
 
   if (contact_type == PAIR) {
@@ -475,7 +499,7 @@ void GranularModel::calculate_forces()
     rolling_model->calculate_forces();
 
     double torroll[3];
-    cross3(nx, fr, torroll);
+    cross3(nx, fr, torroll); //we can use nx here as fr has been rotated to full-step
     scale3(Reff, torroll);
     add3(torquesi, torroll, torquesi);
     if (contact_type == PAIR) sub3(torquesj, torroll, torquesj);
@@ -485,7 +509,7 @@ void GranularModel::calculate_forces()
     // omega_T (eq 29 of Marshall)
     magtwist = dot3(relrot, nx);
 
-    twisting_model->calculate_forces();
+    magtortwist = twisting_model->calculate_forces();
 
     double tortwist[3];
     scale3(magtortwist, nx, tortwist);
@@ -493,9 +517,8 @@ void GranularModel::calculate_forces()
     if (contact_type == PAIR) sub3(torquesj, tortwist, torquesj);
   }
 
-  if (heat_defined) {
+  if (heat_defined)
     dq = heat_model->calculate_heat();
-  }
 }
 
 /* ----------------------------------------------------------------------

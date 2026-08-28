@@ -23,6 +23,7 @@
 #include "error.h"
 #include "fix.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "modify.h"
 #include "neigh_list.h"
@@ -38,7 +39,7 @@ static constexpr double EPSILON = 1.0e-10;
 
 /* ---------------------------------------------------------------------- */
 
-PairDPDfdt::PairDPDfdt(LAMMPS *lmp) : Pair(lmp)
+PairDPDfdt::PairDPDfdt(LAMMPS *lmp) : Pair(lmp), cut(nullptr), a0(nullptr), sigma(nullptr)
 {
   random = nullptr;
   splitFDT_flag = false;
@@ -59,7 +60,7 @@ PairDPDfdt::~PairDPDfdt()
   }
 
 
-  if (random) delete random;
+  delete random;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -275,7 +276,7 @@ void PairDPDfdt::settings(int narg, char **arg)
 
 void PairDPDfdt::coeff(int narg, char **arg)
 {
-  if (narg < 4 || narg > 5) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg < 4 || narg > 5) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -301,7 +302,7 @@ void PairDPDfdt::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -313,12 +314,8 @@ void PairDPDfdt::init_style()
   if (comm->ghost_velocity == 0)
     error->all(FLERR,"Pair dpd/fdt requires ghost atoms store velocity");
 
-  splitFDT_flag = false;
+  splitFDT_flag = !modify->get_fix_by_style("^shardlow").empty();
   neighbor->add_request(this);
-  for (int i = 0; i < modify->nfix; i++)
-    if (utils::strmatch(modify->fix[i]->style,"^shardlow")) {
-      splitFDT_flag = true;
-    }
 
   // if newton off, forces between atoms ij will be double computed
   // using different random numbers if splitFDT_flag is false
@@ -332,7 +329,9 @@ void PairDPDfdt::init_style()
 
 double PairDPDfdt::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   cut[j][i] = cut[i][j];
   a0[j][i] = a0[i][j];
@@ -424,7 +423,7 @@ void PairDPDfdt::read_restart_settings(FILE *fp)
   // initialize Marsaglia RNG with processor-unique seed
   // same seed that pair_style command initially specified
 
-  if (random) delete random;
+  delete random;
   random = new RanMars(lmp,seed + comm->me);
 }
 

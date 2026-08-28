@@ -30,7 +30,9 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJClass2::PairLJClass2(LAMMPS *lmp) : Pair(lmp)
+PairLJClass2::PairLJClass2(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), epsilon(nullptr), sigma(nullptr), lj1(nullptr), lj2(nullptr),
+    lj3(nullptr), lj4(nullptr), offset(nullptr)
 {
   respa_enable = 1;
   born_matrix_enable = 1;
@@ -447,7 +449,7 @@ void PairLJClass2::settings(int narg, char **arg)
 
 void PairLJClass2::coeff(int narg, char **arg)
 {
-  if (narg < 4 || narg > 5) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg < 4 || narg > 5) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -471,7 +473,7 @@ void PairLJClass2::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -485,7 +487,7 @@ void PairLJClass2::init_style()
   int list_style = NeighConst::REQ_DEFAULT;
 
   if (update->whichflag == 1 && utils::strmatch(update->integrate_style, "^respa")) {
-    auto respa = dynamic_cast<Respa *>(update->integrate);
+    auto *respa = dynamic_cast<Respa *>(update->integrate);
     if (respa->level_inner >= 0) list_style = NeighConst::REQ_RESPA_INOUT;
     if (respa->level_middle >= 0) list_style = NeighConst::REQ_RESPA_ALL;
   }

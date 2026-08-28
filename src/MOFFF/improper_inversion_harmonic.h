@@ -33,6 +33,7 @@ class ImproperInversionHarmonic : public Improper {
   void write_restart(FILE *) override;
   void read_restart(FILE *) override;
   void write_data(FILE *) override;
+  void *extract(const char *, int &) override;
 
  protected:
   double *kw, *w0;
@@ -42,7 +43,7 @@ class ImproperInversionHarmonic : public Improper {
               const double &vb2y, const double &vb2z, const double &rrvb2, const double &rr2vb2,
               const double &vb3x, const double &vb3y, const double &vb3z, const double &rrvb3,
               const double &rr2vb3);
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

@@ -44,14 +44,14 @@ FixPythonMove::FixPythonMove(LAMMPS *lmp, int narg, char **arg) :
 
   // add current directory to PYTHONPATH
   PyObject *py_path = PySys_GetObject((char *)"path");
-  PyList_Append(py_path, PY_STRING_FROM_STRING("."));
+  PyList_Append(py_path, PyUnicode_FromString("."));
 
 
   // create integrator instance
   std::string full_cls_name = arg[3];
   std::string module_name = "__main__";
   std::string cls_name = full_cls_name;
-  size_t lastpos = full_cls_name.rfind(".");
+  size_t lastpos = full_cls_name.rfind('.');
 
   if (lastpos != std::string::npos) {
     module_name = full_cls_name.substr(0, lastpos);
@@ -73,7 +73,7 @@ FixPythonMove::FixPythonMove(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Could not find integrator class {} in module {}", cls_name, module_name);
   }
 
-  PyObject *ptr = PY_VOID_POINTER(lmp);
+  PyObject *ptr = PyCapsule_New((void *)lmp, nullptr, nullptr);
   PyObject *py_move_obj = PyObject_CallFunction(py_move_type, (char *)"O", ptr);
   Py_CLEAR(ptr);
 

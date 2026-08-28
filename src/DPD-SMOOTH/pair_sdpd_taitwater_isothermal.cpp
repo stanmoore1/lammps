@@ -43,8 +43,9 @@ static const double sqrt_2_inv = std::sqrt(0.5);
 
 /* ---------------------------------------------------------------------- */
 
-PairSDPDTaitwaterIsothermal::PairSDPDTaitwaterIsothermal (LAMMPS *lmp)
-: Pair (lmp), random(nullptr) {
+PairSDPDTaitwaterIsothermal::PairSDPDTaitwaterIsothermal (LAMMPS *lmp) :
+    Pair (lmp), rho0(nullptr), soundspeed(nullptr), B(nullptr), cut(nullptr), random(nullptr)
+{
   restartinfo = 0;
   single_enable =0;
 }
@@ -253,11 +254,15 @@ void PairSDPDTaitwaterIsothermal::settings (int narg, char **arg) {
   if (viscosity <= 0) error->all (FLERR, "Viscosity must be positive");
 
   // seed is immune to underflow/overflow because it is unsigned
-  seed = comm->nprocs + comm->me + atom->nlocal;
+  // must not depend on atom->nlocal: that would make the random stream
+  // depend on whether the pair style is defined before or after the
+  // atoms are created; comm->me already decorrelates the ranks
+  seed = comm->nprocs + comm->me;
   if (narg == 3) seed += utils::inumeric(FLERR, arg[2], false, lmp);
 #ifdef USE_ZEST
   generator.seed (seed);
 #else
+  delete random;
   random = new RanMars (lmp, seed);
 #endif
 }
@@ -269,7 +274,7 @@ void PairSDPDTaitwaterIsothermal::settings (int narg, char **arg) {
 void PairSDPDTaitwaterIsothermal::coeff (int narg, char **arg) {
   if (narg != 5)
     error->all (FLERR, "Incorrect args for pair_style "
-                "sph/taitwater/morris coefficients");
+                "sph/taitwater/morris coefficients" + utils::errorurl(21));
 
   if (!allocated) allocate();
 
@@ -300,7 +305,7 @@ void PairSDPDTaitwaterIsothermal::coeff (int narg, char **arg) {
   }
 
   if (count == 0)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

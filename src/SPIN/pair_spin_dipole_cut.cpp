@@ -28,6 +28,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "math_const.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -40,7 +41,8 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairSpinDipoleCut::PairSpinDipoleCut(LAMMPS *lmp) : PairSpin(lmp)
+PairSpinDipoleCut::PairSpinDipoleCut(LAMMPS *lmp) :
+    PairSpin(lmp), sigma(nullptr), cut_spin_long(nullptr)
 {
   spinflag = 1;
 
@@ -118,7 +120,7 @@ void PairSpinDipoleCut::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -127,7 +129,9 @@ void PairSpinDipoleCut::coeff(int narg, char **arg)
 
 double PairSpinDipoleCut::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
 
   cut_spin_long[j][i] = cut_spin_long[i][j];
 
@@ -265,7 +269,7 @@ void PairSpinDipoleCut::compute(int eflag, int vflag)
         fm[i][2] += fmi[2];
 
         if (evflag) ev_tally_xyz(i,j,nlocal,newton_pair,
-            evdwl,ecoul,fi[0],fi[1],fi[2],rij[0],rij[1],rij[2]);
+            evdwl,ecoul,fi[0],fi[1],fi[2],-rij[0],-rij[1],-rij[2]);
       }
     }
   }

@@ -32,11 +32,12 @@ class ImproperDistHarm : public Improper {
   void coeff(int, char **) override;
   void write_restart(FILE *) override;
   void read_restart(FILE *) override;
+  void *extract(const char *, int &) override;
 
- private:
+ protected:
   double *k, *chi;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

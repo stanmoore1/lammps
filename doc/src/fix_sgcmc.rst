@@ -30,7 +30,9 @@ Syntax
          N = number of times sampling window is moved during one MC cycle
        *window_size* frac
          frac = size of sampling window (must be between 0.5 and 1.0)
-
+       *atomic/energy* yes/no
+         yes = use the atomic energy method to calculate energy changes
+         no = use the default method to calculate energy changes
 
 Examples
 """"""""
@@ -48,7 +50,7 @@ Description
 
 This command allows to carry out parallel hybrid molecular
 dynamics/Monte Carlo (MD/MC) simulations using the algorithms described
-in :ref:`(Sadigh1) <Sadigh1>`.  Simulations can be carried out in either
+in :ref:`(Sadigh) <Sadigh1>`.  Simulations can be carried out in either
 the semi-grand canonical (SGC) or variance constrained semi-grand
 canonical (VC-SGC) ensemble :ref:`(Sadigh2) <Sadigh2>`. Only atom type
 swaps are performed by the SGCMC fix. Relaxations are accounted for by
@@ -91,7 +93,7 @@ the simulation, e.g., to speed up equilibration at low temperatures.
 ------------
 
 The parameter *deltamu* is used to set the chemical potential differences
-in the SGC MC algorithm (see Eq. 16 in :ref:`Sadigh1 <Sadigh1>`).
+in the SGC MC algorithm (see Eq. 16 in :ref:`Sadigh <Sadigh1>`).
 The `N-1` differences are defined as :math:`\mu_1-\mu_2, \ldots, \mu_1-\mu_N`,
 where `N` is the number of atom types.
 
@@ -100,11 +102,11 @@ where `N` is the number of atom types.
 The variance-constrained SGC MC algorithm is activated if the keyword
 *variance* is used. In that case the fix parameter *deltamu* determines
 the effective average constraint in the parallel VC-SGC MC algorithm
-(parameter :math:`\delta\mu_0` in Eq. (20) of :ref:`Sadigh1
+(parameter :math:`\delta\mu_0` in Eq. (20) of :ref:`Sadigh
 <Sadigh1>`). The parameter *kappa* specifies the variance constraint
-(see Eqs. (20-21) in :ref:`Sadigh1 <Sadigh1>`).
+(see Eqs. (20-21) in :ref:`Sadigh <Sadigh1>`).
 The parameter *conc* sets the `N-1` target atomic concentration
-fractions (parameter :math:`c_0` in Eqs.  (20-21) of :ref:`Sadigh1 <Sadigh1>`)
+fractions (parameter :math:`c_0` in Eqs.  (20-21) of :ref:`Sadigh <Sadigh1>`)
 :math:`0 \le c_2, \ldots, c_N \le 1`, with
 :math:`c_1 = 1 - \Sigma_{i=2}^N c_i`.
 When the simulation includes `N` atom types (elements),
@@ -121,11 +123,19 @@ to initialize the random number generator on each processor.
 simulation. The size has to lie between 0.5 and 1.0. Normally, this
 parameter should be left unspecified which instructs the code to choose
 the optimal window size automatically (see Sect. III.B and Figure 6 in
-:ref:`Sadigh1 <Sadigh1>` for details).
+:ref:`Sadigh <Sadigh1>` for details).
 
 The number of times the window is moved during a MC cycle is set using
-the parameter *window_moves* (see Sect. III.B in :ref:`Sadigh1
+the parameter *window_moves* (see Sect. III.B in :ref:`Sadigh
 <Sadigh1>` for details).
+
+The *atomic/energy* keyword controls which method is used for calculating
+the energy change when atom types are swapped. A value of *no*
+uses the default method, see discussion below in Restrictions section.
+A value of *yes* uses the atomic energy method,
+if the method has been implemented for the LAMMPS energy model,
+otherwise LAMMPS will exit with an error message.
+So far this has only been implemented for EAM type potentials.
 
 ------------
 
@@ -153,22 +163,34 @@ Restrictions
 """"""""""""
 
 This fix is part of the MC package. It is only enabled if LAMMPS was
-built with that package.  See the :doc:`Build package <Build_package>`
-page for more info.
+built with that package.  Since it also contains specific support for
+EAM potentials it also requires installing the MANYBODY package. See
+the :doc:`Build package <Build_package>` page for more info.
 
-This fix style requires an :doc:`atom style <atom_style>` with per atom
-type masses.
+This fix style requires an :doc:`atom style <atom_style>` with per
+atom type masses.
 
-At present the fix provides optimized subroutines for EAM type
-potentials (see above) that calculate potential energy changes due to
-*local* atom type swaps very efficiently.  Other potentials are
-supported by using the generic potential functions. This, however, will
-lead to exceedingly slow simulations since it implies that the
-energy of the *entire* system is recomputed at each MC trial step.  If
-other potentials are to be used it is strongly recommended to modify and
-optimize the existing generic potential functions for this purpose.
-Also, the generic energy calculation can not be used for parallel
-execution i.e. it only works with a single MPI process.
+The fix provides three methods for calculating the potential energy
+change due to atom type swaps. For EAM type potentials, the default
+method is a carefully optimized local energy change calculation that
+is part of the source code for this fix.  It takes advantage of the
+specific computational and communication requirements of EAM.
+Customizing the local method to handle other energy models such as
+Tersoff has been done in earlier versions of this fix, but these
+cases are not supported in the public LAMMPS code.
+For all other LAMMPS energy models, the default method calculates
+the *total* potential energy of the system before and after each
+atom type swap.  This method does not depend on the details of the
+energy model and so is guaranteed to be correct.  It is also
+orders of magnitude slower than the custom EAM calculation.
+In addition, it can not be used with parallel execution i.e. only
+a single MPI process is allowed.
+The third method uses the *atomic/energy* keyword described above.
+This allows parallel execution and it is also a local calculation,
+making it only a bit slower than a fully-optimized local calculation.
+So far, this has been implemented for EAM type potentials.
+It is straightforward to extend this to other potentials,
+requiring adding an atomic energy method to the pair style.
 
 ------------
 
@@ -180,12 +202,13 @@ The optional parameters default to the following values:
 * *randseed* = 324234
 * *window_moves* = 8
 * *window_size* = automatic
+* *atomic/energy* = no
 
 ------------
 
 .. _Sadigh1:
 
-**(Sadigh1)** B. Sadigh, P. Erhart, A. Stukowski, A. Caro, E. Martinez, and L. Zepeda-Ruiz, Phys. Rev. B **85**, 184203 (2012)
+**(Sadigh)** B. Sadigh, P. Erhart, A. Stukowski, A. Caro, E. Martinez, and L. Zepeda-Ruiz, Phys. Rev. B **85**, 184203 (2012)
 
 .. _Sadigh2:
 

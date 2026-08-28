@@ -61,6 +61,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   xstyle = ystyle = zstyle = estyle = pstyle = NONE;
 
   if (utils::strmatch(arg[3], "^v_")) {
+    delete[] xstr;
     xstr = utils::strdup(arg[3] + 2);
   } else {
     ex = qe2f * utils::numeric(FLERR, arg[3], false, lmp);
@@ -68,6 +69,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   }
 
   if (utils::strmatch(arg[4], "^v_")) {
+    delete[] ystr;
     ystr = utils::strdup(arg[4] + 2);
   } else {
     ey = qe2f * utils::numeric(FLERR, arg[4], false, lmp);
@@ -75,6 +77,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   }
 
   if (utils::strmatch(arg[5], "^v_")) {
+    delete[] zstr;
     zstr = utils::strdup(arg[5] + 2);
   } else {
     ez = qe2f * utils::numeric(FLERR, arg[5], false, lmp);
@@ -90,12 +93,14 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
         utils::missing_cmd_args(FLERR, std::string("fix ") + style + " region", error);
       region = domain->get_region_by_id(arg[iarg + 1]);
       if (!region) error->all(FLERR, "Region {} for fix {} does not exist", arg[iarg + 1], style);
+      delete[] idregion;
       idregion = utils::strdup(arg[iarg + 1]);
       iarg += 2;
     } else if (strcmp(arg[iarg], "energy") == 0) {
       if (iarg + 2 > narg)
         utils::missing_cmd_args(FLERR, std::string("fix ") + style + "energy", error);
       if (utils::strmatch(arg[iarg + 1], "^v_")) {
+        delete[] estr;
         estr = utils::strdup(arg[iarg + 1] + 2);
       } else
         error->all(FLERR, "Unsupported argument for fix {} energy command: {}", style, arg[iarg]);
@@ -104,6 +109,7 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
       if (iarg + 2 > narg)
         utils::missing_cmd_args(FLERR, std::string("fix ") + style + "potential", error);
       if (utils::strmatch(arg[iarg + 1], "^v_")) {
+        delete[] pstr;
         pstr = utils::strdup(arg[iarg + 1] + 2);
       } else
         error->all(FLERR, "Unsupported argument for fix {} energy command: {}", style, arg[iarg]);
@@ -114,7 +120,8 @@ FixEfield::FixEfield(LAMMPS *lmp, int narg, char **arg) :
   }
 
   if (estr && pstr)
-    error->all(FLERR, "Must not use energy and potential keywords at the same time with fix efield");
+    error->all(FLERR,
+               "Must not use energy and potential keywords at the same time with fix efield");
 
   force_flag = 0;
   fsum[0] = fsum[1] = fsum[2] = fsum[3] = 0.0;
@@ -171,7 +178,8 @@ void FixEfield::init()
 
   if (xstr) {
     xvar = input->variable->find(xstr);
-    if (xvar < 0) error->all(FLERR, "Variable {} for x-field in fix {} does not exist", xstr, style);
+    if (xvar < 0)
+      error->all(FLERR, "Variable {} for x-field in fix {} does not exist", xstr, style);
     if (input->variable->equalstyle(xvar))
       xstyle = EQUAL;
     else if (input->variable->atomstyle(xvar))
@@ -182,7 +190,8 @@ void FixEfield::init()
 
   if (ystr) {
     yvar = input->variable->find(ystr);
-    if (yvar < 0) error->all(FLERR, "Variable {} for y-field in fix {} does not exist", ystr, style);
+    if (yvar < 0)
+      error->all(FLERR, "Variable {} for y-field in fix {} does not exist", ystr, style);
     if (input->variable->equalstyle(yvar))
       ystyle = EQUAL;
     else if (input->variable->atomstyle(yvar))
@@ -193,7 +202,8 @@ void FixEfield::init()
 
   if (zstr) {
     zvar = input->variable->find(zstr);
-    if (zvar < 0) error->all(FLERR, "Variable {} for z-field in fix {} does not exist", zstr, style);
+    if (zvar < 0)
+      error->all(FLERR, "Variable {} for z-field in fix {} does not exist", zstr, style);
     if (input->variable->equalstyle(zvar))
       zstyle = EQUAL;
     else if (input->variable->atomstyle(zvar))
@@ -213,7 +223,8 @@ void FixEfield::init()
 
   if (pstr) {
     pvar = input->variable->find(pstr);
-    if (pvar < 0) error->all(FLERR, "Variable {} for potential in fix {} does not exist", pstr, style);
+    if (pvar < 0)
+      error->all(FLERR, "Variable {} for potential in fix {} does not exist", pstr, style);
     if (input->variable->atomstyle(pvar))
       pstyle = ATOM;
     else
@@ -244,8 +255,10 @@ void FixEfield::init()
     error->all(FLERR, "Cannot use variable energy with constant efield in fix {}", style);
   if (varflag == CONSTANT && pstyle != NONE)
     error->all(FLERR, "Cannot use variable potential with constant efield in fix {}", style);
-  if ((varflag == EQUAL || varflag == ATOM) && update->whichflag == 2 && estyle == NONE && pstyle == NONE)
-    error->all(FLERR, "Must use variable energy or potential with fix {} during minimization", style);
+  if ((varflag == EQUAL || varflag == ATOM) && update->whichflag == 2 && estyle == NONE &&
+      pstyle == NONE)
+    error->all(FLERR, "Must use variable energy or potential with fix {} during minimization",
+               style);
 
   if (utils::strmatch(update->integrate_style, "^respa")) {
     ilevel_respa = (dynamic_cast<Respa *>(update->integrate))->nlevels - 1;
@@ -258,7 +271,7 @@ void FixEfield::init()
 void FixEfield::setup(int vflag)
 {
   if (utils::strmatch(update->integrate_style, "^respa")) {
-    auto respa = dynamic_cast<Respa *>(update->integrate);
+    auto *respa = dynamic_cast<Respa *>(update->integrate);
     respa->copy_flevel_f(ilevel_respa);
     post_force_respa(vflag, ilevel_respa, 0);
     respa->copy_f_flevel(ilevel_respa);
@@ -311,7 +324,6 @@ void FixEfield::post_force(int vflag)
   double **x = atom->x;
   double fx, fy, fz;
   double v[6], unwrap[3];
-  ;
 
   // constant efield
 
@@ -403,8 +415,10 @@ void FixEfield::post_force(int vflag)
           }
           f[i][2] += fz;
           fsum[3] += fz;
-          if (pstyle == ATOM) fsum[0] += qe2f * q[i] * efield[i][3];
-          else if (estyle == ATOM) fsum[0] += efield[i][3];
+          if (pstyle == ATOM)
+            fsum[0] += qe2f * q[i] * efield[i][3];
+          else if (estyle == ATOM)
+            fsum[0] += efield[i][3];
         }
     }
 
@@ -504,8 +518,10 @@ void FixEfield::update_efield_variables()
   } else if (zstyle == ATOM) {
     input->variable->compute_atom(zvar, igroup, &efield[0][2], 4, 0);
   }
-  if (pstyle == ATOM) input->variable->compute_atom(pvar, igroup, &efield[0][3], 4, 0);
-  else if (estyle == ATOM) input->variable->compute_atom(evar, igroup, &efield[0][3], 4, 0);
+  if (pstyle == ATOM)
+    input->variable->compute_atom(pvar, igroup, &efield[0][3], 4, 0);
+  else if (estyle == ATOM)
+    input->variable->compute_atom(evar, igroup, &efield[0][3], 4, 0);
 
   modify->addstep_compute(update->ntimestep + 1);
 }

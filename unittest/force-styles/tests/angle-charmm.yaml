@@ -1,5 +1,6 @@
 ---
 lammps_version: 17 Feb 2022
+date_generated: Fri Mar 18 22:44:50 2022
 epsilon: 1e-12
 skip_tests:
 prerequisites: ! |
@@ -15,7 +16,9 @@ angle_coeff: ! |
   3  40.0 120.0  35.0 2.410
   4  33.0 108.5  30.0 2.163
 equilibrium: 4 1.9216075064457567 1.9425514574696887 2.0943951023931953 1.8936822384138476
-extract: ! ""
+extract: ! |
+  k 1
+  theta0 1
 natoms: 29
 init_energy: 85.42486388459771
 init_stress: ! |2-

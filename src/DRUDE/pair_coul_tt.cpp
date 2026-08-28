@@ -33,7 +33,9 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairCoulTT::PairCoulTT(LAMMPS *lmp) : Pair(lmp) {
+PairCoulTT::PairCoulTT(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), scale(nullptr), b(nullptr), c(nullptr), ntt(nullptr)
+{
     fix_drude = nullptr;
 }
 
@@ -242,7 +244,7 @@ void PairCoulTT::settings(int narg, char **arg)
 void PairCoulTT::coeff(int narg, char **arg)
 {
   if (narg < 3 || narg > 6)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -273,7 +275,7 @@ void PairCoulTT::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 
@@ -285,11 +287,9 @@ void PairCoulTT::init_style()
 {
   if (!atom->q_flag)
     error->all(FLERR,"Pair style coul/tt requires atom attribute q");
-  int ifix;
-  for (ifix = 0; ifix < modify->nfix; ifix++)
-    if (utils::strmatch(modify->fix[ifix]->style,"^drude")) break;
-  if (ifix == modify->nfix) error->all(FLERR, "Pair coul/tt requires fix drude");
-  fix_drude = dynamic_cast<FixDrude *>(modify->fix[ifix]);
+  auto drude_fixes = modify->get_fix_by_style("^drude$");
+  if (drude_fixes.empty()) error->all(FLERR, "Pair coul/tt requires fix drude");
+  fix_drude = dynamic_cast<FixDrude *>(drude_fixes.front());
 
   neighbor->add_request(this);
 }

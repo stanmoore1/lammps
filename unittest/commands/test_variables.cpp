@@ -26,7 +26,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <cstdio>
 #include <cstring>
+#include <set>
+#include <string>
 #include <vector>
 
 // whether to print verbose output (i.e. not capturing LAMMPS screen output).
@@ -117,7 +120,7 @@ protected:
 TEST_F(VariableTest, CreateDelete)
 {
     file_vars();
-    ASSERT_EQ(variable->nvar, 1);
+    ASSERT_EQ(variable->get_nvar(), 1);
     BEGIN_HIDE_OUTPUT();
     command("shell putenv TEST_VARIABLE=simpletest2");
     command("shell putenv TEST_VARIABLE2=simpletest OTHER_VARIABLE=2");
@@ -140,26 +143,42 @@ TEST_F(VariableTest, CreateDelete)
     command("variable ten1   universe  1 2 3 4");
     command("variable ten2   uloop     4");
     command("variable ten3   uloop     4 pad");
-    command("variable ten4   vector    [0,1,2,3,5,7,11]");
-    command("variable ten5   vector    [0.5,1.25]");
+    command("variable ten4   vector    [0,1,  2,3, 5,7,11]");
+    command("variable ten5   vector    [ 0.5, 1.25 ]");
     command("variable dummy  index     0");
     command("variable file   equal     is_file(MYFILE)");
     command("variable iswin  equal     is_os(^Windows)");
     command("variable islin  equal     is_os(^Linux)");
     END_HIDE_OUTPUT();
-    ASSERT_EQ(variable->nvar, 22);
+    ASSERT_EQ(variable->get_nvar(), 22);
+    int idummy = variable->find("dummy");
+    ASSERT_EQ(idummy, 18);
     BEGIN_HIDE_OUTPUT();
     command("variable dummy  delete");
     END_HIDE_OUTPUT();
-    ASSERT_EQ(variable->nvar, 21);
+    // deleted variables are not removed from the list
+    ASSERT_EQ(variable->get_nvar(), 22);
+    ASSERT_EQ(variable->find("dummy"), -1);
+    BEGIN_HIDE_OUTPUT();
+    command("variable newdummy  index 0");
+    command("variable seconddummy  index 0");
+    END_HIDE_OUTPUT();
+    ASSERT_EQ(variable->get_nvar(), 23);
+    idummy = variable->find("newdummy");
+    // id of deleted variable get recycled
+    ASSERT_EQ(idummy, 18);
+    idummy = variable->find("seconddummy");
+    ASSERT_EQ(idummy, 22);
+
     ASSERT_THAT(variable->retrieve("three"), StrEq("three"));
+    ASSERT_EQ(variable->retrieve("xxxx"), nullptr);
     variable->set_string("three", "four");
     ASSERT_THAT(variable->retrieve("three"), StrEq("four"));
     ASSERT_THAT(variable->retrieve("four2"), StrEq("2"));
     ASSERT_THAT(variable->retrieve("five1"), StrEq("001"));
     ASSERT_THAT(variable->retrieve("five2"), StrEq("010"));
     ASSERT_THAT(variable->retrieve("seven"), StrEq(" 2.00"));
-    ASSERT_THAT(variable->retrieve("ten"), StrEq("1"));
+    ASSERT_THAT(variable->retrieve("ten"), StrEq("10"));
     ASSERT_THAT(variable->retrieve("eight"), StrEq(""));
     variable->internal_set(variable->find("ten"), 2.5);
     ASSERT_THAT(variable->retrieve("ten"), StrEq("2.5"));
@@ -188,9 +207,11 @@ TEST_F(VariableTest, CreateDelete)
     command("variable seven delete");
     command("variable seven getenv TEST_VARIABLE");
     command("variable eight getenv OTHER_VARIABLE");
+    command("variable three string \"${three} four\"");
     END_HIDE_OUTPUT();
     ASSERT_THAT(variable->retrieve("seven"), StrEq("simpletest2"));
     ASSERT_THAT(variable->retrieve("eight"), StrEq("2"));
+    ASSERT_THAT(variable->retrieve("three"), StrEq("four four"));
 
     ASSERT_EQ(variable->equalstyle(variable->find("one")), 0);
     ASSERT_EQ(variable->equalstyle(variable->find("two")), 1);
@@ -206,31 +227,47 @@ TEST_F(VariableTest, CreateDelete)
     TEST_FAILURE(".*ERROR: Invalid variable loop argument: -1.*",
                  command("variable dummy loop -1"););
     TEST_FAILURE(".*ERROR: Illegal variable loop command.*", command("variable dummy loop 10 1"););
-    TEST_FAILURE(".*ERROR: Unknown variable keyword: xxx.*", command("variable dummy xxxx"););
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Unknown variable style: xxx.*", command("variable dummy xxxx"););
+    TEST_FAILURE(".*ERROR: Cannot redefine equal style variable two as string style.*",
                  command("variable two string xxx"););
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Cannot redefine equal style variable two as getenv style.*",
                  command("variable two getenv xxx"););
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Cannot redefine index style variable one as equal style.*",
                  command("variable one equal 2"););
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Cannot redefine index style variable one as internal style.*",
                  command("variable one internal 2"););
     TEST_FAILURE(".*ERROR: Cannot use atomfile-style variable unless an atom map exists.*",
                  command("variable eleven    atomfile  test_variable.atomfile"););
     TEST_FAILURE(".*ERROR on proc 0: Cannot open file variable nine1 file test_variable.xxx.*",
                  command("variable nine1  file      test_variable.xxx"););
-    TEST_FAILURE(".*ERROR: World variable count doesn't match # of partitions.*",
+    TEST_FAILURE(".*ERROR: World variable count 2 doesn't match # of partitions.*",
                  command("variable ten10 world xxx xxx"););
-    TEST_FAILURE(".*ERROR: All universe/uloop variables must have same # of values.*",
+    TEST_FAILURE(".*ERROR: All universe and uloop style variables must have same # of values.*",
                  command("variable ten6   uloop     2"););
     TEST_FAILURE(".*ERROR: Incorrect conversion in format string.*",
                  command("variable ten11  format    two \"%08x\""););
+    TEST_FAILURE(".*ERROR.*Substitution for illegal variable xxx.*",
+                 command("variable three  string \"${xxx} five\""););
     TEST_FAILURE(".*ERROR: Variable name 'ten@12' must have only letters, numbers, or undersc.*",
                  command("variable ten@12  index    one two three"););
     TEST_FAILURE(".*ERROR: Variable evaluation before simulation box is defined.*",
                  variable->compute_equal("c_thermo_press"););
     TEST_FAILURE(".*ERROR: Invalid variable reference v_unknown in variable formula.*",
                  variable->compute_equal("v_unknown"););
+
+    // listing the same variable twice would increment a dangling reference
+    // when the first increment exhausts and removes it
+
+    BEGIN_HIDE_OUTPUT();
+    command("variable  dup  loop 3");
+    END_HIDE_OUTPUT();
+    TEST_FAILURE(".*ERROR: Duplicate variable 'dup' in next command.*", command("next dup dup"););
+
+    // a py_ function reference without a matching python-style variable
+    // must give an error instead of an out-of-bounds read
+
+    TEST_FAILURE(".*ERROR: Invalid python function variable name.*",
+                 variable->compute_equal("py_nosuchvariable(1.0)"););
 }
 
 TEST_F(VariableTest, AtomicSystem)
@@ -291,9 +328,9 @@ TEST_F(VariableTest, AtomicSystem)
     ASSERT_DOUBLE_EQ(variable->compute_equal("1.5+3.25"), 4.75);
     ASSERT_DOUBLE_EQ(variable->compute_equal("-2.5*1.5"), -3.75);
 
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Cannot redefine index style variable one as atom style.*",
                  command("variable one atom x"););
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Cannot redefine atom style variable id as vector style.*",
                  command("variable id vector f_press"););
     TEST_FAILURE(".*ERROR on proc 0: Cannot open atomfile variable ten1 file test_variable.xxx.*",
                  command("variable ten1   atomfile  test_variable.xxx"););
@@ -303,7 +340,7 @@ TEST_F(VariableTest, AtomicSystem)
                  variable->compute_equal("v_self"););
     TEST_FAILURE(".*ERROR: Variable sum2: Inconsistent lengths in vector-style variable.*",
                  variable->compute_equal("max(v_sum2)"););
-    TEST_FAILURE(".*ERROR: Mismatched fix in variable formula.*",
+    TEST_FAILURE(".*ERROR: Fix 'press' in variable formula does not compute.*",
                  variable->compute_equal("f_press"););
     TEST_FAILURE(".*ERROR .*Variable formula compute vector is accessed out-of-range.*",
                  variable->compute_equal("c_press[10]"););
@@ -323,13 +360,13 @@ TEST_F(VariableTest, Expressions)
     BEGIN_HIDE_OUTPUT();
     command("variable one    index     1");
     command("variable two    equal     2");
-    command("variable three  equal     v_one+v_two");
+    command("variable three  equal     v_one + v_two");
     command("variable four   equal     PI");
     command("variable five   equal     version");
     command("variable six    equal     XXX");
     command("variable seven  equal     -v_one");
     command("variable eight  equal     v_three-0.5");
-    command("variable nine   equal     v_two*(v_one+v_three)");
+    command("variable nine   equal     v_two * (v_one+v_three)");
     command("variable ten    equal     (1.0/v_two)^2");
     command("variable eleven equal     v_three%2");
     command("variable twelve equal     1==2");
@@ -341,7 +378,8 @@ TEST_F(VariableTest, Expressions)
     command("variable ten8   equal     1|^0");
     command("variable ten9   equal     v_one-v_ten9");
     command("variable ten10  internal  100.0");
-    command("variable ten11  equal     (1!=1)+(2<1)+(2<=1)+(1>2)+(1>=2)+(1&&0)+(0||0)+(1|^1)+10^0");
+    command(
+        "variable ten11  equal     (1 != 1)+(2 < 1)+(2<=1)+(1>2)+(1>=2)+(1&&0)+(0||0)+(1|^1)+10^0");
     command("variable ten12  equal     yes+no+on+off+true+false");
     command("variable err1   equal     v_one/v_ten7");
     command("variable err2   equal     v_one%v_ten7");
@@ -350,12 +388,22 @@ TEST_F(VariableTest, Expressions)
     command("variable vec2   vector    v_vec1*0.5");
     command("variable vec3   equal     v_vec2[3]");
     command("variable vec4   vector    '[1, 5, 2.5, -10, -5, 20, 120, 4, 3, 3]'");
-    command("variable sort   vector    sort(v_vec4)");
+    command("variable sort   vector    sort(v_vec4 )");
     command("variable rsrt   vector    rsort(v_vec4)");
     command("variable max2   equal     sort(v_vec4)[2]");
     command("variable rmax   equal     rsort(v_vec4)[1]");
     command("variable xxxl   equal     rsort(v_vec4)[11]");
     command("variable isrt   vector    sort(v_one)");
+    command("variable pow30  equal     v_three^0");
+    command("variable pow31  equal     v_three^1");
+    command("variable pow32  equal     v_three^2");
+    command("variable pow00  equal     v_ten7^0");
+    command("variable pow01  equal     v_ten7^1");
+    command("variable pow02  equal     v_ten7^2");
+    command("variable pow0v  vector    v_vec1^0");
+    command("variable err4   equal     v_ten7^v_seven");
+    command("variable err5   vector    v_vec1^-1");
+
     variable->set("dummy  index     1 2");
     END_HIDE_OUTPUT();
 
@@ -389,7 +437,13 @@ TEST_F(VariableTest, Expressions)
     EXPECT_THAT(variable->retrieve("rsrt"), StrEq("[120,20,5,4,3,3,2.5,1,-5,-10]"));
     ASSERT_DOUBLE_EQ(variable->compute_equal("v_max2"), -5);
     ASSERT_DOUBLE_EQ(variable->compute_equal("v_rmax"), 120);
-
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow00"), 1.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow01"), 0.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow02"), 0.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow30"), 1.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow31"), 3.0);
+    ASSERT_DOUBLE_EQ(variable->compute_equal("v_pow32"), 9.0);
+    EXPECT_THAT(variable->retrieve("pow0v"), StrEq("[1,1,1,1,1,1,1]"));
     TEST_FAILURE(".*ERROR: Variable six: Invalid thermo keyword 'XXX' in variable formula.*",
                  command("print \"${six}\""););
     TEST_FAILURE(".*ERROR: Variable ten9: has a circular dependency.*",
@@ -405,6 +459,10 @@ TEST_F(VariableTest, Expressions)
         command("print \"${isrt}\""););
     TEST_FAILURE(".*ERROR: Variable vec4: index 11 exceeds vector size of 10.*",
                  command("print \"${xxxl}\""););
+    TEST_FAILURE(".*ERROR on proc 0: Variable err4: Invalid power expression in variable formula.*",
+                 command("print \"${err4}\""););
+    TEST_FAILURE(".*ERROR on proc 0: Invalid power expression in variable formula.*",
+                 command("print \"${err5}\""););
 }
 
 TEST_F(VariableTest, Functions)
@@ -430,6 +488,8 @@ TEST_F(VariableTest, Functions)
     command("variable ten4   equal     extract_setting(world_size)");
     command("variable ten5   equal     ternary(v_one,1.1,-2.2)");
     command("variable ten6   equal     ternary(${one}==2.0,v_nine,v_ten)");
+    command("variable ten7   equal     ternary(v_one,sqrt(-1.1),2.2)");
+    command("variable ten8   equal     ternary(v_one,1.1,sqrt(-2.2))");
     END_HIDE_OUTPUT();
 
     ASSERT_GT(variable->compute_equal(variable->find("two")), 0.99);
@@ -446,6 +506,7 @@ TEST_F(VariableTest, Functions)
     ASSERT_DOUBLE_EQ(variable->compute_equal(variable->find("ten4")), 1);
     ASSERT_DOUBLE_EQ(variable->compute_equal(variable->find("ten5")), 1.1);
     ASSERT_DOUBLE_EQ(variable->compute_equal(variable->find("ten6")), 3);
+    ASSERT_DOUBLE_EQ(variable->compute_equal(variable->find("ten8")), 1.1);
 
     TEST_FAILURE(".*ERROR: Variable four: Invalid syntax in variable formula.*",
                  command("print \"${four}\""););
@@ -458,6 +519,8 @@ TEST_F(VariableTest, Functions)
     TEST_FAILURE(
         ".*ERROR: Unknown setting nprocs for extract_setting.. function in variable formula.*",
         command("print \"$(extract_setting(nprocs))\""););
+    TEST_FAILURE(".*ERROR on proc 0: Variable ten7: Sqrt of negative value in variable formula.*",
+                 command("print \"${ten7}\""););
 }
 
 TEST_F(VariableTest, IfCommand)
@@ -474,7 +537,7 @@ TEST_F(VariableTest, IfCommand)
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if 1>2 then 'print \"bingo!\"' else 'print \"nope?\"'");
+    command(R"(if 1>2 then 'print "bingo!"' else 'print "nope?"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*nope\?.*"));
 
@@ -484,27 +547,27 @@ TEST_F(VariableTest, IfCommand)
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if 2<1 then 'print \"bingo!\"' else 'print \"nope?\"'");
+    command(R"(if 2<1 then 'print "bingo!"' else 'print "nope?"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*nope\?.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if (1<=0) then 'print \"bingo!\"' else 'print \"nope?\"'");
+    command(R"(if (1<=0) then 'print "bingo!"' else 'print "nope?"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*nope\?.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if (0<=0) then 'print \"bingo!\"' else 'print \"nope?\"'");
+    command(R"(if (0<=0) then 'print "bingo!"' else 'print "nope?"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if (0>=1) then 'print \"bingo!\"' else 'print \"nope?\"'");
+    command(R"(if (0>=1) then 'print "bingo!"' else 'print "nope?"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*nope\?.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if (1>=1) then 'print \"bingo!\"' else 'print \"nope?\"'");
+    command(R"(if (1>=1) then 'print "bingo!"' else 'print "nope?"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
@@ -519,17 +582,17 @@ TEST_F(VariableTest, IfCommand)
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if !((${one}!=1.0)||(2|^1)) then 'print \"missed\"' else 'print \"bingo!\"'");
+    command(R"(if !((${one}!=1.0)||(2|^1)) then 'print "missed"' else 'print "bingo!"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if (1>=2)&&(0&&1) then 'print \"missed\"' else 'print \"bingo!\"'");
+    command(R"(if (1>=2)&&(0&&1) then 'print "missed"' else 'print "bingo!"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
     BEGIN_CAPTURE_OUTPUT();
-    command("if !1 then 'print \"missed\"' else 'print \"bingo!\"'");
+    command(R"(if !1 then 'print "missed"' else 'print "bingo!"')");
     text = END_CAPTURE_OUTPUT();
     ASSERT_THAT(text, ContainsRegex(".*bingo!.*"));
 
@@ -626,7 +689,8 @@ TEST_F(VariableTest, NextCommand)
 
     TEST_FAILURE(".*ERROR: Illegal next command.*", command("next"););
     TEST_FAILURE(".*ERROR: Invalid variable 'xxx' in next command.*", command("next xxx"););
-    TEST_FAILURE(".*ERROR: Invalid variable style with next command.*", command("next two"););
+    TEST_FAILURE(".*ERROR: Variable two has invalid style equal for next command.*",
+                 command("next two"););
     TEST_FAILURE(".*ERROR: All variables in next command must have same style.*",
                  command("next five four"););
 }
@@ -673,7 +737,7 @@ TEST_F(VariableTest, LabelMapMolecular)
     command("labelmap atom 1 C1");
     command("labelmap atom 2 \"N2'\"");
     command("labelmap bond 1 C1-N2 2 [C1][C1] 3 N2=N2");
-    command("labelmap angle 1 C1-N2-C1 2 \"\"\" N2'-C1\"-N2' \"\"\"");
+    command(R"(labelmap angle 1 C1-N2-C1 2 """ N2'-C1"-N2' """)");
     command("labelmap dihedral 1 'C1-N2-C1-N2'");
     command("labelmap improper 1 \"C1-N2-C1-N2\"");
     command("variable t1 equal label2type(atom,C1)");
@@ -731,8 +795,8 @@ TEST_F(VariableTest, LabelMapMolecular)
 TEST_F(VariableTest, Format)
 {
     BEGIN_HIDE_OUTPUT();
-    command("variable idx     index    -0.625");
-    command("variable one     equal    -0.625");
+    command("variable idx     index    -0.622");
+    command("variable one     equal    -0.622");
     command("variable two     equal     1.0e-20");
     command("variable three   equal    1.0e10");
     command("variable f1one   format    one \"%8.4f\"");
@@ -754,25 +818,25 @@ TEST_F(VariableTest, Format)
     command("variable g3one   format    one \"%5g\"");
     command("variable g3two   format    two \"%g\"");
     END_HIDE_OUTPUT();
-    EXPECT_THAT(variable->retrieve("one"), StrEq("-0.625"));
+    EXPECT_THAT(variable->retrieve("one"), StrEq("-0.622"));
     EXPECT_THAT(variable->retrieve("two"), StrEq("1e-20"));
-    EXPECT_THAT(variable->retrieve("f1one"), StrEq(" -0.6250"));
+    EXPECT_THAT(variable->retrieve("f1one"), StrEq(" -0.6220"));
     EXPECT_THAT(variable->retrieve("f1two"), StrEq("  0.0000"));
     EXPECT_THAT(variable->retrieve("f2one"), StrEq("-0.62"));
     EXPECT_THAT(variable->retrieve("f2two"), StrEq(" 0.0000000000000000000100000"));
-    EXPECT_THAT(variable->retrieve("f3one"), StrEq("-0.625000"));
+    EXPECT_THAT(variable->retrieve("f3one"), StrEq("-0.622000"));
     EXPECT_THAT(variable->retrieve("f3two"), StrEq("0.000000"));
-    EXPECT_THAT(variable->retrieve("e1one"), StrEq("   -6.2500e-01"));
+    EXPECT_THAT(variable->retrieve("e1one"), StrEq("   -6.2200e-01"));
     EXPECT_THAT(variable->retrieve("e1two"), StrEq("1.0000e-20    "));
-    EXPECT_THAT(variable->retrieve("e2one"), StrEq("-6.25E-01"));
+    EXPECT_THAT(variable->retrieve("e2one"), StrEq("-6.22E-01"));
     EXPECT_THAT(variable->retrieve("e2two"), StrEq(" 9.999999999999999E-21"));
-    EXPECT_THAT(variable->retrieve("e3one"), StrEq("-6.250000e-01"));
+    EXPECT_THAT(variable->retrieve("e3one"), StrEq("-6.220000e-01"));
     EXPECT_THAT(variable->retrieve("e3two"), StrEq("1.000000e-20"));
-    EXPECT_THAT(variable->retrieve("g1one"), StrEq("        -0.625"));
+    EXPECT_THAT(variable->retrieve("g1one"), StrEq("        -0.622"));
     EXPECT_THAT(variable->retrieve("g1two"), StrEq("1e-20         "));
     EXPECT_THAT(variable->retrieve("g2one"), StrEq("-0.62"));
     EXPECT_THAT(variable->retrieve("g2two"), StrEq(" 1E-20"));
-    EXPECT_THAT(variable->retrieve("g3one"), StrEq("-0.625"));
+    EXPECT_THAT(variable->retrieve("g3one"), StrEq("-0.622"));
     EXPECT_THAT(variable->retrieve("g3two"), StrEq("1e-20"));
 
     BEGIN_HIDE_OUTPUT();
@@ -782,7 +846,22 @@ TEST_F(VariableTest, Format)
     command("variable f1three  format  three %g");
     command("variable three delete");
     END_HIDE_OUTPUT();
-    EXPECT_THAT(variable->retrieve("f1one"), StrEq("-0.6250 "));
+    EXPECT_THAT(variable->retrieve("f1one"), StrEq("-0.6220 "));
+
+    // format variable results are no longer truncated to 63 characters
+    char refbuf[512];
+    snprintf(refbuf, sizeof(refbuf), "%70.40f", -0.622);
+    BEGIN_HIDE_OUTPUT();
+    command("variable wide1 format one \"%70.40f\"");
+    END_HIDE_OUTPUT();
+    EXPECT_THAT(variable->retrieve("wide1"), StrEq(refbuf));
+
+    // formatted immediate variable expansions are no longer truncated to 255 characters
+    snprintf(refbuf, sizeof(refbuf), "%.310f", 1.0 / 3.0);
+    BEGIN_HIDE_OUTPUT();
+    command("variable wide2 index $(1.0/3.0:%.310f)");
+    END_HIDE_OUTPUT();
+    EXPECT_THAT(variable->retrieve("wide2"), StrEq(refbuf));
 
     TEST_FAILURE(".*ERROR: Variable f1idx: format variable idx has incompatible style.*",
                  command("variable f1idx format idx %8.4f"););
@@ -792,7 +871,7 @@ TEST_F(VariableTest, Format)
                  command("variable f1idx format yyy %8.4f"););
     TEST_FAILURE(".*ERROR: Variable f1three: format variable three does not exist.*",
                  variable->retrieve("f1three"););
-    TEST_FAILURE(".*ERROR: Cannot redefine variable as a different style.*",
+    TEST_FAILURE(".*ERROR: Cannot redefine format style variable f2one as equal style.*",
                  command("variable f2one equal 0.5"););
     TEST_FAILURE(".*ERROR: Illegal variable command.*", command("variable xxx format \"xxx\""););
     TEST_FAILURE(".*ERROR: Incorrect conversion in format string.*",
@@ -815,7 +894,7 @@ TEST_F(VariableTest, Set)
     command("variable three  string    three");
     command("variable ten    internal  10.0");
     END_HIDE_OUTPUT();
-    ASSERT_EQ(variable->nvar, 3);
+    ASSERT_EQ(variable->get_nvar(), 3);
     ASSERT_THAT(variable->retrieve("three"), StrEq("three"));
     ASSERT_THAT(variable->retrieve("ten"), StrEq("10"));
 
@@ -827,6 +906,170 @@ TEST_F(VariableTest, Set)
     variable->internal_set(variable->find("ten"), -2.5);
     ASSERT_THAT(variable->retrieve("ten"), StrEq("-2.5"));
 }
+// Records which of the accelerator seams in Variable a formula routes
+// through, and with what name.  VariableKokkos overrides exactly these to
+// decide what to copy back from the device, so this pins down the behavior
+// that matters without needing a device.
+
+class RecordingVariable : public Variable {
+public:
+    RecordingVariable(LAMMPS *lmp) : Variable(lmp) {}
+    std::set<std::string> seen;
+    void reset() { seen.clear(); }
+
+    void compute_atom(int ivar, int igroup, double *result, int stride, int sumflag) override
+    {
+        seen.insert("mask");
+        Variable::compute_atom(ivar, igroup, result, stride, sumflag);
+    }
+
+protected:
+    void atom_vector(char *word, Tree **tree, Tree **treestack, int &ntreestack) override
+    {
+        seen.insert(word);
+        Variable::atom_vector(word, tree, treestack, ntreestack);
+    }
+
+    int group_function(char *word, char *contents, Tree **tree, Tree **treestack, int &ntreestack,
+                       double *argstack, int &nargstack, int ivar) override
+    {
+        if (is_group_function(word)) seen.insert("<all>");
+        return Variable::group_function(word, contents, tree, treestack, ntreestack, argstack,
+                                        nargstack, ivar);
+    }
+
+    int special_function(const std::string &word, char *contents, Tree **tree, Tree **treestack,
+                         int &ntreestack, double *argstack, int &nargstack, int ivar, char *str,
+                         int &i, char *&ptr) override
+    {
+        // record the name of any special function reached, so this test
+        // measures which seams a formula uses rather than duplicating the
+        // mask policy that lives in VariableKokkos
+        if (is_special_function(word)) seen.insert(word);
+        return Variable::special_function(word, contents, tree, treestack, ntreestack, argstack,
+                                          nargstack, ivar, str, i, ptr);
+    }
+
+    void peratom2global(int flag, char *word, double *vector, int nstride, tagint id, Tree **tree,
+                        Tree **treestack, int &ntreestack, double *argstack, int &nargstack) override
+    {
+        seen.insert("<all>");
+        Variable::peratom2global(flag, word, vector, nstride, id, tree, treestack, ntreestack,
+                                 argstack, nargstack);
+    }
+
+    void custom2global(int *ivector, double *dvector, int nstride, tagint id, Tree **tree,
+                       Tree **treestack, int &ntreestack, double *argstack, int &nargstack) override
+    {
+        seen.insert("<all>");
+        Variable::custom2global(ivector, dvector, nstride, id, tree, treestack, ntreestack,
+                                argstack, nargstack);
+    }
+
+    void sync_peratom(const char *word) override { seen.insert(word ? word : "<all>"); }
+};
+
+class VariableSyncTest : public LAMMPSTest {
+protected:
+    RecordingVariable *rec;
+    Group *group;
+
+    void SetUp() override
+    {
+        testbinary = "VariableSyncTest";
+        args       = {"-log", "none", "-echo", "screen", "-nocite"};
+        LAMMPSTest::SetUp();
+        group = lmp->group;
+
+        // swap in the recording subclass before any variable is defined
+        delete lmp->input->variable;
+        rec                  = new RecordingVariable(lmp);
+        lmp->input->variable = rec;
+
+        BEGIN_HIDE_OUTPUT();
+        command("fix props all property/atom mol rmass q d_dm_val");
+        command("atom_modify map array");    // needed for x[N] style access
+        command("units real");
+        command("lattice sc 1.0 origin 0.125 0.125 0.125");
+        command("region box block -2 2 -2 2 -2 2");
+        command("create_box 8 box");
+        command("create_atoms 1 box");
+        command("mass * 1.0");
+        command("region left block -2.0 -1.0 INF INF INF INF");
+        command("compute dm_ke all ke/atom");
+        command("compute dm_msd all msd");
+        command("run 0 post no");
+        END_HIDE_OUTPUT();
+    }
+
+    std::set<std::string> seams_for(const std::string &formula)
+    {
+        static int n = 0;
+        std::string name = fmt::format("vsync{}", n++);
+        BEGIN_HIDE_OUTPUT();
+        command(fmt::format("variable {} atom \"{}\"", name, formula));
+        END_HIDE_OUTPUT();
+        const int ivar   = rec->find(name.c_str());
+        const int nlocal = lmp->atom->nlocal;
+        std::vector<double> buf(nlocal > 0 ? nlocal : 1);
+        rec->reset();
+        rec->compute_atom(ivar, group->find("all"), buf.data(), 1, 0);
+        return rec->seen;
+    }
+};
+
+using StrSet = std::set<std::string>;
+
+TEST_F(VariableSyncTest, AcceleratorSeams)
+{
+    // compute_atom() always reads atom->mask for the group test
+
+    EXPECT_EQ(seams_for("x"), (StrSet{"x", "mask"}));
+    EXPECT_EQ(seams_for("x*y+z"), (StrSet{"x", "y", "z", "mask"}));
+    EXPECT_EQ(seams_for("vx*vy+vz"), (StrSet{"vx", "vy", "vz", "mask"}));
+    EXPECT_EQ(seams_for("fx+fy+fz"), (StrSet{"fx", "fy", "fz", "mask"}));
+    EXPECT_EQ(seams_for("q"), (StrSet{"q", "mask"}));
+    EXPECT_EQ(seams_for("type"), (StrSet{"type", "mask"}));
+    EXPECT_EQ(seams_for("id"), (StrSet{"id", "mask"}));
+    EXPECT_EQ(seams_for("mol"), (StrSet{"mol", "mask"}));
+    EXPECT_EQ(seams_for("mass"), (StrSet{"mass", "mask"}));
+
+    // only the arrays the formula actually names
+
+    EXPECT_EQ(seams_for("x*vy"), (StrSet{"x", "vy", "mask"}));
+    EXPECT_EQ(seams_for("sqrt(x*x)+q*type"), (StrSet{"x", "q", "type", "mask"}));
+
+    // group and region tests route through special_function()
+
+    EXPECT_EQ(seams_for("gmask(all)"), (StrSet{"gmask", "mask"}));
+    EXPECT_EQ(seams_for("rmask(left)"), (StrSet{"rmask", "mask"}));
+    EXPECT_EQ(seams_for("grmask(all,left)"), (StrSet{"grmask", "mask"}));
+
+    // custom per-atom properties are named by their prefix
+
+    EXPECT_EQ(seams_for("d_dm_val"), (StrSet{"d_dm_val", "mask"}));
+
+    // data that cannot be accounted for falls back to everything
+
+    EXPECT_THAT(seams_for("c_dm_ke"), ::testing::Contains("<all>"));
+    EXPECT_THAT(seams_for("x*count(all)"), ::testing::Contains("<all>"));
+    EXPECT_THAT(seams_for("x[1]+y[2]"), ::testing::Contains("<all>"));
+
+    // special functions that reduce a compute or fix invoke it, and thermo
+    // keywords invoke the thermo computes; both read per-atom data on the host
+
+    EXPECT_THAT(seams_for("sum(c_dm_msd)"), ::testing::Contains("sum"));
+    EXPECT_THAT(seams_for("x*temp"), ::testing::Contains("<all>"));
+
+    // special functions that touch no per-atom data must not force a sync
+
+    EXPECT_EQ(seams_for("x*is_os(^Linux)"), (StrSet{"x", "is_os", "mask"}));
+
+    // constant-folded formulas touch no per-atom data beyond the group test
+
+    EXPECT_EQ(seams_for("1.0+2.0"), (StrSet{"mask"}));
+}
+
 } // namespace LAMMPS_NS
 
 int main(int argc, char **argv)

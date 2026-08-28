@@ -23,6 +23,7 @@
 #include "error.h"
 #include "fix.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "modify.h"
 #include "neigh_list.h"
@@ -38,11 +39,13 @@ static constexpr double EPSILON = 1.0e-10;
 
 /* ---------------------------------------------------------------------- */
 
-PairDPDfdtEnergy::PairDPDfdtEnergy(LAMMPS *lmp) : Pair(lmp)
+PairDPDfdtEnergy::PairDPDfdtEnergy(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), a0(nullptr), sigma(nullptr), kappa(nullptr), alpha(nullptr)
 {
   random = nullptr;
   duCond = nullptr;
   duMech = nullptr;
+  nmax_dpd = 0;
   splitFDT_flag = false;
   a0_is_zero = false;
 
@@ -68,7 +71,7 @@ PairDPDfdtEnergy::~PairDPDfdtEnergy()
     memory->destroy(duMech);
   }
 
-  if (random) delete random;
+  delete random;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -166,13 +169,12 @@ void PairDPDfdtEnergy::compute(int eflag, int vflag)
     }
   } else {
 
-    // Allocate memory for duCond and duMech
-    if (allocated) {
-      memory->destroy(duCond);
-      memory->destroy(duMech);
+    // Grow duCond/duMech to atom->nmax if needed; zero the active range
+    if (atom->nmax > nmax_dpd) {
+      memory->grow(duCond, atom->nmax, "pair:duCond");
+      memory->grow(duMech, atom->nmax, "pair:duMech");
+      nmax_dpd = atom->nmax;
     }
-    memory->create(duCond,nlocal+nghost,"pair:duCond");
-    memory->create(duMech,nlocal+nghost,"pair:duMech");
     for (int ii = 0; ii < nlocal+nghost; ii++) {
       duCond[ii] = 0.0;
       duMech[ii] = 0.0;
@@ -306,8 +308,6 @@ void PairDPDfdtEnergy::allocate()
 {
   allocated = 1;
   int n = atom->ntypes;
-  int nlocal = atom->nlocal;
-  int nghost = atom->nghost;
 
   memory->create(setflag,n+1,n+1,"pair:setflag");
   for (int i = 1; i <= n; i++)
@@ -321,10 +321,6 @@ void PairDPDfdtEnergy::allocate()
   memory->create(sigma,n+1,n+1,"pair:sigma");
   memory->create(kappa,n+1,n+1,"pair:kappa");
   memory->create(alpha,n+1,n+1,"pair:alpha");
-  if (!splitFDT_flag) {
-    memory->create(duCond,nlocal+nghost+1,"pair:duCond");
-    memory->create(duMech,nlocal+nghost+1,"pair:duMech");
-  }
 }
 
 /* ----------------------------------------------------------------------
@@ -363,7 +359,7 @@ void PairDPDfdtEnergy::settings(int narg, char **arg)
 
 void PairDPDfdtEnergy::coeff(int narg, char **arg)
 {
-  if (narg < 5 || narg > 6) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (narg < 5 || narg > 6) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -394,7 +390,7 @@ void PairDPDfdtEnergy::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -406,22 +402,16 @@ void PairDPDfdtEnergy::init_style()
   if (comm->ghost_velocity == 0)
     error->all(FLERR,"Pair dpd/fdt/energy requires ghost atoms store velocity");
 
-  splitFDT_flag = false;
+  splitFDT_flag = !modify->get_fix_by_style("^shardlow").empty();
   neighbor->add_request(this);
-  for (int i = 0; i < modify->nfix; i++)
-    if (utils::strmatch(modify->fix[i]->style,"^shardlow")) {
-      splitFDT_flag = true;
-    }
 
   // if newton off, forces between atoms ij will be double computed
   // using different random numbers if splitFDT_flag is false
   if (!splitFDT_flag && (force->newton_pair == 0) && (comm->me == 0)) error->warning(FLERR,
       "Pair dpd/fdt/energy requires newton pair on if not also using fix shardlow");
 
-  bool eos_flag = false;
-  for (int i = 0; i < modify->nfix; i++)
-    if (utils::strmatch(modify->fix[i]->style,"^eos")) eos_flag = true;
-  if (!eos_flag) error->all(FLERR,"pair_style dpd/fdt/energy requires an EOS fix to be specified");
+  if (modify->get_fix_by_style("^eos").empty())
+    error->all(FLERR,"pair_style dpd/fdt/energy requires an EOS fix to be specified");
 }
 
 /* ----------------------------------------------------------------------
@@ -430,7 +420,9 @@ void PairDPDfdtEnergy::init_style()
 
 double PairDPDfdtEnergy::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   cut[j][i] = cut[i][j];
   a0[j][i] = a0[i][j];
@@ -525,7 +517,7 @@ void PairDPDfdtEnergy::read_restart_settings(FILE *fp)
   // initialize Marsaglia RNG with processor-unique seed
   // same seed that pair_style command initially specified
 
-  if (random) delete random;
+  delete random;
   random = new RanMars(lmp,seed + comm->me);
 }
 
@@ -579,4 +571,13 @@ void PairDPDfdtEnergy::unpack_reverse_comm(int n, int *list, double *buf)
     duCond[j] += buf[m++];
     duMech[j] += buf[m++];
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+double PairDPDfdtEnergy::memory_usage()
+{
+  double bytes = Pair::memory_usage();
+  if (duCond) bytes += (double) nmax_dpd * 2 * sizeof(double);    // duCond + duMech
+  return bytes;
 }

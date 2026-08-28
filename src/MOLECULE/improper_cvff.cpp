@@ -21,6 +21,7 @@
 #include "neighbor.h"
 
 #include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
@@ -29,7 +30,8 @@ static constexpr double SMALL = 0.001;
 
 /* ---------------------------------------------------------------------- */
 
-ImproperCvff::ImproperCvff(LAMMPS *_lmp) : Improper(_lmp)
+ImproperCvff::ImproperCvff(LAMMPS *_lmp) :
+    Improper(_lmp), k(nullptr), sign(nullptr), multiplicity(nullptr)
 {
   writedata = 1;
 
@@ -42,6 +44,8 @@ ImproperCvff::ImproperCvff(LAMMPS *_lmp) : Improper(_lmp)
 
 ImproperCvff::~ImproperCvff()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(k);
@@ -275,7 +279,7 @@ void ImproperCvff::allocate()
 
 void ImproperCvff::coeff(int narg, char **arg)
 {
-  if (narg != 4) error->all(FLERR, "Incorrect args for improper coefficients");
+  if (narg != 4) error->all(FLERR, "Incorrect args for improper coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi;
@@ -284,6 +288,8 @@ void ImproperCvff::coeff(int narg, char **arg)
   double k_one = utils::numeric(FLERR, arg[1], false, lmp);
   int sign_one = utils::inumeric(FLERR, arg[2], false, lmp);
   int multiplicity_one = utils::inumeric(FLERR, arg[3], false, lmp);
+  if ((multiplicity_one < 0) || (multiplicity_one > 6))
+    error->all(FLERR, "Improper cvff multiplicity {} must be between 0 and 6", multiplicity_one);
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
@@ -294,7 +300,7 @@ void ImproperCvff::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for improper coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for improper coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -336,4 +342,17 @@ void ImproperCvff::write_data(FILE *fp)
 {
   for (int i = 1; i <= atom->nimpropertypes; i++)
     fprintf(fp, "%d %g %d %d\n", i, k[i], sign[i], multiplicity[i]);
+}
+
+/* ----------------------------------------------------------------------
+   return ptr to internal members upon request
+------------------------------------------------------------------------ */
+
+void *ImproperCvff::extract(const char *str, int &dim)
+{
+  dim = 1;
+  if (strcmp(str, "k") == 0) return (void *) k;
+  if (strcmp(str, "d") == 0) return (void *) sign;
+  if (strcmp(str, "n") == 0) return (void *) multiplicity;
+  return nullptr;
 }

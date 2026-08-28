@@ -1,10 +1,11 @@
 .. index:: bond_style harmonic/shift/cut
+.. index:: bond_style harmonic/shift/cut/kk
 .. index:: bond_style harmonic/shift/cut/omp
 
 bond_style harmonic/shift/cut command
 =====================================
 
-Accelerator Variants: *harmonic/shift/cut/omp*
+Accelerator Variants: *harmonic/shift/cut/kk*, *harmonic/shift/cut/omp*
 
 Syntax
 """"""
@@ -31,9 +32,14 @@ uses the potential
 
    E = \frac{U_{\text{min}}}{(r_0-r_c)^2} \left[ (r-r_0)^2-(r_c-r_0)^2 \right]
 
-where :math:`r_0` is the equilibrium bond distance, and rc the critical distance.
-The bond potential is zero for distances :math:`r > r_c`. The potential is :math:`-U_{\text{min}}`
-at :math:`r_0` and zero at :math:`r_c`. The spring constant is :math:`k = U_{\text{min}} / [ 2 (r_0-r_c)^2]`.
+where :math:`r_0` is the equilibrium bond distance, and :math:`r_c` the
+critical distance.  The bond potential is zero and thus its force also
+zero for distances :math:`r > r_c`.  The potential energy has the value
+:math:`-U_{\text{min}}` at :math:`r_0` and zero at :math:`r_c`.
+
+The equivalent spring constant value *K* for use with :doc:`bond_style
+harmonic <bond_harmonic>` for :math:`r <= r_c`, can be computed using
+:math:`K = U_{\text{min}} / [(r_0-r_c)^2]`
 
 The following coefficients must be defined for each bond type via the
 :doc:`bond_coeff <bond_coeff>` command as in the example above, or in

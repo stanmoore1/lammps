@@ -20,6 +20,7 @@
 #include "atom.h"
 #include "comm.h"
 #include "error.h"
+#include "info.h"
 #include "force.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -226,9 +227,8 @@ void PairSMATB::compute(int eflag, int vflag)
                3.0 * a3[itype][jtype] * polyval2);
           qsiexpq = x5[itype][jtype] * polyval5 + x4[itype][jtype] * polyval4 +
               x3[itype][jtype] * polyval3;
-          Fb = ((5.0 * x5[itype][jtype] * polyval4 + 4.0 * x4[itype][jtype] * polyval3 +
-                 3.0 * x3[itype][jtype] * polyval2)) *
-              qsiexpq;
+          Fb = (5.0 * x5[itype][jtype] * polyval4 + 4.0 * x4[itype][jtype] * polyval3 +
+                 3.0 * x3[itype][jtype] * polyval2) * qsiexpq;
         }
 
         // calculates the module of the pair energy between i and j
@@ -329,7 +329,7 @@ void PairSMATB::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -352,7 +352,8 @@ double PairSMATB::init_one(int i, int j)
     cutOffStart[i][j] = MIN(cutOffStart[i][i], cutOffStart[j][j]);
     cutOffEnd[i][j] = MAX(cutOffEnd[i][i], cutOffEnd[j][j]);
 
-    error->all(FLERR, "All pair coeffs are not set");
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
   }
 
   double es = cutOffEnd[i][j] - cutOffStart[i][j];

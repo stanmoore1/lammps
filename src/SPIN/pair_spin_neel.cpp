@@ -28,6 +28,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 
@@ -135,7 +136,9 @@ void PairSpinNeel::coeff(int narg, char **arg)
 
 double PairSpinNeel::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   g1[j][i] = g1[i][j];
   g1_mech[j][i] = g1_mech[i][j];
@@ -145,6 +148,7 @@ double PairSpinNeel::init_one(int i, int j)
   q1_mech[j][i] = q1_mech[i][j];
   q2[j][i] = q2[i][j];
   q3[j][i] = q3[i][j];
+  cut_spin_neel[j][i] = cut_spin_neel[i][j];
 
   return cut_spin_neel_global;
 }

@@ -92,6 +92,15 @@ Syntax
 
        see the :doc:`dump image <dump_image>` doc page for details
 
+* these keywords apply only to the extxyz dump style
+* keyword = *forces* or *mass* or *vel*
+
+  .. parsed-literal::
+
+       *forces* arg = *yes* or *no*
+       *mass* arg = *yes* or *no*
+       *vel* arg = *yes* or *no*
+
 * these keywords apply only to the */gz* and */zstd* dump styles
 * keyword = *compression_level*
 
@@ -107,12 +116,13 @@ Syntax
 
        *checksum* args = *yes* or *no* (add checksum at end of zst file)
 
-* these keywords apply only to the vtk* dump style
-* keyword = *binary*
+* these keywords apply only to the *vtk* and *grid/vtk* dump styles
+* keyword = *binary* or *double*
 
   .. parsed-literal::
 
        *binary* args = *yes* or *no* (select between binary and text mode VTK files)
+       *double* args = *yes* or *no* (select between double and single precision output)
 
 Examples
 """"""""
@@ -141,7 +151,7 @@ various dump styles, including the :doc:`dump image <dump_image>` and
 
 The *append* keyword applies to all dump styles except *cfg* and *xtc*
 and *dcd*\ .  It also applies only to text output files, not to binary
-or gzipped or image/movie files.  If specified as *yes*, then dump
+or compressed or image/movie files.  If specified as *yes*, then dump
 snapshots are appended to the end of an existing dump file.  If
 specified as *no*, then a new dump file will be created which will
 overwrite an existing file with the same name.
@@ -161,7 +171,7 @@ dump file has been opened, this keyword has no further effect.
 
 The *buffer* keyword applies only to dump styles *atom*, *cfg*,
 *custom*, *local*, and *xyz*\ .  It also applies only to text output
-files, not to binary or gzipped files.  If specified as *yes*, which
+files, not to binary or compressed files.  If specified as *yes*, which
 is the default, then each processor writes its output into an internal
 text buffer, which is then sent to the processor(s) which perform file
 writes, and written by those processors(s) as one large chunk of text.
@@ -729,11 +739,12 @@ descending order.
 The dump *local* style cannot be sorted by atom ID, since there are
 typically multiple lines of output per atom.  Some dump styles, such
 as *dcd* and *xtc*, require sorting by atom ID to format the output
-file correctly.  If multiple processors are writing the dump file, via
-the "%" wildcard in the dump filename and the *nfile* or *fileper*
-keywords are set to non-default values (i.e., the number of dump file
-pieces is not equal to the number of procs), then sorting cannot be
-performed.
+file correctly. When multiple processors write separate dump file
+pieces via the "%" wildcard together with the *nfile* or *fileper*
+keywords, sorting is performed globally across all processors first
+and the sorted data are then forwarded to a smaller subset of
+processors who accumulate the data in order, so each individual dump
+file contains a consecutive, sorted portion of the full snapshot.
 
 In a parallel run, the per-processor dump file pieces can have
 significant imbalance in number of lines of per-atom info. The *balance*
@@ -742,6 +753,18 @@ snapshot are balanced to be nearly the same. A balance value of *no*
 means no balancing will be done, while *yes* means balancing will be
 performed. This balancing preserves dump sorting order. For a serial
 run, this option is ignored since the output is already balanced.
+When multiple processors write separate dump file
+pieces via the "%" wildcard together with the *nfile* or *fileper*
+keywords, balancing is performed globally across all processors first
+and the balanced data are then forwarded to a smaller subset of
+processors who accumulate the data.
+
+.. note::
+
+   The balancing is performed on a per-processor basis, not per-file
+   when using *nfile* or *fileper*. If different numbers of processors
+   contribute data to different dump files, the files will naturally be
+   of different lengths.
 
 .. note::
 
@@ -937,14 +960,25 @@ default and it can be disabled with the :code:`checksum` keyword.
 
 ----------
 
-The :ref:`VTK package <PKG-VTK>` offers writing dump files in `VTK file
-formats <https://www.vtk.org/>`_ that can be read by a variety of
-visualization tools based on the VTK library.  These VTK files follow
+.. versionadded:: TBD
+
+The :ref:`EXTRA-DUMP package <PKG-EXTRA-DUMP>` offers writing dump files
+in `VTK file formats <https://vtk.org/>`_ that can be read by a variety
+of visualization tools based on the VTK library.  These VTK files follow
 naming conventions that collide with the LAMMPS convention to append
 ".bin" to a file name in order to switch to a binary output.  Thus for
-:doc:`vtk style dumps <dump_vtk>` the dump_modify command supports the
-keyword *binary* which selects between generating text mode and binary
-style VTK files.
+:doc:`vtk style dumps <dump_vtk>` and :doc:`grid/vtk style dumps <dump>`
+the dump_modify command supports the keyword *binary* which selects
+between generating text mode and binary style VTK files.
+
+The keyword *double* selects the precision of all floating point data
+written by the *vtk* and *grid/vtk* dump styles.  By default, that data
+is written in single precision, which keeps about 7 significant digits
+and is what visualization tools work with.  With *double* set to *yes*,
+coordinates and data values are written in double precision instead, so
+that dump files can be post-processed quantitatively without loss of
+precision.  Text mode files then store each number with as many digits
+as are needed to read back the identical value.
 
 ----------
 
@@ -966,15 +1000,19 @@ The option defaults are
 
 * append = no
 * balance = no
+* binary = no (dump styles *vtk* and *grid/vtk*)
 * buffer = yes for dump styles *atom*, *custom*, *loca*, and *xyz*
+* double = no (dump styles *vtk* and *grid/vtk*)
 * element = "C" for every atom type
 * every = whatever it was set to via the :doc:`dump <dump>` command
 * fileper = # of processors
 * first = no
 * flush = yes
+* forces = yes
 * format = %d and %g for each integer or floating point value
 * image = no
 * label = ENTRIES
+* mass = no
 * maxfiles = -1
 * nfile = 1
 * pad = 0
@@ -990,6 +1028,7 @@ The option defaults are
 * types = numeric
 * units = no
 * unwrap = no
+* vel = yes
 
 * compression_level = 9 (gz variants)
 * compression_level = 0 (zstd variants)

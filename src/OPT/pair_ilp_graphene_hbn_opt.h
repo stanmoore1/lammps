@@ -31,12 +31,13 @@ class PairILPGrapheneHBNOpt : virtual public PairILPGrapheneHBN {
 
   void compute(int, int) override;
   void init_style() override;
+  void coeff(int narg, char **args) override;
 
  protected:
   void update_internal_list();
   template <int MAX_NNEIGH>
-  void calc_atom_normal(int i, int itype, int *ILP_neigh, int nneigh, double *normal, double (*dnormdri)[3],
-                   double (*dnormdrk)[3][3]);
+  void calc_atom_normal(int i, int itype, int *ILP_neigh, int nneigh, double *normal,
+                        double (*dnormdri)[3], double (*dnormdrk)[3][3]);
   template <int MAX_NNEIGH, int EFLAG, int VFLAG_EITHER, int TAP_FLAG, int VARIANT = ILP_GrhBN>
   void eval();
   int *layered_neigh;
@@ -48,10 +49,9 @@ class PairILPGrapheneHBNOpt : virtual public PairILPGrapheneHBN {
   enum special_type_const {
     NOT_SPECIAL = 0,
     TMD_METAL,
-    SAIP_BNCH,
+    SAIP_METAL,
     WATER,
   };
-
 };
 
 }    // namespace LAMMPS_NS

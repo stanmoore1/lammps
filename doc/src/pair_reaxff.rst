@@ -20,7 +20,7 @@ Syntax
   .. parsed-literal::
 
      keyword = *checkqeq* or *lgvdw* or *safezone* or *mincap* or *minhbonds* or *tabulate* or *list/blocking*
-       *checkqeq* value = *yes* or *no* = whether or not to require qeq/reaxff or acks2/reaxff fix
+       *checkqeq* value = *yes* or *no* = whether or not to require one of fix qeq/reaxff, fix acks2/reaxff or fix qtpie/reaxff
        *enobonds* value = *yes* or *no* = whether or not to tally energy of atoms with no bonds
        *lgvdw* value = *yes* or *no* = whether or not to use a low gradient vdW correction
        *safezone* = factor used for array allocation
@@ -55,6 +55,15 @@ more technical details about the implementation of ReaxFF in pair style
 *reaxff*, see the :ref:`(Aktulga) <Aktulga>` paper. The *reaxff* style
 was initially implemented as a stand-alone C code and is now converted
 to C++ and integrated into LAMMPS as a package.
+
+.. note::
+
+   There are some differences between the equations in the paper cited
+   above and the ReaxFF reference implementation.  Also, some of the
+   printed equations imply sign conventions for force field parameters
+   that differ from those used in the published parameter files.  Where
+   the printed equations and the reference implementation disagree, pair
+   style *reaxff* follows the reference implementation.
 
 The *reaxff/kk* style is a Kokkos version of the ReaxFF potential that
 is derived from the *reaxff* style.  The Kokkos version can run on GPUs
@@ -120,24 +129,26 @@ up that process.
 
 The ReaxFF parameter files provided were created using a charge
 equilibration (QEq) model for handling the electrostatic interactions.
-Therefore, by default, LAMMPS requires that either the
-:doc:`fix qeq/reaxff <fix_qeq_reaxff>` or the
-:doc:`fix qeq/shielded <fix_qeq>` or :doc:`fix acks2/reaxff <fix_acks2_reaxff>`
-command be used with
-*pair_style reaxff* when simulating a ReaxFF model, to equilibrate
-the charges each timestep.
+Therefore, by default, LAMMPS requires that
+:doc:`fix qeq/reaxff <fix_qeq_reaxff>` or :doc:`fix qeq/shielded <fix_qeq>`
+or :doc:`fix acks2/reaxff <fix_acks2_reaxff>`
+or :doc:`fix qtpie/reaxff <fix_qtpie_reaxff>`
+is used with *pair_style reaxff* when simulating a ReaxFF model,
+to equilibrate the charges at each timestep.
+See the :doc:`fix qeq/reaxff <fix_qeq_reaxff>` or :doc:`fix qeq/shielded <fix_qeq>`
+or :doc:`fix acks2/reaxff <fix_acks2_reaxff>`
+or :doc:`fix qtpie/reaxff <fix_qtpie_reaxff>`
+command documentation for more details.
 
 Using the keyword *checkqeq* with the value *no* turns off the check
 for the QEq fixes, allowing a simulation to be run without charge
 equilibration. In this case, the static charges you assign to each
 atom will be used for computing the electrostatic interactions in
-the system. See the :doc:`fix qeq/reaxff <fix_qeq_reaxff>` or
-:doc:`fix qeq/shielded <fix_qeq>` or :doc:`fix acks2/reaxff <fix_acks2_reaxff>`
-command documentation for more details.
+the system.
 
 Using the optional keyword *lgvdw* with the value *yes* turns on the
 low-gradient correction of ReaxFF for long-range London Dispersion,
-as described in the :ref:`(Liu) <Liu_2011>` paper. The bundled force
+as described in the :ref:`(Liu4) <Liu_2011>` paper. The bundled force
 field file *ffield.reax.lg* is designed for this correction, and is
 trained for several energetic materials (see "Liu"). When using *lgvdw yes*,
 the recommended value for parameter *thb* is 0.01, which can be set in the
@@ -156,10 +167,35 @@ drops to zero.
 Optional keywords *safezone*, *mincap*, and *minhbonds* are used
 for allocating reaxff arrays.  Increasing these values can avoid memory
 problems, such as segmentation faults and bondchk failed errors, that
-could occur under certain conditions. These keywords are not used by
+could occur under certain conditions. These keywords are **not** used by
 the Kokkos version, which instead uses a more robust memory allocation
 scheme that checks if the sizes of the arrays have been exceeded and
 automatically allocates more memory.
+
+.. admonition:: Memory management problems with ReaxFF
+   :class: tip
+
+   The LAMMPS implementation of ReaxFF is adapted from a standalone MD
+   program written in C called `PuReMD
+   <https://github.com/msu-sparta/PuReMD>`_.  It inherits from this code
+   a heuristic memory management that is different from what the rest of
+   LAMMPS uses.  It assumes that a system is dense and already well
+   equilibrated, so that there are no large changes in how many and what
+   types of neighbors atoms have.  However, not all systems are like
+   that, and thus there can be errors or segmentation faults if the
+   system changes too much.  If you run into problems, here are three
+   options to avoid them:
+
+   - Use the KOKKOS version of ReaxFF (KOKKOS is not only for GPUs,
+     but can also be compiled for serial or OpenMP execution) which
+     uses a different memory management approach.
+   - Break down a run command during which memory related errors happen
+     into multiple smaller segments so that the memory management
+     heuristics are re-initialized for each segment before they become
+     invalid.
+   - Increase the values for *safezone*, *mincap*, and *minhbonds* as
+     needed.  This can lead to significant increase of memory consumption
+     through.
 
 The keyword *tabulate* controls the size of interpolation table for
 Lennard-Jones and Coulomb interactions. Tabulation may also be set in the
@@ -372,8 +408,8 @@ Related commands
 """"""""""""""""
 
 :doc:`pair_coeff <pair_coeff>`, :doc:`fix qeq/reaxff <fix_qeq_reaxff>`,
-:doc:`fix acks2/reaxff <fix_acks2_reaxff>`, :doc:`fix reaxff/bonds <fix_reaxff_bonds>`,
-:doc:`fix reaxff/species <fix_reaxff_species>`,
+:doc:`fix acks2/reaxff <fix_acks2_reaxff>`, :doc:`fix qtpie/reaxff <fix_qtpie_reaxff>`,
+:doc:`fix reaxff/bonds <fix_reaxff_bonds>`, :doc:`fix reaxff/species <fix_reaxff_species>`,
 :doc:`compute reaxff/atom <compute_reaxff_atom>`
 
 Default
@@ -392,10 +428,10 @@ Journal of Physical Chemistry A, 112, 1040-1053 (2008).
 
 .. _Aktulga:
 
-(Aktulga) Aktulga, Fogarty, Pandit, Grama, Parallel Computing, 38,
+**(Aktulga)** Aktulga, Fogarty, Pandit, Grama, Parallel Computing, 38,
 245-259 (2012).
 
 .. _Liu_2011:
 
-**(Liu)** L. Liu, Y. Liu, S. V. Zybin, H. Sun and W. A. Goddard, Journal
+**(Liu4)** L. Liu, Y. Liu, S. V. Zybin, H. Sun and W. A. Goddard, Journal
 of Physical Chemistry A, 115, 11016-11022 (2011).

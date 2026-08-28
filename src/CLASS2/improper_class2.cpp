@@ -34,7 +34,10 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-ImproperClass2::ImproperClass2(LAMMPS *lmp) : Improper(lmp)
+ImproperClass2::ImproperClass2(LAMMPS *lmp) :
+    Improper(lmp), k0(nullptr), chi0(nullptr), aa_k1(nullptr), aa_k2(nullptr), aa_k3(nullptr),
+    aa_theta0_1(nullptr), aa_theta0_2(nullptr), aa_theta0_3(nullptr), setflag_i(nullptr),
+    setflag_aa(nullptr)
 {
   writedata = 1;
 
@@ -509,7 +512,7 @@ void ImproperClass2::allocate()
 
 void ImproperClass2::coeff(int narg, char **arg)
 {
-  if (narg < 2) error->all(FLERR,"Incorrect args for improper coefficients");
+  if (narg < 2) error->all(FLERR,"Incorrect args for improper coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi;
@@ -518,7 +521,7 @@ void ImproperClass2::coeff(int narg, char **arg)
   int count = 0;
 
   if (strcmp(arg[1],"aa") == 0) {
-    if (narg != 8) error->all(FLERR,"Incorrect args for improper coefficients");
+    if (narg != 8) error->all(FLERR,"Incorrect args for improper coefficients" + utils::errorurl(21));
 
     double k1_one = utils::numeric(FLERR,arg[2],false,lmp);
     double k2_one = utils::numeric(FLERR,arg[3],false,lmp);
@@ -541,7 +544,7 @@ void ImproperClass2::coeff(int narg, char **arg)
     }
 
   } else {
-    if (narg != 3) error->all(FLERR,"Incorrect args for improper coefficients");
+    if (narg != 3) error->all(FLERR,"Incorrect args for improper coefficients" + utils::errorurl(21));
 
     double k0_one = utils::numeric(FLERR,arg[1],false,lmp);
     double chi0_one = utils::numeric(FLERR,arg[2],false,lmp);
@@ -556,7 +559,7 @@ void ImproperClass2::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for improper coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for improper coefficients" + utils::errorurl(21));
 
   for (int i = ilo; i <= ihi; i++)
     if (setflag_i[i] == 1 && setflag_aa[i] == 1) setflag[i] = 1;
@@ -842,4 +845,16 @@ void ImproperClass2::write_data(FILE *fp)
     fprintf(fp,"%d %g %g %g %g %g %g\n",i,aa_k1[i],aa_k2[i],aa_k3[i],
             aa_theta0_1[i]*180.0/MY_PI,aa_theta0_2[i]*180.0/MY_PI,
             aa_theta0_3[i]*180.0/MY_PI);
+}
+
+/* ----------------------------------------------------------------------
+   return ptr to internal members upon request
+------------------------------------------------------------------------ */
+
+void *ImproperClass2::extract(const char *str, int &dim)
+{
+  dim = 1;
+  if (strcmp(str, "k") == 0) return (void *) k0;
+  if (strcmp(str, "chi0") == 0) return (void *) chi0;
+  return nullptr;
 }

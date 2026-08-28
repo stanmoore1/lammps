@@ -26,6 +26,7 @@
 #include "error.h"
 #include "force.h"
 #include "group.h"
+#include "info.h"
 #include "math_const.h"
 #include "math_extra.h"
 #include "math_special.h"
@@ -48,7 +49,7 @@ static constexpr int MAXNEIGH = 24;
 
 /* ---------------------------------------------------------------------- */
 
-PairComb::PairComb(LAMMPS *lmp) : Pair(lmp)
+PairComb::PairComb(LAMMPS *lmp) : Pair(lmp), qf(nullptr), charge(nullptr), typeno(nullptr)
 {
   single_enable = 0;
   restartinfo = 0;
@@ -466,18 +467,11 @@ void PairComb::coeff(int narg, char **arg)
 void PairComb::init_style()
 {
   if (atom->tag_enable == 0)
-    error->all(FLERR,"Pair style COMB requires atom IDs");
+    error->all(FLERR, Error::NOLASTLINE, "Pair style COMB requires atom IDs");
   if (force->newton_pair == 0)
-    error->all(FLERR,"Pair style COMB requires newton pair on");
+    error->all(FLERR, Error::NOLASTLINE, "Pair style COMB requires newton pair on");
   if (!atom->q_flag)
-    error->all(FLERR,"Pair style COMB requires atom attribute q");
-
-  // ptr to QEQ fix
-
-  //for (i = 0; i < modify->nfix; i++)
-  //  if (strcmp(modify->fix[i]->style,"qeq") == 0) break;
-  //if (i < modify->nfix) fixqeq = (FixQEQ *) modify->fix[i];
-  //else fixqeq = nullptr;
+    error->all(FLERR, Error::NOLASTLINE, "Pair style COMB requires atom attribute q");
 
   // need a full neighbor list
 
@@ -509,7 +503,9 @@ void PairComb::init_style()
 
 double PairComb::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
   return cutmax;
 }
 
@@ -793,7 +789,7 @@ void PairComb::repulsive(Param *param, double rsq, double &fforce,
     else if (cor_flag) {
       rslp = ((arr1-r)/(arr1-arr2));
       rslp2 = rslp * rslp; rslp4 = rslp2 * rslp2;
-      vrcs = fc2j * fc3j * romi * ((50.0*rslp4-30.0*rslp2+4.50))/8.0;
+      vrcs = fc2j * fc3j * romi * (50.0*rslp4-30.0*rslp2+4.50)/8.0;
       fvrcs = fcp2j*fcp3j*romi*rslp*(-25.0*rslp2+7.50)/(arr1-arr2);
     }
     fforce_tmp = fforce*vrcs - (tmp_fc * bigA * tmp_exp * fvrcs);
@@ -1463,12 +1459,12 @@ void PairComb::tri_point(double rsq, int &mr1, int &mr2,
  rridr = (r-rin)/dr;
 
  mr1 = int(rridr)-1;
- dd = rridr - float(mr1);
+ dd = rridr - double(mr1);
  if (dd > 0.5) mr1 += 1;
  mr2 = mr1 + 1;
  mr3 = mr2 + 1;
 
- rr1 = float(mr1)*dr;
+ rr1 = double(mr1)*dr;
  rridr = (r - rin - rr1)/dr;
  rridr2 = rridr * rridr;
 
@@ -1814,7 +1810,7 @@ void PairComb::qfo_short(Param *param, int i, int j, double rsq,
     else if (cor_flag) {
       rslp = ((arr1-r)/(arr1-arr2));
       rslp2 = rslp * rslp; rslp4 = rslp2 * rslp2;
-      vrcs = fc2j * fc3j * romi * ((50.0*rslp4-30.0*rslp2+4.50))/8.0;
+      vrcs = fc2j * fc3j * romi * (50.0*rslp4-30.0*rslp2+4.50)/8.0;
     }
   }
 
@@ -2012,7 +2008,7 @@ void PairComb::Short_neigh()
     sht_num[i] = nj;
     ipage->vgot(nj);
     if (ipage->status())
-      error->one(FLERR,"Neighbor list overflow, boost neigh_modify one");
+      error->one(FLERR, Error::NOLASTLINE, "Neighbor list overflow, boost neigh_modify one" + utils::errorurl(36));
   }
 }
 

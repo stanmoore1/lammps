@@ -38,7 +38,9 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJCutCoulDSF::PairLJCutCoulDSF(LAMMPS *lmp) : Pair(lmp)
+PairLJCutCoulDSF::PairLJCutCoulDSF(LAMMPS *lmp) :
+    Pair(lmp), cut_lj(nullptr), cut_ljsq(nullptr), epsilon(nullptr), sigma(nullptr), lj1(nullptr),
+    lj2(nullptr), lj3(nullptr), lj4(nullptr), offset(nullptr)
 {
   single_enable = 0;
 }
@@ -231,7 +233,7 @@ void PairLJCutCoulDSF::settings(int narg, char **arg)
 void PairLJCutCoulDSF::coeff(int narg, char **arg)
 {
   if (narg < 4 || narg > 5)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -255,7 +257,7 @@ void PairLJCutCoulDSF::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

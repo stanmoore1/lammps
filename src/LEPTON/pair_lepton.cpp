@@ -21,6 +21,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 
@@ -30,6 +31,7 @@
 #include <cmath>
 #include <exception>
 #include <map>
+#include <utility>
 
 using namespace LAMMPS_NS;
 
@@ -216,7 +218,8 @@ void PairLepton::settings(int narg, char **arg)
 
 void PairLepton::coeff(int narg, char **arg)
 {
-  if (narg < 3 || narg > 4) error->all(FLERR, "Incorrect number of args for pair coefficients");
+  if (narg < 3 || narg > 4)
+    error->all(FLERR, "Incorrect number of args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -258,7 +261,7 @@ void PairLepton::coeff(int narg, char **arg)
   }
 
   // not found, add to list
-  if ((expressions.size() == 0) || (idx == expressions.size())) expressions.push_back(exp_one);
+  if ((expressions.empty()) || (idx == expressions.size())) expressions.push_back(std::move(exp_one));
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
@@ -270,14 +273,16 @@ void PairLepton::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ---------------------------------------------------------------------- */
 
 double PairLepton::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR, "All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   offset[i][j] = 0.0;
   if (offset_flag) {
@@ -365,12 +370,16 @@ void PairLepton::read_restart(FILE *fp)
   }
   MPI_Bcast(&num, 1, MPI_INT, 0, world);
   MPI_Bcast(&maxlen, 1, MPI_INT, 0, world);
+  if ((num < 0) || (num > 65536) || (maxlen < 0) || (maxlen > 65536))
+    error->all(FLERR, "Invalid expression data in restart file");
 
   char *buf = new char[maxlen];
 
   for (int i = 0; i < num; ++i) {
     if (me == 0) {
       utils::sfread(FLERR, &len, sizeof(int), 1, fp, nullptr, error);
+      if ((len < 1) || (len > maxlen))
+        error->one(FLERR, "Invalid expression length in restart file");
       utils::sfread(FLERR, buf, sizeof(char), len, fp, nullptr, error);
     }
     MPI_Bcast(buf, maxlen, MPI_CHAR, 0, world);

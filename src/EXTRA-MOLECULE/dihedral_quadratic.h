@@ -34,12 +34,13 @@ class DihedralQuadratic : public Dihedral {
   void read_restart(FILE *) override;
   void write_data(FILE *) override;
   void born_matrix(int, int, int, int, int, double &, double &) override;
+  void *extract(const char *, int &) override;
 
  protected:
   double *k, *phi0;
   int *sign, *multiplicity;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

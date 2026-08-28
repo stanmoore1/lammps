@@ -13,9 +13,9 @@ region          wall_cyl cylinder z 0.0 0.0 10.0 EDGE EDGE side in
 region          dropzone cylinder z 0.0 0.0 10.0 40.0 50.0 side in
 
 pair_style      gran/hertz/history 1.0 NULL 0.5 NULL 0.1 1
-bond_style      bpm/rotational
+bond_style      bpm/rotational break no smooth no
 pair_coeff      1 1
-bond_coeff      1 1.0 0.2 0.01 0.01 2.0 0.4 0.02 0.02 0.2 0.04 0.002 0.002
+bond_coeff      1 1.0 0.2 0.01 0.01 0.0 0.0 0.0 0.0 0.2 0.04 0.002 0.002
 
 compute         nbond all nbond/atom
 compute         tbond all reduce sum c_nbond
@@ -36,5 +36,12 @@ thermo          100
 #dump            1 all custom 500 atomDump id radius x y z c_nbond mol
 #dump            2 all local 500 bondDump c_bond_ids[*] c_bond_properties[*]
 #dump_modify     2 colname 1 "id1" colname 2 "id2" colname 3 "r" colname 4 "r0"
+
+#dump            viz  all  image 250 bpm.pour-*.ppm mol type  bond atom type &
+#                size 500 800 zoom 1.75  view 80 10 box no 0.025 &
+#                shiny 0.6  fsaa yes ssao no 453983 0.6 region wall_cyl silver transparent 0.25
+#dump_modify     viz pad 6 boxcolor gray backcolor black backcolor2 white &
+#                amap 1 500 sa 1.0 8 &
+#                firebrick gold forestgreen darkcyan orange midnightblue purple darkgray
 
 run             100000

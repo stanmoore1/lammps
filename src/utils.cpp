@@ -20,7 +20,7 @@
 #include "domain.h"
 #include "error.h"
 #include "fix.h"
-#include "fmt/chrono.h"
+#include "info.h"
 #include "input.h"
 #include "label_map.h"
 #include "memory.h"
@@ -30,77 +30,91 @@
 #include "update.h"
 #include "variable.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cmath>
+#include <cstdarg>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <stdexcept>
 
-/*! \file utils.cpp */
+namespace {
+/* Match text against a (simplified) regular expression
+   (regexp will be compiled automatically). */
+int re_match(const char *text, const char *pattern);
 
-/*
- * Mini regex-module adapted from https://github.com/kokke/tiny-regex-c
- * which is in the public domain.
- *
- * Supports:
- * ---------
- *   '.'        Dot, matches any character
- *   '^'        Start anchor, matches beginning of string
- *   '$'        End anchor, matches end of string
- *   '*'        Asterisk, match zero or more (greedy)
- *   '+'        Plus, match one or more (greedy)
- *   '?'        Question, match zero or one (non-greedy)
- *   '[abc]'    Character class, match if one of {'a', 'b', 'c'}
- *   '[a-zA-Z]' Character ranges, the character set of the ranges { a-z | A-Z }
- *   '\s'       Whitespace, \t \f \r \n \v and spaces
- *   '\S'       Non-whitespace
- *   '\w'       Alphanumeric, [a-zA-Z0-9_]
- *   '\W'       Non-alphanumeric
- *   '\d'       Digits, [0-9]
- *   '\D'       Non-digits
- *   '\i'       Integer chars, [0-9], '+' and '-'
- *   '\I'       Non-integers
- *   '\f'       Floating point number chars, [0-9], '.', 'e', 'E', '+' and '-'
- *   '\F'       Non-floats
- *
- * *NOT* supported:
- *   '[^abc]'   Inverted class
- *   'a|b'      Branches
- *   '(abc)+'   Groups
- */
-
-extern "C" {
-/** Match text against a (simplified) regular expression
-   * (regexp will be compiled automatically). */
-static int re_match(const char *text, const char *pattern);
-
-/** Match find substring that matches a (simplified) regular expression
-   * (regexp will be compiled automatically). */
-static int re_find(const char *text, const char *pattern, int *matchlen);
-}
+/* Find sub-string that matches a (simplified) regular expression
+   (regexp will be compiled automatically). */
+int re_find(const char *text, const char *pattern, int *matchlen);
 
 ////////////////////////////////////////////////////////////////////////
 // Merge sort support functions
 
-static void do_merge(int *idx, int *buf, int llo, int lhi, int rlo, int rhi, void *ptr,
-                     int (*comp)(int, int, void *));
-static void insertion_sort(int *index, int num, void *ptr, int (*comp)(int, int, void *));
+void do_merge(int *idx, int *buf, int llo, int lhi, int rlo, int rhi, void *ptr,
+              int (*comp)(int, int, void *));
+void insertion_sort(int *index, int num, void *ptr, int (*comp)(int, int, void *));
 
 ////////////////////////////////////////////////////////////////////////
+}    // namespace
 
 using namespace LAMMPS_NS;
 
-/** More flexible and specific matching of a string against a pattern.
- *  This function is supposed to be a more safe, more specific and
- *  simple to use API to find pattern matches. The purpose is to replace
- *  uses of either strncmp() or strstr() in the code base to find
- *  sub-strings safely. With strncmp() finding prefixes, the number of
- *  characters to match must be counted, which can lead to errors,
- *  while using "^pattern" will do the same with less problems.
+/** This function provides flexible and specific matching of a string
+ *  against a pattern using a simplified regular expression.  It is supposed
+ *  to be a safe, more specific and simple to use API to find pattern
+ *  matches that is compatible with both, C-style strings and C++ strings.
+ *  The purpose is to replace uses of either strncmp() or strstr() in the
+ *  code which are more complex to use and may have incorrect matches.
+ *  sub-strings safely. With strncmp() for finding prefixes, the number
+ *  of characters to match must be counted, which can lead to errors,
+ *  while using "^pattern" will do the same by just adding the '^' prefix.
  *  Matching for suffixes using strstr() is not as specific as 'pattern$',
  *  and complex matches, e.g. "^rigid.*\/small.*", to match all small
  *  body optimized rigid fixes require only one test.
  *
+\verbatim embed:rst
+
+This function uses a mini regex-module adapted and customized from
+https://github.com/kokke/tiny-regex-c which is in the public domain.
+The `regular expressions <https://en.wikipedia.org/wiki/Regular_expression>`_
+support the following standard and custom regex elements:
+
+.. parsed-literal::
+
+      '.'        Dot, matches any character
+      '^'        Start anchor, matches beginning of string
+      '$'        End anchor, matches end of string
+      '*'        Asterisk, match zero or more (greedy)
+      '+'        Plus, match one or more (greedy)
+      '?'        Question, match zero or one (non-greedy)
+      '[abc]'    Character class, match if one of {'a', 'b', 'c'}
+      '[a-zA-Z]' Character ranges, the character set of the ranges { a-z | A-Z }
+      '\\s'       Whitespace, \\t \\f \\r \\n \\v and spaces
+      '\\S'       Non-whitespace
+      '\\w'       Alphanumeric, [a-zA-Z_0-9]
+      '\\W'       Non-alphanumeric
+      '\\d'       Digits, [0-9]
+      '\\D'       Non-digits
+      '\\i'       Integer chars, [0-9], '+' and '-'
+      '\\I'       Non-integers
+      '\\f'       Floating point number chars, [0-9], '.', 'e', 'E', '+' and '-'
+      '\\F'       Non-floats
+
+They do **not** support:
+
+.. parsed-literal::
+
+   '[^abc]'   Inverted class
+   'a|b'      Branches
+   '(abc)+'   Groups
+
+Please note that regular expressions are different from
+`globbing <https://en.wikipedia.org/wiki/Glob_(programming)>`_.
+
+\endverbatim
+*
  *  The use of std::string arguments allows for simple concatenation
  *  even with char * type variables.
  *  Example: utils::strmatch(text, std::string("^") + charptr)
@@ -109,6 +123,55 @@ bool utils::strmatch(const std::string &text, const std::string &pattern)
 {
   const int pos = re_match(text.c_str(), pattern.c_str());
   return (pos >= 0);
+}
+
+bool utils::strsame(const std::string &text1, const std::string &text2)
+{
+  const char *ptr1 = text1.c_str();
+  const char *ptr2 = text2.c_str();
+
+  while (*ptr1 && *ptr2) {
+
+    // ignore whitespace
+    while (*ptr1 && isspace(*ptr1)) ++ptr1;
+    while (*ptr2 && isspace(*ptr2)) ++ptr2;
+
+    // strings differ
+    if (*ptr1 != *ptr2) return false;
+
+    // reached end of both strings
+    if (!*ptr1 && !*ptr2) return true;
+
+    ++ptr1;
+    ++ptr2;
+  }
+  return true;
+}
+
+std::string utils::strcompress(const std::string &text)
+{
+  const char *ptr = text.c_str();
+  std::string output;
+
+  // remove leading whitespace
+  while (*ptr && isspace(*ptr)) ++ptr;
+
+  while (*ptr) {
+    // copy non-blank characters
+    while (*ptr && !isspace(*ptr)) output += *ptr++;
+
+    if (!*ptr) break;
+
+    // add one blank only
+    if (isspace(*ptr)) output += ' ';
+
+    // skip additional blanks
+    while (*ptr && isspace(*ptr)) ++ptr;
+  }
+
+  // remove trailing blank
+  if (!output.empty() && output.back() == ' ') output.erase(output.size() - 1, 1);
+  return output;
 }
 
 /** This function is a companion function to utils::strmatch(). Arguments
@@ -129,7 +192,72 @@ std::string utils::strfind(const std::string &text, const std::string &pattern)
 void utils::missing_cmd_args(const std::string &file, int line, const std::string &cmd,
                              Error *error)
 {
-  if (error) error->all(file, line, "Illegal {} command: missing argument(s)", cmd);
+  if (error)
+    error->all(file, line, Error::NOPOINTER, "Illegal {} command: missing argument(s)", cmd);
+}
+
+std::string utils::point_to_error(Input *input, int failed)
+{
+  if (input && input->line && input->command) {
+    std::string lastline = utils::strcompress(input->line);
+    std::string lastargs = input->command;
+    std::string cmdline = "Last input line: ";
+
+    // extended output
+    if (failed > Error::NOPOINTER) {
+
+      // indicator points to command by default
+      int indicator = 0;
+      int quoted = 0;
+      lastargs += ' ';
+
+      // assemble pre-processed command line and update error indicator position, if needed.
+      for (int i = 0; i < input->narg; ++i) {
+        std::string inputarg = input->arg[i];
+        if (i == failed) indicator = lastargs.size();
+
+        // argument contains whitespace. add quotes. check which type of quotes, too
+        if (inputarg.find_first_of(" \t\n") != std::string::npos) {
+          if (i == failed) quoted = 2;
+          if (inputarg.find_first_of('"') != std::string::npos) {
+            lastargs += "'";
+            lastargs += inputarg;
+            lastargs += "'";
+          } else {
+            lastargs += '"';
+            lastargs += inputarg;
+            lastargs += '"';
+          }
+        } else
+          lastargs += inputarg;
+        lastargs += ' ';
+      }
+
+      indicator += cmdline.size();
+      // the string is unchanged by substitution (ignoring whitespace), print output only once
+      if (utils::strsame(lastline, lastargs)) {
+        cmdline += lastargs;
+      } else {
+        cmdline += lastline;
+        cmdline += '\n';
+        // must have the same number of chars as "Last input line: " used in the previous line
+        cmdline += "--> parsed line: ";
+        cmdline += lastargs;
+      }
+
+      // construct and append error indicator line
+      cmdline += '\n';
+      cmdline += std::string(indicator, ' ');
+      int len = strlen(((failed < 0) || !input->arg[failed]) ? input->command : input->arg[failed]);
+      cmdline += std::string(len + quoted, '^');
+      cmdline += '\n';
+    } else {
+      cmdline += lastline;
+      cmdline += '\n';
+    }
+    return cmdline;
+  } else
+    return {""};
 }
 
 /* specialization for the case of just a single string argument */
@@ -149,9 +277,64 @@ void utils::fmtargs_logmesg(LAMMPS *lmp, fmt::string_view format, fmt::format_ar
   }
 }
 
+/* specialization for the case of just a single string argument */
+
+void utils::print(FILE *fp, const std::string &mesg)
+{
+  fputs(mesg.c_str(), fp);
+}
+
+void utils::print(const std::string &mesg)
+{
+  fputs(mesg.c_str(), stdout);
+}
+
+void utils::fmtargs_print(FILE *fp, fmt::string_view format, fmt::format_args args)
+{
+  print(fp, fmt::vformat(format, args));
+}
+
+/* internal function handling the variable argument list for utils::sprintf() */
+
+std::string utils::varargs_sprintf(const char *format, ...)
+{
+  constexpr int firstsize = 512;
+  char firstbuf[firstsize];
+  va_list ap, ap2;
+
+  va_start(ap, format);
+  va_copy(ap2, ap);
+  int len = vsnprintf(firstbuf, firstsize, format, ap);
+  va_end(ap);
+
+  // conversion or output error
+  if (len < 0) {
+    va_end(ap2);
+    return "";
+  }
+
+  // output fits into the fixed size buffer
+  if (len < firstsize) {
+    va_end(ap2);
+    return {firstbuf, (std::size_t) len};
+  }
+
+  // otherwise repeat the conversion with a suitably sized buffer
+  std::string result(len + 1, '\0');
+  vsnprintf(result.data(), len + 1, format, ap2);
+  va_end(ap2);
+  result.resize(len);
+  return result;
+}
+
 std::string utils::errorurl(int errorcode)
 {
-  return fmt::format("\nFor more information see https://docs.lammps.org/err{:04d}", errorcode);
+  if (errorcode == 0)
+    return "\nFor more information see https://docs.lammps.org/Errors_details.html";
+  else if (errorcode > 0)
+    return fmt::format("\nFor more information see https://docs.lammps.org/err{:04d}", errorcode);
+  else
+    return "";    // negative numbers are reserved for future use pointing to a different URL
 }
 
 void utils::flush_buffers(LAMMPS *lmp)
@@ -309,10 +492,10 @@ std::string utils::check_packages_for_style(const std::string &style, const std:
 
   if (pkg) {
     errmsg += fmt::format(" is part of the {} package", pkg);
-    if (LAMMPS::is_installed_pkg(pkg))
+    if (Info::has_package(pkg))
       errmsg += ", but seems to be missing because of a dependency";
     else
-      errmsg += " which is not enabled in this LAMMPS binary.";
+      errmsg += " which is not enabled in this LAMMPS binary." + utils::errorurl(10);
   }
   return errmsg;
 }
@@ -397,7 +580,7 @@ double utils::numeric(const char *file, int line, const std::string &str, bool d
       lmp->error->all(file, line, msg);
   }
 
-  double rv = 0;
+  double rv = 0.0;
   auto msg = fmt::format("Floating point number {} in input script or data file is invalid", buf);
   try {
     std::size_t endpos;
@@ -414,6 +597,12 @@ double utils::numeric(const char *file, int line, const std::string &str, bool d
     else
       lmp->error->all(file, line, msg);
   } catch (std::out_of_range const &) {
+    // could be a denormal number. try again with std::strtod().
+    char *end;
+    rv = std::strtod(buf.c_str(), &end);
+    // return value if denormal
+    if ((rv > -HUGE_VAL) && (rv < HUGE_VAL)) return rv;
+
     msg = fmt::format("Floating point number {} in input script or data file is out of range", buf);
     if (do_abort)
       lmp->error->one(file, line, msg);
@@ -646,14 +835,14 @@ tagint utils::tnumeric(const char *file, int line, const char *str, bool do_abor
 // clang-format off
 template <typename TYPE>
 void utils::bounds(const char *file, int line, const std::string &str,
-                   bigint nmin, bigint nmax, TYPE &nlo, TYPE &nhi, Error *error)
+                   bigint nmin, bigint nmax, TYPE &nlo, TYPE &nhi, Error *error, int failed)
 {
   nlo = nhi = -1;
 
   // check for illegal characters
   size_t found = str.find_first_not_of("*-0123456789");
   if (found != std::string::npos) {
-    if (error) error->all(file, line, "Invalid range string: {}", str);
+    if (error) error->all(file, line, failed, "Invalid range string: {}", str);
     return;
   }
 
@@ -676,23 +865,26 @@ void utils::bounds(const char *file, int line, const std::string &str,
 
   if (error) {
     if ((nlo <= 0) || (nhi <= 0))
-      error->all(file, line, "Invalid range string: {}", str);
-
+      error->all(file, line, failed, "Invalid range string: {}", str);
+    constexpr char fmt[] = "Numeric index {} is out of bounds ({}-{}){}";
     if (nlo < nmin)
-      error->all(file, line, "Numeric index {} is out of bounds ({}-{})", nlo, nmin, nmax);
+      error->all(file, line, failed, fmt, nlo, nmin, nmax, errorurl(19));
     else if (nhi > nmax)
-      error->all(file, line, "Numeric index {} is out of bounds ({}-{})", nhi, nmin, nmax);
+      error->all(file, line, failed, fmt, nhi, nmin, nmax, errorurl(19));
     else if (nlo > nhi)
-      error->all(file, line, "Numeric index {} is out of bounds ({}-{})", nlo, nmin, nhi);
+      error->all(file, line, failed, fmt, nlo, nmin, nhi, errorurl(19));
   }
 }
 
+/// \cond DOXYGEN_EXCLUDE
+// explicit instantiations (documented via the template declaration in utils.h)
 template void utils::bounds<>(const char *, int, const std::string &,
-                              bigint, bigint, int &, int &, Error *);
+                              bigint, bigint, int &, int &, Error *, int);
 template void utils::bounds<>(const char *, int, const std::string &,
-                              bigint, bigint, long &, long &, Error *);
+                              bigint, bigint, long &, long &, Error *, int);
 template void utils::bounds<>(const char *, int, const std::string &,
-                              bigint, bigint, long long &, long long &, Error *);
+                              bigint, bigint, long long &, long long &, Error *, int);
+/// \endcond
 
 // clang-format on
 /* ----------------------------------------------------------------------
@@ -706,8 +898,10 @@ void utils::bounds_typelabel(const char *file, int line, const std::string &str,
   nlo = nhi = -1;
 
   // cannot check for typelabels without a LAMMPS instance or a box
-  if (!lmp || !lmp->domain->box_exist)
-    utils::bounds(file, line, str, nmin, nmax, nlo, nhi, nullptr);
+  if (!lmp || !lmp->domain->box_exist) {
+    utils::bounds(file, line, str, nmin, nmax, nlo, nhi, lmp ? lmp->error : nullptr);
+    return;
+  }
 
   char *typestr = nullptr;
   if ((typestr = utils::expand_type(FLERR, str, mode, lmp)))
@@ -720,19 +914,22 @@ void utils::bounds_typelabel(const char *file, int line, const std::string &str,
     utils::bounds(file, line, str, nmin, nmax, nlo, nhi, lmp->error);
 }
 
+/// \cond DOXYGEN_EXCLUDE
+// explicit instantiations (documented via the template declaration in utils.h)
 template void utils::bounds_typelabel<>(const char *, int, const std::string &, bigint, bigint,
                                         int &, int &, LAMMPS *, int);
 template void utils::bounds_typelabel<>(const char *, int, const std::string &, bigint, bigint,
                                         long &, long &, LAMMPS *, int);
 template void utils::bounds_typelabel<>(const char *, int, const std::string &, bigint, bigint,
                                         long long &, long long &, LAMMPS *, int);
+/// \endcond
 
 /* -------------------------------------------------------------------------
    Expand list of arguments in arg to earg if arg contains wildcards
 ------------------------------------------------------------------------- */
 
 int utils::expand_args(const char *file, int line, int narg, char **arg, int mode, char **&earg,
-                       LAMMPS *lmp)
+                       LAMMPS *lmp, int **argmap)
 {
   int iarg;
 
@@ -747,10 +944,18 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
     return narg;
   }
 
+  // determine argument offset, if possible
+  int ioffset = 0;
+  if (lmp->input->arg) {
+    for (int i = 0; i < lmp->input->narg; ++i)
+      if (lmp->input->arg[i] == arg[0]) ioffset = i;
+  }
+
   // maxarg should always end up equal to newarg, so caller can free earg
 
   int maxarg = narg - iarg;
-  earg = (char **) lmp->memory->smalloc(maxarg * sizeof(char *), "input:earg");
+  earg = (char **) lmp->memory->smalloc(maxarg * sizeof(char *), "expand_args:earg");
+  int *amap = (int *) lmp->memory->smalloc(maxarg * sizeof(int), "expand_args:amap");
 
   int newarg = 0, expandflag, nlo, nhi, nmax;
   std::string id, wc, tail;
@@ -761,8 +966,8 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
 
     // match grids
 
-    if (strmatch(word, "^[cf]_\\w+:\\w+:\\w+\\[\\d*\\*\\d*\\]")) {
-      auto gridid = utils::parse_grid_id(FLERR, word, lmp->error);
+    if (strmatch(word, R"(^[cf]_\w+:\w+:\w+\[\d*\*\d*\])")) {
+      auto gridid = utils::parse_grid_id(file, line, word, lmp->error);
 
       size_t first = gridid[2].find('[');
       size_t second = gridid[2].find(']', first + 1);
@@ -774,7 +979,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
 
       if (gridid[0][0] == 'c') {
 
-        auto compute = lmp->modify->get_compute_by_id(gridid[0].substr(2));
+        auto *compute = lmp->modify->get_compute_by_id(gridid[0].substr(2));
         if (compute && compute->pergrid_flag) {
 
           int dim = 0;
@@ -793,7 +998,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
 
       } else if (gridid[0][0] == 'f') {
 
-        auto fix = lmp->modify->get_fix_by_id(gridid[0].substr(2));
+        auto *fix = lmp->modify->get_fix_by_id(gridid[0].substr(2));
         if (fix && fix->pergrid_flag) {
 
           int dim = 0;
@@ -813,16 +1018,18 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
       // expand wild card string to nlo/nhi numbers
 
       if (expandflag) {
-        utils::bounds(file, line, wc, 1, nmax, nlo, nhi, lmp->error);
+        utils::bounds(file, line, wc, 1, nmax, nlo, nhi, lmp->error, iarg + ioffset);
 
         if (newarg + nhi - nlo + 1 > maxarg) {
           maxarg += nhi - nlo + 1;
-          earg = (char **) lmp->memory->srealloc(earg, maxarg * sizeof(char *), "input:earg");
+          earg = (char **) lmp->memory->srealloc(earg, maxarg * sizeof(char *), "expand_args:earg");
+          amap = (int *) lmp->memory->srealloc(amap, maxarg * sizeof(char *), "expand_args:amap");
         }
 
         for (int index = nlo; index <= nhi; index++) {
           earg[newarg] =
               utils::strdup(fmt::format("{}:{}:{}[{}]{}", gridid[0], gridid[1], id, index, tail));
+          amap[newarg] = iarg;
           newarg++;
         }
       }
@@ -830,8 +1037,8 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
       // match compute, fix, or custom property array reference with a '*' wildcard
       // number range in the first pair of square brackets
 
-    } else if (strmatch(word, "^[cfv]_\\w+\\[\\d*\\*\\d*\\]") ||
-               strmatch(word, "^[id]2_\\w+\\[\\d*\\*\\d*\\]")) {
+    } else if (strmatch(word, R"(^[cfv]_\w+\[\d*\*\d*\])") ||
+               strmatch(word, R"(^[id]2_\w+\[\d*\*\d*\])")) {
 
       // split off the compute/fix/property ID, the wildcard and trailing text
 
@@ -848,7 +1055,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
       // compute
 
       if (word[0] == 'c') {
-        auto compute = lmp->modify->get_compute_by_id(id);
+        auto *compute = lmp->modify->get_compute_by_id(id);
 
         // check for global vector/array, peratom array, local array
 
@@ -871,7 +1078,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
         // fix
 
       } else if (word[0] == 'f') {
-        auto fix = lmp->modify->get_fix_by_id(id);
+        auto *fix = lmp->modify->get_fix_by_id(id);
 
         // check for global vector/array, peratom array, local array
 
@@ -900,10 +1107,13 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
 
         if (index >= 0) {
           if (mode == 0 && lmp->input->variable->vectorstyle(index)) {
-            utils::bounds(file, line, wc, 1, MAXSMALLINT, nlo, nhi, lmp->error);
+            utils::bounds(file, line, wc, 1, MAXSMALLINT, nlo, nhi, lmp->error, iarg + ioffset);
             if (nhi < MAXSMALLINT) {
               nmax = nhi;
               expandflag = 1;
+            } else {
+              lmp->error->all(file, line, ioffset + iarg,
+                              "Upper bound required to expand vector style variable {}", id);
             }
           }
         }
@@ -931,12 +1141,12 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
       if (expandflag) {
 
         // expand wild card string to nlo/nhi numbers
-
-        utils::bounds(file, line, wc, 1, nmax, nlo, nhi, lmp->error);
+        utils::bounds(file, line, wc, 1, nmax, nlo, nhi, lmp->error, iarg + ioffset);
 
         if (newarg + nhi - nlo + 1 > maxarg) {
           maxarg += nhi - nlo + 1;
-          earg = (char **) lmp->memory->srealloc(earg, maxarg * sizeof(char *), "input:earg");
+          earg = (char **) lmp->memory->srealloc(earg, maxarg * sizeof(char *), "expand_args:earg");
+          amap = (int *) lmp->memory->srealloc(amap, maxarg * sizeof(char *), "expand_args:amap");
         }
 
         for (int index = nlo; index <= nhi; index++) {
@@ -944,6 +1154,7 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
             earg[newarg] = utils::strdup(fmt::format("{}2_{}[{}]{}", word[0], id, index, tail));
           else
             earg[newarg] = utils::strdup(fmt::format("{}_{}[{}]{}", word[0], id, index, tail));
+          amap[newarg] = iarg;
           newarg++;
         }
       }
@@ -954,14 +1165,21 @@ int utils::expand_args(const char *file, int line, int narg, char **arg, int mod
     if (!expandflag) {
       if (newarg == maxarg) {
         maxarg++;
-        earg = (char **) lmp->memory->srealloc(earg, maxarg * sizeof(char *), "input:earg");
+        earg = (char **) lmp->memory->srealloc(earg, maxarg * sizeof(char *), "expand_args:earg");
+        amap = (int *) lmp->memory->srealloc(amap, maxarg * sizeof(char *), "expand_args:amap");
       }
       earg[newarg] = utils::strdup(word);
+      amap[newarg] = iarg;
       newarg++;
     }
   }
 
-  // printf("NEWARG %d\n",newarg); for (int i = 0; i < newarg; i++) printf("  arg %d: %s\n",i,earg[i]);
+  if (argmap)
+    *argmap = amap;
+  else
+    lmp->memory->sfree(amap);
+
+  // fprintf(stderr, "NEWARG %d\n",newarg); for (int i = 0; i < newarg; i++) printf("  arg %d: %s %d\n",i,earg[i], amap ? amap[i] : -1);
   return newarg;
 }
 
@@ -983,7 +1201,7 @@ char *utils::expand_type(const char *file, int line, const std::string &str, int
       lmp->error->all(file, line, "{} type string {} cannot be used without a labelmap",
                       labeltypes[mode], typestr);
 
-    int type = lmp->atom->lmap->find(typestr, mode);
+    int type = lmp->atom->lmap->find_type(typestr, mode);
     if (type == -1)
       lmp->error->all(file, line, "{} type string {} not found in labelmap", labeltypes[mode],
                       typestr);
@@ -1053,7 +1271,7 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
 {
   ArgInfo argi(ref, ArgInfo::COMPUTE | ArgInfo::FIX);
   index = argi.get_index1();
-  auto name = argi.get_name();
+  const auto *name = argi.get_name();
 
   switch (argi.get_type()) {
 
@@ -1072,7 +1290,7 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
       const auto &gname = words[1];
       const auto &dname = words[2];
 
-      auto icompute = lmp->modify->get_compute_by_id(idcompute);
+      auto *icompute = lmp->modify->get_compute_by_id(idcompute);
       if (!icompute) lmp->error->all(FLERR, "{} compute ID {} not found", errstr, idcompute);
       if (icompute->pergrid_flag == 0)
         lmp->error->all(FLERR, "{} compute {} does not compute per-grid info", errstr, idcompute);
@@ -1096,8 +1314,8 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
         lmp->error->all(FLERR, "{} compute {} data {} is not per-grid array", errstr, idcompute,
                         dname);
       if (argi.get_dim() && argi.get_index1() > ncol)
-        lmp->error->all(FLERR, "{} compute {} array {} is accessed out-of-range", errstr, idcompute,
-                        dname);
+        lmp->error->all(FLERR, "{} compute {} array {} is accessed out-of-range{}", errstr,
+                        idcompute, dname, errorurl(20));
 
       id = utils::strdup(idcompute);
       return ArgInfo::COMPUTE;
@@ -1114,12 +1332,13 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
       const auto &gname = words[1];
       const auto &dname = words[2];
 
-      auto ifix = lmp->modify->get_fix_by_id(idfix);
+      auto *ifix = lmp->modify->get_fix_by_id(idfix);
       if (!ifix) lmp->error->all(FLERR, "{} fix ID {} not found", errstr, idfix);
       if (ifix->pergrid_flag == 0)
         lmp->error->all(FLERR, "{} fix {} does not compute per-grid info", errstr, idfix);
       if (nevery % ifix->pergrid_freq)
-        lmp->error->all(FLERR, "{} fix {} not computed at compatible time", errstr, idfix);
+        lmp->error->all(FLERR, "{} fix {} not computed at compatible time{}", errstr, idfix,
+                        errorurl(7));
 
       int dim;
       igrid = ifix->get_grid_by_name(gname, dim);
@@ -1136,7 +1355,8 @@ int utils::check_grid_reference(char *errstr, char *ref, int nevery, char *&id, 
       if (argi.get_dim() > 0 && ncol == 0)
         lmp->error->all(FLERR, "{} fix {} data {} is not per-grid array", errstr, idfix, dname);
       if (argi.get_dim() > 0 && argi.get_index1() > ncol)
-        lmp->error->all(FLERR, "{} fix {} array {} is accessed out-of-range", errstr, idfix, dname);
+        lmp->error->all(FLERR, "{} fix {} array {} is accessed out-of-range{}", errstr, idfix,
+                        dname, errorurl(20));
 
       id = utils::strdup(idfix);
       return ArgInfo::FIX;
@@ -1172,7 +1392,7 @@ std::vector<std::string> utils::parse_grid_id(const char *file, int line, const 
 
 char *utils::strdup(const std::string &text)
 {
-  auto tmp = new char[text.size() + 1];
+  auto *tmp = new char[text.size() + 1];
   strcpy(tmp, text.c_str());    // NOLINT
   return tmp;
 }
@@ -1200,13 +1420,72 @@ std::string utils::uppercase(const std::string &text)
 }
 
 /* ----------------------------------------------------------------------
+   Arrange a list of words into aligned, ls-style columns (column-major)
+------------------------------------------------------------------------- */
+
+std::string utils::columnize(const std::vector<std::string> &words, int width, int gap)
+{
+  if (words.empty()) return "(none)\n";
+  if (gap < 1) gap = 1;
+  if (width < 1) width = 1;
+  const int nwords = (int) words.size();
+
+  // pick the largest number of columns whose summed per-column widths fit the
+  // line.  with a column-major layout, column c spans words[c*nrows .. ].
+
+  int ncols = 1;
+  for (int cols = std::min(nwords, width); cols >= 1; --cols) {
+    const int nrows = (nwords + cols - 1) / cols;
+    int total = gap * (cols - 1);
+    for (int c = 0; c < cols; ++c) {
+      std::size_t cw = 0;
+      for (int r = 0; r < nrows; ++r) {
+        const int idx = c * nrows + r;
+        if (idx < nwords) cw = std::max(cw, words[idx].size());
+      }
+      total += (int) cw;
+    }
+    if (total <= width) { ncols = cols; break; }
+  }
+
+  const int nrows = (nwords + ncols - 1) / ncols;
+
+  // per-column field widths (widest entry in the column plus the gap)
+
+  std::vector<std::size_t> field(ncols, 0);
+  for (int c = 0; c < ncols; ++c) {
+    for (int r = 0; r < nrows; ++r) {
+      const int idx = c * nrows + r;
+      if (idx < nwords) field[c] = std::max(field[c], words[idx].size());
+    }
+    field[c] += gap;
+  }
+
+  std::string out;
+  for (int r = 0; r < nrows; ++r) {
+    std::string line;
+    for (int c = 0; c < ncols; ++c) {
+      const int idx = c * nrows + r;
+      if (idx >= nwords) break;
+      line += fmt::format("{:<{}}", words[idx], field[c]);
+    }
+    // strip the trailing gap (and any padding) from the last column in the row
+    const auto last = line.find_last_not_of(' ');
+    if (last != std::string::npos) line.erase(last + 1);
+    out += line;
+    out += '\n';
+  }
+  return out;
+}
+
+/* ----------------------------------------------------------------------
    Return string without leading or trailing whitespace
 ------------------------------------------------------------------------- */
 
 std::string utils::trim(const std::string &line)
 {
-  int beg = re_match(line.c_str(), "\\S+");
-  int end = re_match(line.c_str(), "\\s+$");
+  int beg = re_match(line.c_str(), R"(\S+)");
+  int end = re_match(line.c_str(), R"(\s+$)");
   if (beg < 0) beg = 0;
   if (end < 0) end = line.size();
 
@@ -1407,13 +1686,82 @@ size_t utils::trim_and_count_words(const std::string &text, const std::string &s
 }
 
 /* ----------------------------------------------------------------------
+   combine values in vector to single string with separator added between values
+------------------------------------------------------------------------- */
+namespace {
+template <typename T> std::string join_impl(const std::vector<T> &values, const std::string &sep)
+{
+  std::string result;
+
+  if (!values.empty()) result = fmt::format("{}", values[0]);
+  for (std::size_t i = 1; i < values.size(); ++i) result += sep + fmt::format("{}", values[i]);
+
+  return result;
+}
+}    // namespace
+
+// specializations
+/// \cond DOXYGEN_EXCLUDE
+// (documented via the template declaration in utils.h)
+template <> std::string utils::join<int>(const std::vector<int> &values, const std::string &sep)
+{
+  return join_impl<int>(values, sep);
+}
+
+template <>
+std::string utils::join<long int>(const std::vector<long int> &values, const std::string &sep)
+{
+  return join_impl<long int>(values, sep);
+}
+
+template <>
+std::string utils::join<long long int>(const std::vector<long long int> &values,
+                                       const std::string &sep)
+{
+  return join_impl<long long int>(values, sep);
+}
+
+template <> std::string utils::join<float>(const std::vector<float> &values, const std::string &sep)
+{
+  return join_impl<float>(values, sep);
+}
+
+template <>
+std::string utils::join<double>(const std::vector<double> &values, const std::string &sep)
+{
+  return join_impl<double>(values, sep);
+}
+
+template <>
+std::string utils::join<std::string>(const std::vector<std::string> &values, const std::string &sep)
+{
+  return join_impl<std::string>(values, sep);
+}
+
+template <>
+std::string utils::join<char *>(const std::vector<char *> &values, const std::string &sep)
+{
+  return join_impl<char *>(values, sep);
+}
+
+template <>
+std::string utils::join<const char *>(const std::vector<const char *> &values,
+                                      const std::string &sep)
+{
+  return join_impl<const char *>(values, sep);
+}
+/// \endcond
+
+// clang-format on
+
+/* ----------------------------------------------------------------------
    combine words in vector to single string with separator added between words
 ------------------------------------------------------------------------- */
 std::string utils::join_words(const std::vector<std::string> &words, const std::string &sep)
 {
   std::string result;
 
-  if (words.size() > 0) result = words[0];
+  if (!words.empty()) result = words[0];
   for (std::size_t i = 1; i < words.size(); ++i) result += sep + words[i];
 
   return result;
@@ -1449,7 +1797,7 @@ std::vector<std::string> utils::split_words(const std::string &text)
       ++beg;
       add = 1;
       c = *++buf;
-      while (((c != '\'') && (c != '\0')) || ((c == '\\') && (buf[1] == '\''))) {
+      while ((c != '\'') && (c != '\0')) {
         if ((c == '\\') && (buf[1] == '\'')) {
           ++buf;
           ++len;
@@ -1458,7 +1806,9 @@ std::vector<std::string> utils::split_words(const std::string &text)
         ++len;
       }
       if (c != '\'') ++len;
-      c = *++buf;
+      // for an unterminated quote c is already the terminating NUL, so do not
+      // advance past it (which would read one byte beyond the string buffer)
+      if (c) c = *++buf;
 
       // handle triple double quotation marks
     } else if ((c == '"') && (buf[1] == '"') && (buf[2] == '"') && (buf[3] != '"')) {
@@ -1472,7 +1822,7 @@ std::vector<std::string> utils::split_words(const std::string &text)
       ++beg;
       add = 1;
       c = *++buf;
-      while (((c != '"') && (c != '\0')) || ((c == '\\') && (buf[1] == '"'))) {
+      while ((c != '"') && (c != '\0')) {
         if ((c == '\\') && (buf[1] == '"')) {
           ++buf;
           ++len;
@@ -1481,7 +1831,8 @@ std::vector<std::string> utils::split_words(const std::string &text)
         ++len;
       }
       if (c != '"') ++len;
-      c = *++buf;
+      // see comment above: do not advance past the terminating NUL
+      if (c) c = *++buf;
     }
 
     // unquoted
@@ -1495,7 +1846,8 @@ std::vector<std::string> utils::split_words(const std::string &text)
         ++len;
       }
       if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n') || (c == '\f') || (c == '\0')) {
-        list.push_back(text.substr(beg, len));
+        // avoid out-of-range access
+        if (beg < text.size()) list.push_back(text.substr(beg, len));
         beg += len + add;
         break;
       }
@@ -1523,7 +1875,7 @@ bool utils::is_integer(const std::string &str)
 {
   if (str.empty()) return false;
 
-  return strmatch(str, "^[+-]?\\d+$");
+  return strmatch(str, R"(^[+-]?\d+$)");
 }
 
 /* ----------------------------------------------------------------------
@@ -1534,9 +1886,8 @@ bool utils::is_double(const std::string &str)
 {
   if (str.empty()) return false;
 
-  return strmatch(str, "^[+-]?\\d+\\.?\\d*$") ||
-      strmatch(str, "^[+-]?\\d+\\.?\\d*[eE][+-]?\\d+$") || strmatch(str, "^[+-]?\\d*\\.?\\d+$") ||
-      strmatch(str, "^[+-]?\\d*\\.?\\d+[eE][+-]?\\d+$");
+  return strmatch(str, R"(^[+-]?\d+\.?\d*$)") || strmatch(str, R"(^[+-]?\d+\.?\d*[eE][+-]?\d+$)") ||
+      strmatch(str, R"(^[+-]?\d*\.?\d+$)") || strmatch(str, R"(^[+-]?\d*\.?\d+[eE][+-]?\d+$)");
 }
 
 /* ----------------------------------------------------------------------
@@ -1684,12 +2035,14 @@ double utils::get_conversion_factor(const int property, const int conversion)
 
 FILE *utils::open_potential(const std::string &name, LAMMPS *lmp, int *auto_convert)
 {
-  auto error = lmp->error;
+  auto *error = lmp->error;
   auto me = lmp->comm->me;
 
   std::string filepath = get_potential_file_path(name);
 
   if (!filepath.empty()) {
+    // update path if file is a redirect file on Windows
+    filepath = platform::file_redirect(filepath);
     std::string unit_style = lmp->update->unit_style;
     std::string date = get_potential_date(filepath, "potential");
     std::string units = get_potential_units(filepath, "potential");
@@ -1744,13 +2097,9 @@ double utils::timespec2seconds(const std::string &timespec)
 
   ValueTokenizer values(timespec, ":");
 
-  try {
-    for (i = 0; i < 3; i++) {
-      if (!values.has_next()) break;
-      vals[i] = values.next_double();
-    }
-  } catch (TokenizerException &) {
-    return -1.0;
+  for (i = 0; i < 3; i++) {
+    if (!values.has_next()) break;
+    vals[i] = values.next_double();
   }
 
   if (i == 3)
@@ -1801,14 +2150,16 @@ int utils::date2num(const std::string &date)
 }
 
 /* ----------------------------------------------------------------------
-   get formatted string of current date from fmtlib
+   get formatted string of current date
 ------------------------------------------------------------------------- */
 
 std::string utils::current_date()
 {
   time_t tv = time(nullptr);
-  std::tm today = fmt::localtime(tv);
-  return fmt::format("{:%Y-%m-%d}", today);
+  struct tm *today = localtime(&tv);
+  char outstr[16];
+  strftime(outstr, sizeof(outstr), "%Y-%m-%d", today);
+  return {outstr};
 }
 
 /* ----------------------------------------------------------------------
@@ -1904,6 +2255,8 @@ void utils::merge_sort(int *index, int num, void *ptr, int (*comp)(int, int, voi
 
 /* ------------------------------------------------------------------ */
 
+namespace {
+
 /* ----------------------------------------------------------------------
  * Merge sort part 2: Insertion sort for pre-sorting of small chunks
 ------------------------------------------------------------------------- */
@@ -1929,8 +2282,8 @@ void insertion_sort(int *index, int num, void *ptr, int (*comp)(int, int, void *
  * Merge sort part 3: Merge two sublists
 ------------------------------------------------------------------------- */
 
-static void do_merge(int *idx, int *buf, int llo, int lhi, int rlo, int rhi, void *ptr,
-                     int (*comp)(int, int, void *))
+void do_merge(int *idx, int *buf, int llo, int lhi, int rlo, int rhi, void *ptr,
+              int (*comp)(int, int, void *))
 {
   int i = llo;
   int l = llo;
@@ -1948,17 +2301,15 @@ static void do_merge(int *idx, int *buf, int llo, int lhi, int rlo, int rhi, voi
 
 /* ------------------------------------------------------------------ */
 
-extern "C" {
-
 /* Typedef'd pointer to get abstract datatype. */
-typedef struct regex_t *re_t;
-typedef struct regex_context_t *re_ctx_t;
+typedef struct regex_t *re_t;                // NOLINT
+typedef struct regex_context_t *re_ctx_t;    // NOLINT
 
 /* Compile regex string pattern to a regex_t-array. */
-static re_t re_compile(re_ctx_t context, const char *pattern);
+re_t re_compile(re_ctx_t context, const char *pattern);
 
 /* Find matches of the compiled pattern inside text. */
-static int re_matchp(const char *text, re_t pattern, int *matchlen);
+int re_matchp(const char *text, re_t pattern, int *matchlen);
 
 /* Definitions: */
 
@@ -1988,6 +2339,7 @@ enum {
   RX_NOT_WHITESPACE /*, BRANCH */
 };
 
+// NOLINTBEGIN
 typedef struct regex_t {
   unsigned char type; /* CHAR, STAR, etc.                      */
   union {
@@ -2002,6 +2354,7 @@ typedef struct regex_context_t {
   regex_t re_compiled[MAX_REGEXP_OBJECTS];
   unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];
 } regex_context_t;
+// NOLINTEND
 
 int re_match(const char *text, const char *pattern)
 {
@@ -2017,20 +2370,20 @@ int re_find(const char *text, const char *pattern, int *matchlen)
 }
 
 /* Private function declarations: */
-static int matchpattern(regex_t *pattern, const char *text, int *matchlen);
-static int matchcharclass(char c, const char *str);
-static int matchstar(regex_t p, regex_t *pattern, const char *text, int *matchlen);
-static int matchplus(regex_t p, regex_t *pattern, const char *text, int *matchlen);
-static int matchone(regex_t p, char c);
-static int matchdigit(char c);
-static int matchint(char c);
-static int matchfloat(char c);
-static int matchalpha(char c);
-static int matchwhitespace(char c);
-static int matchmetachar(char c, const char *str);
-static int matchrange(char c, const char *str);
-static int matchdot(char c);
-static int ismetachar(char c);
+int matchpattern(regex_t *pattern, const char *text, int *matchlen);
+int matchcharclass(char c, const char *str);
+int matchstar(regex_t p, regex_t *pattern, const char *text, int *matchlen);
+int matchplus(regex_t p, regex_t *pattern, const char *text, int *matchlen);
+int matchone(regex_t p, char c);
+int matchdigit(char c);
+int matchint(char c);
+int matchfloat(char c);
+int matchalpha(char c);
+int matchwhitespace(char c);
+int matchmetachar(char c, const char *str);
+int matchrange(char c, const char *str);
+int matchdot(char c);
+int ismetachar(char c);
 
 /* Semi-public functions: */
 int re_matchp(const char *text, re_t pattern, int *matchlen)
@@ -2200,43 +2553,43 @@ re_t re_compile(re_ctx_t context, const char *pattern)
 }
 
 /* Private functions: */
-static int matchdigit(char c)
+int matchdigit(char c)
 {
   return isdigit(c);
 }
 
-static int matchint(char c)
+int matchint(char c)
 {
   return (matchdigit(c) || (c == '-') || (c == '+'));
 }
 
-static int matchfloat(char c)
+int matchfloat(char c)
 {
   return (matchint(c) || (c == '.') || (c == 'e') || (c == 'E'));
 }
 
-static int matchalpha(char c)
+int matchalpha(char c)
 {
   return isalpha(c);
 }
 
-static int matchwhitespace(char c)
+int matchwhitespace(char c)
 {
   return isspace(c);
 }
 
-static int matchalphanum(char c)
+int matchalphanum(char c)
 {
   return ((c == '_') || matchalpha(c) || matchdigit(c));
 }
 
-static int matchrange(char c, const char *str)
+int matchrange(char c, const char *str)
 {
   return ((c != '-') && (str[0] != '\0') && (str[0] != '-') && (str[1] == '-') &&
           (str[1] != '\0') && (str[2] != '\0') && ((c >= str[0]) && (c <= str[2])));
 }
 
-static int matchdot(char c)
+int matchdot(char c)
 {
 #if defined(RE_DOT_MATCHES_NEWLINE) && (RE_DOT_MATCHES_NEWLINE == 1)
   (void) c;
@@ -2246,12 +2599,12 @@ static int matchdot(char c)
 #endif
 }
 
-static int ismetachar(char c)
+int ismetachar(char c)
 {
   return ((c == 's') || (c == 'S') || (c == 'w') || (c == 'W') || (c == 'd') || (c == 'D'));
 }
 
-static int matchmetachar(char c, const char *str)
+int matchmetachar(char c, const char *str)
 {
   switch (str[0]) {
     case 'd':
@@ -2279,7 +2632,7 @@ static int matchmetachar(char c, const char *str)
   }
 }
 
-static int matchcharclass(char c, const char *str)
+int matchcharclass(char c, const char *str)
 {
   do {
     if (matchrange(c, str)) {
@@ -2304,7 +2657,7 @@ static int matchcharclass(char c, const char *str)
   return 0;
 }
 
-static int matchone(regex_t p, char c)
+int matchone(regex_t p, char c)
 {
   switch (p.type) {
     case RX_DOT:
@@ -2334,11 +2687,11 @@ static int matchone(regex_t p, char c)
     case RX_NOT_WHITESPACE:
       return !matchwhitespace(c);
     default:
-      return (p.u.ch == c);
+      return (p.u.ch == (unsigned char) c);
   }
 }
 
-static int matchstar(regex_t p, regex_t *pattern, const char *text, int *matchlen)
+int matchstar(regex_t p, regex_t *pattern, const char *text, int *matchlen)
 {
   int prelen = *matchlen;
   const char *prepos = text;
@@ -2355,7 +2708,7 @@ static int matchstar(regex_t p, regex_t *pattern, const char *text, int *matchle
   return 0;
 }
 
-static int matchplus(regex_t p, regex_t *pattern, const char *text, int *matchlen)
+int matchplus(regex_t p, regex_t *pattern, const char *text, int *matchlen)
 {
   const char *prepos = text;
   while ((text[0] != '\0') && matchone(p, *text)) {
@@ -2369,7 +2722,7 @@ static int matchplus(regex_t p, regex_t *pattern, const char *text, int *matchle
   return 0;
 }
 
-static int matchquestion(regex_t p, regex_t *pattern, const char *text, int *matchlen)
+int matchquestion(regex_t p, regex_t *pattern, const char *text, int *matchlen)
 {
   if (p.type == RX_UNUSED) return 1;
   if (matchpattern(pattern, text, matchlen)) return 1;
@@ -2383,7 +2736,7 @@ static int matchquestion(regex_t p, regex_t *pattern, const char *text, int *mat
 }
 
 /* Iterative matching */
-static int matchpattern(regex_t *pattern, const char *text, int *matchlen)
+int matchpattern(regex_t *pattern, const char *text, int *matchlen)
 {
   int pre = *matchlen;
   do {
@@ -2402,4 +2755,4 @@ static int matchpattern(regex_t *pattern, const char *text, int *matchlen)
   *matchlen = pre;
   return 0;
 }
-}
+}    // namespace

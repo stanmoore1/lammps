@@ -39,9 +39,6 @@ using namespace MathConst;
 static constexpr int MAX_LEVELS = 10;
 static constexpr int OFFSET = 16384;
 
-enum { REVERSE_RHO, REVERSE_AD, REVERSE_AD_PERATOM };
-enum { FORWARD_RHO, FORWARD_AD, FORWARD_AD_PERATOM };
-
 /* ---------------------------------------------------------------------- */
 
 MSM::MSM(LAMMPS *lmp)
@@ -80,11 +77,12 @@ MSM::MSM(LAMMPS *lmp)
 
 void MSM::settings(int narg, char **arg)
 {
-  if (narg < 1) error->all(FLERR,"Illegal kspace_style {} command", force->kspace_style);
+  if (narg < 1)
+    utils::missing_cmd_args(FLERR, fmt::format("kspace_style {}", force->kspace_style), error);
 
   accuracy_relative = fabs(utils::numeric(FLERR,arg[0],false,lmp));
   if (accuracy_relative > 1.0)
-    error->all(FLERR, "Invalid relative accuracy {:g} for kspace_style {}",
+    error->all(FLERR, 1, "Invalid relative accuracy {:g} for kspace_style {}",
                accuracy_relative, force->kspace_style);
 }
 
@@ -127,17 +125,28 @@ void MSM::init()
 
   triclinic_check();
   if (domain->dimension == 2)
-    error->all(FLERR,"Cannot (yet) use MSM with 2d simulation");
+    error->all(FLERR, Error::NOLASTLINE, "Cannot (yet) use MSM with 2d simulation");
   if (comm->style != Comm::BRICK)
-    error->universe_all(FLERR,"MSM can only currently be used with comm_style brick");
+    error->all(FLERR, Error::NOLASTLINE, "MSM can only currently be used with comm_style brick");
+  if (!atom->q_flag)
+    error->all(FLERR, Error::NOLASTLINE, "Kspace style requires atom attribute q");
 
-  if (!atom->q_flag) error->all(FLERR,"Kspace style requires atom attribute q");
+  // MSM is a true non-periodic method: it handles non-periodic boundaries
+  // natively via the 'boundary' command, so the EW3DC slab correction is
+  // meaningless for MSM and is ignored.  The reset must run on all MPI ranks
+  // (not just rank 0): the shared KSpace::x2lamdaT() scales the z component by
+  // slab_volfactor when slabflag == 1, so a rank-dependent slab_volfactor would
+  // corrupt the parallel triclinic reciprocal-space transform.
 
-  if ((slabflag == 1) && (me == 0))
-    error->warning(FLERR,"Slab correction not needed for MSM");
+  if (slabflag == 1) {
+    if (me == 0)
+      error->warning(FLERR, "Slab correction not needed for MSM and will be ignored");
+    slabflag = 0;
+    slab_volfactor = 1.0;
+  }
 
   if ((order < 4) || (order > 10) || (order%2 != 0))
-    error->all(FLERR,"MSM order must be 4, 6, 8, or 10");
+    error->all(FLERR, Error::NOLASTLINE, "MSM order must be 4, 6, 8, or 10");
 
   // compute two charge force
 
@@ -149,9 +158,9 @@ void MSM::init()
   pair_check();
 
   int itmp;
-  auto p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+  auto *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
   if (p_cutoff == nullptr)
-    error->all(FLERR,"KSpace style is incompatible with Pair style");
+    error->all(FLERR, Error::NOLASTLINE, "KSpace style is incompatible with Pair style");
   cutoff = *p_cutoff;
 
   // compute qsum & qsqsum and error if not charge-neutral
@@ -221,7 +230,7 @@ double MSM::estimate_1d_error(double h, double prd)
     cprime = 1.0/630.0;
     error_scaling = 0.013520855;
   } else {
-    error->all(FLERR,"MSM order must be 4, 6, 8, or 10");
+    error->all(FLERR, Error::NOLASTLINE, "MSM order must be 4, 6, 8, or 10");
   }
 
   // equation 4.1 from Hardy's thesis
@@ -287,7 +296,8 @@ void MSM::setup()
   // change_box may trigger MSM::setup() before MSM::init() was called
   // error out and request full initialization.
 
-  if (!delxinv) error->all(FLERR, "MSM must be fully initialized for this operation");
+  if (!delxinv)
+    error->all(FLERR, Error::NOLASTLINE, "MSM must be fully initialized for this operation");
 
   double *prd;
   double a = cutoff;
@@ -393,8 +403,8 @@ void MSM::compute(int eflag, int vflag)
 
   if (scalar_pressure_flag && vflag_either) {
     if (vflag_atom)
-      error->all(FLERR,"Must use 'kspace_modify pressure/scalar no' to obtain "
-        "per-atom virial with kspace_style MSM");
+      error->all(FLERR, Error::NOLASTLINE, "Must use 'kspace_modify pressure/scalar no' to obtain "
+                 "per-atom virial with kspace_style MSM");
 
     // must switch on global energy computation if not already on
 
@@ -662,7 +672,7 @@ void MSM::deallocate()
   memory->destroy2d_offset(phi1d,-order_allocated);
   memory->destroy2d_offset(dphi1d,-order_allocated);
 
-  if (gcall) delete gcall;
+  delete gcall;
   memory->destroy(gcall_buf1);
   memory->destroy(gcall_buf2);
   gcall = nullptr;
@@ -945,7 +955,7 @@ void MSM::deallocate_levels()
 void MSM::set_grid_global()
 {
   if (accuracy_relative <= 0.0)
-    error->all(FLERR,"KSpace accuracy must be > 0");
+    error->all(FLERR, Error::NOLASTLINE, "KSpace accuracy must be > 0");
 
   double xprd = domain->xprd;
   double yprd = domain->yprd;
@@ -1066,7 +1076,7 @@ void MSM::set_grid_global()
 
     cutoff = pow(k*k*sum/3.0,1.0/(2.0*p));
     int itmp;
-    auto p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
+    auto *p_cutoff = (double *) force->pair->extract("cut_coul",itmp);
     *p_cutoff = cutoff;
 
     if (me == 0)
@@ -1095,7 +1105,7 @@ void MSM::set_grid_global()
   levels = MAX(xlevels,ylevels);
   levels = MAX(levels,zlevels);
 
-  if (levels > MAX_LEVELS) error->all(FLERR,"Too many MSM grid levels");
+  if (levels > MAX_LEVELS) error->all(FLERR, Error::NOLASTLINE, "Too many MSM grid levels");
 
   // need at least 2 MSM levels for periodic systems
 
@@ -1133,7 +1143,7 @@ void MSM::set_grid_global()
   }
 
   if (nx_msm[0] >= OFFSET || ny_msm[0] >= OFFSET || nz_msm[0] >= OFFSET)
-    error->all(FLERR,"MSM grid is too large");
+    error->all(FLERR, Error::NOLASTLINE, "MSM grid is too large");
 
   // compute number of extra grid points needed for non-periodic boundary conditions
   // need to always do this, so we can handle the case of switching from periodic
@@ -1443,7 +1453,7 @@ void MSM::particle_map()
   int flag = 0;
 
   if (!std::isfinite(boxlo[0]) || !std::isfinite(boxlo[1]) || !std::isfinite(boxlo[2]))
-    error->one(FLERR,"Non-numeric box dimensions - simulation unstable");
+    error->one(FLERR, Error::NOLASTLINE, "Non-numeric box dimensions - simulation unstable" + utils::errorurl(6));
 
   for (int i = 0; i < nlocal; i++) {
 
@@ -1466,7 +1476,9 @@ void MSM::particle_map()
         nz+nlower < nzlo_out[0] || nz+nupper > nzhi_out[0]) flag = 1;
   }
 
-  if (flag) error->one(FLERR,"Out of range atoms - cannot compute MSM");
+  if (flag)
+    error->one(FLERR, Error::NOLASTLINE,
+               "Out of range atoms - cannot compute MSM" + utils::errorurl(4));
 }
 
 /* ----------------------------------------------------------------------
@@ -2515,7 +2527,7 @@ void MSM::grid_swap_reverse(int n, double*** &gridn)
 
 void MSM::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (double *) vbuf;
+  auto *buf = (double *) vbuf;
 
   int n = current_level;
   int k = 0;
@@ -2561,7 +2573,7 @@ void MSM::pack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void MSM::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (double *) vbuf;
+  auto *buf = (double *) vbuf;
 
   int n = current_level;
   int k = 0;
@@ -2607,7 +2619,7 @@ void MSM::unpack_forward_grid(int flag, void *vbuf, int nlist, int *list)
 
 void MSM::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (double *) vbuf;
+  auto *buf = (double *) vbuf;
 
   int n = current_level;
   int k = 0;
@@ -2653,7 +2665,7 @@ void MSM::pack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 
 void MSM::unpack_reverse_grid(int flag, void *vbuf, int nlist, int *list)
 {
-  auto buf = (double *) vbuf;
+  auto *buf = (double *) vbuf;
 
   int n = current_level;
   int k = 0;
@@ -3401,13 +3413,40 @@ double MSM::memory_usage()
 {
   double bytes = 0;
 
-  // NOTE: Stan, fill in other memory allocations here
+  // per-atom grid assignment
+  bytes += (double) nmax * 3 * sizeof(double);    // part2grid[nmax][3]
 
-  // all Grid3d bufs
+  // per-level charge and energy grids
+  for (int n = 0; n < levels; n++) {
+    if (!active_flag[n]) continue;
+    double nbrick = (double)(nxhi_out[n]-nxlo_out[n]+1) *
+                   (nyhi_out[n]-nylo_out[n]+1) *
+                   (nzhi_out[n]-nzlo_out[n]+1);
+    bytes += 2.0 * nbrick * sizeof(double);    // qgrid + egrid
+    if (peratom_allocate_flag)
+      bytes += 6.0 * nbrick * sizeof(double);  // v0..v5 grids
+  }
 
+  // direct-space lookup tables: g + v0..v5 (7 arrays)
+  if (g_direct) bytes += (double) levels * nmax_direct * 7 * sizeof(double);
+
+  // direct-space top-level tables (same structure, top level = levels-1)
+  if (g_direct_top && levels > 0) {
+    int n = levels - 1;
+    int nx_top = betax[n] - alpha[n];
+    int ny_top = betay[n] - alpha[n];
+    int nz_top = betaz[n] - alpha[n];
+    int nx = 2*nx_top + 1;
+    int ny = 2*ny_top + 1;
+    int nz = 2*nz_top + 1;
+    double nmax_top = (double) 8*(nx+1)*(ny+1)*(nz+1);
+    bytes += nmax_top * 7 * sizeof(double);
+  }
+
+  // Grid3d communication buffers
   bytes += (double)(ngcall_buf1 + ngcall_buf2) * npergrid * sizeof(double);
 
-  for (int n=0; n<levels; n++)
+  for (int n = 0; n < levels; n++)
     if (active_flag[n])
       bytes += (double)(ngc_buf1[n] + ngc_buf2[n]) * npergrid * sizeof(double);
 

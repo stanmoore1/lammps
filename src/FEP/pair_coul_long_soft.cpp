@@ -37,7 +37,8 @@ using namespace EwaldConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairCoulLongSoft::PairCoulLongSoft(LAMMPS *lmp) : Pair(lmp)
+PairCoulLongSoft::PairCoulLongSoft(LAMMPS *lmp) :
+    Pair(lmp), scale(nullptr), lambda(nullptr), lam1(nullptr), lam2(nullptr)
 {
   ewaldflag = pppmflag = 1;
   qdist = 0.0;
@@ -194,7 +195,7 @@ void PairCoulLongSoft::settings(int narg, char **arg)
 void PairCoulLongSoft::coeff(int narg, char **arg)
 {
   if (narg != 3)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -213,7 +214,7 @@ void PairCoulLongSoft::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

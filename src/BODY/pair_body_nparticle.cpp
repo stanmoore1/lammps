@@ -33,7 +33,9 @@ static constexpr int DELTA = 10000;
 
 /* ---------------------------------------------------------------------- */
 
-PairBodyNparticle::PairBodyNparticle(LAMMPS *lmp) : Pair(lmp)
+PairBodyNparticle::PairBodyNparticle(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), epsilon(nullptr), sigma(nullptr), lj1(nullptr), lj2(nullptr),
+    lj3(nullptr), lj4(nullptr), avec(nullptr), bptr(nullptr)
 {
   dmax = nmax = 0;
   discrete = nullptr;
@@ -383,7 +385,7 @@ void PairBodyNparticle::settings(int narg, char **arg)
 void PairBodyNparticle::coeff(int narg, char **arg)
 {
   if (narg < 4 || narg > 5)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -407,7 +409,7 @@ void PairBodyNparticle::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -480,4 +482,13 @@ void PairBodyNparticle::body2space(int i)
     MathExtra::matvec(p,&coords[3*m],discrete[ndiscrete]);
     ndiscrete++;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+double PairBodyNparticle::memory_usage()
+{
+  double bytes = Pair::memory_usage();
+  bytes += (double) nmax * 2 * sizeof(int);    // dnum + dfirst [nmax]
+  return bytes;
 }

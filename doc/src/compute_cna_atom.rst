@@ -1,7 +1,10 @@
 .. index:: compute cna/atom
+.. index:: compute cna/atom/omp
 
 compute cna/atom command
 ========================
+
+Accelerator Variants: *cna/atom/omp*
 
 Syntax
 """"""
@@ -67,7 +70,7 @@ following relation should also be satisfied:
 
 .. math::
 
-  r_c + r_s > 2*{\rm cutoff}
+  r_c + r_s > 2*\mathrm{cutoff}
 
 where :math:`r_c` is the cutoff distance of the potential, :math:`r_s`
 is the skin
@@ -92,9 +95,15 @@ LAMMPS output options.
 The per-atom vector values will be a number from 0 to 5, as explained
 above.
 
+----------
+
+.. include:: accel_styles.rst
+
+----------
+
 Restrictions
 """"""""""""
- none
+none
 
 Related commands
 """"""""""""""""

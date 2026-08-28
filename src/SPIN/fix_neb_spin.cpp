@@ -16,7 +16,7 @@
    Contributing authors: Julien Tranchida (SNL)
 
    Please cite the related publication:
-   Bessarab, P. F., Uzdin, V. M., & Jónsson, H. (2015).
+   Bessarab, P. F., Uzdin, V. M., & Jonsson, H. (2015).
    Method for finding mechanism and activation energy of magnetic transitions,
    applied to skyrmion and antivortex annihilation.
    Computer Physics Communications, 196, 335-347.
@@ -193,10 +193,13 @@ int FixNEBSpin::setmask()
 
 void FixNEBSpin::init()
 {
-  int icompute = modify->find_compute(id_pe);
-  if (icompute < 0)
-    error->all(FLERR,"Potential energy ID for fix neb does not exist");
-  pe = modify->compute[icompute];
+  pe = modify->get_compute_by_id(id_pe);
+  if (!pe) {
+    error->all(FLERR,"Potential energy compute ID {} for fix {} does not exist", id_pe, style);
+  } else {
+    if (pe->peflag == 0)
+      error->all(FLERR,"Compute ID {} for fix {} does not compute potential energy", id_pe, style);
+  }
 
   // turn off climbing mode, NEB command turns it on after init()
 
@@ -887,7 +890,7 @@ void FixNEBSpin::inter_replica_comm()
   if (ireplica > 0) {
     if (me == 0) MPI_Waitall(2,requests,statuses);
 
-    MPI_Bcast(tagrecvall,nebatoms,MPI_INT,0,world);
+    MPI_Bcast(tagrecvall,nebatoms,MPI_LMP_TAGINT,0,world);
     MPI_Bcast(xrecvall[0],3*nebatoms,MPI_DOUBLE,0,world);
     MPI_Bcast(sprecvall[0],3*nebatoms,MPI_DOUBLE,0,world);
 
@@ -922,7 +925,7 @@ void FixNEBSpin::inter_replica_comm()
   if (ireplica < nreplica-1) {
     if (me == 0) MPI_Waitall(2,requests,statuses);
 
-    MPI_Bcast(tagrecvall,nebatoms,MPI_INT,0,world);
+    MPI_Bcast(tagrecvall,nebatoms,MPI_LMP_TAGINT,0,world);
     MPI_Bcast(xrecvall[0],3*nebatoms,MPI_DOUBLE,0,world);
     MPI_Bcast(frecvall[0],3*nebatoms,MPI_DOUBLE,0,world);
     MPI_Bcast(sprecvall[0],3*nebatoms,MPI_DOUBLE,0,world);

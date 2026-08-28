@@ -28,8 +28,7 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixNHBody::FixNHBody(LAMMPS *lmp, int narg, char **arg) :
-  FixNH(lmp, narg, arg)
+FixNHBody::FixNHBody(LAMMPS *lmp, int narg, char **arg) : FixNH(lmp, narg, arg), avec(nullptr)
 {
 }
 
@@ -39,8 +38,7 @@ void FixNHBody::init()
 {
   avec = dynamic_cast<AtomVecBody *>(atom->style_match("body"));
   if (!avec)
-    error->all(FLERR,
-               "Compute nvt/nph/npt body requires atom style body");
+    error->all(FLERR, "Compute nvt/nph/npt body requires atom style body");
 
   // check that all particles are finite-size
   // no point particles allowed, spherical is OK

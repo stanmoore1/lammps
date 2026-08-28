@@ -19,26 +19,32 @@
 
 #include "pair_lennard_mdf.h"
 
-#include <cmath>
-#include <cstring>
 #include "atom.h"
 #include "comm.h"
 #include "force.h"
+#include "info.h"
 #include "neigh_list.h"
 #include "memory.h"
 #include "error.h"
 
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairLennardMDF::PairLennardMDF(LAMMPS *lmp) : Pair(lmp) {}
+PairLennardMDF::PairLennardMDF(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cut_inner(nullptr), cut_inner_sq(nullptr), aparm(nullptr),
+    bparm(nullptr), lj1(nullptr), lj2(nullptr), lj3(nullptr), lj4(nullptr)
+{}
 
 /* ---------------------------------------------------------------------- */
 
 PairLennardMDF::~PairLennardMDF()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -211,7 +217,7 @@ void PairLennardMDF::settings(int narg, char **arg)
 void PairLennardMDF::coeff(int narg, char **arg)
 {
   if (narg != 4 && narg != 6)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -242,7 +248,7 @@ void PairLennardMDF::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -251,7 +257,9 @@ void PairLennardMDF::coeff(int narg, char **arg)
 
 double PairLennardMDF::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   cut_inner_sq[i][j] = cut_inner[i][j]*cut_inner[i][j];
 

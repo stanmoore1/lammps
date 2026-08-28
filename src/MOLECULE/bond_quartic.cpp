@@ -43,6 +43,7 @@ BondQuartic::BondQuartic(LAMMPS *_lmp) :
 
 BondQuartic::~BondQuartic()
 {
+  if (copymode) return;
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(k);
@@ -197,7 +198,7 @@ void BondQuartic::allocate()
 
 void BondQuartic::coeff(int narg, char **arg)
 {
-  if (narg != 6) error->all(FLERR, "Incorrect args for bond coefficients");
+  if (narg != 6) error->all(FLERR, "Incorrect args for bond coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi;
@@ -220,7 +221,7 @@ void BondQuartic::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

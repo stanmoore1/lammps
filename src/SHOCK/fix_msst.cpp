@@ -41,8 +41,8 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixMSST::FixMSST(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), old_velocity(nullptr), id_temp(nullptr), id_press(nullptr), id_pe(nullptr),
-    temperature(nullptr), pressure(nullptr), pe(nullptr)
+    Fix(lmp, narg, arg), old_velocity(nullptr), id_temp(nullptr), id_press(nullptr),
+    id_pe(nullptr), temperature(nullptr), pressure(nullptr), pe(nullptr), fix_external(nullptr)
 {
   if (narg < 4) error->all(FLERR, "Illegal fix msst command");
 
@@ -248,18 +248,28 @@ void FixMSST::init()
   // set compute ptrs
 
   temperature = modify->get_compute_by_id(id_temp);
-  if (!temperature)
+  if (!temperature) {
     error->all(FLERR, "Could not find fix msst temperature compute ID {}", id_temp);
-  if (temperature->tempflag == 0)
-    error->all(FLERR, "Fix msst compute ID {} does not compute temperature", id_temp);
+  } else {
+    if (temperature->tempflag == 0)
+      error->all(FLERR, "Fix msst compute ID {} does not compute a temperature", id_temp);
+  }
+
   pressure = modify->get_compute_by_id(id_press);
-  if (!pressure) error->all(FLERR, "Could not find fix msst pressure compute ID {}", id_press);
-  if (pressure->pressflag == 0)
-    error->all(FLERR, "Fix msst compute ID {} does not compute pressure", id_press);
+  if (!pressure) {
+    error->all(FLERR, "Could not find fix msst pressure compute ID {}", id_press);
+  } else {
+    if (pressure->pressflag == 0)
+      error->all(FLERR, "Fix msst compute ID {} does not compute pressure", id_press);
+  }
+
   pe = modify->get_compute_by_id(id_pe);
-  if (!pe) error->all(FLERR, "Could not find fix msst pe compute ID {}", id_pe);
-  if (pe->peflag == 0)
-    error->all(FLERR, "Fix msst compute ID {} does not compute potential energy", id_pe);
+  if (!pe) {
+    error->all(FLERR, "Could not find fix msst pe compute ID {}", id_pe);
+  } else {
+    if (pe->peflag == 0)
+      error->all(FLERR, "Fix msst compute ID {} does not compute potential energy", id_pe);
+  }
 
   dtv = update->dt;
   dtf = 0.5 * update->dt * force->ftm2v;
@@ -281,17 +291,16 @@ void FixMSST::init()
   // detect if any fix rigid exist so rigid bodies move when box is dilated
 
   rfix.clear();
-  for (auto &ifix : modify->get_fix_list())
+  for (const auto &ifix : modify->get_fix_list())
     if (ifix->rigid_flag) rfix.push_back(ifix);
 
   // find fix external being used to drive LAMMPS from DFTB+
 
   if (dftb) {
-    for (int i = 0; i < modify->nfix; i++)
-      if (utils::strmatch(modify->fix[i]->style, "^external$"))
-        fix_external = dynamic_cast<FixExternal *>(modify->fix[i]);
-    if (fix_external == nullptr)
+    auto extfixes = modify->get_fix_by_style("^external");
+    if (extfixes.empty())
       error->all(FLERR, "Fix msst dftb cannot be used w/out fix external");
+    fix_external = dynamic_cast<FixExternal *>(extfixes.back());
   }
 }
 
@@ -776,7 +785,7 @@ void FixMSST::write_restart(FILE *fp)
 void FixMSST::restart(char *buf)
 {
   int n = 0;
-  auto list = (double *) buf;
+  auto *list = (double *) buf;
   omega[direction] = list[n++];
   e0 = list[n++];
   v0 = list[n++];

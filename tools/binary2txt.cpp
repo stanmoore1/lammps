@@ -23,7 +23,7 @@
 #include <cstring>
 
 // these must match settings in src/lmptype.h which builds LAMMPS with
-//   -DLAMMPS_SMALLBIG (the default), -DLAMMPS_BIGBIG, or -DLAMMPS_SMALLSMALL
+//   -DLAMMPS_SMALLBIG (the default) or -DLAMMPS_BIGBIG
 // you can edit the tools/Makefile to enforce the same setting
 //   for the build of binary2txt, e.g.
 //   g++ -g -DLAMMPS_BIGBIG binarytxt.o -o binary2txt
@@ -36,21 +36,17 @@
 #define PRId64 "ld"
 #endif
 
-#if !defined(LAMMPS_SMALLSMALL) && !defined(LAMMPS_BIGBIG) && !defined(LAMMPS_SMALLBIG)
+#if !defined(LAMMPS_BIGBIG) && !defined(LAMMPS_SMALLBIG)
 #define LAMMPS_SMALLBIG
 #endif
 
 #if defined(LAMMPS_SMALLBIG)
-typedef int tagint;
-typedef int64_t bigint;
+using tagint = int;
+using bigint = int64_t;
 #define BIGINT_FORMAT "%" PRId64
-#elif defined(LAMMPS_SMALLSMALL)
-typedef int tagint;
-typedef int bigint;
-#define BIGINT_FORMAT "%d"
 #else /* LAMMPS_BIGBIG */
-typedef int64_t tagint;
-typedef int64_t bigint;
+using tagint = int64_t;
+using bigint = int64_t;
 #define BIGINT_FORMAT "%" PRId64
 #endif
 
@@ -84,10 +80,16 @@ int main(int narg, char **arg)
     }
 
     n = strlen(arg[iarg]) + 1 + 4;
-    auto filetxt = new char[n];
+    auto *filetxt = new char[n];
     strcpy(filetxt, arg[iarg]);
     strcat(filetxt, ".txt");
     FILE *fptxt = fopen(filetxt, "w");
+    if (!fptxt) {
+      printf("ERROR: Could not open %s for writing\n", filetxt);
+      delete[] filetxt;
+      fclose(fp);
+      return 1;
+    }
     delete[] filetxt;
 
     // detect newer format
@@ -253,10 +255,10 @@ int main(int narg, char **arg)
 
         // extend buffer to fit chunk size
 
-        if (n > maxbuf) {
+        if ((n > maxbuf) || !buf) {
           delete[] buf;
-          buf = new double[n];
-          maxbuf = n;
+          maxbuf = (n > 0) ? n : 1;
+          buf = new double[maxbuf];
         }
 
         // read chunk and write as size_one values per line

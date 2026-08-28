@@ -1,7 +1,10 @@
 .. index:: fix addforce
+.. index:: fix addforce/kk
 
 fix addforce command
 ====================
+
+Accelerator Variants: *addforce/kk*
 
 Syntax
 """"""
@@ -117,6 +120,12 @@ correctly, the minimization will not converge properly.
 
 .. include:: accel_styles.rst
 
+.. note::
+
+  The region keyword is supported by Kokkos, but a Kokkos-enabled
+  region must be used. See the region :doc:`region <region>` command for
+  more information.
+
 ----------
 
 Restart, fix_modify, output, run start/stop, minimize info
@@ -173,7 +182,7 @@ the iteration count during the minimization.
 
 Restrictions
 """"""""""""
- none
+none
 
 Related commands
 """"""""""""""""

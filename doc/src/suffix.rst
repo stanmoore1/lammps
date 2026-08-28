@@ -30,7 +30,7 @@ Description
 
 This command allows you to use variants of various styles if they
 exist.  In that respect it operates the same as the :doc:`-suffix command-line switch <Run_options>`.  It also has options to turn
-off or back on any suffix setting made via the command line.
+off or back on any suffix setting made via the command-line.
 
 The specified style can be *gpu*, *intel*, *kk*, *omp*, *opt* or
 *hybrid*\ . These refer to optional packages that LAMMPS can be built
@@ -45,8 +45,7 @@ These are the variants these packages provide:
 * GPU = a handful of pair styles and the PPPM kspace_style, optimized to
   run on one or more GPUs or multicore CPU/GPU nodes
 * INTEL = a collection of pair styles and neighbor routines
-  optimized to run in single, mixed, or double precision on CPUs and
-  Intel(R) Xeon Phi(TM) co-processors.
+  optimized to run in single, mixed, or double precision on CPUs.
 * KOKKOS = a collection of atom, pair, and fix styles optimized to run
   using the Kokkos library on various kinds of hardware, including GPUs
   via CUDA and many-core chips via OpenMP or threading.
@@ -99,7 +98,7 @@ commands in your input script.
 
 Restrictions
 """"""""""""
- none
+none
 
 Related commands
 """"""""""""""""

@@ -25,6 +25,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "math_const.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -40,7 +41,11 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairBuck6dCoulGaussDSF::PairBuck6dCoulGaussDSF(LAMMPS *lmp) : Pair(lmp)
+PairBuck6dCoulGaussDSF::PairBuck6dCoulGaussDSF(LAMMPS *lmp) :
+    Pair(lmp), cut_lj(nullptr), cut_ljsq(nullptr), alpha_ij(nullptr), buck6d1(nullptr),
+    buck6d2(nullptr), buck6d3(nullptr), buck6d4(nullptr), offset(nullptr), f_shift_ij(nullptr),
+    e_shift_ij(nullptr), c0(nullptr), c1(nullptr), c2(nullptr), c3(nullptr), c4(nullptr),
+    c5(nullptr), rsmooth_sq(nullptr)
 {
   single_enable = 1;
   writedata = 1;
@@ -274,7 +279,7 @@ void PairBuck6dCoulGaussDSF::settings(int narg, char **arg)
 void PairBuck6dCoulGaussDSF::coeff(int narg, char **arg)
 {
   if (narg < 7 || narg > 8)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -304,7 +309,7 @@ void PairBuck6dCoulGaussDSF::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -327,7 +332,9 @@ void PairBuck6dCoulGaussDSF::init_style()
 
 double PairBuck6dCoulGaussDSF::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
 
   double cut = MAX(cut_lj[i][j],cut_coul);
   cut_ljsq[i][j] = cut_lj[i][j] * cut_lj[i][j];

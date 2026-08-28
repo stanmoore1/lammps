@@ -42,8 +42,8 @@ ComputeTI::ComputeTI(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg < 4) error->all(FLERR,"Illegal compute ti command");
 
+  // this compute consumes per-atom energies (peatomflag) but only produces a global scalar
   peflag = 1;
-  peratom_flag = 1;
   peatomflag = 1;
   scalar_flag = 1;
   extscalar = 1;
@@ -154,7 +154,7 @@ double ComputeTI::compute_scalar()
 
   invoked_scalar = update->ntimestep;
   if (update->eflag_global != invoked_scalar)
-    error->all(FLERR,"Energy was not tallied on needed timestep");
+    error->all(FLERR, Error::NOLASTLINE, "Energy was not tallied on needed timestep{}", utils::errorurl(22));
 
   const int nlocal = atom->nlocal;
   const int * const type = atom->type;

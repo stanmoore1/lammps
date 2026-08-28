@@ -28,10 +28,10 @@
 #ifndef LMP_LMPTYPE_H
 #define LMP_LMPTYPE_H
 
-// C++11 check
+// C++17 check
 
-#if __cplusplus < 201103L
-#error LAMMPS requires a C++11 (or later) compliant compiler. Enable C++11 compatibility or upgrade the compiler.
+#if __cplusplus < 201703L
+#error LAMMPS requires a C++17 (or later) compliant compiler. Enable C++17 compatibility or upgrade the compiler.
 #endif
 
 #ifndef __STDC_LIMIT_MACROS
@@ -52,6 +52,26 @@
 #define PRId64 "ld"
 #endif
 
+// LMP_REGISTRY_CONST: const-qualifier for file-scope style-registration tables
+// (committed *_register.cpp files that hold arrays of host-only factory function
+// pointers).  When a translation unit is also compiled for a GPU device, clang
+// and nvcc implicitly shadow file-scope "const" objects into device memory --
+// which drags the host-only factory functions into device code and fails to
+// link.  These tables are only ever read by host runtime code, so the qualifier
+// is dropped in that case.  This happens (a) in a GPU-enabled Kokkos build,
+// where LMP_KOKKOS_GPU is set as a global compile definition by the build
+// system (cmake KOKKOS package), and (b) whenever the C++ compiler itself is a
+// CUDA or HIP compiler driver (e.g. a GPU package HIP build with hipcc as
+// CMAKE_CXX_COMPILER), which is detected via the compiler's language-mode
+// macros: __HIP__ (clang compiling HIP), __CUDACC__ (nvcc), __CUDA__ (clang
+// compiling CUDA).
+
+#if defined(LMP_KOKKOS_GPU) || defined(__HIP__) || defined(__CUDACC__) || defined(__CUDA__)
+#define LMP_REGISTRY_CONST
+#else
+#define LMP_REGISTRY_CONST const
+#endif
+
 namespace LAMMPS_NS {
 
 // reserve 2 highest bits in molecular system neigh list for special bonds flag
@@ -64,10 +84,23 @@ namespace LAMMPS_NS {
 #define HISTMASK 0xDFFFFFFF
 #define SPECIALMASK 0x3FFFFFFF
 
+// mask to curb data sizes when calling memcpy() to avoid bogus compiler warnings
+#if UINTPTR_MAX > (1UL<<63)
+static constexpr uint64_t MEMCPYMASK = (static_cast<uint64_t>(1) << 63) - 1U;
+#else
+static constexpr uint32_t MEMCPYMASK = (static_cast<uint32_t>(1) << 31) - 1U;
+#endif
+
 // default to 32-bit smallint and other ints, 64-bit bigint
 
-#if !defined(LAMMPS_SMALLSMALL) && !defined(LAMMPS_BIGBIG) && !defined(LAMMPS_SMALLBIG)
+#if !defined(LAMMPS_BIGBIG) && !defined(LAMMPS_SMALLBIG)
 #define LAMMPS_SMALLBIG
+#endif
+
+// we no longer support LAMMPS_SMALLSMALL
+
+#if defined(LAMMPS_SMALLSMALL)
+#error LAMMPS no longer supports -DLAMMPS_SMALLSMALL
 #endif
 
 // allow user override of LONGLONG to LONG, necessary for some machines/MPI
@@ -84,10 +117,10 @@ namespace LAMMPS_NS {
 
 #ifdef LAMMPS_SMALLBIG
 
-typedef int smallint;
-typedef int imageint;
-typedef int tagint;
-typedef int64_t bigint;
+using smallint = int;
+using imageint = int;
+using tagint = int;
+using bigint = int64_t;
 
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT_MAX
@@ -119,10 +152,10 @@ typedef int64_t bigint;
 
 #ifdef LAMMPS_BIGBIG
 
-typedef int smallint;
-typedef int64_t imageint;
-typedef int64_t tagint;
-typedef int64_t bigint;
+using smallint = int;
+using imageint = int64_t;
+using tagint = int64_t;
+using bigint = int64_t;
 
 #define MAXSMALLINT INT_MAX
 #define MAXTAGINT INT64_MAX
@@ -145,40 +178,6 @@ typedef int64_t bigint;
 #define IMGMAX 1048576
 #define IMGBITS 21
 #define IMG2BITS 42
-
-#endif
-
-// for machines that do not support 64-bit ints
-// 32-bit smallint/imageint/tagint/bigint
-
-#ifdef LAMMPS_SMALLSMALL
-
-typedef int smallint;
-typedef int imageint;
-typedef int tagint;
-typedef int bigint;
-
-#define MAXSMALLINT INT_MAX
-#define MAXTAGINT INT_MAX
-#define MAXBIGINT INT_MAX
-#define MAXDOUBLEINT INT_MAX
-
-#define MPI_LMP_TAGINT MPI_INT
-#define MPI_LMP_IMAGEINT MPI_INT
-#define MPI_LMP_BIGINT MPI_INT
-
-#define TAGINT_FORMAT "%d"
-#define BIGINT_FORMAT "%d"
-
-#define LAMMPS_TAGINT LAMMPS_INT
-#define LAMMPS_TAGINT_2D LAMMPS_INT_2D
-#define LAMMPS_BIGINT LAMMPS_INT
-#define LAMMPS_BIGINT_2D LAMMPS_INT_2D
-
-#define IMGMASK 1023
-#define IMGMAX 512
-#define IMGBITS 10
-#define IMG2BITS 20
 
 #endif
 
@@ -248,13 +247,13 @@ union ubuf {
    std::string str;
    for (int i = 0; i < 5; ++i) {
        switch (m[i].type) {
-           case multitype::DOUBLE:
+           case multitype::LAMMPS_DOUBLE:
                str += std::to_string(m[i].data.d) + ' ';
                break;
-           case multitype::INT:
+           case multitype::LAMMPS_INT:
                str += std::to_string(m[i].data.i) + ' ';
                break;
-           case multitype::BIGINT:
+           case multitype::LAMMPS_INT64:
                str += std::to_string(m[i].data.b) + ' ';
                break;
            default:
@@ -287,7 +286,7 @@ struct multitype {
     int64_t b;
   } data;
 
-  multitype() : type(LAMMPS_NONE) { data.d = 0.0; }
+  multitype() noexcept : type(LAMMPS_NONE) { data.d = 0.0; }
   multitype(const multitype &) = default;
   multitype(multitype &&) = default;
   ~multitype() = default;
@@ -341,7 +340,8 @@ struct multitype {
 
 #if defined(__INTEL_COMPILER) || (defined(__PGI) && !defined(__NVCOMPILER))
 #define _noalias restrict
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER) || defined(__NVCOMPILER)
+#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER) || defined(__NVCOMPILER) || \
+    defined(_MSC_VER)
 #define _noalias __restrict
 #else
 #define _noalias

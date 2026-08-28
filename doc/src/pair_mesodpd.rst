@@ -69,7 +69,7 @@ Description
 
 The *edpd* style computes the pairwise interactions and heat fluxes
 for eDPD particles following the formulations in
-:ref:`(Li2014_JCP) <Li2014_JCP>` and :ref:`Li2015_CC <Li2015_CC>`. The time
+:ref:`(Li2014) <Li2014_JCP>` and :ref:`Li2015_CC <Li2015_CC>`. The time
 evolution of an eDPD particle is governed by the conservation of
 momentum and energy given by
 
@@ -115,7 +115,7 @@ where the mesoscopic heat friction :math:`\kappa` is given by
   \kappa  = \frac{315k_B\upsilon }{2\pi \rho C_v r_{ct}^5}\frac{1}{Pr},
 
 with :math:`\upsilon` being the kinematic viscosity. For more details,
-see Eq.(15) in :ref:`(Li2014_JCP) <Li2014_JCP>`.
+see Eq.(15) in :ref:`(Li2014) <Li2014_JCP>`.
 
 The following coefficients must be defined in eDPD system for each
 pair of atom types via the :doc:`pair_coeff <pair_coeff>` command as in
@@ -182,7 +182,7 @@ The following coefficients must be defined for each pair of atom types via the
 
 The *tdpd* style computes the pairwise interactions and chemical
 concentration fluxes for tDPD particles following the formulations in
-:ref:`(Li2015_JCP) <Li2015_JCP>`.  The time evolution of a tDPD particle is
+:ref:`(Li2015) <Li2015_JCP>`.  The time evolution of a tDPD particle is
 governed by the conservation of momentum and concentration given by
 
 .. math::
@@ -200,7 +200,7 @@ force :math:`F_{ij}^C` are expressed as
   \mathbf{F}_{ij}^{D} & = -\gamma {\omega_{D}}(r_{ij})(\mathbf{e}_{ij} \cdot \mathbf{v}_{ij})\mathbf{e}_{ij}  \\
   \mathbf{F}_{ij}^{R} & = \sigma {\omega_{R}}(r_{ij}){\xi_{ij}}\Delta t^{-1/2} \mathbf{e}_{ij} \\
   \omega_{C}(r) & = 1 - r/r_c \\
-  \omega_{D}(r) & = \omega^2_{R}(r) = (1-r/r_c)^{\rm power_f} \\
+  \omega_{D}(r) & = \omega^2_{R}(r) = (1-r/r_c)^\mathrm{power_f} \\
   \sigma^2 = 2\gamma k_B T
 
 The concentration flux between two tDPD particles includes the Fickian
@@ -211,13 +211,13 @@ by
 
    Q_{ij}^D & = -\kappa_{ij} w_{DC}(r_{ij}) \left( C_i - C_j \right) \\
    Q_{ij}^R & = \epsilon_{ij}\left( C_i + C_j \right) w_{RC}(r_{ij}) \xi_{ij} \\
-   w_{DC}(r_{ij}) & =w^2_{RC}(r_{ij}) = (1 - r/r_{cc})^{\rm power_{cc}} \\
+   w_{DC}(r_{ij}) & =w^2_{RC}(r_{ij}) = (1 - r/r_{cc})^\mathrm{power_{cc}} \\
    \epsilon_{ij}^2 & = m_s^2\kappa_{ij}\rho
 
 where the parameters kappa and epsilon determine the strength of the
 Fickian and random fluxes. :math:`m_s` is the mass of a single solute
 molecule.  In general, :math:`m_s` is much smaller than the mass of a
-tDPD particle *m*\ . For more details, see :ref:`(Li2015_JCP)
+tDPD particle *m*\ . For more details, see :ref:`(Li2015)
 <Li2015_JCP>`.
 
 The following coefficients must be defined for each pair of atom types via the
@@ -246,7 +246,7 @@ Example scripts
 There are example scripts for using all these pair styles in
 examples/PACKAGES/mesodpd.  The example for an eDPD simulation models heat
 conduction with source terms analog of periodic Poiseuille flow
-problem. The setup follows Fig.12 in :ref:`(Li2014_JCP) <Li2014_JCP>`. The
+problem. The setup follows Fig.12 in :ref:`(Li2014) <Li2014_JCP>`. The
 output of the short eDPD simulation (about 2 minutes on a single core)
 gives a temperature and density profiles as
 
@@ -278,12 +278,16 @@ The example for a tDPD simulation computes the effective diffusion
 coefficient of a tDPD system using a method analogous to the periodic
 Poiseuille flow.  The tDPD system is specified with two chemical
 species, and the setup follows Fig.1 in
-:ref:`(Li2015_JCP) <Li2015_JCP>`. The output of the short tDPD simulation
+:ref:`(Li2015) <Li2015_JCP>`. The output of the short tDPD simulation
 (about one and a half minutes on a single core) gives the
 concentration profiles of the two chemical species as
 
 .. image:: JPG/examples_tdpd.jpg
    :align: center
+
+----------
+
+.. include:: accel_styles.rst
 
 ----------
 
@@ -327,7 +331,7 @@ none
 
 .. _Li2014_JCP:
 
-**(Li2014_JCP)** Li, Tang, Lei, Caswell, Karniadakis, J Comput Phys,
+**(Li2014)** Li, Tang, Lei, Caswell, Karniadakis, J Comput Phys,
 265: 113-127 (2014).  DOI: 10.1016/j.jcp.2014.02.003.
 
 .. _Li2015_CC:
@@ -342,5 +346,5 @@ DOI: 10.1063/1.4812366.
 
 .. _Li2015_JCP:
 
-**(Li2015_JCP)** Li, Yazdani, Tartakovsky, Karniadakis, J Chem Phys,
+**(Li2015)** Li, Yazdani, Tartakovsky, Karniadakis, J Chem Phys,
 143: 014101 (2015).  DOI: 10.1063/1.4923254.

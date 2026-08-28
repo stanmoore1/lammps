@@ -36,10 +36,17 @@ class PairILPGrapheneHBN : public Pair {
   void init_style() override;
   void calc_FvdW(int, int);
   double single(int, int, int, int, double, double, double, double &) override;
+  double memory_usage() override;
 
   static constexpr int NPARAMS_PER_LINE = 13;
 
-  enum { ILP_GrhBN, ILP_TMD, SAIP_METAL, AIP_WATER_2DM };    // for telling class variants apart in shared code
+  enum {
+    ILP_GrhBN,
+    ILP_TMD,
+    SAIP_METAL,
+    SAIP_METAL_TMD,
+    AIP_WATER_2DM
+  };    // for telling class variants apart in shared code
 
  protected:
   int me;

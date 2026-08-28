@@ -44,7 +44,7 @@ class FixBondHistory : public Fix {
 
   void update_atom_value(int, int, int, double);
   double get_atom_value(int, int, int);
-  int get_ndata() const { return ndata; }
+  [[nodiscard]] int get_ndata() const { return ndata; }
 
   // methods to reorder/delete elements of atom->bond_atom
   void delete_history(int, int);
@@ -62,7 +62,7 @@ class FixBondHistory : public Fix {
   // to enable quick look up
   std::map<std::pair<tagint, tagint>, std::vector<double>> cached_histories;
 
-  int *setflag;       // Set by BondBPM, which bond types are used
+  int *setflag;    // Set by BondBPM, which bond types are used
   double **bondstore;
   int stored_flag;
   int ndata;

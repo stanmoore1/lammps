@@ -21,12 +21,14 @@
 #include "neigh_list.h"
 
 #include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairYukawa::PairYukawa(LAMMPS *lmp) : Pair(lmp)
+PairYukawa::PairYukawa(LAMMPS *lmp) :
+    Pair(lmp), rad(nullptr), cut(nullptr), a(nullptr), offset(nullptr)
 {
   writedata = 1;
 }
@@ -172,7 +174,7 @@ void PairYukawa::settings(int narg, char **arg)
 
 void PairYukawa::coeff(int narg, char **arg)
 {
-  if (narg < 3 || narg > 4) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (narg < 3 || narg > 4) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo, ihi, jlo, jhi;
@@ -194,7 +196,7 @@ void PairYukawa::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -331,4 +333,13 @@ double PairYukawa::single(int /*i*/, int /*j*/, int itype, int jtype, double rsq
 
   phi = a[itype][jtype] * screening * rinv - offset[itype][jtype];
   return factor_lj * phi;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void *PairYukawa::extract(const char *str, int &dim)
+{
+  dim = 2;
+  if (strcmp(str, "alpha") == 0) return (void *) a;
+  return nullptr;
 }

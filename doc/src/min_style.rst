@@ -3,6 +3,8 @@
 min_style cg command
 ====================
 
+Accelerator Variant: *cg/kk*
+
 min_style hftn command
 ======================
 
@@ -14,6 +16,10 @@ min_style quickmin command
 
 min_style fire command
 ======================
+
+.. versionadded:: 11Feb2026
+
+Accelerator Variant: *fire/kk*
 
 :doc:`min_style spin <min_spin>` command
 ========================================

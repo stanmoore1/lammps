@@ -33,7 +33,9 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairUFM::PairUFM(LAMMPS *lmp) : Pair(lmp)
+PairUFM::PairUFM(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), scale(nullptr), epsilon(nullptr), sigma(nullptr), uf1(nullptr),
+    uf2(nullptr), uf3(nullptr), offset(nullptr)
 {
   writedata = 1;
 }
@@ -42,6 +44,8 @@ PairUFM::PairUFM(LAMMPS *lmp) : Pair(lmp)
 
 PairUFM::~PairUFM()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -182,7 +186,7 @@ void PairUFM::settings(int narg, char **arg)
 void PairUFM::coeff(int narg, char **arg)
 {
   if (narg < 4 || narg > 5)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -208,7 +212,7 @@ void PairUFM::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

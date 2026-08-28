@@ -1,7 +1,10 @@
 .. index:: compute cnp/atom
+.. index:: compute cnp/atom/omp
 
 compute cnp/atom command
 ========================
+
+Accelerator Variants: *cnp/atom/omp*
 
 Syntax
 """"""
@@ -74,7 +77,7 @@ following relation should also be satisfied:
 
 .. math::
 
-  r_c + r_s > 2*{\rm cutoff}
+  r_c + r_s > 2*\mathrm{cutoff}
 
 where :math:`r_c` is the cutoff distance of the potential, :math:`r_s` is
 the skin
@@ -108,6 +111,12 @@ values:
    FCC (111) surface = 13.0
    FCC (100) surface = 26.5
    FCC dislocation core = 11
+
+----------
+
+.. include:: accel_styles.rst
+
+----------
 
 Restrictions
 """"""""""""

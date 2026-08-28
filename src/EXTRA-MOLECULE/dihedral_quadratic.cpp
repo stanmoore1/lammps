@@ -28,6 +28,7 @@
 #include "neighbor.h"
 
 #include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -38,7 +39,8 @@ static constexpr double SMALLER =   0.00001;
 
 /* ---------------------------------------------------------------------- */
 
-DihedralQuadratic::DihedralQuadratic(LAMMPS *lmp) : Dihedral(lmp)
+DihedralQuadratic::DihedralQuadratic(LAMMPS *lmp) :
+    Dihedral(lmp), k(nullptr), phi0(nullptr), sign(nullptr), multiplicity(nullptr)
 {
   writedata = 1;
   born_matrix_enable = 1;
@@ -48,6 +50,7 @@ DihedralQuadratic::DihedralQuadratic(LAMMPS *lmp) : Dihedral(lmp)
 
 DihedralQuadratic::~DihedralQuadratic()
 {
+  if (copymode) return;
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(k);
@@ -267,7 +270,7 @@ void DihedralQuadratic::allocate()
 
 void DihedralQuadratic::coeff(int narg, char **arg)
 {
-  if (narg != 3) error->all(FLERR,"Incorrect args for dihedral coefficients");
+  if (narg != 3) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi;
@@ -288,7 +291,7 @@ void DihedralQuadratic::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for dihedral coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for dihedral coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -434,4 +437,16 @@ void DihedralQuadratic::born_matrix(int nd, int i1, int i2, int i3, int i4,
 
   du = - 2.0 * k[type] * dphi * siinv;
   du2 = 2.0 * k[type] * siinv * siinv * ( 1.0 - dphi * c * siinv) ;
+}
+
+/* ----------------------------------------------------------------------
+   return ptr to internal members upon request
+------------------------------------------------------------------------ */
+
+void *DihedralQuadratic::extract(const char *str, int &dim)
+{
+  dim = 1;
+  if (strcmp(str, "k") == 0) return (void *) k;
+  if (strcmp(str, "phi0") == 0) return (void *) phi0;
+  return nullptr;
 }

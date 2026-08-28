@@ -37,7 +37,9 @@ using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairMIECut::PairMIECut(LAMMPS *lmp) : Pair(lmp)
+PairMIECut::PairMIECut(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), epsilon(nullptr), sigma(nullptr), gamR(nullptr), gamA(nullptr),
+    Cmie(nullptr), mie1(nullptr), mie2(nullptr), mie3(nullptr), mie4(nullptr), offset(nullptr)
 {
   respa_enable = 1;
   cut_respa = nullptr;
@@ -47,6 +49,7 @@ PairMIECut::PairMIECut(LAMMPS *lmp) : Pair(lmp)
 
 PairMIECut::~PairMIECut()
 {
+  if (copymode) return;
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -457,7 +460,7 @@ void PairMIECut::settings(int narg, char **arg)
 void PairMIECut::coeff(int narg, char **arg)
 {
   if (narg < 6 || narg > 7)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -485,7 +488,7 @@ void PairMIECut::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -499,7 +502,7 @@ void PairMIECut::init_style()
   int list_style = NeighConst::REQ_DEFAULT;
 
   if (update->whichflag == 1 && utils::strmatch(update->integrate_style, "^respa")) {
-    auto respa = dynamic_cast<Respa *>(update->integrate);
+    auto *respa = dynamic_cast<Respa *>(update->integrate);
     if (respa->level_inner >= 0) list_style = NeighConst::REQ_RESPA_INOUT;
     if (respa->level_middle >= 0) list_style = NeighConst::REQ_RESPA_ALL;
   }

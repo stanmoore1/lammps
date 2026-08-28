@@ -16,7 +16,7 @@ Syntax
   .. parsed-literal::
 
      one or more keyword value pairs may be appended
-     keyword = *iso* or *aniso* or *tri* or *x* or *y* or *z* or *xy* or *xz* or *yz* or *couple* or *dilate* or *modulus* or *temp* or *flip*
+     keyword = *iso* or *aniso* or *tri* or *x* or *y* or *z* or *xy* or *xz* or *yz* or *couple* or *dilate* or *temp* or *flip*
        *iso* or *aniso* or *tri* values = Pstart Pstop Pdamp
          Pstart,Pstop = scalar external pressure at start/end of run (pressure units)
          Pdamp = pressure damping parameter (time units)
@@ -54,7 +54,7 @@ the Langevin equation such as:
 
    f_P = & \frac{N k_B T_{target}}{V} + \frac{1}{V d}\sum_{i=1}^{N} \vec r_i \cdot \vec f_i - P_{target} \\
    Q\ddot{L} + \alpha{}\dot{L} = & f_P + \beta(t)\\
-   L^{n+1} = & L^{n} + bdt\dot{L}^{n} \frac{bdt^{2}}{2Q} \\
+   L^{n+1} = & L^{n} + bdt\dot{L}^{n} + \frac{bdt^{2}}{2Q} f^{n}_{P} + \frac{bdt}{2Q} \beta^{n+1}  \\
    \dot{L}^{n+1} = & \alpha\dot{L}^{n} + \frac{dt}{2Q}\left(a f^{n}_{P} + f^{n+1}_{P}\right) + \frac{b}{Q}\beta^{n+1} \\
    a = & \frac{1-\frac{\alpha{}dt}{2Q}}{1+\frac{\alpha{}dt}{2Q}} \\
    b = & \frac{1}{1+\frac{\alpha{}dt}{2Q}} \\

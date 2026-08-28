@@ -12,7 +12,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Pedro Antonio Santos Flórez (UNLV)
+   Contributing author: Pedro Antonio Santos Florez (UNLV)
 ------------------------------------------------------------------------- */
 
 #include "mliap_model_nn.h"
@@ -22,6 +22,7 @@
 #include "comm.h"
 #include "error.h"
 #include "memory.h"
+#include "safe_pointers.h"
 #include "tokenizer.h"
 
 #include <cstring>
@@ -67,7 +68,7 @@ void MLIAPModelNN::read_coeffs(char *coefffilename)
 
   // open coefficient file on proc 0
 
-  FILE *fpcoeff;
+  SafeFilePtr fpcoeff;
   if (comm->me == 0) {
     fpcoeff = utils::open_potential(coefffilename, lmp, nullptr);
     if (fpcoeff == nullptr)
@@ -83,7 +84,6 @@ void MLIAPModelNN::read_coeffs(char *coefffilename)
       ptr = fgets(line, MAXLINE, fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       } else
         n = strlen(line) + 1;
     }
@@ -124,7 +124,6 @@ void MLIAPModelNN::read_coeffs(char *coefffilename)
       ptr = fgets(line, MAXLINE, fpcoeff);
       if (ptr == nullptr) {
         eof = 1;
-        fclose(fpcoeff);
       } else
         n = strlen(line) + 1;
     }

@@ -29,7 +29,7 @@ using namespace LAMMPS_NS;
 ------------------------------------------------------------------------- */
 
 ComputePressureGrem::ComputePressureGrem(LAMMPS *lmp, int narg, char **arg) :
-  ComputePressure(lmp, narg-1, arg)
+    ComputePressure(lmp, narg-1, arg), scale_grem(nullptr)
 {
   fix_grem = utils::strdup(arg[narg-1]);
 }
@@ -47,12 +47,12 @@ void ComputePressureGrem::init()
   ComputePressure::init();
 
   // Initialize hook to gREM fix
-  int ifix = modify->find_fix(fix_grem);
-  if (ifix < 0)
+  Fix *ifix = modify->get_fix_by_id(fix_grem);
+  if (!ifix)
     error->all(FLERR,"Fix grem ID for compute PRESSURE/GREM does not exist");
 
   int dim;
-  scale_grem = (double *)modify->fix[ifix]->extract("scale_grem",dim);
+  scale_grem = (double *)ifix->extract("scale_grem",dim);
 
   if (scale_grem == nullptr || dim != 0)
     error->all(FLERR,"Cannot extract gREM scale factor from fix grem");
@@ -66,7 +66,7 @@ double ComputePressureGrem::compute_scalar()
 {
   invoked_scalar = update->ntimestep;
   if (update->vflag_global != invoked_scalar)
-    error->all(FLERR,"Virial was not tallied on needed timestep");
+    error->all(FLERR, Error::NOLASTLINE, "Virial was not tallied on needed timestep{}", utils::errorurl(22));
 
   // invoke temperature if it hasn't been already
 
@@ -107,7 +107,7 @@ void ComputePressureGrem::compute_vector()
 {
   invoked_vector = update->ntimestep;
   if (update->vflag_global != invoked_vector)
-    error->all(FLERR,"Virial was not tallied on needed timestep");
+    error->all(FLERR, Error::NOLASTLINE, "Virial was not tallied on needed timestep{}", utils::errorurl(22));
 
   if (force->kspace && kspace_virial && force->kspace->scalar_pressure_flag)
     error->all(FLERR,"Must use 'kspace_modify pressure/scalar no' for "

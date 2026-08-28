@@ -47,7 +47,12 @@ enum{SINGLE_PROC_DIRECT,SINGLE_PROC_MAP,MULTI_PROC};
 
 /* ---------------------------------------------------------------------- */
 
-PRD::PRD(LAMMPS *lmp) : Command(lmp) {}
+PRD::PRD(LAMMPS *lmp) :
+    Command(lmp), loop_setting(nullptr), dist_setting(nullptr), counts(nullptr),
+    displacements(nullptr), tagall(nullptr), xall(nullptr), imageall(nullptr),
+    random_select(nullptr), random_clock(nullptr), random_dephase(nullptr), compute_event(nullptr),
+    fix_event(nullptr), velocity(nullptr), temperature(nullptr), finish(nullptr)
+{}
 
 /* ----------------------------------------------------------------------
    perform PRD simulation on one or more replicas
@@ -60,7 +65,7 @@ void PRD::command(int narg, char **arg)
   // error checks
 
   if (domain->box_exist == 0)
-    error->all(FLERR,"PRD command before simulation box is defined");
+    error->all(FLERR,"PRD command before simulation box is defined" + utils::errorurl(33));
   if (universe->nworlds != universe->nprocs &&
       atom->map_style == Atom::MAP_NONE)
     error->all(FLERR,"Cannot use PRD with multi-processor replicas "
@@ -181,9 +186,8 @@ void PRD::command(int narg, char **arg)
   // assign FixEventPRD to event-detection compute
   // necessary so it will know atom coords at last event
 
-  int icompute = modify->find_compute(id_compute);
-  if (icompute < 0) error->all(FLERR,"Could not find compute ID for PRD");
-  compute_event = modify->compute[icompute];
+  compute_event = modify->get_compute_by_id(id_compute);
+  if (!compute_event) error->all(FLERR,"Could not find compute ID for PRD");
   compute_event->reset_extra_compute_fix("prd_event");
 
   // reset reneighboring criteria since will perform minimizations
@@ -229,10 +233,10 @@ void PRD::command(int narg, char **arg)
 
   // cannot use PRD with time-dependent fixes or regions
 
-  for (auto &ifix : modify->get_fix_list())
+  for (const auto &ifix : modify->get_fix_list())
     if (ifix->time_depend) error->all(FLERR,"Cannot use PRD with a time-dependent fix defined");
 
-  for (auto &reg : domain->get_region_list())
+  for (const auto &reg : domain->get_region_list())
     if (reg->dynamic_check())
       error->all(FLERR,"Cannot use PRD with a time-dependent region defined");
 
@@ -417,8 +421,8 @@ void PRD::command(int narg, char **arg)
   if (me_universe == 0) {
     auto mesg = fmt::format("Loop time of {} on {} procs for {} steps with {} atoms\n",
                             timer->get_wall(Timer::TOTAL), nprocs_universe, nsteps,atom->natoms);
-    if (universe->uscreen) fmt::print(universe->uscreen, mesg);
-    if (universe->ulogfile) fmt::print(universe->ulogfile, mesg);
+    if (universe->uscreen) utils::print(universe->uscreen, mesg);
+    if (universe->ulogfile) utils::print(universe->ulogfile, mesg);
   }
 
   if (me == 0) utils::logmesg(lmp,"\nPRD done\n");
@@ -500,8 +504,8 @@ void PRD::dephase()
   // clear timestep storage from computes, since now invalid
 
   update->ntimestep = ntimestep_hold;
-  for (int i = 0; i < modify->ncompute; i++)
-    if (modify->compute[i]->timeflag) modify->compute[i]->clearstep();
+  for (const auto &icompute : modify->get_compute_list())
+    if (icompute->timeflag) icompute->clearstep();
 }
 
 /* ----------------------------------------------------------------------
@@ -577,8 +581,8 @@ void PRD::quench()
 
   update->ntimestep = ntimestep_hold;
   update->endstep = update->laststep = endstep_hold;
-  for (int i = 0; i < modify->ncompute; i++)
-    if (modify->compute[i]->timeflag) modify->compute[i]->clearstep();
+  for (const auto &icompute : modify->get_compute_list())
+    if (icompute->timeflag) icompute->clearstep();
 }
 
 /* ----------------------------------------------------------------------
@@ -725,8 +729,8 @@ void PRD::log_event()
                             fix_event->event_number, fix_event->correlated_event,
                             fix_event->ncoincident, fix_event->replica_number);
 
-    if (universe->uscreen) fmt::print(universe->uscreen, mesg);
-    if (universe->ulogfile) fmt::print(universe->ulogfile, mesg);
+    if (universe->uscreen) utils::print(universe->uscreen, mesg);
+    if (universe->ulogfile) utils::print(universe->ulogfile, mesg);
   }
 }
 
@@ -770,9 +774,9 @@ void PRD::replicate(int ireplica)
     int nlocal = atom->nlocal;
 
     if (universe->iworld == ireplica) {
-      memcpy(tagall,tag,nlocal*sizeof(tagint));
-      memcpy(xall[0],x[0],3*nlocal*sizeof(double));
-      memcpy(imageall,image,nlocal*sizeof(imageint));
+      memcpy(tagall,tag,(nlocal*sizeof(tagint))&MEMCPYMASK);
+      memcpy(xall[0],x[0],(sizeof(double)*3*nlocal)&MEMCPYMASK);
+      memcpy(imageall,image,(nlocal*sizeof(imageint))&MEMCPYMASK);
     }
 
     MPI_Bcast(tagall,natoms,MPI_LMP_TAGINT,ireplica,comm_replica);

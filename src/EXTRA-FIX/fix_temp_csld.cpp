@@ -44,8 +44,8 @@ static constexpr int PRNGSIZE = 98+2+3;
 /* ---------------------------------------------------------------------- */
 
 FixTempCSLD::FixTempCSLD(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg),
-  vhold(nullptr), tstr(nullptr), id_temp(nullptr), random(nullptr)
+    Fix(lmp, narg, arg), vhold(nullptr), tstr(nullptr), id_temp(nullptr), temperature(nullptr),
+    random(nullptr)
 {
   if (narg != 7) error->all(FLERR,"Illegal fix temp/csld command");
 
@@ -125,33 +125,32 @@ void FixTempCSLD::init()
 
   // we cannot handle constraints via rattle or shake correctly.
 
-  int has_shake = 0;
-  for (int i = 0; i < modify->nfix; i++)
-    if ((strcmp(modify->fix[i]->style,"shake") == 0)
-        || (strcmp(modify->fix[i]->style,"rattle") == 0)) ++has_shake;
-
-  if (has_shake > 0)
-    error->all(FLERR,"Fix temp/csld is not compatible with fix rattle or fix shake");
+  if (!modify->get_fix_by_style("^shake").empty() || !modify->get_fix_by_style("^rattle").empty()
+      || !modify->get_fix_by_style("^ilves").empty())
+    error->all(FLERR,"Fix temp/csld is not compatible with fix shake, rattle, or ilves");
 
   // check variable
 
   if (tstr) {
     tvar = input->variable->find(tstr);
     if (tvar < 0)
-      error->all(FLERR,"Variable name {} for fix temp/csld does not exist", tstr);
+      error->all(FLERR,"Variable name {} for fix {} does not exist", tstr, style);
     if (input->variable->equalstyle(tvar)) tstyle = EQUAL;
-    else error->all(FLERR,"Variable {} for fix temp/csld is invalid style", tstr);
+    else error->all(FLERR,"Variable {} for fix {} is invalid style", tstr, style);
   }
 
   temperature = modify->get_compute_by_id(id_temp);
-  if (!temperature)
-    error->all(FLERR,"Temperature ID {} for fix temp/csld does not exist", id_temp);
+  if (!temperature) {
+    error->all(FLERR,"Temperature compute ID {} for fix {} does not exist", id_temp, style);
+  } else {
+    if (temperature->tempflag == 0)
+      error->all(FLERR, "Compute ID {} for fix {} does not compute a temperature", id_temp, style);
+    if (temperature->tempbias) which = BIAS;
+    else which = NOBIAS;
+  }
 
-  if (modify->check_rigid_group_overlap(groupbit))
-    error->warning(FLERR,"Cannot thermostat atoms in rigid bodies");
-
-  if (temperature->tempbias) which = BIAS;
-  else which = NOBIAS;
+  if ((modify->check_rigid_group_overlap(groupbit)) && (comm->me == 0))
+    error->warning(FLERR,"Cannot thermostat atoms in rigid bodies with fix {}", style);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -170,7 +169,7 @@ void FixTempCSLD::end_of_step()
     modify->clearstep_compute();
     t_target = input->variable->compute_equal(tvar);
     if (t_target < 0.0)
-      error->one(FLERR, "Fix temp/csld variable returned negative temperature");
+      error->one(FLERR, "Fix {} variable returned negative temperature", style);
     modify->addstep_compute(update->ntimestep + nevery);
   }
 
@@ -292,10 +291,10 @@ double FixTempCSLD::compute_scalar()
 
 void FixTempCSLD::write_restart(FILE *fp)
 {
-  int nsize = PRNGSIZE*comm->nprocs+2; // pRNG state per proc + nprocs + energy
-  double *list = nullptr;
+  int nsize = PRNGSIZE*comm->nprocs + 2; // pRNG state per proc + nprocs + energy
+  auto *list = new double[nsize];
+
   if (comm->me == 0) {
-    list = new double[nsize];
     list[0] = energy;
     list[1] = comm->nprocs;
   }
@@ -307,8 +306,8 @@ void FixTempCSLD::write_restart(FILE *fp)
     int size = nsize * sizeof(double);
     fwrite(&size,sizeof(int),1,fp);
     fwrite(list,sizeof(double),nsize,fp);
-    delete[] list;
   }
+  delete[] list;
 }
 
 /* ----------------------------------------------------------------------
@@ -317,7 +316,7 @@ void FixTempCSLD::write_restart(FILE *fp)
 
 void FixTempCSLD::restart(char *buf)
 {
-  auto list = (double *) buf;
+  auto *list = (double *) buf;
 
   energy = list[0];
   int nprocs = (int) list[1];
@@ -338,4 +337,11 @@ void *FixTempCSLD::extract(const char *str, int &dim)
     return &t_target;
   }
   return nullptr;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double FixTempCSLD::memory_usage()
+{
+  return (double) nmax * 3 * sizeof(double);    // vhold[nmax][3]
 }

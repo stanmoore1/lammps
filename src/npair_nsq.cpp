@@ -47,9 +47,9 @@ NPairNsq<HALF, NEWTON, TRI, SIZE>::NPairNsq(LAMMPS *lmp) : NPair(lmp) {}
      every pair stored exactly once by some processor
      decision on ghost atoms based on itag, jtag tests
    Half + Newton + Tri:
-     use itag/jtap comparision to eliminate half the interactions
+     use itag/jtap comparison to eliminate half the interactions
      for triclinic, must use delta to eliminate half the I/J interactions
-     cannot use I/J exact coord comparision as for orthog
+     cannot use I/J exact coord comparison as for orthog
      b/c transforming orthog -> lambda -> orthog for ghost atoms
      with an added PBC offset can shift all 3 coords by epsilon
 ------------------------------------------------------------------------- */
@@ -173,7 +173,7 @@ void NPairNsq<HALF, NEWTON, TRI, SIZE>::build(NeighList *list)
           if (molecular != Atom::ATOMIC) {
             if (!moltemplate)
               which = find_special(special[i], nspecial[i], tag[j]);
-            else if (imol >= 0)
+            else if ((imol >= 0) && onemols[imol]->special)
               which = find_special(onemols[imol]->special[iatom], onemols[imol]->nspecial[iatom],
                                    tag[j] - tagprev);
             else
@@ -192,7 +192,7 @@ void NPairNsq<HALF, NEWTON, TRI, SIZE>::build(NeighList *list)
           if (molecular != Atom::ATOMIC) {
             if (!moltemplate)
               which = find_special(special[i], nspecial[i], tag[j]);
-            else if (imol >= 0)
+            else if ((imol >= 0) && onemols[imol]->special)
               which = find_special(onemols[imol]->special[iatom], onemols[imol]->nspecial[iatom],
                                    tag[j] - tagprev);
             else
@@ -213,7 +213,7 @@ void NPairNsq<HALF, NEWTON, TRI, SIZE>::build(NeighList *list)
     firstneigh[i] = neighptr;
     numneigh[i] = n;
     ipage->vgot(n);
-    if (ipage->status()) error->one(FLERR, "Neighbor list overflow, boost neigh_modify one");
+    if (ipage->status()) error->one(FLERR, Error::NOLASTLINE, "Neighbor list overflow, boost neigh_modify one" + utils::errorurl(36));
   }
 
   list->inum = inum;

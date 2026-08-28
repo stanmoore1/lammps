@@ -21,6 +21,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 #include "neighbor.h"
@@ -199,7 +200,7 @@ void PairSMATBSingle::compute(int eflag, int vflag)
           aexpp = a5 * polyval5 + a4 * polyval4 + a3 * polyval3;
           Fr = -2.0 * (5.0 * a5 * polyval4 + 4.0 * a4 * polyval3 + 3.0 * a3 * polyval2);
           qsiexpq = x5 * polyval5 + x4 * polyval4 + x3 * polyval3;
-          Fb = ((5.0 * x5 * polyval4 + 4.0 * x4 * polyval3 + 3.0 * x3 * polyval2)) * qsiexpq;
+          Fb = (5.0 * x5 * polyval4 + 4.0 * x4 * polyval3 + 3.0 * x3 * polyval2) * qsiexpq;
         }
 
         // calculates the module of the pair energy between i and j
@@ -278,7 +279,7 @@ void PairSMATBSingle::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -296,7 +297,9 @@ void PairSMATBSingle::init_style()
 
 double PairSMATBSingle::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR, "All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   //calculating the polynomial linking to zero
   double es = cutOffEnd - cutOffStart;

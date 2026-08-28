@@ -35,7 +35,9 @@ using namespace EwaldConst;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJCutDipoleLong::PairLJCutDipoleLong(LAMMPS *lmp) : Pair(lmp)
+PairLJCutDipoleLong::PairLJCutDipoleLong(LAMMPS *lmp) :
+    Pair(lmp), sigma(nullptr), cut_lj(nullptr), cut_ljsq(nullptr), epsilon(nullptr), lj1(nullptr),
+    lj2(nullptr), lj3(nullptr), lj4(nullptr), offset(nullptr)
 {
   single_enable = 0;
   ewaldflag = pppmflag = dipoleflag = 1;
@@ -364,7 +366,7 @@ void PairLJCutDipoleLong::settings(int narg, char **arg)
 void PairLJCutDipoleLong::coeff(int narg, char **arg)
 {
   if (narg < 4 || narg > 5)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -388,7 +390,7 @@ void PairLJCutDipoleLong::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

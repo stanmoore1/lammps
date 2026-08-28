@@ -24,6 +24,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "kspace.h"
 #include "memory.h"
 #include "neigh_list.h"
@@ -40,7 +41,10 @@ static constexpr double EWALD_F = 1.12837917;
 
 /* ---------------------------------------------------------------------- */
 
-PairBuck6dCoulGaussLong::PairBuck6dCoulGaussLong(LAMMPS *lmp) : Pair(lmp)
+PairBuck6dCoulGaussLong::PairBuck6dCoulGaussLong(LAMMPS *lmp) :
+    Pair(lmp), cut_lj(nullptr), cut_ljsq(nullptr), alpha_ij(nullptr), buck6d1(nullptr),
+    buck6d2(nullptr), buck6d3(nullptr), buck6d4(nullptr), offset(nullptr), c0(nullptr),
+    c1(nullptr), c2(nullptr), c3(nullptr), c4(nullptr), c5(nullptr), rsmooth_sq(nullptr)
 {
   ewaldflag = pppmflag = 1;
   single_enable = 1;
@@ -289,7 +293,7 @@ void PairBuck6dCoulGaussLong::settings(int narg, char **arg)
 void PairBuck6dCoulGaussLong::coeff(int narg, char **arg)
 {
   if (narg < 7 || narg > 8)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -319,7 +323,7 @@ void PairBuck6dCoulGaussLong::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -365,7 +369,9 @@ void PairBuck6dCoulGaussLong::init_style()
 
 double PairBuck6dCoulGaussLong::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
 
   double cut = MAX(cut_lj[i][j],cut_coul);
   cut_ljsq[i][j] = cut_lj[i][j] * cut_lj[i][j];

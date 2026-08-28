@@ -81,7 +81,7 @@ Case 1: a pairwise additive model
 
 In this section, we will describe the procedure of adding a simple pair
 style to LAMMPS: an empirical model that can be used to model liquid
-mercury.  The pair style shall be called :doc:`bond/gauss
+mercury.  The pair style shall be called :doc:`born/gauss
 <pair_born_gauss>` and the complete implementation can be found in the
 files ``src/EXTRA-PAIR/pair_born_gauss.cpp`` and
 ``src/EXTRA-PAIR/pair_born_gauss.h`` of the LAMMPS source code.
@@ -160,18 +160,19 @@ message and before the include guards for the class definition:
 
    #endif
 
-This block of between ``#ifdef PAIR_CLASS`` and ``#else`` will be
-included by the ``Force`` class in ``force.cpp`` to build a map of
-"factory functions" that will create an instance of these classes and
-return a pointer to it.  The map connects the name of the pair style,
-"born/gauss", to the name of the class, ``PairBornGauss``.  During
-compilation, LAMMPS constructs a file ``style_pair.h`` that contains
-``#include`` statements for all "installed" pair styles.  Before
-including ``style_pair.h`` into ``force.cpp``, the ``PAIR_CLASS`` define
-is set and the ``PairStyle(name,class)`` macro defined.  The code of the
-macro adds the installed pair styles to the "factory map" which enables
-the :doc:`pair_style command <pair_style>` to create the pair style
-instance.
+This block between ``#ifdef PAIR_CLASS`` and ``#else`` registers the pair
+style with LAMMPS.  During compilation, the build system parses the
+``PairStyle(born/gauss,PairBornGauss)`` marker and generates a file
+``style_pair.cpp`` that ``#include``\s the header files of all "installed"
+pair styles and registers a "factory function" for each of them --- a small
+function that creates an instance of the class and returns a pointer to it.
+These factory functions are kept in a process-global registry that connects
+the pair style name, "born/gauss", to the class ``PairBornGauss`` and enables
+the :doc:`pair_style command <pair_style>` to create the pair style instance.
+The ``PAIR_CLASS`` macro is never actually defined during compilation; the
+``#ifdef PAIR_CLASS`` block only serves as a marker for the build system's
+parser, so the header always provides the class definition from its ``#else``
+branch.
 
 The list of header files to include is automatically updated by the
 build system if there are new files, so the presence of the new header
@@ -310,7 +311,7 @@ the constructor and the destructor.
 
 Pair styles are different from most classes in LAMMPS that define a
 "style", as their constructor only uses the LAMMPS class instance
-pointer as an argument, but **not** the command line arguments of the
+pointer as an argument, but **not** the arguments of the
 :doc:`pair_style command <pair_style>`.  Instead, those arguments are
 processed in the ``Pair::settings()`` function (or rather the version in
 the derived class).  The constructor is the place where global defaults
@@ -407,7 +408,7 @@ the memory allocation and initialization are moved to a function
 
    void PairBornGauss::settings(int narg, char **arg)
    {
-     if (narg != 1) error->all(FLERR, "Pair style bond/gauss must have exactly one argument");
+     if (narg != 1) error->all(FLERR, "Pair style born/gauss must have exactly one argument");
      cut_global = utils::numeric(FLERR, arg[0], false, lmp);
 
      // reset per-type pair cutoffs that have been explicitly set previously
@@ -891,7 +892,7 @@ originally created from mixing or not).
 These data file output functions are only useful for true pair-wise
 additive potentials, where the potential parameters can be entered
 through *multiple* :doc:`pair_coeff commands <pair_coeff>`.  Pair styles
-that require a single "pair_coeff \* \*" command line are not compatible
+that require a single "pair_coeff \* \*" command are not compatible
 with reading their parameters from data files.  For pair styles like
 *born/gauss* that do support writing to data files, the potential
 parameters will be read from the data file, if present, and
@@ -1122,7 +1123,7 @@ once.  Thus, the ``coeff()`` function has to do three tasks, each of
 which is delegated to a function in the ``PairTersoff`` class:
 
 #. map elements to atom types.  Those follow the potential file name in the
-   command line arguments and are processed by the ``map_element2type()`` function.
+   command arguments and are processed by the ``map_element2type()`` function.
 #. read and parse the potential parameter file in the ``read_file()`` function.
 #. Build data structures where the original and derived parameters are
    indexed by all possible triples of atom types and thus can be looked
@@ -1356,8 +1357,8 @@ either 0 or 1.
 
 The ``morseflag`` variable defaults to 0 and is set to 1 in the
 ``PairAIREBOMorse::settings()`` function which is called by the
-:doc:`pair_style <pair_style>` command.  This function delegates
-all command line processing and setting of other parameters to the
+:doc:`pair_style <pair_style>` command.  This function delegates all
+command argument processing and setting of other parameters to the
 ``PairAIREBO::settings()`` function of the base class.
 
 .. code-block:: c++

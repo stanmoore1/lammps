@@ -1,7 +1,11 @@
 .. index:: pair_style coul/shield
+.. index:: pair_style coul/shield/kk
+.. index:: pair_style coul/shield/omp
 
 pair_style coul/shield command
 ==============================
+
+Accelerator Variants: *coul/shield/kk*, *coul/shield/omp*
 
 Syntax
 """"""
@@ -40,8 +44,8 @@ the pair style :doc:`ilp/graphene/hbn <pair_ilp_graphene_hbn>`
 .. math::
 
    E      = & \frac{1}{2} \sum_i \sum_{j \neq i} V_{ij} \\
-   V_{ij} = & {\rm Tap}(r_{ij})\frac{\kappa q_i q_j}{\sqrt[3]{r_{ij}^3+(1/\lambda_{ij})^3}}\\
-   {\rm Tap}(r_{ij}) = & 20\left ( \frac{r_{ij}}{R_{cut}} \right )^7 -
+   V_{ij} = & \mathrm{Tap}(r_{ij})\frac{\kappa q_i q_j}{\sqrt[3]{r_{ij}^3+(1/\lambda_{ij})^3}}\\
+   \mathrm{Tap}(r_{ij}) = & 20\left ( \frac{r_{ij}}{R_{cut}} \right )^7 -
                           70\left ( \frac{r_{ij}}{R_{cut}} \right )^6 +
                           84\left ( \frac{r_{ij}}{R_{cut}} \right )^5 -
                           35\left ( \frac{r_{ij}}{R_{cut}} \right )^4 + 1
@@ -59,6 +63,10 @@ in the example above, or in the data file or restart files read by the
 :doc:`read_data <read_data>` or :doc:`read_restart <read_restart>` commands:
 
 The global cutoff (:math:`r_c`) specified in the pair_style command is used.
+
+----------
+
+.. include:: accel_styles.rst
 
 ----------
 

@@ -1,10 +1,11 @@
 .. index:: pair_style coul/diel
+.. index:: pair_style coul/diel/kk
 .. index:: pair_style coul/diel/omp
 
 pair_style coul/diel command
 ============================
 
-Accelerator Variants: *coul/diel/omp*
+Accelerator Variants: *coul/diel/kk*, *coul/diel/omp*
 
 Syntax
 """"""
@@ -68,6 +69,10 @@ commands:
 * :math:`\sigma_e` (distance units)
 
 The global cutoff (:math:`r_c`) specified in the pair_style command is used.
+
+----------
+
+.. include:: accel_styles.rst
 
 ----------
 

@@ -14,7 +14,7 @@
 
 /* ----------------------------------------------------------------------
    The SMTBQ code has been developed with the financial support of  CNRS and
-   of the Regional Council of Burgundy (Convention n¡ 2010-9201AAO037S03129)
+   of the Regional Council of Burgundy (Convention No 2010-9201AAO037S03129)
 
    Copyright (2015)
    Universite de Bourgogne : Nicolas SALLES, Olivier POLITANO
@@ -27,7 +27,7 @@
 
    Contact: Nicolas Salles <nsalles33@gmail.com>
             Olivier Politano <olivier.politano@u-bourgogne.fr>
-            Robert Tétot <robert.tetot@universite-paris-saclay.fr>
+            Robert Tetot <robert.tetot@universite-paris-saclay.fr>
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -47,6 +47,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "math_const.h"
 #include "math_extra.h"
 #include "math_special.h"
@@ -78,7 +79,10 @@ static constexpr char SMTBQ_SEPARATORS[] = "' \t\n\r";
 
 /* ---------------------------------------------------------------------- */
 
-PairSMTBQ::PairSMTBQ(LAMMPS *lmp) : Pair(lmp)
+PairSMTBQ::PairSMTBQ(LAMMPS *lmp) :
+    Pair(lmp), esm(nullptr), fafbOxOxSurf(nullptr), dfafbOxOxSurf(nullptr), fafbTiOxSurf(nullptr),
+    dfafbTiOxSurf(nullptr), Zsm(nullptr), fafbOxOxBB(nullptr), dfafbOxOxBB(nullptr),
+    fafbTiOxBB(nullptr), dfafbTiOxBB(nullptr), NCo(nullptr), hybrid(nullptr), pages(nullptr)
 {
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nproc);
@@ -306,7 +310,9 @@ void PairSMTBQ::init_style()
 
 double PairSMTBQ::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
   return cutmax;
 }
 
@@ -895,7 +901,7 @@ void PairSMTBQ::compute(int eflag, int vflag)
      3 -> Short int. Ox-Ox
      4 -> Short int. SMTB (repulsion)
      5 -> Covalent energy SMTB
-     6 -> Somme des Q(i)²
+     6 -> Sum over Q(i)**2
      ------------------------------------------------------------------------- */
 
   /* -------------- N-body forces Calcul --------------- */
@@ -1139,7 +1145,7 @@ void PairSMTBQ::compute(int eflag, int vflag)
       if (fichierE) fichierE<< setprecision(9) <<" "<<gp<<" "<<nmol[gp]
                             <<" "<<tmpAll[gp][2]<<" "<<tmpAll[gp][3]<<" "<<tmpAll[gp][4]+tmpAll[gp][5];
     }
-    if (fichierE) fichierE<<endl;
+    if (fichierE) fichierE<< "\n";
     if (fichierE) fichierE.close();
   }
   // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -1310,7 +1316,7 @@ void PairSMTBQ::tabqeq()
 
   mu = erfc(alf*rc)/rc ;
 
-  //if (fichier) fichier <<" r  -  potqn " <<endl ;
+  //if (fichier) fichier <<" r  -  potqn\n";
 
   //-------------------------
   for (k=0; k < kmax+5; k++)
@@ -1375,7 +1381,7 @@ void PairSMTBQ::tabqeq()
       ra = params[i].R;
       rb = params[j].R;
 
-      ii = 0 ; nang =cang= 5.0 ;
+      ii = 0 ; nang =cang= 5.0 ; aCoeff = bCoeff = 0.0 ;
       // --------------------------
       for (k = 0; k < kmax+5; k++)
         // --------------------------
@@ -1430,7 +1436,7 @@ void PairSMTBQ::tabqeq()
           rb = ROxSurf;
           zb = (2.0*params[j].ne + 1.0)/(4.0*rb); }
 
-        ii = 0 ; nang =cang= 5.0 ;
+        ii = 0 ; nang =cang= 5.0 ; aCoeff = bCoeff = 0.0 ;
         // --------------------------
         for (k = 0; k < kmax+5; k++)
           // --------------------------
@@ -1496,7 +1502,7 @@ void PairSMTBQ::tabqeq()
           zb = (2.0*params[j].ne + 1.0)/(4.0*rb); }
 
 
-        ii = 0 ; nang =cang= 5.0 ;
+        ii = 0 ; nang =cang= 5.0 ; aCoeff = bCoeff = 0.0 ;
         // --------------------------
         for (k = 0; k < kmax+5; k++)
           // --------------------------
@@ -2715,7 +2721,7 @@ void PairSMTBQ::Charge()
 
       if (fichierpot) fichierpot<< setprecision(9) <<i <<" "<<itype<<" "<<x[i][0]<<" "<<x[i][1]
                                 <<" "<<x[i][2]<<" "<<q[i]<<" "<<potself[i] + potmad[i]<<" "<<potcov[i]
-                                <<" "<<sbcov[i]<<" "<<TransfAll[gp]<<endl;
+                                <<" "<<sbcov[i]<<" "<<TransfAll[gp]<<"\n";
 
     }
     if (fichierpot) fichierpot.close() ;
@@ -2979,9 +2985,6 @@ void PairSMTBQ::groupQEqAllParallel_QEq()
 
 
   ngp = igp = 0; nelt[ngp] = 0;
-
-  // On prend un oxygène
-  //   printf ("[me %d] On prend un oxygene\n",me);
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii] ; itype = map[type[i]];
@@ -3512,6 +3515,7 @@ void PairSMTBQ::add_pages(int howmany)
 }
 
 /* ---------------------------------------------------------------------- */
+// NOLINTBEGIN
 
 void PairSMTBQ::CheckEnergyVSForce()
 {
@@ -3573,7 +3577,6 @@ void PairSMTBQ::CheckEnergyVSForce()
           coord[j]=3.5;
           NameFile=(const char *)"energyandForceOxOxUnderOverCoord.txt";
         }
-
 
       ofstream fichierOxOx(NameFile, ios::out | ios::trunc) ;
 
@@ -4012,6 +4015,7 @@ void PairSMTBQ::css(double &s, double nn1, double nn2, double alpha, double beta
   memory->destroy(a);
   memory->destroy(b);
 }
+// NOLINTEND
 /* -------------------------------------------------------------------------------
    coeffs
    ------------------------------------------------------------------------------- */

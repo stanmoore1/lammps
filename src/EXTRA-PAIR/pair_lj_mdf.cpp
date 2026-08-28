@@ -33,7 +33,10 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairLJMDF::PairLJMDF(LAMMPS *lmp) : Pair(lmp) {
+PairLJMDF::PairLJMDF(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cut_inner(nullptr), cut_inner_sq(nullptr), epsilon(nullptr),
+    sigma(nullptr), lj1(nullptr), lj2(nullptr), lj3(nullptr), lj4(nullptr)
+{
   writedata = 1;
 }
 
@@ -41,6 +44,8 @@ PairLJMDF::PairLJMDF(LAMMPS *lmp) : Pair(lmp) {
 
 PairLJMDF::~PairLJMDF()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -213,7 +218,7 @@ void PairLJMDF::settings(int narg, char **arg)
 void PairLJMDF::coeff(int narg, char **arg)
 {
   if (narg != 4 && narg != 6)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -244,7 +249,7 @@ void PairLJMDF::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------

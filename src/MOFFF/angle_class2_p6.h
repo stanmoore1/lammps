@@ -35,6 +35,7 @@ class AngleClass2P6 : public Angle {
   void read_restart(FILE *) override;
   void write_data(FILE *) override;
   double single(int, int, int, int) override;
+  void *extract(const char *, int &) override;
 
  protected:
   double *theta0, *k2, *k3, *k4, *k5, *k6;
@@ -42,7 +43,7 @@ class AngleClass2P6 : public Angle {
   double *ba_k1, *ba_k2, *ba_r1, *ba_r2;
   int *setflag_a, *setflag_bb, *setflag_ba;
 
-  void allocate();
+  virtual void allocate();
 };
 
 }    // namespace LAMMPS_NS

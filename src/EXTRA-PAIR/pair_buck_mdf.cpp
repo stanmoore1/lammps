@@ -18,26 +18,32 @@
 
 #include "pair_buck_mdf.h"
 
-#include <cmath>
-#include <cstring>
 #include "atom.h"
 #include "comm.h"
 #include "force.h"
+#include "info.h"
 #include "neigh_list.h"
 #include "memory.h"
 #include "error.h"
 
+#include <cmath>
+#include <cstring>
 
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairBuckMDF::PairBuckMDF(LAMMPS *lmp) : Pair(lmp) {}
+PairBuckMDF::PairBuckMDF(LAMMPS *lmp) :
+    Pair(lmp), cut(nullptr), cut_inner(nullptr), cut_inner_sq(nullptr), a(nullptr), rho(nullptr),
+    c(nullptr), rhoinv(nullptr), buck1(nullptr), buck2(nullptr), offset(nullptr)
+{}
 
 /* ---------------------------------------------------------------------- */
 
 PairBuckMDF::~PairBuckMDF()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(cutsq);
@@ -205,7 +211,7 @@ void PairBuckMDF::settings(int narg, char **arg)
 void PairBuckMDF::coeff(int narg, char **arg)
 {
   if (narg != 5 && narg != 7)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
@@ -214,7 +220,7 @@ void PairBuckMDF::coeff(int narg, char **arg)
 
   double a_one = utils::numeric(FLERR,arg[2],false,lmp);
   double rho_one = utils::numeric(FLERR,arg[3],false,lmp);
-  if (rho_one <= 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (rho_one <= 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
   double c_one = utils::numeric(FLERR,arg[4],false,lmp);
 
   double cut_inner_one = cut_inner_global;
@@ -241,7 +247,7 @@ void PairBuckMDF::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -250,7 +256,9 @@ void PairBuckMDF::coeff(int narg, char **arg)
 
 double PairBuckMDF::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
 
   rhoinv[i][j] = 1.0/rho[i][j];
   buck1[i][j] = a[i][j]/rho[i][j];

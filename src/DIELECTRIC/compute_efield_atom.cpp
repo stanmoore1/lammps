@@ -40,7 +40,7 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 ComputeEfieldAtom::ComputeEfieldAtom(LAMMPS *_lmp, int narg, char **arg) :
-    Compute(_lmp, narg, arg), efield(nullptr)
+    Compute(_lmp, narg, arg), efield_pair(nullptr), efield_kspace(nullptr), efield(nullptr)
 {
   if (narg < 3) error->all(FLERR, "Illegal compute efield/atom command");
 
@@ -133,7 +133,7 @@ void ComputeEfieldAtom::compute_peratom()
 
   invoked_peratom = update->ntimestep;
   if (update->vflag_atom != invoked_peratom)
-    error->all(FLERR, "Per-atom virial was not tallied on needed timestep");
+    error->all(FLERR, Error::NOLASTLINE, "Per-atom virial was not tallied on needed timestep{}", utils::errorurl(22));
 
   // grow local stress array if necessary
   // needs to be atom->nmax in length

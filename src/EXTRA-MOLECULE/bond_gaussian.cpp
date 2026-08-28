@@ -27,7 +27,7 @@
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
-static constexpr double SMALL = 2.0e-308;
+static constexpr double SMALL = 2.3e-308;
 
 /* ---------------------------------------------------------------------- */
 
@@ -189,7 +189,7 @@ void BondGaussian::coeff(int narg, char **arg)
     count++;
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for bond coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -231,6 +231,10 @@ void BondGaussian::read_restart(FILE *fp)
   }
   MPI_Bcast(&bond_temperature[1], atom->nbondtypes, MPI_DOUBLE, 0, world);
   MPI_Bcast(&nterms[1], atom->nbondtypes, MPI_INT, 0, world);
+
+  for (int i = 1; i <= atom->nbondtypes; i++)
+    if ((nterms[i] < 0) || (nterms[i] > 4096))
+      error->all(FLERR, "Invalid number of terms in restart file");
 
   // allocate
   for (int i = 1; i <= atom->nbondtypes; i++) {
@@ -336,4 +340,15 @@ void BondGaussian::born_matrix(int type, double rsq, int /*i*/, int /*j*/, doubl
   double denominator = sum_g_i * sum_g_i;
 
   du2 = - (force->boltz * bond_temperature[type]) * numerator / denominator;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void *BondGaussian::extract(const char *str, int &dim)
+{
+  dim = 2;
+  if (strcmp(str,"alpha") == 0) return (void *) alpha;
+  if (strcmp(str,"width") == 0) return (void *) width;
+  if (strcmp(str,"r0") == 0) return (void *) r0;
+  return nullptr;
 }

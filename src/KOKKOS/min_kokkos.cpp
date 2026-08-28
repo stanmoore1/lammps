@@ -73,10 +73,10 @@ void MinKokkos::init()
 void MinKokkos::setup(int flag)
 {
   if (comm->me == 0 && screen) {
-    fmt::print(screen,"Setting up {} style minimization ...\n", update->minimize_style);
+    utils::print(screen,"Setting up {} style minimization ...\n", update->minimize_style);
     if (flag) {
-      fmt::print(screen,"  Unit style    : {}\n", update->unit_style);
-      fmt::print(screen,"  Current step  : {}\n", update->ntimestep);
+      utils::print(screen,"  Unit style    : {}\n", update->unit_style);
+      utils::print(screen,"  Current step  : {}\n", update->ntimestep);
       timer->print_timeout(screen);
     }
   }
@@ -172,7 +172,7 @@ void MinKokkos::setup(int flag)
     force->pair->compute(eflag,vflag);
     atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
   }
-  else if (force->pair) force->pair->compute_dummy(eflag,vflag);
+  else if (force->pair) force->pair->compute_dummy(eflag,vflag,0);
 
   if (atom->molecular != Atom::ATOMIC) {
     if (force->bond) {
@@ -203,7 +203,7 @@ void MinKokkos::setup(int flag)
       atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
       force->kspace->compute(eflag,vflag);
       atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
-    } else force->kspace->compute_dummy(eflag,vflag);
+    } else force->kspace->compute_dummy(eflag,vflag,0);
   }
 
   modify->setup_pre_reverse(eflag,vflag);
@@ -281,7 +281,7 @@ void MinKokkos::setup_minimal(int flag)
     force->pair->compute(eflag,vflag);
     atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
   }
-  else if (force->pair) force->pair->compute_dummy(eflag,vflag);
+  else if (force->pair) force->pair->compute_dummy(eflag,vflag,0);
 
   if (atom->molecular != Atom::ATOMIC) {
     if (force->bond) {
@@ -312,7 +312,7 @@ void MinKokkos::setup_minimal(int flag)
       atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
       force->kspace->compute(eflag,vflag);
       atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
-    } else force->kspace->compute_dummy(eflag,vflag);
+    } else force->kspace->compute_dummy(eflag,vflag,0);
   }
 
   modify->setup_pre_reverse(eflag,vflag);
@@ -455,40 +455,63 @@ double MinKokkos::energy_force(int resetflag)
     timer->stamp(Timer::MODIFY);
   }
 
+  // when a non-KOKKOS style runs inside a KOKKOS run, enable auto_sync for
+  // the duration of its compute so that any sync()/modified() it triggers
+  // (e.g. via the DomainKokkos x2lamda/lamda2x overrides) writes changes
+  // through to the legacy host arrays the style reads and writes
+
   if (pair_compute_flag) {
+    int prev_auto_sync = lmp->kokkos->auto_sync;
+    if (!force->pair->kokkosable) lmp->kokkos->auto_sync = 1;
     atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
     force->pair->compute(eflag,vflag);
+    lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
     timer->stamp(Timer::PAIR);
   }
 
   if (atom->molecular != Atom::ATOMIC) {
     if (force->bond) {
+      int prev_auto_sync = lmp->kokkos->auto_sync;
+      if (!force->bond->kokkosable) lmp->kokkos->auto_sync = 1;
       atomKK->sync(force->bond->execution_space,force->bond->datamask_read);
       force->bond->compute(eflag,vflag);
+      lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
     }
     if (force->angle) {
+      int prev_auto_sync = lmp->kokkos->auto_sync;
+      if (!force->angle->kokkosable) lmp->kokkos->auto_sync = 1;
       atomKK->sync(force->angle->execution_space,force->angle->datamask_read);
       force->angle->compute(eflag,vflag);
+      lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
     }
     if (force->dihedral) {
+      int prev_auto_sync = lmp->kokkos->auto_sync;
+      if (!force->dihedral->kokkosable) lmp->kokkos->auto_sync = 1;
       atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);
       force->dihedral->compute(eflag,vflag);
+      lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
     }
     if (force->improper) {
+      int prev_auto_sync = lmp->kokkos->auto_sync;
+      if (!force->improper->kokkosable) lmp->kokkos->auto_sync = 1;
       atomKK->sync(force->improper->execution_space,force->improper->datamask_read);
       force->improper->compute(eflag,vflag);
+      lmp->kokkos->auto_sync = prev_auto_sync;
       atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
     }
     timer->stamp(Timer::BOND);
   }
 
   if (kspace_compute_flag) {
+    int prev_auto_sync = lmp->kokkos->auto_sync;
+    if (!force->kspace->kokkosable) lmp->kokkos->auto_sync = 1;
     atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
     force->kspace->compute(eflag,vflag);
+    lmp->kokkos->auto_sync = prev_auto_sync;
     atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
     timer->stamp(Timer::KSPACE);
   }
@@ -561,8 +584,8 @@ void MinKokkos::force_clear()
   if (nzero) {
     // local variables for lambda capture
 
-    auto l_f = atomKK->k_f.d_view;
-    auto l_torque = atomKK->k_torque.d_view;
+    auto l_f = atomKK->k_f.view_device();
+    auto l_torque = atomKK->k_torque.view_device();
     auto l_torqueflag = torqueflag;
 
     Kokkos::parallel_for(nzero, LAMMPS_LAMBDA(int i) {
@@ -598,11 +621,19 @@ double MinKokkos::fnorm_sqr()
   {
     // local variables for lambda capture
 
-    auto l_fvec = fvec;
-
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm2_sqr) {
-      local_norm2_sqr += l_fvec[i]*l_fvec[i];
-    },local_norm2_sqr);
+    if constexpr (F_LAYOUTRIGHT) {
+      auto l_fvec = fvec;
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm2_sqr) {
+        local_norm2_sqr += static_cast<double>(l_fvec[i]*l_fvec[i]);
+      },local_norm2_sqr);
+    } else {
+      auto l_f = atomKK->k_f.view_device();
+      Kokkos::parallel_reduce(atom->nlocal, LAMMPS_LAMBDA(int i, double& local_norm2_sqr) {
+        local_norm2_sqr += static_cast<double>(l_f(i,0)*l_f(i,0));
+        local_norm2_sqr += static_cast<double>(l_f(i,1)*l_f(i,1));
+        local_norm2_sqr += static_cast<double>(l_f(i,2)*l_f(i,2));
+      },local_norm2_sqr);
+    }
   }
 
   double norm2_sqr = 0.0;
@@ -627,11 +658,19 @@ double MinKokkos::fnorm_inf()
   {
     // local variables for lambda capture
 
-    auto l_fvec = fvec;
-
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
-      local_norm_inf = MAX(l_fvec[i]*l_fvec[i],local_norm_inf);
-    },Kokkos::Max<double>(local_norm_inf));
+    if constexpr (F_LAYOUTRIGHT) {
+      auto l_fvec = fvec;
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
+        local_norm_inf = MAX(static_cast<double>(l_fvec[i]*l_fvec[i]),local_norm_inf);
+      },Kokkos::Max<double>(local_norm_inf));
+    } else {
+      auto l_f = atomKK->k_f.view_device();
+      Kokkos::parallel_reduce(atom->nlocal, LAMMPS_LAMBDA(int i, double& local_norm_inf) {
+        local_norm_inf = MAX(static_cast<double>(l_f(i,0)*l_f(i,0)),local_norm_inf);
+        local_norm_inf = MAX(static_cast<double>(l_f(i,1)*l_f(i,1)),local_norm_inf);
+        local_norm_inf = MAX(static_cast<double>(l_f(i,2)*l_f(i,2)),local_norm_inf);
+      },Kokkos::Max<double>(local_norm_inf));
+    }
   }
 
   double norm_inf = 0.0;
@@ -656,12 +695,19 @@ double MinKokkos::fnorm_max()
   {
     // local variables for lambda capture
 
-    auto l_fvec = fvec;
-
-    Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_max) {
-      double fdotf = l_fvec[i]*l_fvec[i]+l_fvec[i+1]*l_fvec[i+1]+l_fvec[i+2]*l_fvec[i+2];
-      local_norm_max = MAX(fdotf,local_norm_max);
-    },Kokkos::Max<double>(local_norm_max));
+    if constexpr (F_LAYOUTRIGHT) {
+      auto l_fvec = fvec;
+      Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(int i, double& local_norm_max) {
+        double fdotf = static_cast<double>(l_fvec[i]*l_fvec[i]+l_fvec[i+1]*l_fvec[i+1]+l_fvec[i+2]*l_fvec[i+2]);
+        local_norm_max = MAX(fdotf,local_norm_max);
+      },Kokkos::Max<double>(local_norm_max));
+    } else {
+      auto l_f = atomKK->k_f.view_device();
+      Kokkos::parallel_reduce(atom->nlocal, LAMMPS_LAMBDA(int i, double& local_norm_max) {
+        double fdotf = static_cast<double>(l_f(i,0)*l_f(i,0)+l_f(i,1)*l_f(i,1)+l_f(i,2)*l_f(i,2));
+        local_norm_max = MAX(fdotf,local_norm_max);
+      },Kokkos::Max<double>(local_norm_max));
+    }
   }
 
   double norm_max = 0.0;

@@ -27,6 +27,7 @@
 #include "comm.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 #include "neighbor.h"
@@ -41,7 +42,7 @@ static constexpr int DELTA = 4;
 
 /* ---------------------------------------------------------------------- */
 
-PairKolmogorovCrespiZ::PairKolmogorovCrespiZ(LAMMPS *lmp) : Pair(lmp)
+PairKolmogorovCrespiZ::PairKolmogorovCrespiZ(LAMMPS *lmp) : Pair(lmp), offset(nullptr)
 {
   single_enable = 0;
   restartinfo = 0;
@@ -201,9 +202,9 @@ void PairKolmogorovCrespiZ::allocate()
 
 void PairKolmogorovCrespiZ::settings(int narg, char **arg)
 {
-  if (narg != 1) error->all(FLERR, "Illegal pair_style command");
-  if (strcmp(force->pair_style, "hybrid/overlay") != 0)
-    error->all(FLERR, "ERROR: requires hybrid/overlay pair_style");
+  if (narg != 1) error->all(FLERR, "Pair style kolmogorov/crespi/z requires exactly one argument");
+  if (!utils::strmatch(force->pair_style, "^hybrid/overlay"))
+    error->all(FLERR, "Pair style kolmogorov/crespi/z must be used as hybrid/overlay sub-style");
 
   cut_global = utils::numeric(FLERR, arg[0], false, lmp);
 }
@@ -235,7 +236,7 @@ void PairKolmogorovCrespiZ::coeff(int narg, char **arg)
     }
   }
 
-  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients");
+  if (count == 0) error->all(FLERR, "Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -245,7 +246,7 @@ void PairKolmogorovCrespiZ::coeff(int narg, char **arg)
 void PairKolmogorovCrespiZ::init_style()
 {
   if (force->newton_pair == 0)
-    error->all(FLERR, "Pair style kolmogorov/crespi/z requires newton pair on");
+    error->all(FLERR, Error::NOLASTLINE, "Pair style kolmogorov/crespi/z requires newton pair on");
 
   neighbor->add_request(this);
 }
@@ -256,8 +257,11 @@ void PairKolmogorovCrespiZ::init_style()
 
 double PairKolmogorovCrespiZ::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR, "All pair coeffs are not set");
-  if (!offset_flag) error->all(FLERR, "Must use 'pair_modify shift yes' with this pair style");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status:\n" + Info::get_pair_coeff_status(lmp));
+  if (!offset_flag)
+    error->all(FLERR, Error::NOLASTLINE, "Must use 'pair_modify shift yes' with this pair style");
 
   if (offset_flag && (cut_global > 0.0)) {
     int iparam_ij = elem2param[map[i]][map[j]];

@@ -35,7 +35,7 @@ FFT3dKokkos<DeviceType>::FFT3dKokkos(LAMMPS *lmp, MPI_Comm comm, int nfast, int 
              int out_ilo, int out_ihi, int out_jlo, int out_jhi,
              int out_klo, int out_khi,
              int scaled, int permute, int *nbuf, int usecollective,
-             int usegpu_aware) :
+             int usenonblocking, int usegpu_aware) :
   Pointers(lmp)
 {
   int nthreads = lmp->kokkos->nthreads;
@@ -44,17 +44,23 @@ FFT3dKokkos<DeviceType>::FFT3dKokkos(LAMMPS *lmp, MPI_Comm comm, int nfast, int 
   int ngpus = lmp->kokkos->ngpus;
   ExecutionSpace execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
 
-#if defined(FFT_KOKKOS_MKL)
+#if defined(FFT_KOKKOS_MKL_GPU)
+  if (ngpus > 0 && execution_space == HostKK)
+    lmp->error->all(FLERR,"Cannot use the MKL library with Kokkos on the host CPUs in a GPU build");
+#elif defined(FFT_KOKKOS_MKL)
   if (ngpus > 0 && execution_space == Device)
     lmp->error->all(FLERR,"Cannot use the MKL library with Kokkos on GPUs");
 #elif defined(FFT_KOKKOS_FFTW3)
   if (ngpus > 0 && execution_space == Device)
     lmp->error->all(FLERR,"Cannot use the FFTW library with Kokkos on GPUs");
+#elif defined(FFT_KOKKOS_NVPL)
+  if (ngpus > 0 && execution_space == Device)
+    lmp->error->all(FLERR,"Cannot use the NVPL FFT library with Kokkos on GPUs");
 #elif defined(FFT_KOKKOS_CUFFT)
-  if (ngpus > 0 && execution_space == Host)
+  if (ngpus > 0 && execution_space == HostKK)
     lmp->error->all(FLERR,"Cannot use the cuFFT library with Kokkos on the host CPUs");
 #elif defined(FFT_KOKKOS_HIPFFT)
-  if (ngpus > 0 && execution_space == Host)
+  if (ngpus > 0 && execution_space == HostKK)
     lmp->error->all(FLERR,"Cannot use the hipFFT library with Kokkos on the host CPUs");
 
 #elif defined(FFT_KOKKOS_KISS)
@@ -75,7 +81,7 @@ FFT3dKokkos<DeviceType>::FFT3dKokkos(LAMMPS *lmp, MPI_Comm comm, int nfast, int 
   plan = fft_3d_create_plan_kokkos(comm,nfast,nmid,nslow,
                             in_ilo,in_ihi,in_jlo,in_jhi,in_klo,in_khi,
                             out_ilo,out_ihi,out_jlo,out_jhi,out_klo,out_khi,
-                            scaled,permute,nbuf,usecollective,nthreads,usegpu_aware);
+                            scaled,permute,nbuf,usecollective,usenonblocking,nthreads,usegpu_aware);
   if (plan == nullptr) error->one(FLERR,"Could not create 3d FFT plan");
 }
 
@@ -142,6 +148,7 @@ template<class DeviceType>
 struct norm_functor {
 public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
   typename FFT_AT::t_FFT_DATA_1d_um d_out;
   int norm;
@@ -149,9 +156,10 @@ public:
   norm_functor(typename FFT_AT::t_FFT_DATA_1d &d_out_, int norm_):
     d_out(d_out_),norm(norm_) {}
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &i) const {
-#if defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_CUFFT) || defined(FFT_KOKKOS_HIPFFT)
+#if defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_CUFFT) || defined(FFT_KOKKOS_HIPFFT) || defined(FFT_KOKKOS_MKL_GPU) || defined(FFT_KOKKOS_NVPL)
     FFT_SCALAR* out_ptr = (FFT_SCALAR *)(d_out.data()+i);
     *(out_ptr++) *= norm;
     *(out_ptr++) *= norm;
@@ -169,6 +177,7 @@ template<class DeviceType>
 struct kiss_fft_functor {
 public:
   typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
   typedef FFTArrayTypes<DeviceType> FFT_AT;
   typename FFT_AT::t_FFT_DATA_1d_um d_data,d_tmp;
   kiss_fft_state_kokkos<DeviceType> st;
@@ -184,6 +193,7 @@ public:
       length = length_;
     }
 
+// NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (const int &i) const {
     const int offset = i*length;
@@ -221,12 +231,17 @@ void FFT3dKokkos<DeviceType>::fft_3d_kokkos(typename FFT_AT::t_FFT_DATA_1d d_in,
   total = plan->total1;
   length = plan->length1;
 
-  #if defined(FFT_KOKKOS_MKL)
+  #if defined(FFT_KOKKOS_MKL_GPU)
+    if (flag == 1)
+      oneapi::mkl::dft::compute_forward(*(plan->desc_fast), (FFT_SCALAR*)d_data.data());
+    else
+      oneapi::mkl::dft::compute_backward(*(plan->desc_fast), (FFT_SCALAR*)d_data.data());
+  #elif defined(FFT_KOKKOS_MKL)
     if (flag == 1)
       DftiComputeForward(plan->handle_fast,d_data.data());
     else
       DftiComputeBackward(plan->handle_fast,d_data.data());
-  #elif defined(FFT_KOKKOS_FFTW3)
+  #elif defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
     if (flag == 1)
       FFTW_API(execute_dft)(plan->plan_fast_forward,(FFT_KOKKOS_DATA*)d_data.data(),(FFT_KOKKOS_DATA*)d_data.data());
     else
@@ -267,12 +282,17 @@ void FFT3dKokkos<DeviceType>::fft_3d_kokkos(typename FFT_AT::t_FFT_DATA_1d d_in,
   total = plan->total2;
   length = plan->length2;
 
-  #if defined(FFT_KOKKOS_MKL)
+  #if defined(FFT_KOKKOS_MKL_GPU)
+    if (flag == 1)
+      oneapi::mkl::dft::compute_forward(*(plan->desc_mid), (FFT_SCALAR*)d_data.data());
+    else
+      oneapi::mkl::dft::compute_backward(*(plan->desc_mid), (FFT_SCALAR*)d_data.data());
+  #elif defined(FFT_KOKKOS_MKL)
     if (flag == 1)
       DftiComputeForward(plan->handle_mid,d_data.data());
     else
       DftiComputeBackward(plan->handle_mid,d_data.data());
-  #elif defined(FFT_KOKKOS_FFTW3)
+  #elif defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
     if (flag == 1)
       FFTW_API(execute_dft)(plan->plan_mid_forward,(FFT_KOKKOS_DATA*)d_data.data(),(FFT_KOKKOS_DATA*)d_data.data());
     else
@@ -311,12 +331,17 @@ void FFT3dKokkos<DeviceType>::fft_3d_kokkos(typename FFT_AT::t_FFT_DATA_1d d_in,
   total = plan->total3;
   length = plan->length3;
 
-  #if defined(FFT_KOKKOS_MKL)
+  #if defined(FFT_KOKKOS_MKL_GPU)
+    if (flag == 1)
+      oneapi::mkl::dft::compute_forward(*(plan->desc_slow), (FFT_SCALAR*)d_data.data());
+    else
+      oneapi::mkl::dft::compute_backward(*(plan->desc_slow), (FFT_SCALAR*)d_data.data());
+  #elif defined(FFT_KOKKOS_MKL)
     if (flag == 1)
       DftiComputeForward(plan->handle_slow,d_data.data());
     else
       DftiComputeBackward(plan->handle_slow,d_data.data());
-  #elif defined(FFT_KOKKOS_FFTW3)
+  #elif defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
     if (flag == 1)
       FFTW_API(execute_dft)(plan->plan_slow_forward,(FFT_KOKKOS_DATA*)d_data.data(),(FFT_KOKKOS_DATA*)d_data.data());
     else
@@ -377,6 +402,7 @@ void FFT3dKokkos<DeviceType>::fft_3d_kokkos(typename FFT_AT::t_FFT_DATA_1d d_in,
                           2 = permute twice = slow->fast, fast->mid, mid->slow
    nbuf                 returns size of internal storage buffers used by FFT
    usecollective        use collective MPI operations for remapping data
+   usenonblocking       when using point-to-point MPI, use MPI_Isend
    usegpu_aware         use GPU-Aware MPI or not
 ------------------------------------------------------------------------- */
 
@@ -388,7 +414,7 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
        int out_ilo, int out_ihi, int out_jlo, int out_jhi,
        int out_klo, int out_khi,
        int scaled, int permute, int *nbuf, int usecollective,
-       int nthreads, int usegpu_aware)
+       int usenonblocking, int nthreads, int usegpu_aware)
 {
   struct fft_plan_3d_kokkos<DeviceType> *plan;
   int me,nprocs;
@@ -445,7 +471,7 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
       remapKK->remap_3d_create_plan_kokkos(comm,in_ilo,in_ihi,in_jlo,in_jhi,in_klo,in_khi,
                            first_ilo,first_ihi,first_jlo,first_jhi,
                            first_klo,first_khi,2,0,0,FFT_PRECISION,
-                           usecollective,usegpu_aware);
+                           usecollective,usenonblocking,usegpu_aware);
     if (plan->pre_plan == nullptr) return nullptr;
   }
 
@@ -470,7 +496,7 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
                            first_klo,first_khi,
                            second_ilo,second_ihi,second_jlo,second_jhi,
                            second_klo,second_khi,2,1,0,FFT_PRECISION,
-                           usecollective,usegpu_aware);
+                           usecollective,usenonblocking,usegpu_aware);
   if (plan->mid1_plan == nullptr) return nullptr;
 
   // 1d FFTs along mid axis
@@ -511,7 +537,7 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
                          second_ilo,second_ihi,
                          third_jlo,third_jhi,third_klo,third_khi,
                          third_ilo,third_ihi,2,1,0,FFT_PRECISION,
-                         usecollective,usegpu_aware);
+                         usecollective,usenonblocking,usegpu_aware);
   if (plan->mid2_plan == nullptr) return nullptr;
 
   // 1d FFTs along slow axis
@@ -539,7 +565,7 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
                            third_jlo,third_jhi,
                            out_klo,out_khi,out_ilo,out_ihi,
                            out_jlo,out_jhi,2,(permute+1)%3,0,FFT_PRECISION,
-                           usecollective,usegpu_aware);
+                           usecollective,usenonblocking,usegpu_aware);
     if (plan->post_plan == nullptr) return nullptr;
   }
 
@@ -610,7 +636,28 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
   // system specific pre-computation of 1d FFT coeffs
   // and scaling normalization
 
-#if defined(FFT_KOKKOS_MKL)
+#if defined(FFT_KOKKOS_MKL_GPU)
+  sycl::queue queue = LMPDeviceType().sycl_queue();
+
+  plan->desc_fast = new descriptor_t (nfast);
+  plan->desc_fast->set_value(oneapi::mkl::dft::config_param::NUMBER_OF_TRANSFORMS, plan->total1/nfast);
+  plan->desc_fast->set_value(oneapi::mkl::dft::config_param::FWD_DISTANCE, plan->length1);
+  plan->desc_fast->set_value(oneapi::mkl::dft::config_param::BWD_DISTANCE, plan->length1);
+  plan->desc_fast->commit(queue);
+
+  plan->desc_mid = new descriptor_t (nmid);
+  plan->desc_mid->set_value(oneapi::mkl::dft::config_param::NUMBER_OF_TRANSFORMS, plan->total2/nmid);
+  plan->desc_mid->set_value(oneapi::mkl::dft::config_param::FWD_DISTANCE, plan->length2);
+  plan->desc_mid->set_value(oneapi::mkl::dft::config_param::BWD_DISTANCE, plan->length2);
+  plan->desc_mid->commit(queue);
+
+  plan->desc_slow = new descriptor_t (nslow);
+  plan->desc_slow->set_value(oneapi::mkl::dft::config_param::NUMBER_OF_TRANSFORMS, plan->total3/nslow);
+  plan->desc_slow->set_value(oneapi::mkl::dft::config_param::FWD_DISTANCE, plan->length3);
+  plan->desc_slow->set_value(oneapi::mkl::dft::config_param::BWD_DISTANCE, plan->length3);
+  plan->desc_slow->commit(queue);
+
+#elif defined(FFT_KOKKOS_MKL)
   DftiCreateDescriptor( &(plan->handle_fast), FFT_KOKKOS_MKL_PREC, DFTI_COMPLEX, 1,
                         (MKL_LONG)nfast);
   DftiSetValue(plan->handle_fast, DFTI_NUMBER_OF_TRANSFORMS,
@@ -647,7 +694,7 @@ struct fft_plan_3d_kokkos<DeviceType>* FFT3dKokkos<DeviceType>::fft_3d_create_pl
 #endif
   DftiCommitDescriptor(plan->handle_slow);
 
-#elif defined(FFT_KOKKOS_FFTW3)
+#elif defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
 
 #if defined (FFT_KOKKOS_FFTW_THREADS)
   if (nthreads > 1) {
@@ -782,11 +829,15 @@ void FFT3dKokkos<DeviceType>::fft_3d_destroy_plan_kokkos(struct fft_plan_3d_kokk
   if (plan->mid2_plan) remapKK->remap_3d_destroy_plan_kokkos(plan->mid2_plan);
   if (plan->post_plan) remapKK->remap_3d_destroy_plan_kokkos(plan->post_plan);
 
-#if defined(FFT_KOKKOS_MKL)
+#if defined(FFT_KOKKOS_MKL_GPU)
+  delete plan->desc_fast;
+  delete plan->desc_mid;
+  delete plan->desc_slow;
+#elif defined(FFT_KOKKOS_MKL)
   DftiFreeDescriptor(&(plan->handle_fast));
   DftiFreeDescriptor(&(plan->handle_mid));
   DftiFreeDescriptor(&(plan->handle_slow));
-#elif defined(FFT_KOKKOS_FFTW3)
+#elif defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
   FFTW_API(destroy_plan)(plan->plan_slow_forward);
   FFTW_API(destroy_plan)(plan->plan_slow_backward);
   FFTW_API(destroy_plan)(plan->plan_mid_forward);
@@ -857,7 +908,7 @@ void FFT3dKokkos<DeviceType>::fft_3d_1d_only_kokkos(typename FFT_AT::t_FFT_DATA_
   // fftw3 and Dfti in MKL encode the number of transforms
   // into the plan, so we cannot operate on a smaller data set
 
-#if defined(FFT_KOKKOS_MKL) || defined(FFT_KOKKOS_FFTW3)
+#if defined(FFT_KOKKOS_MKL_GPU) || defined(FFT_KOKKOS_MKL) || defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
   if ((total1 > nsize) || (total2 > nsize) || (total3 > nsize))
     return;
 #endif
@@ -868,8 +919,18 @@ void FFT3dKokkos<DeviceType>::fft_3d_1d_only_kokkos(typename FFT_AT::t_FFT_DATA_
   // perform 1d FFTs in each of 3 dimensions
   // data is just an array of 0.0
 
-#if defined(FFT_KOKKOS_MKL)
-  if (flag == -1) {
+#if defined(FFT_KOKKOS_MKL_GPU)
+  if (flag == 1) {
+    oneapi::mkl::dft::compute_forward(*(plan->desc_fast), (FFT_SCALAR*)d_data.data());
+    oneapi::mkl::dft::compute_forward(*(plan->desc_mid), (FFT_SCALAR*)d_data.data());
+    oneapi::mkl::dft::compute_forward(*(plan->desc_slow), (FFT_SCALAR*)d_data.data());
+  } else {
+    oneapi::mkl::dft::compute_backward(*(plan->desc_fast), (FFT_SCALAR*)d_data.data());
+    oneapi::mkl::dft::compute_backward(*(plan->desc_mid), (FFT_SCALAR*)d_data.data());
+    oneapi::mkl::dft::compute_backward(*(plan->desc_slow), (FFT_SCALAR*)d_data.data());
+  }
+#elif defined(FFT_KOKKOS_MKL)
+  if (flag == 1) {
     DftiComputeForward(plan->handle_fast,d_data.data());
     DftiComputeForward(plan->handle_mid,d_data.data());
     DftiComputeForward(plan->handle_slow,d_data.data());
@@ -878,8 +939,8 @@ void FFT3dKokkos<DeviceType>::fft_3d_1d_only_kokkos(typename FFT_AT::t_FFT_DATA_
     DftiComputeBackward(plan->handle_mid,d_data.data());
     DftiComputeBackward(plan->handle_slow,d_data.data());
   }
-#elif defined(FFT_KOKKOS_FFTW3)
-  if (flag == -1) {
+#elif defined(FFT_KOKKOS_FFTW3) || defined(FFT_KOKKOS_NVPL)
+  if (flag == 1) {
     FFTW_API(execute_dft)(plan->plan_fast_forward,(FFT_KOKKOS_DATA*)d_data.data(),(FFT_KOKKOS_DATA*)d_data.data());
     FFTW_API(execute_dft)(plan->plan_mid_forward,(FFT_KOKKOS_DATA*)d_data.data(),(FFT_KOKKOS_DATA*)d_data.data());
     FFTW_API(execute_dft)(plan->plan_slow_forward,(FFT_KOKKOS_DATA*)d_data.data(),(FFT_KOKKOS_DATA*)d_data.data());
@@ -900,7 +961,7 @@ void FFT3dKokkos<DeviceType>::fft_3d_1d_only_kokkos(typename FFT_AT::t_FFT_DATA_
   kiss_fft_functor<DeviceType> f;
     typename FFT_AT::t_FFT_DATA_1d d_tmp =
      typename FFT_AT::t_FFT_DATA_1d(Kokkos::view_alloc("fft_3d:tmp",Kokkos::WithoutInitializing),d_data.extent(0));
-  if (flag == -1) {
+  if (flag == 1) {
     f = kiss_fft_functor<DeviceType>(d_data,d_tmp,plan->cfg_fast_forward,length1);
     Kokkos::parallel_for(total1/length1,f);
 
@@ -924,7 +985,7 @@ void FFT3dKokkos<DeviceType>::fft_3d_1d_only_kokkos(typename FFT_AT::t_FFT_DATA_
   // scaling if required
   // limit num to size of data
 
-  if (flag == 1 && plan->scaled) {
+  if (flag == -1 && plan->scaled) {
     FFT_SCALAR norm = plan->norm;
     int num = MIN(plan->normnum,nsize);
 

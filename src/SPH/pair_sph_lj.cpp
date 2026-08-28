@@ -18,6 +18,7 @@
 #include "domain.h"
 #include "error.h"
 #include "force.h"
+#include "info.h"
 #include "memory.h"
 #include "neigh_list.h"
 
@@ -27,7 +28,7 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairSPHLJ::PairSPHLJ(LAMMPS *lmp) : Pair(lmp)
+PairSPHLJ::PairSPHLJ(LAMMPS *lmp) : Pair(lmp), cut(nullptr), viscosity(nullptr)
 {
   if ((atom->esph_flag != 1) || (atom->rho_flag != 1) || (atom->cv_flag != 1) || (atom->vest_flag != 1))
     error->all(FLERR, "Pair sph/lj requires atom attributes energy, density, specific heat, and velocity estimates, e.g. in atom_style sph");
@@ -138,9 +139,11 @@ void PairSPHLJ::compute(int eflag, int vflag)
 
         // apply long-range correction to model a LJ fluid with cutoff
         // this implies that the modelled LJ fluid has cutoff == SPH cutoff
+        // the correction enters the pressure term of both atoms of the pair;
+        // add both halves to the pair-local fj so the per-atom fi is not
+        // corrupted across neighbor list entries
         lrc = - 11.1701 * (ihcub * ihcub * ihcub - 1.5 * ihcub);
-        fi += lrc;
-        fj += lrc;
+        fj += 2.0 * lrc;
 
         // dot product of velocity delta and distance vector
         delVdotDelR = delx * (vxtmp - v[j][0]) + dely * (vytmp - v[j][1])
@@ -224,7 +227,7 @@ void PairSPHLJ::coeff(int narg, char **arg)
 {
   if (narg != 4)
     error->all(FLERR,
-        "Incorrect args for pair_style sph/lj coefficients");
+        "Incorrect args for pair_style sph/lj coefficients" + utils::errorurl(21));
   if (!allocated)
     allocate();
 
@@ -246,7 +249,7 @@ void PairSPHLJ::coeff(int narg, char **arg)
   }
 
   if (count == 0)
-    error->all(FLERR,"Incorrect args for pair coefficients");
+    error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 }
 
 /* ----------------------------------------------------------------------
@@ -256,7 +259,9 @@ void PairSPHLJ::coeff(int narg, char **arg)
 double PairSPHLJ::init_one(int i, int j)
 {
   if (setflag[i][j] == 0) {
-    error->all(FLERR,"All pair sph/lj coeffs are not set");
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair sph/lj coeffs are not set. Status:\n"
+               + Info::get_pair_coeff_status(lmp));
   }
 
   cut[j][i] = cut[i][j];
@@ -265,34 +270,10 @@ double PairSPHLJ::init_one(int i, int j)
   return cut[i][j];
 }
 
-/*double PairSPHLJ::LJEOS2(double rho, double e, double cv) {
-
-
-  double T = e / cv;
-  if (T < 1.e-2) T = 1.e-2;
-  //printf("%f %f\n", T, rho);
-  double iT = 0.1e1 / T;
-  //double itpow1_4 = exp(0.25 * log(iT)); //pow(iT, 0.1e1 / 0.4e1);
-  double itpow1_4 = pow(iT, 0.1e1 / 0.4e1);
-  double x = rho * itpow1_4;
-  double xsq = x * x;
-  double xpow3 = xsq * x;
-  double xpow4 = xsq * xsq;
-  double xpow9 = xpow3 * xpow3 * xpow3;
-
-
-  return (0.1e1 + rho * (0.3629e1 + 0.7264e1 * x + 0.104925e2 * xsq + 0.11460e2
-      * xpow3 + 0.21760e1 * xpow9 - itpow1_4 * itpow1_4 * (0.5369e1 + 0.13160e2
-      * x + 0.18525e2 * xsq - 0.17076e2 * xpow3 + 0.9320e1 * xpow4) + iT
-      * (-0.3492e1 + 0.18698e2 * x - 0.35505e2 * xsq + 0.31816e2 * xpow3
-          - 0.11195e2 * xpow4)) * itpow1_4) * rho * T;
-}*/
-
-
 /* --------------------------------------------------------------------------------------------- */
 /* Lennard-Jones EOS,
    Francis H. Ree
-   "Analytic representation of thermodynamic data for the Lennard‐Jones fluid",
+   Analytic representation of thermodynamic data for the Lennard-Jones fluid,
    Journal of Chemical Physics 73 pp. 5401-5403 (1980)
 */
 
@@ -331,7 +312,7 @@ void PairSPHLJ::LJEOS2(double rho, double e, double cv, double *p, double *c)
 
 /* ------------------------------------------------------------------------------ */
 
-/* Jirí Kolafa, Ivo Nezbeda
+/* Jiri Kolafa, Ivo Nezbeda
  * "The Lennard-Jones fluid: an accurate analytic and theoretically-based equation of state",
  *  Fluid Phase Equilibria 100 pp. 1-34 (1994) */
 /*double PairSPHLJ::LJEOS2(double rho, double e, double cv) {

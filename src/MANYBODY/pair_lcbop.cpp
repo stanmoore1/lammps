@@ -13,33 +13,34 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author: Dominik Wójt (Wroclaw University of Technology)
+   Contributing author: Dominik Wojt (Wroclaw University of Technology)
      based on pair_airebo by Ase Henry (MIT)
 ------------------------------------------------------------------------- */
 
 #include "pair_lcbop.h"
 
 #include "atom.h"
-#include "force.h"
 #include "comm.h"
-#include "neighbor.h"
-#include "neigh_list.h"
-#include "my_page.h"
-#include "memory.h"
 #include "error.h"
+#include "force.h"
+#include "info.h"
+#include "memory.h"
+#include "my_page.h"
+#include "neigh_list.h"
+#include "neighbor.h"
+#include "potential_file_reader.h"
 
 #include <cmath>
 #include <cstring>
 
 using namespace LAMMPS_NS;
 
-static constexpr int MAXLINE = 1024;
 static constexpr double TOL = 1.0e-9;
 static constexpr int PGDELTA = 1;
 
 /* ---------------------------------------------------------------------- */
 
-PairLCBOP::PairLCBOP(LAMMPS *lmp) : Pair(lmp)
+PairLCBOP::PairLCBOP(LAMMPS *lmp) : Pair(lmp), pages(nullptr)
 {
   single_enable = 0;
   restartinfo = 0;
@@ -131,7 +132,7 @@ void PairLCBOP::coeff(int narg, char **arg)
   // only element "C" is allowed
 
   if ((nelements != 1) || (strcmp(elements[0],"C") != 0))
-      error->all(FLERR,"Incorrect args for pair coefficients");
+      error->all(FLERR,"Incorrect args for pair coefficients" + utils::errorurl(21));
 
   // read potential file and initialize fitting splines
 
@@ -180,7 +181,9 @@ void PairLCBOP::init_style()
 
 double PairLCBOP::init_one(int i, int j)
 {
-  if (setflag[i][j] == 0) error->all(FLERR,"All pair coeffs are not set");
+  if (setflag[i][j] == 0)
+    error->all(FLERR, Error::NOLASTLINE,
+               "All pair coeffs are not set. Status\n" + Info::get_pair_coeff_status(lmp));
 
   // cut3rebo = 3 SR distances
 
@@ -275,7 +278,7 @@ void PairLCBOP::SR_neigh()
     SR_numneigh[i] = n;
     ipage->vgot(n);
     if (ipage->status())
-      error->one(FLERR,"Neighbor list overflow, boost neigh_modify one");
+      error->one(FLERR, Error::NOLASTLINE, "Neighbor list overflow, boost neigh_modify one" + utils::errorurl(36));
   }
 
   // calculate M_i
@@ -549,8 +552,7 @@ void PairLCBOP::FMij( int i, int j, double factor, double **f) {
       double rikmag = sqrt((rik[0]*rik[0])+(rik[1]*rik[1])+(rik[2]*rik[2]));
       double df_c_ik;
       double f_c_ik = f_c( rikmag, r_1, r_2, &df_c_ik );
-      double Nki = N[k]-(f_c_ik);
-//      double Mij = M[i] - f_c_ij*( 1-f_c(Nji, 2,3,&dummy) );
+      double Nki = N[k]-f_c_ik;
       double dF=0;
       double Fx = 1-f_c_LR(Nki, 2,3,&dF);
       dF = -dF;
@@ -598,15 +600,14 @@ double PairLCBOP::bondorder(int i, int j, double rij[3],double rijmag, double VA
     double dummy;
 
     double df_c_ij;
-    double f_c_ij = f_c( rijmag, r_1, r_2, &df_c_ij );
-    double Nij = MIN( 3, N[i]-(f_c_ij) );
-    double Nji = MIN( 3, N[j]-(f_c_ij) );
+    double f_c_ij = f_c(rijmag, r_1, r_2, &df_c_ij);
+    double Nij = MIN(3,N[i]-f_c_ij);
+    double Nji = MIN(3,N[j]-f_c_ij);
 
-    // F(xij) = 1-f_c(Nji, 2,3,&dummy)
-    double Mij = M[i] - f_c_ij*( 1-f_c(Nji, 2,3,&dummy) );
-    double Mji = M[j] - f_c_ij*( 1-f_c(Nij, 2,3,&dummy) );
-    Mij = MIN( Mij, 3 );
-    Mji = MIN( Mji, 3 );
+    double Mij = M[i] - f_c_ij*(1-f_c(Nji,2,3,&dummy));
+    double Mji = M[j] - f_c_ij*(1-f_c(Nij,2,3,&dummy));
+    Mij = MIN(Mij,3);
+    Mji = MIN(Mji,3);
 
     double Nij_el, dNij_el_dNij, dNij_el_dMij;
     double Nji_el, dNji_el_dNji, dNji_el_dMji;
@@ -619,8 +620,8 @@ double PairLCBOP::bondorder(int i, int j, double rij[3],double rijmag, double VA
       Nji_el = num_Nji_el / den_Nji_el;
       dNij_el_dNij = -Nij_el/den_Nij_el;
       dNji_el_dNji = -Nji_el/den_Nji_el;
-      dNij_el_dMij = ( -1 + Nij_el ) /den_Nij_el;
-      dNji_el_dMji = ( -1 + Nji_el ) /den_Nji_el;
+      dNij_el_dMij = (-1 + Nij_el) /den_Nij_el;
+      dNji_el_dMji = (-1 + Nji_el) /den_Nji_el;
     }
 
     double Nconj;
@@ -920,90 +921,47 @@ double PairLCBOP::F_conj( double N_ij, double N_ji, double N_conj_ij, double *dF
 void PairLCBOP::read_file(char *filename)
 {
   int i,k,l;
-  char s[MAXLINE];
 
   // read file on proc 0
 
   if (comm->me == 0) {
-    FILE *fp = utils::open_potential(filename,lmp,nullptr);
-    if (fp == nullptr)
-      error->one(FLERR,"Cannot open LCBOP potential file {}: {}",filename,utils::getsyserror());
+    try {
+      PotentialFileReader reader(lmp, filename, "LCBOP");
 
-    // skip initial comment lines
+      // read parameters, one value per line, in the order of the list below.
+      // the reader skips over comment and empty lines, and any descriptive
+      // text after the leading number is ignored.
 
-    while (true) {
-      utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);
-      if (s[0] != '#') break;
-    }
+      double *params[] = {&r_1, &r_2, &gamma_1, &A, &B_1, &B_2, &alpha, &beta_1, &beta_2,
+                          &d, &C_1, &C_4, &C_6, &L, &kappa, &R_0, &R_1, &r_0, &r_1_LR,
+                          &r_2_LR, &v_1, &v_2, &eps_1, &eps_2, &lambda_1, &lambda_2,
+                          &eps, &delta};
+      for (auto *param : params) *param = reader.next_values(1).next_double();
 
-    // read parameters
+      // F_conj spline
 
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&r_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&r_2);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&gamma_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&A);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&B_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&B_2);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&alpha);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&beta_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&beta_2);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&d);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&C_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&C_4);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&C_6);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&L);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&kappa);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&R_0);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&R_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&r_0);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&r_1_LR);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&r_2_LR);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&v_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&v_2);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&eps_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&eps_2);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&lambda_1);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&lambda_2);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&eps);
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);    sscanf(s,"%lg",&delta);
-
-    while (true) {
-      utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);
-      if (s[0] != '#') break;
-    }
-
-    // F_conj spline
-
-    for (k = 0; k < 2; k++) { // 2 values of N_ij_conj
-      for (l = 0; l < 3; l++) { // 3 types of data: f, dfdx, dfdy
-        for (i = 0; i < 4; i++) { // 4x4 matrix
-          utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);
-          sscanf(s,"%lg %lg %lg %lg",
-            &F_conj_data[i][0][k][l],
-            &F_conj_data[i][1][k][l],
-            &F_conj_data[i][2][k][l],
-            &F_conj_data[i][3][k][l]);
+      for (k = 0; k < 2; k++) { // 2 values of N_ij_conj
+        for (l = 0; l < 3; l++) { // 3 types of data: f, dfdx, dfdy
+          for (i = 0; i < 4; i++) { // 4x4 matrix
+            auto values = reader.next_values(4);
+            for (int j = 0; j < 4; j++) F_conj_data[i][j][k][l] = values.next_double();
+          }
         }
-        while (true) { utils::sfgets(FLERR,s,MAXLINE,fp,filename,error); if (s[0] != '#') break; }
       }
+
+      // G spline
+
+      // x coordinates of mesh points
+      auto gx_values = reader.next_values(6);
+      for (i = 0; i < 6; i++) gX[i] = gx_values.next_double();
+
+      for (i = 0; i < 6; i++) { // for each power in polynomial
+        auto values = reader.next_values(5);
+        for (int j = 0; j < 5; j++) gC[i][j] = values.next_double();
+      }
+    } catch (std::exception &e) {
+      error->one(FLERR, "Error reading LCBOP potential file {}: {}", filename, e.what());
     }
-
-    // G spline
-
-    // x coordinates of mesh points
-    utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);
-    sscanf( s,"%lg %lg %lg %lg %lg %lg",
-      &gX[0], &gX[1], &gX[2],
-      &gX[3], &gX[4], &gX[5] );
-
-    for (i = 0; i < 6; i++) { // for each power in polynomial
-      utils::sfgets(FLERR,s,MAXLINE,fp,filename,error);
-      sscanf( s,"%lg %lg %lg %lg %lg",
-        &gC[i][0], &gC[i][1], &gC[i][2],
-        &gC[i][3], &gC[i][4] );
-    }
-
-    fclose(fp);
   }
 
   // broadcast read-in and setup values

@@ -54,16 +54,18 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
     coords(nullptr), imageflags(nullptr), fixrigid(nullptr), fixshake(nullptr), recvcounts(nullptr),
     displs(nullptr), random(nullptr), random2(nullptr)
 {
-  if (narg < 6) error->all(FLERR, "Illegal fix pour command");
+  if (narg < 6) utils::missing_cmd_args(FLERR, "fix pour", error);
 
-  if (lmp->kokkos) error->all(FLERR, "Cannot yet use fix pour with the KOKKOS package");
+  if (lmp->kokkos)
+    error->all(FLERR, Error::COMMAND, "Cannot yet use fix pour with the KOKKOS package");
 
   scalar_flag = 1;
   extscalar = 0;
   time_depend = 1;
+  initialize_flag = 0;
 
   if (!atom->radius_flag || !atom->rmass_flag)
-    error->all(FLERR, "Fix pour requires atom attributes radius, rmass");
+    error->all(FLERR, Error::COMMAND, "Fix pour requires atom attributes radius, rmass");
 
   // required args
 
@@ -71,7 +73,8 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
   ntype = utils::inumeric(FLERR, arg[4], false, lmp);
   seed = utils::inumeric(FLERR, arg[5], false, lmp);
 
-  if (seed <= 0) error->all(FLERR, "Illegal fix pour command");
+  if (ninsert <= 0) error->all(FLERR, 3, "Invalid number of inserted particles requested");
+  if (seed <= 0) error->all(FLERR, 5, "Invalid fix pour seed value");
 
   // read options from end of input line
 
@@ -79,8 +82,9 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
 
   // error check on type
 
-  if (mode == ATOM && (ntype <= 0 || ntype > atom->ntypes))
-    error->all(FLERR, "Invalid atom type in fix pour command");
+  if (mode == ATOM && ((ntype <= 0) || (ntype > atom->ntypes)))
+    error->all(FLERR, 4, "Invalid atom type value {}. Must be between 1 and {}", ntype,
+               atom->ntypes);
 
   // error checks on region and its extent being inside simulation box
 
@@ -90,7 +94,7 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
   if (region->dynamic_check()) error->all(FLERR, "Fix pour region {} cannot be dynamic", idregion);
 
   if (strcmp(region->style, "block") == 0) {
-    auto block = dynamic_cast<RegBlock *>(region);
+    auto *block = dynamic_cast<RegBlock *>(region);
     region_style = 1;
     xlo = block->xlo;
     xhi = block->xhi;
@@ -102,7 +106,7 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
         yhi > domain->boxhi[1] || zlo < domain->boxlo[2] || zhi > domain->boxhi[2])
       error->all(FLERR, "Insertion region extends outside simulation box");
   } else if (strcmp(region->style, "cylinder") == 0) {
-    auto cylinder = dynamic_cast<RegCylinder *>(region);
+    auto *cylinder = dynamic_cast<RegCylinder *>(region);
     region_style = 2;
     char axis = cylinder->axis;
     xc = cylinder->c1;
@@ -128,6 +132,7 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
     for (int i = 0; i < nmol; i++) {
       if (onemols[i]->xflag == 0) error->all(FLERR, "Fix pour molecule must have coordinates");
       if (onemols[i]->typeflag == 0) error->all(FLERR, "Fix pour molecule must have atom types");
+      if (onemols[i]->natoms <= 0) error->all(FLERR, "Fix pour molecule must have atoms");
       if (ntype + onemols[i]->ntypes <= 0 || ntype + onemols[i]->ntypes > atom->ntypes)
         error->all(FLERR, "Invalid atom type in fix pour mol command");
 
@@ -135,7 +140,7 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
         error->all(FLERR, "Fix pour molecule template ID must be same as atom style template ID");
       onemols[i]->check_attributes();
 
-      // fix pour uses geoemetric center of molecule for insertion
+      // fix pour uses geometric center of molecule for insertion
 
       onemols[i]->compute_center();
     }
@@ -156,10 +161,6 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
   memory->create(coords, natom_max, 4, "pour:coords");
   memory->create(imageflags, natom_max, "pour:imageflags");
 
-  // find max atom and molecule IDs just once
-
-  if (idnext) find_maxid();
-
   // random number generator, same for all procs
   // warm up the generator 30x to avoid correlations in first-particle
   // positions if runs are repeated with consecutive seeds
@@ -173,95 +174,6 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
   MPI_Comm_size(world, &nprocs);
   recvcounts = new int[nprocs];
   displs = new int[nprocs];
-
-  // grav = gravity in distance/time^2 units
-  // assume grav = -magnitude at this point, enforce in init()
-
-  auto fixlist = modify->get_fix_by_style("^gravity");
-  if (fixlist.size() != 1)
-    error->all(FLERR, "There must be exactly one fix gravity defined for fix pour");
-  auto fixgrav = dynamic_cast<FixGravity *>(fixlist.front());
-
-  grav = -fixgrav->magnitude * force->ftm2v;
-
-  // nfreq = timesteps between insertions
-  // should be time for a particle to fall from top of insertion region
-  //   to bottom, taking into account that the region may be moving
-  // set these 2 eqs equal to each other, solve for smallest positive t
-  //   x = zhi + vz*t + 1/2 grav t^2
-  //   x = zlo + rate*t
-  //   gives t = [-(vz-rate) - sqrt((vz-rate)^2 - 2*grav*(zhi-zlo))] / grav
-  //   where zhi-zlo > 0, grav < 0, and vz & rate can be either > 0 or < 0
-
-  double v_relative, delta;
-  if (domain->dimension == 3) {
-    v_relative = vz - rate;
-    delta = zhi - zlo;
-  } else {
-    v_relative = vy - rate;
-    delta = yhi - ylo;
-  }
-  double t = (-v_relative - sqrt(v_relative * v_relative - 2.0 * grav * delta)) / grav;
-  nfreq = static_cast<int>(t / update->dt + 0.5);
-
-  // 1st insertion on next timestep
-
-  force_reneighbor = 1;
-  next_reneighbor = update->ntimestep + 1;
-  nfirst = next_reneighbor;
-  ninserted = 0;
-
-  // nper = # to insert each time
-  // depends on specified volume fraction
-  // volume = volume of insertion region
-  // volume_one = volume of inserted particle (with max possible radius)
-  // in 3d, ensure dy >= 1, for quasi-2d simulations
-
-  double volume, volume_one = 1.0;
-
-  molradius_max = 0.0;
-  if (mode == MOLECULE) {
-    for (int i = 0; i < nmol; i++) molradius_max = MAX(molradius_max, onemols[i]->molradius);
-  }
-
-  if (domain->dimension == 3) {
-    if (region_style == 1) {
-      double dy = yhi - ylo;
-      if (dy < 1.0) dy = 1.0;
-      volume = (xhi - xlo) * dy * (zhi - zlo);
-    } else
-      volume = MY_PI * rc * rc * (zhi - zlo);
-    if (mode == MOLECULE) {
-      volume_one = MY_4PI3 * molradius_max * molradius_max * molradius_max;
-    } else if (dstyle == ONE || dstyle == RANGE) {
-      volume_one = MY_4PI3 * radius_max * radius_max * radius_max;
-    } else if (dstyle == POLY) {
-      volume_one = 0.0;
-      for (int i = 0; i < npoly; i++)
-        volume_one += (MY_4PI3 * radius_poly[i] * radius_poly[i] * radius_poly[i]) * frac_poly[i];
-    }
-  } else {
-    volume = (xhi - xlo) * (yhi - ylo);
-    if (mode == MOLECULE) {
-      volume_one = MY_PI * molradius_max * molradius_max;
-    } else if (dstyle == ONE || dstyle == RANGE) {
-      volume_one = MY_PI * radius_max * radius_max;
-    } else if (dstyle == POLY) {
-      volume_one = 0.0;
-      for (int i = 0; i < npoly; i++)
-        volume_one += (MY_PI * radius_poly[i] * radius_poly[i]) * frac_poly[i];
-    }
-  }
-
-  nper = static_cast<int>(volfrac * volume / volume_one);
-  if (nper == 0) error->all(FLERR, "Fix pour insertion count per timestep is 0");
-  int nfinal = update->ntimestep + 1 + ((bigint) ninsert - 1) / nper * nfreq;
-
-  // print stats
-
-  if (me == 0)
-    utils::logmesg(lmp, "Particle insertion: {} every {} steps, {} by step {}\n", nper, nfreq,
-                   ninsert, nfinal);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -294,21 +206,125 @@ int FixPour::setmask()
 
 void FixPour::init()
 {
-  if (domain->triclinic) error->all(FLERR, "Cannot use fix pour with triclinic box");
+  if (domain->triclinic)
+    error->all(FLERR, Error::NOLASTLINE, "Cannot use fix pour with triclinic box");
 
   region = domain->get_region_by_id(idregion);
-  if (!region) error->all(FLERR, "Fix pour region {} does not exist", idregion);
+  if (!region) error->all(FLERR, Error::NOLASTLINE, "Fix pour region {} does not exist", idregion);
+
+  // Find gravity fix
+
+  auto fixlist = modify->get_fix_by_style("^gravity");
+  if (fixlist.size() != 1)
+    error->all(FLERR, Error::NOLASTLINE,
+               "There must be exactly one fix gravity defined for fix pour");
+  auto *fixgrav = dynamic_cast<FixGravity *>(fixlist.front());
+  if (fixgrav->varflag != FixGravity::CONSTANT)
+    error->all(FLERR, Error::NOLASTLINE, "Fix gravity for fix pour must be constant");
+
+  // Perform one time initialization operations
+  // outside of constructor in case fix definition precedes timestep definition/atom creation
+
+  if (!initialize_flag) {
+    initialize_flag = 1;
+
+    // find max atom and molecule IDs just once
+
+    if (idnext) find_maxid();
+
+    // grav = gravity in distance/time^2 units
+    // assume grav = -magnitude at this point, enforce in init()
+
+    grav = -fixgrav->magnitude * force->ftm2v;
+
+    // nfreq = timesteps between insertions
+    // should be time for a particle to fall from top of insertion region
+    //   to bottom, taking into account that the region may be moving
+    // set these 2 eqs equal to each other, solve for smallest positive t
+    //   x = zhi + vz*t + 1/2 grav t^2
+    //   x = zlo + rate*t
+    //   gives t = [-(vz-rate) - sqrt((vz-rate)^2 - 2*grav*(zhi-zlo))] / grav
+    //   where zhi-zlo > 0, grav < 0, and vz & rate can be either > 0 or < 0
+
+    double v_relative, delta;
+    if (domain->dimension == 3) {
+      v_relative = vz - rate;
+      delta = zhi - zlo;
+    } else {
+      v_relative = vy - rate;
+      delta = yhi - ylo;
+    }
+    double t = (-v_relative - sqrt(v_relative * v_relative - 2.0 * grav * delta)) / grav;
+    nfreq = std::lround(t / update->dt);
+
+    // 1st insertion on next timestep
+
+    force_reneighbor = 1;
+    next_reneighbor = update->ntimestep + 1;
+    nfirst = next_reneighbor;
+    ninserted = 0;
+
+    // nper = # to insert each time
+    // depends on specified volume fraction
+    // volume = volume of insertion region
+    // volume_one = volume of inserted particle (with max possible radius)
+    // in 3d, ensure dy >= max diameter, for quasi-2d simulations
+
+    double volume, volume_one = 1.0;
+
+    molradius_max = 0.0;
+    if (mode == MOLECULE) {
+      for (int i = 0; i < nmol; i++) molradius_max = MAX(molradius_max, onemols[i]->molradius);
+    }
+
+    if (domain->dimension == 3) {
+      if (region_style == 1) {
+        double dy = yhi - ylo;
+        if (dy < (2 * radius_max)) dy = (2 * radius_max);
+        volume = (xhi - xlo) * dy * (zhi - zlo);
+      } else
+        volume = MY_PI * rc * rc * (zhi - zlo);
+      if (mode == MOLECULE) {
+        volume_one = MY_4PI3 * molradius_max * molradius_max * molradius_max;
+      } else if (dstyle == ONE || dstyle == RANGE) {
+        volume_one = MY_4PI3 * radius_max * radius_max * radius_max;
+      } else if (dstyle == POLY) {
+        volume_one = 0.0;
+        for (int i = 0; i < npoly; i++)
+          volume_one += (MY_4PI3 * radius_poly[i] * radius_poly[i] * radius_poly[i]) * frac_poly[i];
+      }
+    } else {
+      volume = (xhi - xlo) * (yhi - ylo);
+      if (mode == MOLECULE) {
+        volume_one = MY_PI * molradius_max * molradius_max;
+      } else if (dstyle == ONE || dstyle == RANGE) {
+        volume_one = MY_PI * radius_max * radius_max;
+      } else if (dstyle == POLY) {
+        volume_one = 0.0;
+        for (int i = 0; i < npoly; i++)
+          volume_one += (MY_PI * radius_poly[i] * radius_poly[i]) * frac_poly[i];
+      }
+    }
+
+    nper = static_cast<int>(volfrac * volume / volume_one);
+    if (nper == 0)
+      error->all(FLERR, Error::NOLASTLINE, "Fix pour insertion count per timestep is 0");
+    int nfinal = update->ntimestep + 1 + ((bigint) ninsert - 1) / nper * nfreq;
+
+    // print stats
+
+    if (me == 0)
+      utils::logmesg(lmp, "Particle insertion: {} every {} steps, {} by step {}\n", nper, nfreq,
+                     ninsert, nfinal);
+  }
 
   // ensure gravity fix (still) exists
   // for 3d must point in -z, for 2d must point in -y
   // else insertion cannot work
 
-  auto fixlist = modify->get_fix_by_style("^gravity");
-  if (fixlist.size() != 1)
-    error->all(FLERR, "There must be exactly one fix gravity defined for fix pour");
-  auto fixgrav = dynamic_cast<FixGravity *>(fixlist.front());
-  if (fixgrav->varflag != FixGravity::CONSTANT)
-    error->all(FLERR, "Fix gravity for fix pour must be constant");
+  double gnew = -fixgrav->magnitude * force->ftm2v;
+  if (gnew != grav)
+    error->all(FLERR, Error::NOLASTLINE, "Gravity changed since fix pour was created");
 
   double xgrav = fixgrav->xgrav;
   double ygrav = fixgrav->ygrav;
@@ -316,24 +332,23 @@ void FixPour::init()
 
   if (domain->dimension == 3) {
     if (fabs(xgrav) > EPSILON || fabs(ygrav) > EPSILON || fabs(zgrav + 1.0) > EPSILON)
-      error->all(FLERR, "Gravity must point in -z to use with fix pour in 3d");
+      error->all(FLERR, Error::NOLASTLINE, "Gravity must point in -z to use with fix pour in 3d");
   } else {
     if (fabs(xgrav) > EPSILON || fabs(ygrav + 1.0) > EPSILON || fabs(zgrav) > EPSILON)
-      error->all(FLERR, "Gravity must point in -y to use with fix pour in 2d");
+      error->all(FLERR, Error::NOLASTLINE, "Gravity must point in -y to use with fix pour in 2d");
   }
-
-  double gnew = -fixgrav->magnitude * force->ftm2v;
-  if (gnew != grav) error->all(FLERR, "Gravity changed since fix pour was created");
 
   // if rigidflag defined, check for rigid/small fix
   // its molecule template must be same as this one
 
   if (rigidflag) {
     fixrigid = modify->get_fix_by_id(idrigid);
-    if (!fixrigid) error->all(FLERR, "Fix pour rigid fix {} does not exist", idrigid);
+    if (!fixrigid)
+      error->all(FLERR, Error::NOLASTLINE, "Fix pour rigid fix {} does not exist", idrigid);
     int tmp;
     if (onemols != (Molecule **) fixrigid->extract("onemol", tmp))
-      error->all(FLERR, "Fix pour and fix rigid/small not using same molecule template ID");
+      error->all(FLERR, Error::NOLASTLINE,
+                 "Fix pour and fix rigid/small not using same molecule template ID");
   }
 
   // if shakeflag defined, check for SHAKE fix
@@ -341,10 +356,12 @@ void FixPour::init()
 
   if (shakeflag) {
     fixshake = modify->get_fix_by_id(idshake);
-    if (!fixshake) error->all(FLERR, "Fix pour shake fix {} does not exist", idshake);
+    if (!fixshake)
+      error->all(FLERR, Error::NOLASTLINE, "Fix pour shake fix {} does not exist", idshake);
     int tmp;
     if (onemols != (Molecule **) fixshake->extract("onemol", tmp))
-      error->all(FLERR, "Fix pour and fix shake not using same molecule template ID");
+      error->all(FLERR, Error::NOLASTLINE,
+                 "Fix pour and fix shake not using same molecule template ID");
   }
 }
 
@@ -495,6 +512,9 @@ void FixPour::pre_exchange()
         imol = 0;
         while (rng > molfrac[imol]) imol++;
         natom = onemols[imol]->natoms;
+        if (natom <= 0)
+          error->all(FLERR, Error::NOLASTLINE, "Invalid number of atoms ({}) in molecule {}", natom,
+                     onemols[imol]->id);
         if (dimension == 3) {
           r[0] = random->uniform() - 0.5;
           r[1] = random->uniform() - 0.5;
@@ -535,7 +555,7 @@ void FixPour::pre_exchange()
           delx = coords[m][0] - xnear[i][0];
           dely = coords[m][1] - xnear[i][1];
           delz = coords[m][2] - xnear[i][2];
-          domain->minimum_image(delx, dely, delz);
+          domain->minimum_image(FLERR, delx, dely, delz);
           rsq = delx * delx + dely * dely + delz * delz;
           radsum = coords[m][3] + xnear[i][3];
           if (rsq <= radsum * radsum) break;
@@ -648,7 +668,7 @@ void FixPour::pre_exchange()
           atom->radius[n] = radtmp;
           atom->rmass[n] = 4.0 * MY_PI / 3.0 * radtmp * radtmp * radtmp * denstmp;
         } else {
-          onemols[imol]->quat_external = quat;
+          memcpy(onemols[imol]->quat_external, quat, 4 * sizeof(double));
           atom->add_molecule_atom(onemols[imol], m, n, maxtag_all);
         }
 
@@ -680,7 +700,9 @@ void FixPour::pre_exchange()
   int ninserted_atoms = nnear - nprevious;
   int ninserted_mols = ninserted_atoms / natom;
   ninserted += ninserted_mols;
-  if (ninserted_mols < nnew && me == 0) error->warning(FLERR, "Fewer insertions than requested");
+  if (ninserted_mols < nnew && me == 0)
+    error->warning(FLERR, "Fewer insertions than requested ({} vs {}) on step {}", ninserted_mols,
+                   nnew, update->ntimestep);
 
   // reset global natoms,nbonds,etc
   // increment maxtag_all and maxmol_all if necessary
@@ -690,14 +712,17 @@ void FixPour::pre_exchange()
 
   if (ninserted_atoms) {
     atom->natoms += ninserted_atoms;
-    if (atom->natoms < 0) error->all(FLERR, "Too many total atoms");
+    if (atom->natoms < 0) error->all(FLERR, Error::NOLASTLINE, "Too many total atoms");
     if (mode == MOLECULE) {
       atom->nbonds += (bigint) onemols[imol]->nbonds * ninserted_mols;
       atom->nangles += (bigint) onemols[imol]->nangles * ninserted_mols;
       atom->ndihedrals += (bigint) onemols[imol]->ndihedrals * ninserted_mols;
       atom->nimpropers += (bigint) onemols[imol]->nimpropers * ninserted_mols;
+      // body particle molecule template must contain only one atom
+      atom->nbodies += (bigint) onemols[imol]->bodyflag * ninserted_mols;
     }
-    if (maxtag_all >= MAXTAGINT) error->all(FLERR, "New atom IDs exceed maximum allowed ID");
+    if (maxtag_all >= MAXTAGINT)
+      error->all(FLERR, Error::NOLASTLINE, "New atom IDs exceed maximum allowed ID");
   }
 
   // rebuild atom map
@@ -776,7 +801,7 @@ int FixPour::overlap(int i)
       double delx = x[0] - xc;
       double dely = x[1] - yc;
       double delz = 0.0;
-      domain->minimum_image(delx, dely, delz);
+      domain->minimum_image(FLERR, delx, dely, delz);
       double rsq = delx * delx + dely * dely;
       double r = rc + delta;
       if (rsq > r * r) return 0;
@@ -895,15 +920,16 @@ void FixPour::options(int narg, char **arg)
   int iarg = 0;
   while (iarg < narg) {
     if (strcmp(arg[iarg], "region") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour region", error);
       region = domain->get_region_by_id(arg[iarg + 1]);
-      if (!region) error->all(FLERR, "Fix pour region {} does not exist", arg[iarg + 1]);
+      if (!region) error->all(FLERR, iarg + 1, "Fix pour region {} does not exist", arg[iarg + 1]);
       idregion = utils::strdup(arg[iarg + 1]);
       iarg += 2;
     } else if (strcmp(arg[iarg], "mol") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour mol", error);
       int imol = atom->find_molecule(arg[iarg + 1]);
-      if (imol == -1) error->all(FLERR, "Molecule template ID for fix pour does not exist");
+      if (imol == -1)
+        error->all(FLERR, iarg + 1, "Molecule template ID for fix pour does not exist");
       mode = MOLECULE;
       onemols = &atom->molecules[imol];
       nmol = onemols[0]->nset;
@@ -914,37 +940,39 @@ void FixPour::options(int narg, char **arg)
       molfrac[nmol - 1] = 1.0;
       iarg += 2;
     } else if (strcmp(arg[iarg], "molfrac") == 0) {
-      if (mode != MOLECULE) error->all(FLERR, "Illegal fix pour command");
-      if (iarg + nmol + 1 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (mode != MOLECULE)
+        error->all(FLERR, iarg,
+                   "Illegal fix pour command, must specify mol keyword before molfrac");
+      if (iarg + nmol + 1 > narg) utils::missing_cmd_args(FLERR, "fix pour molfrac", error);
       molfrac[0] = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       for (int i = 1; i < nmol; i++)
         molfrac[i] = molfrac[i - 1] + utils::numeric(FLERR, arg[iarg + i + 1], false, lmp);
       if (molfrac[nmol - 1] < 1.0 - EPSILON || molfrac[nmol - 1] > 1.0 + EPSILON)
-        error->all(FLERR, "Illegal fix pour command");
+        error->all(FLERR, "Illegal fix pour command molfrac: {}", molfrac[nmol - 1]);
       molfrac[nmol - 1] = 1.0;
       iarg += nmol + 1;
 
     } else if (strcmp(arg[iarg], "rigid") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour rigid", error);
       delete[] idrigid;
       idrigid = utils::strdup(arg[iarg + 1]);
       rigidflag = 1;
       iarg += 2;
     } else if (strcmp(arg[iarg], "shake") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour shake", error);
       delete[] idshake;
       idshake = utils::strdup(arg[iarg + 1]);
       shakeflag = 1;
       iarg += 2;
 
     } else if (strcmp(arg[iarg], "id") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour id", error);
       if (strcmp(arg[iarg + 1], "max") == 0)
         idnext = 0;
       else if (strcmp(arg[iarg + 1], "next") == 0)
         idnext = 1;
       else
-        error->all(FLERR, "Illegal fix pour command");
+        error->all(FLERR, iarg + 1, "Illegal fix pour command id argument: {}", arg[iarg + 1]);
       iarg += 2;
 
     } else if (strcmp(arg[iarg], "ignore") == 0) {
@@ -954,27 +982,33 @@ void FixPour::options(int narg, char **arg)
       iarg += 1;
 
     } else if (strcmp(arg[iarg], "diam") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour diam", error);
       if (strcmp(arg[iarg + 1], "one") == 0) {
-        if (iarg + 3 > narg) error->all(FLERR, "Illegal fix pour command");
+        if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "fix pour diam one", error);
         dstyle = ONE;
         radius_one = 0.5 * utils::numeric(FLERR, arg[iarg + 2], false, lmp);
+        if (radius_one <= 0.0)
+          error->all(FLERR, iarg + 2, "Illegal fix pour radius: {}", radius_one);
         radius_max = radius_one;
         iarg += 3;
       } else if (strcmp(arg[iarg + 1], "range") == 0) {
-        if (iarg + 4 > narg) error->all(FLERR, "Illegal fix pour command");
+        if (iarg + 4 > narg) utils::missing_cmd_args(FLERR, "fix pour diam range", error);
         dstyle = RANGE;
         radius_lo = 0.5 * utils::numeric(FLERR, arg[iarg + 2], false, lmp);
         radius_hi = 0.5 * utils::numeric(FLERR, arg[iarg + 3], false, lmp);
-        if (radius_lo > radius_hi) error->all(FLERR, "Illegal fix pour command");
+        if (radius_lo > radius_hi)
+          error->all(FLERR, iarg + 2, "Illegal fix pour radii: {} exceeds {}", radius_lo,
+                     radius_hi);
+        if (radius_lo <= 0.0) error->all(FLERR, iarg + 2, "Illegal fix pour radius: {}", radius_lo);
         radius_max = radius_hi;
         iarg += 4;
       } else if (strcmp(arg[iarg + 1], "poly") == 0) {
-        if (iarg + 3 > narg) error->all(FLERR, "Illegal fix pour command");
+        if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "fix pour diam poly", error);
         dstyle = POLY;
         npoly = utils::inumeric(FLERR, arg[iarg + 2], false, lmp);
-        if (npoly <= 0) error->all(FLERR, "Illegal fix pour command");
-        if (iarg + 3 + 2 * npoly > narg) error->all(FLERR, "Illegal fix pour command");
+        if (npoly <= 0) error->all(FLERR, iarg + 2, "Illegal fix pour poly number: {}", npoly);
+        if (iarg + 3 + 2 * npoly > narg)
+          utils::missing_cmd_args(FLERR, "fix pour diam poly", error);
         radius_poly = new double[npoly];
         frac_poly = new double[npoly];
         iarg += 3;
@@ -982,8 +1016,10 @@ void FixPour::options(int narg, char **arg)
         for (int i = 0; i < npoly; i++) {
           radius_poly[i] = 0.5 * utils::numeric(FLERR, arg[iarg++], false, lmp);
           frac_poly[i] = utils::numeric(FLERR, arg[iarg++], false, lmp);
-          if (radius_poly[i] <= 0.0 || frac_poly[i] < 0.0)
-            error->all(FLERR, "Illegal fix pour command");
+          if (radius_poly[i] <= 0.0)
+            error->all(FLERR, iarg - 2, "Illegal fix pour poly radius: {}", radius_poly[i]);
+          if (frac_poly[i] < 0.0)
+            error->all(FLERR, iarg - 1, "Illegal fix pour poly fraction: {}", frac_poly[i]);
           radius_max = MAX(radius_max, radius_poly[i]);
         }
         double sum = 0.0;
@@ -991,44 +1027,50 @@ void FixPour::options(int narg, char **arg)
         if (fabs(sum - 1.0) > SMALL)
           error->all(FLERR, "Fix pour polydisperse fractions do not sum to 1.0");
       } else
-        error->all(FLERR, "Illegal fix pour command");
+        error->all(FLERR, iarg + 1, "Unknown fix pour diam keyword {}", arg[iarg + 1]);
 
     } else if (strcmp(arg[iarg], "dens") == 0) {
-      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "fix pour dens", error);
       density_lo = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       density_hi = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
-      if (density_lo > density_hi) error->all(FLERR, "Illegal fix pour command");
+      if (density_lo > density_hi)
+        error->all(FLERR, iarg + 1, "Illegal fix pour densities: {} exceeds {}", density_lo,
+                   density_hi);
       iarg += 3;
     } else if (strcmp(arg[iarg], "vol") == 0) {
-      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "fix pour vol", error);
       volfrac = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       maxattempt = utils::inumeric(FLERR, arg[iarg + 2], false, lmp);
       iarg += 3;
     } else if (strcmp(arg[iarg], "rate") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix pour command");
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix pour rate", error);
       rate = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       iarg += 2;
     } else if (strcmp(arg[iarg], "vel") == 0) {
       if (domain->dimension == 3) {
-        if (iarg + 6 > narg) error->all(FLERR, "Illegal fix pour command");
+        if (iarg + 6 > narg) utils::missing_cmd_args(FLERR, "fix pour vel", error);
         vxlo = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
         vxhi = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
         vylo = utils::numeric(FLERR, arg[iarg + 3], false, lmp);
         vyhi = utils::numeric(FLERR, arg[iarg + 4], false, lmp);
-        if (vxlo > vxhi || vylo > vyhi) error->all(FLERR, "Illegal fix pour command");
+        if (vxlo > vxhi)
+          error->all(FLERR, iarg + 1, "Illegal fix pour x velocities: {} exceeds {}", vxlo, vxhi);
+        if (vylo > vyhi)
+          error->all(FLERR, iarg + 3, "Illegal fix pour y velocities: {} exceeds {}", vylo, vyhi);
         vz = utils::numeric(FLERR, arg[iarg + 5], false, lmp);
         iarg += 6;
       } else {
-        if (iarg + 4 > narg) error->all(FLERR, "Illegal fix pour command");
+        if (iarg + 4 > narg) utils::missing_cmd_args(FLERR, "fix pour vel", error);
         vxlo = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
         vxhi = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
         vy = utils::numeric(FLERR, arg[iarg + 3], false, lmp);
         vz = 0.0;
-        if (vxlo > vxhi) error->all(FLERR, "Illegal fix pour command");
+        if (vxlo > vxhi)
+          error->all(FLERR, iarg + 1, "Illegal fix pour velocities: {} exceeds {}", vxlo, vxhi);
         iarg += 4;
       }
     } else
-      error->all(FLERR, "Illegal fix pour command");
+      error->all(FLERR, iarg, "Illegal fix pour command argument: {}", arg[iarg]);
   }
 }
 
@@ -1045,7 +1087,7 @@ double FixPour::compute_scalar()
 
 void FixPour::reset_dt()
 {
-  error->all(FLERR, "Cannot change timestep with fix pour");
+  error->all(FLERR, Error::NOLASTLINE, "Cannot change timestep with fix pour");
 }
 
 /* ----------------------------------------------------------------------
