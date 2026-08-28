@@ -535,6 +535,14 @@ action pair_lj_expand_sphere_kokkos.cpp pair_lj_expand_sphere.cpp
 action pair_lj_expand_sphere_kokkos.h pair_lj_expand_sphere.h
 action pair_lj_relres_kokkos.cpp pair_lj_relres.cpp
 action pair_lj_relres_kokkos.h pair_lj_relres.h
+action pair_gran_hertz_history_kokkos.cpp pair_gran_hertz_history.cpp
+action pair_gran_hertz_history_kokkos.h pair_gran_hertz_history.h
+action pair_gran_hooke_kokkos.cpp pair_gran_hooke.cpp
+action pair_gran_hooke_kokkos.h pair_gran_hooke.h
+action pair_sw_mod_kokkos.cpp pair_sw_mod.cpp
+action pair_sw_mod_kokkos.h pair_sw_mod.h
+action pair_tersoff_mod_c_kokkos.cpp pair_tersoff_mod_c.cpp
+action pair_tersoff_mod_c_kokkos.h pair_tersoff_mod_c.h
 action pair_born_coul_dsf_kokkos.cpp pair_born_coul_dsf.cpp
 action pair_born_coul_dsf_kokkos.h pair_born_coul_dsf.h
 action pair_born_coul_dsf_cs_kokkos.cpp pair_born_coul_dsf_cs.cpp

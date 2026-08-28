@@ -114,8 +114,8 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`gauss (gko) <pair_gauss>`
    * :doc:`gauss/cut (ko) <pair_gauss>`
    * :doc:`gayberne (gio) <pair_gayberne>`
-   * :doc:`gran/hertz/history (o) <pair_gran>`
-   * :doc:`gran/hooke (o) <pair_gran>`
+   * :doc:`gran/hertz/history (ko) <pair_gran>`
+   * :doc:`gran/hooke (ko) <pair_gran>`
    * :doc:`gran/hooke/history (ko) <pair_gran>`
    * :doc:`granular <pair_granular>`
    * :doc:`granular/superellipsoid <pair_granular_superellipsoid>`
@@ -307,13 +307,13 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`surf/granular <pair_surf_granular>`
    * :doc:`sw (giko) <pair_sw>`
    * :doc:`sw/angle/table <pair_sw_angle_table>`
-   * :doc:`sw/mod (o) <pair_sw>`
+   * :doc:`sw/mod (ko) <pair_sw>`
    * :doc:`table (gko) <pair_table>`
    * :doc:`table/rx (k) <pair_table_rx>`
    * :doc:`tdpd <pair_mesodpd>`
    * :doc:`tersoff (giko) <pair_tersoff>`
    * :doc:`tersoff/mod (gko) <pair_tersoff_mod>`
-   * :doc:`tersoff/mod/c (o) <pair_tersoff_mod>`
+   * :doc:`tersoff/mod/c (ko) <pair_tersoff_mod>`
    * :doc:`tersoff/table (o) <pair_tersoff>`
    * :doc:`tersoff/zbl (gko) <pair_tersoff_zbl>`
    * :doc:`thole <pair_thole>`
