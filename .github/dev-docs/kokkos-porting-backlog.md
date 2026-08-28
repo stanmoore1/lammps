@@ -97,22 +97,33 @@ written before they were true:
 
 **In progress** on branch `more-kokkos-porting`.  Ordered best-first.
 
-- **Minimizers:** `min sd` (118-line base, differs from CG only in `h = f`;
-  `MinKokkos`/`MinLineSearchKokkos` supply everything else -- highest
-  coverage-per-effort item in the scan), `min quickmin` (strict subset of
-  `min_fire_kokkos`).
-- **Regions:** `plane` -> `prism` -> `cylinder` -> `cone` -> `ellipsoid`.  Every
-  candidate's geometry state is POD scalars or fixed-size arrays, captured by value
-  in the functor copy for free; the `char *` variable strings are only touched in
-  host `shape_update()`/`variable_check()` via `prematch()`.  Gates
-  `fix wall/region/kk`, `compute temp/region/kk`, and the `region` keyword on
-  `addforce/kk`, `setforce/kk`, `aveforce/kk`, `efield/kk`, `oneway/kk`,
-  `electron/stopping/kk`, `heat/kk`.
-- **Small fixes** (reduce-then-apply or a plain per-atom force loop):
-  `flow/gauss` (the cleanest candidate in the scan), `nvk`, `damping/cundall`,
-  `viscous/nonlinear`, `store/force`, `wall/harmonic/outside`, `addtorque/atom`,
-  `settorque/atom`, `brownian`, `propel/self` (DIPOLE/VELOCITY modes; error out on
-  QUAT), `nve/asphere/noforce`, `baoab`, `wall/piston`.
+### Done
+
+- **Minimizers:** `min sd`, `min quickmin`.  `MinKokkos`/`MinLineSearchKokkos`
+  supply the device machinery, so both are small; they reproduce the CPU
+  trajectory step for step.  Registering `min_fire_kokkos` in `Install.sh`, which
+  was missing, came along with them.
+- **Regions:** `plane`, `prism`, `cylinder`, `cone`, `ellipsoid`.  The concrete-type
+  list that `fix wall/region/kk` needs now lives once in `region_kokkos_styles.h`;
+  the six fixes that only need `match_all_kokkos` (`addforce`, `aveforce`, `efield`,
+  `electron/stopping`, `oneway`, `setforce`) test `dynamic_cast<KokkosBase *>`
+  instead of a hardcoded style list, so they accept every ported region
+  automatically.
+- **Small fixes:** `flow/gauss`, `damping/cundall`, `viscous/nonlinear`,
+  `store/force`, `wall/harmonic/outside` (plus the `wall/harmonic/returned` alias),
+  `brownian`, `addtorque/atom`, `settorque/atom`.
+
+### Still open in Tier 1
+
+- **Small fixes:** `nvk` (two nlocal reductions then a v/x update), `baoab`
+  (per-atom B-A-O-A-B, `fix_gjf_kokkos` template), `wall/piston` (host scalar ramp
+  plus a per-atom reflect, `fix_wall_reflect_kokkos` template), `propel/self`
+  (DIPOLE and VELOCITY modes only -- error out on QUAT, which needs ellipsoid
+  bonus data; note it tallies a per-atom virial, so it needs the `d_vatom` +
+  `v_tally` handling from `fix_wall_harmonic_kokkos`), `nve/asphere/noforce`
+  (`fix_nve_asphere_kokkos` minus the force term; the base also has a
+  superellipsoid branch that `AtomVecEllipsoidKokkos` does not support, so guard
+  on `atom->superellipsoid_flag`).
 - **Pair styles that fit the `pair_kokkos.h` template:**
   - FEP soft-core family (8): `lj/cut/soft`, `coul/cut/soft`, `lj/cut/coul/cut/soft`,
     `lj/class2/soft`, `morse/soft`, `coul/long/soft`, `lj/cut/coul/long/soft`,
