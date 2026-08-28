@@ -133,6 +133,8 @@ ComputeXRDFFT::ComputeXRDFFT(LAMMPS *lmp, int narg, char **arg) :
 
 ComputeXRDFFT::~ComputeXRDFFT()
 {
+  if (copymode) return;
+
   deallocate();
 }
 
@@ -226,15 +228,19 @@ void ComputeXRDFFT::init()
 #endif
 
   if ((me == 0) && echo) {
+
+    // how much of the mesh a rank actually holds depends on where its atoms
+    // are, which is not known until the first invocation, so what is reported
+    // here is the whole mesh: the most a rank can be asked for
+
     double mb = 1.0/1024.0/1024.0;
     double mem = (double)nmesh[0]*nmesh[1]*nmesh[2]*sizeof(FFT_SCALAR)*mb;
-    double own = (double)nfoot*sizeof(FFT_SCALAR)*mb;
     utils::logmesg(lmp,"-----\nCompute XRD/FFT id:{}, # of relp:{}\n"
                    "Kaiser-Bessel order {}, FFT mesh {}x{}x{}, {} element transform(s)\n"
                    "Mesh divided {}x{}x{} over the MPI ranks\n"
-                   "Whole mesh {:.4} Mbytes, most on one MPI rank so far {:.4} Mbytes\n-----\n",
+                   "Whole mesh {:.4} Mbytes, at most that much on one MPI rank\n-----\n",
                    id,size_array_rows,order,nmesh[0],nmesh[1],nmesh[2],nslot,
-                   pgrid[0],pgrid[1],pgrid[2],mem,own);
+                   pgrid[0],pgrid[1],pgrid[2],mem);
   }
 }
 
@@ -406,6 +412,34 @@ void ComputeXRDFFT::set_pgrid()
 }
 
 /* ----------------------------------------------------------------------
+   the buffers the transform works out of, and the transform itself
+
+   these are the only parts of the setup that depend on where the mesh lives,
+   so a derived style that keeps the mesh somewhere else replaces this and
+   inherits the rest of setup_mesh()
+------------------------------------------------------------------------- */
+
+void ComputeXRDFFT::allocate_mesh()
+{
+  memory->create(density_slab,MAX(nfft,1),"xrd/fft:density_slab");
+  memory->create(work1,MAX(2*nfft,1),"xrd/fft:work1");
+  memory->create(rho0,order,"xrd/fft:rho0");
+  memory->create(rho1,order,"xrd/fft:rho1");
+  memory->create(rho2,order,"xrd/fft:rho2");
+  memory->create(mx,order,"xrd/fft:mx");
+  memory->create(my,order,"xrd/fft:my");
+  memory->create(mz,order,"xrd/fft:mz");
+
+  if (nfft > 0) {
+    int tmp;
+    fft1 = new FFT3d(lmp,fft_comm,nmesh[0],nmesh[1],nmesh[2],
+                     fftlo[0],ffthi[0],fftlo[1],ffthi[1],fftlo[2],ffthi[2],
+                     fftlo[0],ffthi[0],fftlo[1],ffthi[1],fftlo[2],ffthi[2],
+                     0,0,&tmp,0,0);
+  }
+}
+
+/* ----------------------------------------------------------------------
    allocate the mesh, set up the FFT, and cache everything that only depends
    on the mesh geometry
 ------------------------------------------------------------------------- */
@@ -427,19 +461,11 @@ void ComputeXRDFFT::setup_mesh()
 
   nfft = fftn[0]*fftn[1]*fftn[2];
 
-  memory->create(density_slab,MAX(nfft,1),"xrd/fft:density_slab");
-  memory->create(work1,MAX(2*nfft,1),"xrd/fft:work1");
   memory->create(foot_all,6*nprocs,"xrd/fft:foot_all");
   memory->create(recvcounts,nprocs,"xrd/fft:recvcounts");
   memory->create(sstart,nprocs,"xrd/fft:sstart");
   memory->create(scount,nprocs,"xrd/fft:scount");
   memory->create(destlist,nprocs,"xrd/fft:destlist");
-  memory->create(rho0,order,"xrd/fft:rho0");
-  memory->create(rho1,order,"xrd/fft:rho1");
-  memory->create(rho2,order,"xrd/fft:rho2");
-  memory->create(mx,order,"xrd/fft:mx");
-  memory->create(my,order,"xrd/fft:my");
-  memory->create(mz,order,"xrd/fft:mz");
   requests = new MPI_Request[nprocs];
 
   for (int p = 0; p < nprocs; p++) scount[p] = 0;
@@ -462,13 +488,7 @@ void ComputeXRDFFT::setup_mesh()
 
   MPI_Comm_split(world,(nfft > 0) ? 0 : MPI_UNDEFINED,me,&fft_comm);
 
-  if (nfft > 0) {
-    int tmp;
-    fft1 = new FFT3d(lmp,fft_comm,nx,ny,nz,
-                     fftlo[0],ffthi[0],fftlo[1],ffthi[1],fftlo[2],ffthi[2],
-                     fftlo[0],ffthi[0],fftlo[1],ffthi[1],fftlo[2],ffthi[2],
-                     0,0,&tmp,0,0);
-  }
+  allocate_mesh();
 
   // group the atom types by element: types sharing a row of ASFXRD have the
   // same scattering factor and can share a transform
@@ -606,13 +626,11 @@ void ComputeXRDFFT::refresh_scaling()
    rank holds a full copy, as it did before.
 ------------------------------------------------------------------------- */
 
-void ComputeXRDFFT::set_footprint()
+int ComputeXRDFFT::minmax_u(double *umin, double *umax)
 {
   double **x = atom->x;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-
-  double umin[3], umax[3];
   int nany = 0;
 
   for (int d = 0; d < 3; d++) {
@@ -631,6 +649,23 @@ void ComputeXRDFFT::set_footprint()
     }
     nany = 1;
   }
+
+  return nany;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputeXRDFFT::grow_density_own()
+{
+  memory->grow(density_own,MAX(nfoot,(bigint)1),"xrd/fft:density_own");
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputeXRDFFT::set_footprint()
+{
+  double umin[3], umax[3];
+  int nany = minmax_u(umin,umax);
 
   nfoot = 1;
 
@@ -669,7 +704,7 @@ void ComputeXRDFFT::set_footprint()
   // the footprint of a rank owning atoms is at least the stencil width, so it
   // cannot overflow an int unless the whole mesh does, which set_grid() rejects
 
-  memory->grow(density_own,MAX(nfoot,(bigint)1),"xrd/fft:density_own");
+  grow_density_own();
 
   // a rank that already reaches most of the mesh saves little by sending the
   // pieces of it separately, and MPI reduces a whole mesh better than this can.
@@ -687,7 +722,7 @@ void ComputeXRDFFT::set_footprint()
       foot_lo[d] = 0;
       foot_n[d] = nmesh[d];
     }
-    memory->grow(density_own,(int)nfoot,"xrd/fft:density_own");
+    grow_density_own();
   }
 
   bucket_atoms();

@@ -115,12 +115,19 @@ class ComputeXRDFFT : public ComputeXRD {
 
   void set_grid();
   void setup_mesh();
-  void refresh_scaling();
-  void deallocate();
   void set_footprint();
-  void bucket_atoms();
-  void fold_reduce(int);
   void set_pgrid();
+
+  // a derived style may keep the mesh and the atoms somewhere else, so the
+  // parts of the calculation that touch either of them are replaceable
+
+  virtual void allocate_mesh();
+  virtual void grow_density_own();
+  virtual int minmax_u(double *, double *);
+  virtual void refresh_scaling();
+  virtual void deallocate();
+  virtual void bucket_atoms();
+  virtual void fold_reduce(int);
   static int segments(int, int, int, int, int, int (*)[3]);
   int qgrid_lo(int q, int d) const {
     int c = (d == 0) ? (q % pgrid[0]) : ((d == 1) ? ((q/pgrid[0]) % pgrid[1])
@@ -135,7 +142,7 @@ class ComputeXRDFFT : public ComputeXRD {
   bigint brick_count(int);
   void pack_brick(int, FFT_SCALAR *);
   void unpack_brick(const FFT_SCALAR *, int);
-  void spread(int);
+  virtual void spread(int);
   double kb_window(int, int, int);
   static int factorable(int);
   double bessel_i0(double);

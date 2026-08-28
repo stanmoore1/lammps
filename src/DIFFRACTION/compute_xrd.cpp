@@ -283,6 +283,11 @@ void ComputeXRD::reject_unclaimed(char **arg)
 
 ComputeXRD::~ComputeXRD()
 {
+  // a KOKKOS style derived from this one is copied by value to be handed to a
+  // device kernel, and the copy must not free what the original owns
+
+  if (copymode) return;
+
   memory->destroy(array);
   memory->destroy(store_tmp);
   delete[] ztype;

@@ -1,11 +1,14 @@
 .. index:: compute xrd
 .. index:: compute xrd/fft
+.. index:: compute xrd/fft/kk
 
 compute xrd command
 ===================
 
 compute xrd/fft command
 =======================
+
+Accelerator Variants: *xrd/fft/kk*
 
 Syntax
 """"""
@@ -379,6 +382,18 @@ Compute *xrd/fft* uses the FFT wrappers of the KSPACE package and is only
 available if LAMMPS was built with both the DIFFRACTION and the KSPACE
 packages.  Building with single precision FFTs limits the accuracy of weak
 diffuse intensities.
+
+Compute *xrd/fft/kk* keeps the stencil of an atom in registers rather than in
+memory, which fixes the widest stencil it can spread: *order* must be at most
+25.  That is far wider than the point where the spreading already reproduces
+the direct sum to round-off, but compute *xrd/fft* without the *kk* suffix has
+no such limit.
+
+----------
+
+.. include:: accel_styles.rst
+
+----------
 
 Related commands
 """"""""""""""""
