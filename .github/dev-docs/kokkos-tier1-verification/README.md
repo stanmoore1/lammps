@@ -19,19 +19,28 @@ list.
 
 ## Usage
 
-    ./run_checks.sh step0     # thermo: plain CPU styles vs KOKKOS styles, same binary
-    ./run_checks.sh detect    # LMP_KOKKOS_WATCH / LMP_KOKKOS_STALE detectors
+    ./run_checks.sh step0       # thermo: plain CPU styles vs KOKKOS styles, same binary
+    ./run_checks.sh detect      # LMP_KOKKOS_WATCH / LMP_KOKKOS_STALE detectors
+    ./run_checks.sh mpi         # step0 again under two MPI ranks
+    ./run_checks.sh detect_mpi  # detect again under two MPI ranks
 
 `step0` runs each deck twice from the same executable, once with the plain
 styles and once with `-sf kk`, and compares every thermo column with
 `cmp.py`.  A column is equal when `|a-b| <= 1e-8 + 1e-6*max(|a|,|b|)`; the
 reported number is the ratio to that tolerance, so anything above 1.0 fails.
 
+The `mpi` and `detect_mpi` passes repeat the same cases under
+`mpirun -np 2`, which is what exercises the exchange and border
+communication; `MPIRUN` can be overridden in the environment.
+
 `detect` needs an executable built with `-D KOKKOS_DEBUG_SYNC=on`; see
 `../kokkos-sync-debugging.md` for what the reports mean and for the
-poison-mode build that pinpoints a stale access.  `LMP` and `OUT` can be set
-in the environment; `LMP` defaults to `build-sync/lmp` at the top of the
-repository.
+poison-mode build that pinpoints a stale access.  Judge its output by
+diffing the reported labels (array plus the routine that touched it)
+against a run of a style of the same shape that is known to be clean, not
+by their absolute number: the KOKKOS infrastructure reports a fixed set of
+labels for every input.  `LMP` and `OUT` can be set in the environment;
+`LMP` defaults to `build-sync/lmp` at the top of the repository.
 
 ## Layout
 

@@ -11,6 +11,7 @@ LMP=${LMP:-$ROOT/build-sync/lmp}
 export LAMMPS_POTENTIALS=${LAMMPS_POTENTIALS:-$ROOT/potentials}
 DATA="-var tdir $ROOT/unittest/force-styles/tests"
 OUT=${OUT:-$D/out}
+MPIRUN=${MPIRUN:-"mpirun --allow-run-as-root --oversubscribe"}
 GPUPK="neigh full newton off comm device sort device atom/map device gpu/aware on"
 mkdir -p "$OUT"
 
@@ -90,6 +91,38 @@ detect() {
         -k on -sf kk -pk kokkos $PK > "$OUT/$L.det.err" 2>&1 )
     n=$(grep -cE '^\[(stale|watch)\]' "$OUT/$L.det.err" 2>/dev/null)
     fin=$(grep -c "Total wall time" "$OUT/$L.det" 2>/dev/null)
+    printf '%-46s reports=%-5s finished=%s\n' "$L" "$n" "$fin"
+  done
+}
+
+
+# same comparison under two MPI ranks, which exercises the exchange and border
+# communication the serial pass never reaches
+mpi() {
+  printf '%-46s %-12s %s\n' STYLE VERDICT TOL_RATIO
+  echo "$CASES" | while IFS='|' read -r deck vars pkov; do
+    case "$deck" in ""|\#*) continue;; esac
+    L=$(label "$deck" "$vars"); VA=$(vargs "$vars"); PK=${pkov:-$GPUPK}
+    ( cd "$D" && $MPIRUN -np 2 $LMP -in "$deck" $DATA $VA -log none -screen "$OUT/$L.mcpu" >/dev/null 2>&1 )
+    ( cd "$D" && $MPIRUN -np 2 $LMP -in "$deck" $DATA $VA -log none -screen "$OUT/$L.mkk" \
+        -k on -sf kk -pk kokkos $PK >/dev/null 2>&1 )
+    python3 "$D/cmp.py" "$OUT/$L.mcpu" "$OUT/$L.mkk" "$L"
+  done
+}
+
+# watch/stale detectors under two MPI ranks
+detect_mpi() {
+  echo "$CASES" | while IFS='|' read -r deck vars pkov; do
+    case "$deck" in ""|\#*) continue;; esac
+    L=$(label "$deck" "$vars"); VA=$(vargs "$vars"); PK=${pkov:-$GPUPK}
+    R=$(mktemp -d "${TMPDIR:-/tmp}/rcout.XXXXXX")
+    ( cd "$D" && LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
+        $MPIRUN -np 2 --output-filename "$R" $LMP -in "$deck" $DATA $VA -log none \
+        -screen "$OUT/$L.mdet" -k on -sf kk -pk kokkos $PK >/dev/null 2>&1 )
+    cat "$R"/1/rank.*/std* > "$OUT/$L.mdet.err" 2>/dev/null
+    rm -rf "$R"
+    n=$(grep -cE '^\[(stale|watch)\]' "$OUT/$L.mdet.err" 2>/dev/null)
+    fin=$(grep -c "Total wall time" "$OUT/$L.mdet" 2>/dev/null)
     printf '%-46s reports=%-5s finished=%s\n' "$L" "$n" "$fin"
   done
 }
