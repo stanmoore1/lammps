@@ -23,14 +23,14 @@ OPT.
    * :doc:`bond <compute_bond>`
    * :doc:`bond/local <compute_bond_local>`
    * :doc:`born/matrix <compute_born_matrix>`
-   * :doc:`centro/atom (o) <compute_centro_atom>`
+   * :doc:`centro/atom (ko) <compute_centro_atom>`
    * :doc:`centroid/stress/atom <compute_stress_atom>`
    * :doc:`chunk/atom <compute_chunk_atom>`
    * :doc:`chunk/spread/atom <compute_chunk_spread_atom>`
    * :doc:`cluster/atom <compute_cluster_atom>`
    * :doc:`cna/atom (o) <compute_cna_atom>`
    * :doc:`cnp/atom (o) <compute_cnp_atom>`
-   * :doc:`com <compute_com>`
+   * :doc:`com (k) <compute_com>`
    * :doc:`com/chunk <compute_com_chunk>`
    * :doc:`composition/atom (k) <compute_composition_atom>`
    * :doc:`contact/atom <compute_contact_atom>`
@@ -50,7 +50,7 @@ OPT.
    * :doc:`edpd/temp/atom <compute_edpd_temp_atom>`
    * :doc:`efield/atom <compute_efield_atom>`
    * :doc:`efield/wolf/atom <compute_efield_wolf_atom>`
-   * :doc:`entropy/atom (o) <compute_entropy_atom>`
+   * :doc:`entropy/atom (ko) <compute_entropy_atom>`
    * :doc:`erotate/asphere (k) <compute_erotate_asphere>`
    * :doc:`erotate/rigid <compute_erotate_rigid>`
    * :doc:`erotate/sphere (k) <compute_erotate_sphere>`
@@ -64,7 +64,7 @@ OPT.
    * :doc:`gaussian/grid/local (k) <compute_gaussian_grid_local>`
    * :doc:`global/atom <compute_global_atom>`
    * :doc:`group/group <compute_group_group>`
-   * :doc:`gyration <compute_gyration>`
+   * :doc:`gyration (k) <compute_gyration>`
    * :doc:`gyration/chunk <compute_gyration_chunk>`
    * :doc:`gyration/shape <compute_gyration_shape>`
    * :doc:`gyration/shape/chunk <compute_gyration_shape_chunk>`
@@ -72,13 +72,13 @@ OPT.
    * :doc:`heat/flux <compute_heat_flux>`
    * :doc:`heat/flux/tally <compute_tally>`
    * :doc:`heat/flux/virial/tally <compute_tally>`
-   * :doc:`hexorder/atom (o) <compute_hexorder_atom>`
+   * :doc:`hexorder/atom (ko) <compute_hexorder_atom>`
    * :doc:`hma <compute_hma>`
    * :doc:`improper <compute_improper>`
    * :doc:`improper/local <compute_improper_local>`
-   * :doc:`inertia <compute_inertia>`
+   * :doc:`inertia (k) <compute_inertia>`
    * :doc:`inertia/chunk <compute_inertia_chunk>`
-   * :doc:`ke <compute_ke>`
+   * :doc:`ke (k) <compute_ke>`
    * :doc:`ke/atom (ko) <compute_ke_atom>`
    * :doc:`ke/atom/eff <compute_ke_atom_eff>`
    * :doc:`ke/eff <compute_ke_eff>`

@@ -13,27 +13,30 @@
 
 #ifdef COMPUTE_CLASS
 // clang-format off
-ComputeStyle(gyration,ComputeGyration);
+ComputeStyle(inertia/kk,ComputeInertiaKokkos<LMPDeviceType>);
+ComputeStyle(inertia/kk/device,ComputeInertiaKokkos<LMPDeviceType>);
+ComputeStyle(inertia/kk/host,ComputeInertiaKokkos<LMPHostType>);
 // clang-format on
 #else
 
-#ifndef LMP_COMPUTE_GYRATION_H
-#define LMP_COMPUTE_GYRATION_H
+// clang-format off
+#ifndef LMP_COMPUTE_INERTIA_KOKKOS_H
+#define LMP_COMPUTE_INERTIA_KOKKOS_H
 
-#include "compute.h"
+#include "compute_inertia.h"
+#include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
-class ComputeGyration : public Compute {
+template<class DeviceType>
+class ComputeInertiaKokkos : public ComputeInertia {
  public:
-  ComputeGyration(class LAMMPS *, int, char **);
-  ~ComputeGyration() override;
-  void init() override;
-  double compute_scalar() override;
-  void compute_vector() override;
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
- protected:
-  double masstotal;
+  ComputeInertiaKokkos(class LAMMPS *, int, char **);
+
+  void compute_vector() override;
 };
 
 }    // namespace LAMMPS_NS

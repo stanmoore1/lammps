@@ -13,27 +13,30 @@
 
 #ifdef COMPUTE_CLASS
 // clang-format off
-ComputeStyle(gyration,ComputeGyration);
+ComputeStyle(ke/kk,ComputeKEKokkos<LMPDeviceType>);
+ComputeStyle(ke/kk/device,ComputeKEKokkos<LMPDeviceType>);
+ComputeStyle(ke/kk/host,ComputeKEKokkos<LMPHostType>);
 // clang-format on
 #else
 
-#ifndef LMP_COMPUTE_GYRATION_H
-#define LMP_COMPUTE_GYRATION_H
+// clang-format off
+#ifndef LMP_COMPUTE_KE_KOKKOS_H
+#define LMP_COMPUTE_KE_KOKKOS_H
 
-#include "compute.h"
+#include "compute_ke.h"
+#include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
-class ComputeGyration : public Compute {
+template<class DeviceType>
+class ComputeKEKokkos : public ComputeKE {
  public:
-  ComputeGyration(class LAMMPS *, int, char **);
-  ~ComputeGyration() override;
-  void init() override;
-  double compute_scalar() override;
-  void compute_vector() override;
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
 
- protected:
-  double masstotal;
+  ComputeKEKokkos(class LAMMPS *, int, char **);
+
+  double compute_scalar() override;
 };
 
 }    // namespace LAMMPS_NS

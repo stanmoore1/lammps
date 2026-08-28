@@ -97,6 +97,20 @@ action compute_ave_sphere_atom_kokkos.cpp compute_ave_sphere_atom.cpp
 action compute_ave_sphere_atom_kokkos.h compute_ave_sphere_atom.h
 action compute_coord_atom_kokkos.cpp
 action compute_coord_atom_kokkos.h
+action compute_entropy_atom_kokkos.cpp compute_entropy_atom.cpp
+action compute_entropy_atom_kokkos.h compute_entropy_atom.h
+action compute_centro_atom_kokkos.cpp
+action compute_centro_atom_kokkos.h
+action compute_com_kokkos.cpp
+action compute_com_kokkos.h
+action compute_gyration_kokkos.cpp
+action compute_gyration_kokkos.h
+action compute_hexorder_atom_kokkos.cpp compute_hexorder_atom.cpp
+action compute_hexorder_atom_kokkos.h compute_hexorder_atom.h
+action compute_inertia_kokkos.cpp
+action compute_inertia_kokkos.h
+action compute_ke_kokkos.cpp
+action compute_ke_kokkos.h
 action compute_ke_atom_kokkos.cpp
 action compute_ke_atom_kokkos.h
 action compute_erotate_asphere_kokkos.cpp compute_erotate_asphere.cpp
