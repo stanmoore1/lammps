@@ -21,7 +21,6 @@ ComputeStyle(frenkel, ComputeFrenkel)
 #define LMP_COMPUTE_FRENKEL_H
 
 #include "compute.h"
-#include "region.h"
 
 #include <functional>
 #include <unordered_map>
@@ -32,7 +31,6 @@ class ComputeFrenkel : public Compute {
  public:
   ComputeFrenkel(class LAMMPS *, int, char **);
   ~ComputeFrenkel() override;
-  int modify_param(int, char **) override;
 
   void init() override;
   int pack_reverse_comm(int, int, double *) override;
@@ -52,7 +50,8 @@ class ComputeFrenkel : public Compute {
   double **image_objarray;
   int image_nmax;
 
-  Region *region;
+  class Region *region;
+  std::string idregion;
   std::string sitefile;
   bool rescale;
 
@@ -81,7 +80,8 @@ class ComputeFrenkel : public Compute {
   double **cluster_center;                        // Geometric center of cluster in x,y,z
   int noccupied;
   tagint *occupied_cluster_ID;    // Per-cluster vector, length noccupied
-  double old_boxlo[3], old_boxhi[3];
+  double old_boxlo[3], old_boxhi[3];    // box the reference sites were created for
+  double bin_boxlo[3], bin_boxhi[3];    // box the site bins were built for
 
   bigint invoked_find_defects;
   bigint invoked_find_clusters;

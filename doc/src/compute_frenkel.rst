@@ -8,10 +8,20 @@ Syntax
 
 .. code-block:: LAMMPS
 
-   compute ID group-ID frenkel
+   compute ID group-ID frenkel keyword value ...
 
 * ID, group-ID are documented in :doc:`compute <compute>` command
 * frenkel = style name of this compute command
+* zero or more keyword/value pairs may be appended
+* keyword = *drvac* or *drint* or *region* or *rescale* or *site_file*
+
+  .. parsed-literal::
+
+       *drvac* value = distance for including vacancies in a cluster (distance units)
+       *drint* value = distance for including interstitials in a cluster (distance units)
+       *region* value = ID of a region (or *none*) to restrict the reference sites to
+       *rescale* value = *yes* or *no* to co-scale the reference sites with the box
+       *site_file* value = name of a file with explicit "x y z" site coordinates (or *none*)
 
 Examples
 """"""""
@@ -20,8 +30,8 @@ Examples
 
    compute 1 all frenkel
 
-   compute def all frenkel
-   compute_modify def drvac 1.2 drint 1.7 rescale yes
+   compute def all frenkel drvac 1.2 drint 1.7 rescale yes
+   compute sub all frenkel region inner site_file sites.txt
 
 Description
 """""""""""
@@ -64,18 +74,7 @@ of atoms at each site, not on this clustering or the two distances.
    from its lattice site leaving a vacancy and gets squeezed in
    between the atoms of neighboring occupied lattice sites
 
-Several settings of this compute can be adjusted with the
-:doc:`compute_modify <compute_modify>` command.  The following keywords
-are recognized:
-
-.. parsed-literal::
-
-   *drvac* value = distance for including vacancies in a cluster (distance units)
-   *drint* value = distance for including interstitials in a cluster (distance units)
-   *region* value = ID of a region (or *none*) to restrict the lattice sites to
-   *rescale* value = *yes* or *no* to co-scale the reference sites with the box
-   *site_file* value = name of a file to read explicit "x y z" site coordinates from (or *none*)
-
+The optional keywords listed above adjust the settings of the analysis.
 The *drvac* and *drint* distances default to 1.01 and 1.42 lattice
 spacings, respectively, so that vacancy clusters connect first- and
 second-neighbor sites while the spatially more extended interstitial
@@ -111,11 +110,10 @@ default distances are derived from it.
    minimized snapshot) when the thermal displacements are large.
 
 In a restarted simulation this compute behaves like any other compute:
-the :doc:`lattice <lattice>`, compute, and :doc:`compute_modify
-<compute_modify>` commands must be repeated in the input script and the
-reference sites are then regenerated at the beginning of the run.  With
-*rescale yes* the lattice constant must be chosen to match the size of
-the box stored in the restart file.
+the :doc:`lattice <lattice>` and compute commands must be repeated in
+the input script and the reference sites are then regenerated at the
+beginning of the run.  With *rescale yes* the lattice constant must be
+chosen to match the size of the box stored in the restart file.
 
 This compute is described in :ref:`(Hammond) <compute-frenkel-Hammond>`.
 
