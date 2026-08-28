@@ -17,11 +17,13 @@
 
    Updated July 8, 2022 by the author.
 
-   Refactored for inclusion into LAMMPS 23 June 2026
+   Refactored for inclusion into LAMMPS: June to August 2026
+   to use dump local for writing out interstitials and vacancies
    and to use dump image for graphics: by Axel Kohlmeyer, Temple U
 ------------------------------------------------------------------------- */
 
 #include "compute_frenkel.h"
+
 #include "atom.h"
 #include "citeme.h"
 #include "comm.h"
@@ -44,22 +46,24 @@
 #include <cmath>
 #include <cstring>
 
-static constexpr int BIN_GROW_SIZE = 32;    // bins start this size and grow by this
-static constexpr int MAX_OCCUPANTS = 8;     // max number of occupants of one lattice site
-static constexpr double BIG = 1.0e20;
-static constexpr double SMALL = 1.0e-10;
+namespace {
+constexpr int BIN_GROW_SIZE = 32;    // bins start this size and grow by this
+constexpr int MAX_OCCUPANTS = 8;     // max number of occupants of one lattice site
+constexpr double BIG = 1.0e20;
+constexpr double SMALL = 1.0e-10;
 
 // small, fixed MPI message tags for the ghost-site exchange.  Using the MPI
 // rank (or rank + n*nprocs) as a tag can exceed the guaranteed MPI_TAG_UB
 // (>= 32767) on large runs; the source rank is already given to MPI_Irecv, so
 // one constant tag per message type is sufficient and portable.
-static constexpr int TAG_COUNT = 0;
-static constexpr int TAG_SITE = 1;
-static constexpr int TAG_X = 2;
-static constexpr int TAG_OCCUP = 3;
-static constexpr int TAG_CLUST = 4;
-static constexpr int TAG_RTAG = 5;    // reverse (ghost -> owner) label push: site tags
-static constexpr int TAG_RCID = 6;    // reverse (ghost -> owner) label push: cluster IDs
+constexpr int TAG_COUNT = 0;
+constexpr int TAG_SITE = 1;
+constexpr int TAG_X = 2;
+constexpr int TAG_OCCUP = 3;
+constexpr int TAG_CLUST = 4;
+constexpr int TAG_RTAG = 5;    // reverse (ghost -> owner) label push: site tags
+constexpr int TAG_RCID = 6;    // reverse (ghost -> owner) label push: cluster IDs
+}    // namespace
 
 using namespace LAMMPS_NS;
 using MathConst::MY_2PI;
@@ -81,13 +85,13 @@ static const char cite_compute_frenkel_c[] =
 
 ComputeFrenkel::ComputeFrenkel(class LAMMPS *lmp, int narg, char **arg) :
     Compute(lmp, narg, arg), image_objvec(nullptr), image_objarray(nullptr), image_nmax(0),
-    region(nullptr), rescale(false), mindist(nullptr),
-    site_mindist(nullptr), noccupants(nullptr), occupant_tag(nullptr), nnormal(0), normal(nullptr),
-    nlatsites(0), nlatghosts(0), latsites(nullptr), latsites0(nullptr), site_tag(nullptr),
-    first_local_tag(0), nlatbins{0, 0, 0, 0}, latbins(nullptr), clusterID(nullptr),
-    cluster_center(nullptr), noccupied(0), occupied_cluster_ID(nullptr), old_boxlo{0.0, 0.0, 0.0},
-    old_boxhi{0.0, 0.0, 0.0}, bin_boxlo{0.0, 0.0, 0.0}, bin_boxhi{0.0, 0.0, 0.0},
-    invoked_find_defects(-1), invoked_find_clusters(-1), invoked_construct_WS_cell(-1)
+    region(nullptr), rescale(false), mindist(nullptr), site_mindist(nullptr), noccupants(nullptr),
+    occupant_tag(nullptr), nnormal(0), normal(nullptr), nlatsites(0), nlatghosts(0),
+    latsites(nullptr), latsites0(nullptr), site_tag(nullptr), first_local_tag(0),
+    nlatbins{0, 0, 0, 0}, latbins(nullptr), clusterID(nullptr), cluster_center(nullptr),
+    noccupied(0), occupied_cluster_ID(nullptr), old_boxlo{0.0, 0.0, 0.0}, old_boxhi{0.0, 0.0, 0.0},
+    bin_boxlo{0.0, 0.0, 0.0}, bin_boxhi{0.0, 0.0, 0.0}, invoked_find_defects(-1),
+    invoked_find_clusters(-1), invoked_construct_WS_cell(-1)
 {
   if (narg < 3) utils::missing_cmd_args(FLERR, "compute frenkel", error);
 
@@ -1139,10 +1143,8 @@ void ComputeFrenkel::exchange_one(const std::function<void *(int)> &sbuf,
   std::vector<MPI_Request> rreq(nexch, MPI_REQUEST_NULL);
   for (int q = 0; q < nexch; q++) {
     if (procs[q] == me) continue;
-    if (n_send[q] > 0)
-      MPI_Isend(sbuf(q), n_send[q] * stride, type, procs[q], tag, world, &sreq[q]);
-    if (n_recv[q] > 0)
-      MPI_Irecv(rbuf(q), n_recv[q] * stride, type, procs[q], tag, world, &rreq[q]);
+    if (n_send[q] > 0) MPI_Isend(sbuf(q), n_send[q] * stride, type, procs[q], tag, world, &sreq[q]);
+    if (n_recv[q] > 0) MPI_Irecv(rbuf(q), n_recv[q] * stride, type, procs[q], tag, world, &rreq[q]);
   }
   MPI_Waitall(nexch, sreq.data(), MPI_STATUSES_IGNORE);
   MPI_Waitall(nexch, rreq.data(), MPI_STATUSES_IGNORE);
