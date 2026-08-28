@@ -13,7 +13,9 @@
 
 #ifdef COMPUTE_CLASS
 
-ComputeStyle(frenkel, ComputeFrenkel)
+// clang-format off
+ComputeStyle(frenkel,ComputeFrenkel)
+// clang-format on
 
 #else
 
