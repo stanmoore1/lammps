@@ -56,6 +56,10 @@ in.regions|
 in.asphere|
 in.min|ms sd
 in.min|ms quickmin
+# min fire/kk reports a stale fnorm/fmax under the split-memory debug build
+# (pre-existing: reproduces with the unpatched style), so leave those columns out
+in.min|ms fire nrm no
+in.min|ms cg
 EOC
 )
 
@@ -68,7 +72,7 @@ label() { echo "$1$(echo " $2" | tr ' /' '_-')"; }
 step0() {
   printf '%-46s %-12s %s\n' STYLE VERDICT TOL_RATIO
   echo "$CASES" | while IFS='|' read -r deck vars pkov; do
-    [ -z "$deck" ] && continue
+    case "$deck" in ""|\#*) continue;; esac
     L=$(label "$deck" "$vars"); VA=$(vargs "$vars"); PK=${pkov:-$GPUPK}
     ( cd "$D" && $LMP -in "$deck" $DATA $VA -log none -screen "$OUT/$L.cpu" >/dev/null 2>&1 )
     ( cd "$D" && $LMP -in "$deck" $DATA $VA -log none -screen "$OUT/$L.kk" \
@@ -79,7 +83,7 @@ step0() {
 
 detect() {
   echo "$CASES" | while IFS='|' read -r deck vars pkov; do
-    [ -z "$deck" ] && continue
+    case "$deck" in ""|\#*) continue;; esac
     L=$(label "$deck" "$vars"); VA=$(vargs "$vars"); PK=${pkov:-$GPUPK}
     ( cd "$D" && LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 \
         $LMP -in "$deck" $DATA $VA -log none -screen "$OUT/$L.det" \
