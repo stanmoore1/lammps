@@ -1,7 +1,7 @@
 # KOKKOS Porting Backlog
 
 **STATUS TABLES GO STALE.** Trust `ls src/KOKKOS/` and `git log` over this file.
-Last verified: 2026-08-28.
+Last verified: 2026-08-28 (end of the Tier 1 pass).
 
 Derived from an exhaustive scan: every style-registration macro (20 of them --
 `PairStyle`, `FixStyle`, `ComputeStyle`, `KSpaceStyle`, `RegionStyle`, ...) across
@@ -13,16 +13,20 @@ the style hot), occurrence count across `examples/` + `bench/`, and whether a
 
 ## Coverage snapshot
 
+Counts are as of the end of the Tier 1 pass; the `/kk` column is
+`grep -l "^<Kind>Style(" src/KOKKOS/*_kokkos.h | wc -l`, which counts source
+files, not registrations.
+
 | Kind | base | `/kk` | real gap\* |
 |---|---|---|---|
-| Fix | 343 | 75 | ~225 |
-| Pair | 328 | 110 | ~206 |
-| Compute | 188 | 18 | ~156 |
+| Fix | 343 | 87 | ~213 |
+| Pair | 328 | 135 | ~181 |
+| Compute | 188 | 25 | ~149 |
 | KSpace | 27 | 2 | 23 |
 | AtomVec | 30 | 12 | 18 |
-| Bond / Angle / Dihedral / Improper | 97 | 66 | 23 |
-| Region | 10 | 2 | 7 |
-| Minimize | 10 | 2 | 6 |
+| Bond / Angle / Dihedral / Improper | 97 | 71 | 18 |
+| Region | 10 | 7 | 2 |
+| Minimize | 10 | 4 | 4 |
 | NPair + NStencil + NBin | 103 | 19 | **1** (see "Neighbor" below) |
 | Command, Dump | 95 | 2 | 0 -- setup-time / host I/O |
 
@@ -47,12 +51,13 @@ written before they were true:
   `fix_shake_kokkos`, `fix_cmap_kokkos` and `fix_rigid_small_kokkos`.  "It calls
   `atom->map()`" is a cost, not a blocker.
 - **Region + atom-style variables are solved** in `fix_setforce_kokkos.cpp`: it
-  errors out on non-block/sphere regions, calls
+  errors out via `dynamic_cast<KokkosBase *>` on an unported region, calls
   `regionKKBase->match_all_kokkos(groupbit, k_match)`, and host-evaluates atom-style
   variables into a DualView the kernel reads.  Any `setforce`-shaped fix inherits
   the recipe for free.
 - **Group reductions exist on device.** `src/KOKKOS/group_kokkos.h` provides
-  `mass_kk`, `xcm_kk`, `vcm_kk`, `angmom_kk`, `inertia_kk`.
+  `mass_kk`, `xcm_kk`, `vcm_kk`, `angmom_kk`, `inertia_kk`, `gyration_kk` and
+  `gyration_tensor_kk`.
 - **Neighbor stencils are deliberately host-computed.**
   `npair_kokkos.cpp::copy_stencil_info()` calls the base `NPair::copy_stencil_info()`
   and memcpy's the result into device views.  A stencil is a handful of integer
@@ -87,15 +92,21 @@ written before they were true:
 5. **Lift the `kspace_modify diff ad` restriction** in `pppm_kokkos.cpp:145`.  Not a
    new style, but `diff ad` is the memory-efficient recommendation for large PPPM
    runs -- arguably higher value than any new kspace style.
-6. **Region dispatch refactor.** `fix_wall_region_kokkos.cpp:66` hard-errors on
-   anything but `RegBlockKokkos`/`RegSphereKokkos`, and lines 116-120 dispatch via a
-   `dynamic_cast` chain with one template instantiation per region type.  Do this
-   before the third region port, or five new regions make it a seven-way chain
-   times device/host times precision.
+6. **Region dispatch refactor -- partly done.** The concrete-type list that
+   `fix wall/region/kk` templates its functor on now lives once, in
+   `region_kokkos_styles.h`, and drives both the dispatch and the error message, so
+   adding a region/kk style is a one-line change there.  The dispatch is still a
+   `dynamic_cast` chain with one template instantiation per region type times
+   device/host times precision; replacing it with a virtual device interface is
+   what is left.
 
 ## Tier 1 -- mechanical, template already in tree
 
-**In progress** on branch `more-kokkos-porting`.  Ordered best-first.
+**Complete** on branch `more-kokkos-porting`, except for the two items listed
+under "Not done" at the end.  Everything below was verified either against the
+existing `unittest/force-styles` YAML references (which exercise every `/kk`
+variant automatically) or, where no reference exists, against the CPU style on a
+hand-written deck run serial and under `mpirun -np 2`.
 
 ### Done
 
@@ -109,55 +120,102 @@ written before they were true:
   `electron/stopping`, `oneway`, `setforce`) test `dynamic_cast<KokkosBase *>`
   instead of a hardcoded style list, so they accept every ported region
   automatically.
-- **Small fixes:** `flow/gauss`, `damping/cundall`, `viscous/nonlinear`,
+- **Fixes (13):** `flow/gauss`, `damping/cundall`, `viscous/nonlinear`,
   `store/force`, `wall/harmonic/outside` (plus the `wall/harmonic/returned` alias),
-  `brownian`, `addtorque/atom`, `settorque/atom`.
-
-### Still open in Tier 1
-
-- **Small fixes:** `nvk` (two nlocal reductions then a v/x update), `baoab`
-  (per-atom B-A-O-A-B, `fix_gjf_kokkos` template), `wall/piston` (host scalar ramp
-  plus a per-atom reflect, `fix_wall_reflect_kokkos` template), `propel/self`
-  (DIPOLE and VELOCITY modes only -- error out on QUAT, which needs ellipsoid
-  bonus data; note it tallies a per-atom virial, so it needs the `d_vatom` +
-  `v_tally` handling from `fix_wall_harmonic_kokkos`), `nve/asphere/noforce`
-  (`fix_nve_asphere_kokkos` minus the force term; the base also has a
-  superellipsoid branch that `AtomVecEllipsoidKokkos` does not support, so guard
-  on `atom->superellipsoid_flag`).
-- **Pair styles that fit the `pair_kokkos.h` template:**
-  - FEP soft-core family (8): `lj/cut/soft`, `coul/cut/soft`, `lj/cut/coul/cut/soft`,
+  `brownian`, `addtorque/atom`, `settorque/atom`, `nvk`, `baoab`, `wall/piston`,
+  `propel/self`, `nve/asphere/noforce`.  `propel/self` errors out on QUAT mode and
+  `nve/asphere/noforce` on `atom->superellipsoid_flag`, both because
+  `AtomVecEllipsoidKokkos` has no bonus data for them.  `baoab` and `brownian` carry
+  `skip_tests: kokkos_*` in their YAML references for the same reason `langevin` and
+  `gjf` do: the device RNG stream cannot reproduce the CPU Marsaglia stream.  At
+  T = 0, where the noise amplitude vanishes, `baoab/kk` is bit-identical to the CPU
+  style including the thermostat energy tally.
+- **Pair styles on the `pair_kokkos.h` template (23):**
+  - FEP soft-core (8): `lj/cut/soft`, `coul/cut/soft`, `lj/cut/coul/cut/soft`,
     `lj/class2/soft`, `morse/soft`, `coul/long/soft`, `lj/cut/coul/long/soft`,
-    `lj/charmm/coul/long/soft`.  There is no `ncoultablebits` anywhere in `src/FEP/`,
-    so the long variants use direct erfc and are *simpler* than
-    `pair_lj_cut_coul_long_kokkos`.  The one non-mechanical bit: `fix adapt/fep`
-    mutates `lambda` at runtime, so the `params` DualView needs a dirty-flag re-sync
-    in `compute()`.  Solve once, the other seven are copy-edits.
-    `lj/cut/coul/long/soft` is the most-used unported pair style in the tree.
-  - CORESHELL `/cs` family (8): the delta from the already-ported parents is three
-    edits -- `rsq += EPSILON`; `r+EPS_EWALD` and `r2inv = 1/(rsq+EPS_EWALD_SQR)` in
-    the `factor_coul < 1` branch; a 6-term erfc series instead of the parent's
-    5-term.  Note `compute_fcoul`/`compute_ecoul` are non-virtual, so a subclass must
-    also override `compute()` and re-declare the `PairComputeFunctor` friends.
-  - Singletons: `lj/smooth/linear` (`lj/sf` is an alias in the same header, not a
-    separate style), `nm/cut/split`, `coul/slater/cut`, `born/coul/dsf`,
-    `lj/expand/sphere`, `lj/relres`, `lj/charmmfsw/coul/charmmfsh`.
-- **Many-body derivations of ported parents:** `sw/mod` (overrides only `settings()`
-  + `threebody()`), `tersoff/mod/c` (overrides only `read_file()` + `repulsive()`;
-  `c0` is already in `PairTersoff::Param`), `gran/hooke` and `gran/hertz/history`
-  (`pair_gran_hooke_history_kokkos` does 90% of the work).
-- **Bonded table styles:** `bond table`, `angle table`, `bond special`,
-  `dihedral table`, `dihedral table/cut`.  `pair_table_kokkos.h`'s
-  `TableDeviceConst`/`TableDevice`/`TableHost` triple is directly reusable -- the
-  bonded `Table` structs are a near-exact subset, indexed by type instead of
-  type-pair.  `dihedral_table.h`'s `uf_lookup` is already an inline header method.
-- **Atom styles:** `sph`, `peri`, `edpd`/`mdpd`/`tdpd`, `electron`, `smd`, `apip`,
-  `oxdna`.  `AtomKokkos::new_avec` **hard-errors** on an unported atom style, so each
-  gates whether KOKKOS is usable at all for that model class -- these are the
-  highest-leverage gaps in the scan.  Each needs new masks in `atom_masks.h`.
-- **Computes:** `entropy/atom`, `ke`, `com`, `inertia`, `gyration`, `centro/atom`,
-  `hexorder/atom`.  `compute_orientorder_atom_kokkos.h` already has per-atom 2-D
-  scratch views, a `TeamPolicy` neighbor pass and a device `select3`; anything shaped
-  "gather neighbors -> partial-sort -> reduce" is a copy of it.
+    `lj/charmm/coul/long/soft`.  No `ncoultablebits` anywhere in `src/FEP/`, so the
+    long variants evaluate erfc directly and need no table specialisation.
+    `fix adapt/fep` needs no special handling: it calls `Pair::reinit()`, which runs
+    `init_one()` for every type pair, and each `/kk` style marks `k_params` modified
+    there.
+  - CORESHELL `/cs` (8): `coul/long/cs`, `born/coul/long/cs`, `buck/coul/long/cs`,
+    `lj/cut/coul/long/cs`, `lj/class2/coul/long/cs`, `coul/wolf/cs`,
+    `born/coul/wolf/cs`, `born/coul/dsf/cs`.  The six-term B0..B5 erfc series goes
+    with its **own** EWALD_P (9.95473818e-1), not `EwaldConst::EWALD_P`, which pairs
+    with the A1..A5 series -- using the wrong one is an O(1) error, not a rounding
+    one.  In the four styles that combine LJ with long-range Coulomb the CPU lets
+    the EPS_EWALD_SQR correction reach the LJ term through a shared `r2inv`;
+    `pair_kokkos.h` calls `compute_fpair` without `factor_coul`, so the `/kk`
+    variants apply it to the Coulomb term only.  The difference is bounded by
+    EPS_EWALD_SQR/rsq and only shows up for pairs with 0 < special_coul < 1 and
+    special_lj > 0 (measured 7.7e-12 relative); the eight affected YAML references
+    have their `epsilon` raised to about four times that.
+  - Singletons (7): `lj/smooth/linear` (and its `lj/sf` alias), `nm/cut/split`,
+    `coul/slater/cut`, `born/coul/dsf`, `lj/expand/sphere`, `lj/relres`,
+    `lj/charmmfsw/coul/charmmfsh`.
+- **Many-body derivations (4):** `sw/mod`, `tersoff/mod/c`, `gran/hooke`,
+  `gran/hertz/history`.  Following the package convention, each derives from its own
+  CPU class with the parent KOKKOS implementation copied and edited, as
+  `tersoff/mod` and `lj/charmm/coul/charmm/implicit` already do.  `tersoff/mod/c`
+  rejects the `shift` keyword like the other KOKKOS tersoff styles, so its shift
+  reference now skips the accelerator variants.
+- **Bonded table styles (4):** `bond table`, `angle table`, `dihedral table`,
+  `dihedral table/cut`.  The data `compute_table()` builds on the host goes into
+  device views indexed by table number, and `uf_lookup()` becomes a
+  `KOKKOS_INLINE_FUNCTION`.  The bond and angle arrays carry one padding element,
+  because their spline branch reads `itable+1` one past the end at the last bin,
+  where its weight is exactly zero; the dihedral tables are cyclic and wrap instead.
+  `dihedral table` carries a device `minimum_image()` and the box data it needs,
+  following `bond_harmonic_restrain/kk`.
+- **Computes (7):** `ke`, `com`, `inertia`, `gyration`, `entropy/atom`,
+  `centro/atom`, `hexorder/atom`.  `GroupKokkos` gains `gyration_kk()` and
+  `gyration_tensor_kk()` next to the existing five reductions.  `compute inertia`
+  skips the extended-particle term entirely when no ellipsoid/line/tri/body atom
+  style is defined, which is when it contributes nothing, and only then falls back
+  to the host loop.  `centro/atom` supports `axes yes`: that path needs only cross
+  and normalize, not the eigensolver an earlier version of this file assumed.
+
+### Not done, and why
+
+- **`bond special` is not portable.**  Its `compute()` calls `Pair::single()` on the
+  host for every bond, and there is no device `single()` in the KOKKOS pair styles
+  to call instead.  Porting it means giving every pair style a device `single()`
+  -- a framework item, not a style port.
+- **Atom styles** (`sph`, `peri`, `edpd`/`mdpd`/`tdpd`, `electron`, `smd`, `apip`,
+  `oxdna`) were deliberately deferred: every atom style the rest of Tier 1 needs
+  (`sphere`, `ellipsoid`, `dipole`, `charge`, `full`, `molecular`, `atomic`) is
+  already ported, and none of these packages has a ported pair/bond/fix style, so a
+  `/kk` atom vec would lift the `AtomKokkos::new_avec` hard error but leave the
+  physics on the host.  `AtomKokkos::new_avec` hard-erroring still makes them the
+  highest-leverage *gating* items in the scan; each needs new masks in
+  `atom_masks.h` (`RHO/DRHO/ESPH/DESPH/VEST`, `EDPD_*`, `CC`,
+  `ERADIUS/ERVEL/ERFORCE`), none of which exist today.  Do **not** port
+  `atom_style template`: `neighbor_kokkos.cpp:88` errors on molecule templates
+  because the KK neighbor build reads special bonds from the per-atom `special`
+  list only, so porting the vec without fixing the builder would make neighbor
+  lists silently wrong.
+
+### CPU bugs this pass turned up
+
+Two were fixed in place, because a `/kk` variant cannot reproduce them:
+
+- `pair lj/smooth/linear` (and its `/omp` clone, and the `lj/sf` alias) scaled
+  `fpair` by `factor_lj` but tallied the pair energy unscaled, so with any
+  `special_bonds` setting other than 1.0 the reported van der Waals energy did not
+  match the forces, nor what `single()` returns.  `pair_kokkos.h` always applies
+  `factor_lj` to `compute_evdwl()`.
+- `~PairLJCharmmfswCoulCharmmfsh()` restored the LAMMPS Coulomb conversion constant
+  before checking `copymode`, so every functor copy going out of scope reset
+  `force->qqr2e` and the next `Force::init()` rebuilt `qqrd2e` from the wrong value.
+  This is rule 1 of the KOKKOS instructions, and its
+  `lj/charmmfsw/coul/long` sibling already had the guard in the right place.
+
+Two more were left alone, and the `/kk` styles reproduce them:
+
+- `pair morse/soft`'s `compute()` does not subtract `offset[][]` from `evdwl`, while
+  its `single()` does.
+- `compute entropy/atom`'s first histogram bin has `rbinsq[0] = 0`, so an atom with
+  a neighbor inside `3*sigma` gets a division by zero and a NaN.
 
 ## Tier 2 -- moderate effort, clear payoff
 
