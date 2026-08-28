@@ -649,22 +649,15 @@ void CommBrickDirect::reverse_comm()
 
   // send all ghost atoms to receiving procs
   // except for self copy/sums
+  // comm_f_only sends straight out of the ghost region of f, which the
+  //   unpack below never touches (it sums into owned atoms), so the sends
+  //   can be left in flight; otherwise each swap packs into its own region
+  //   of buf_send_direct so that packing never waits on the previous send
 
-  for (int iswap = 0; iswap < ndirect; iswap++) {
-    if (proc_direct[iswap] == me) continue;
-    if (comm_f_only) {
-      if (size_reverse_send_direct[iswap]) {
-        buf = f[firstrecv_direct[iswap]];
-        MPI_Send(buf,size_reverse_send_direct[iswap],MPI_DOUBLE,
-                 proc_direct[iswap],recvtag[iswap],world);
-      }
-    } else {
-      n = avec->pack_reverse(recvnum_direct[iswap],firstrecv_direct[iswap],buf_send_direct);
-      if (n) MPI_Send(buf_send_direct,n,MPI_DOUBLE,proc_direct[iswap],recvtag[iswap],world);
-    }
-  }
-
-  // copy/sum atoms to self via pack and unpack
+  // copy/sum atoms to self first, since the packed path below uses
+  //   buf_send_direct from offset 0 and its data must stay intact until
+  //   the sends complete.  this only reads the ghost region of f and sums
+  //   into owned atoms, so it does not disturb the sends either
 
   for (int iself = 0; iself < nself_direct; iself++) {
     iswap = self_indices_direct[iself];
@@ -678,10 +671,35 @@ void CommBrickDirect::reverse_comm()
     }
   }
 
+  int nsendpost = 0;
+  int send_offset = 0;
+
+  for (int iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (comm_f_only) {
+      if (size_reverse_send_direct[iswap]) {
+        buf = f[firstrecv_direct[iswap]];
+        MPI_Isend(buf,size_reverse_send_direct[iswap],MPI_DOUBLE,
+                  proc_direct[iswap],recvtag[iswap],world,&send_requests[nsendpost++]);
+      }
+    } else {
+      n = avec->pack_reverse(recvnum_direct[iswap],firstrecv_direct[iswap],
+                             &buf_send_direct[send_offset]);
+      if (n) {
+        MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+                  recvtag[iswap],world,&send_requests[nsendpost++]);
+        send_offset += n;
+      }
+    }
+  }
+
   // wait on incoming messages with owned atoms
   // unpack each message as it arrives
 
-  if (npost == 0) return;
+  if (npost == 0) {
+    if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+    return;
+  }
 
   for (int i = 0; i < npost; i++) {
     MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
@@ -689,6 +707,8 @@ void CommBrickDirect::reverse_comm()
     offset = recv_offset_reverse_direct[iswap];
     avec->unpack_reverse(sendnum_direct[iswap],sendlist_direct[iswap],&buf_recv_direct[offset]);
   }
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
 }
 
 /* ----------------------------------------------------------------------
@@ -1668,7 +1688,7 @@ void CommBrickDirect::check_buffer_sizes()
 {
   int max = size_border * ssum_direct;      // borders() packs all swaps at once
   max = MAX(max,maxforward*ssum_direct);   // forward_comm() packs all swaps at once
-  max = MAX(max,maxreverse*rmax_direct);
+  max = MAX(max,maxreverse*rsum_direct);   // reverse_comm() packs all swaps at once
   if (max > maxsend_direct) grow_send_direct(max,0);
 
   max = size_border * rsum_direct;
