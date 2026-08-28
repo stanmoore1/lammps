@@ -107,7 +107,12 @@ void CommBrickDirectKokkos::setup()
 
 void CommBrickDirectKokkos::forward_comm(int dummy)
 {
-  int forward_comm_classic = 0;
+  // the device pack/unpack path below only implements the comm_x_only case.
+  // ghost velocities and atom styles with extra forward-comm fields
+  // (both of which clear comm_x_only) must use the host path, else the
+  // data would never be packed or unpacked and results would be silently wrong
+
+  int forward_comm_classic = !comm_x_only;
   int forward_comm_on_host = 0;
 
   if (!forward_comm_classic) {

@@ -700,7 +700,7 @@ void CommBrickDirect::borders()
   int nlocal = atom->nlocal;
   int dim = domain->dimension;
 
-  int allflag;
+  int maxsend_list;
   int xcheck,ycheck,zcheck;
   double xlo,xhi,ylo,yhi,zlo,zhi;
 
@@ -718,13 +718,13 @@ void CommBrickDirect::borders()
     zhi = bounds_list[ilist][2][1];
 
     nsend = 0;
-    maxsend = maxsendatoms_list[ilist];
+    maxsend_list = maxsendatoms_list[ilist];
 
     if (!xcheck && !ycheck && !zcheck) {
       for (i = 0; i < nlocal; i++) {
-        if (nsend == maxsend) {
+        if (nsend == maxsend_list) {
           grow_list_direct(ilist,nsend);
-          maxsend = maxsendatoms_list[ilist];
+          maxsend_list = maxsendatoms_list[ilist];
         }
         sendatoms_list[ilist][nsend++] = i;
       }
@@ -733,9 +733,9 @@ void CommBrickDirect::borders()
         if (xcheck && (x[i][0] < xlo || x[i][0] > xhi)) continue;
         if (ycheck && (x[i][1] < ylo || x[i][1] > yhi)) continue;
         if (zcheck && (x[i][2] < zlo || x[i][2] > zhi)) continue;
-        if (nsend == maxsend) {
+        if (nsend == maxsend_list) {
           grow_list_direct(ilist,nsend);
-          maxsend = maxsendatoms_list[ilist];
+          maxsend_list = maxsendatoms_list[ilist];
         }
         sendatoms_list[ilist][nsend++] = i;
       }
