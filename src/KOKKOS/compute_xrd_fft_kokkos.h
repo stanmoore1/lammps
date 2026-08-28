@@ -128,6 +128,7 @@ class ComputeXRDFFTKokkos : public ComputeXRDFFT {
   ~ComputeXRDFFTKokkos() override;
   void init() override;
   void compute_array() override;
+  double memory_usage() override;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -235,14 +236,13 @@ class ComputeXRDFFTKokkos : public ComputeXRDFFT {
 
   // state the kernels read, copied with the compute when it is handed to one
 
-  int nlocal_kk;                 // atoms of this rank
   int spread_lo, spread_hi;      // range of slot_atoms this spreading covers
   int bucket_maxatoms;           // allocated length of slot_atoms
   int nmesh_kk[3];               // mesh dimensions
   int foot_lo_kk[3], foot_n_kk[3];
-  int fftlo_kk[3], fftn_kk[3];
-  int nfoot_kk, nfft_kk;
-  int order_kk, nlower_kk, ncheb_kk;
+  int fftn_kk[3];
+  int nfoot_kk;
+  int order_kk, nlower_kk;
   double mesh_vec_kk[3][3];
 
   // the overlap of a footprint and a brick, as one run of mesh points per

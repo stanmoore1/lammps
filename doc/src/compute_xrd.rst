@@ -387,7 +387,9 @@ Compute *xrd/fft/kk* keeps the stencil of an atom in registers rather than in
 memory, which fixes the widest stencil it can spread: *order* must be at most
 25.  That is far wider than the point where the spreading already reproduces
 the direct sum to round-off, but compute *xrd/fft* without the *kk* suffix has
-no such limit.
+no such limit.  It reads the atom positions in whichever precision the KOKKOS
+package was built for, so a single precision KOKKOS build limits its accuracy
+in the same way single precision FFTs do.
 
 ----------
 

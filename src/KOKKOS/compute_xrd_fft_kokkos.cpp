@@ -55,11 +55,16 @@ ComputeXRDFFTKokkos<DeviceType>::ComputeXRDFFTKokkos(LAMMPS *lmp, int narg, char
 
   device_ready = 0;
   gpu_aware = lmp->kokkos->gpu_aware_flag;
-  mpi_direct = gpu_aware || (execution_space == Host);
+
+  // ExecutionSpaceFromDevice yields HostKK rather than the legacy Host, so the
+  // test is against Device.  without it the kk/host variant of a GPU build
+  // would stage its messages through a host mirror of the buffers it is
+  // already computing in, and the copy back would overwrite them
+
+  mpi_direct = gpu_aware || (execution_space != Device);
   bucket_maxatoms = 0;
-  nlocal_kk = 0;
   spread_lo = spread_hi = 0;
-  nfoot_kk = nfft_kk = 0;
+  nfoot_kk = 0;
   order_kk = order;
   nlower_kk = nlower;
   bufoff = 0;
@@ -235,15 +240,12 @@ void ComputeXRDFFTKokkos<DeviceType>::set_kernel_state()
     nmesh_kk[d] = nmesh[d];
     foot_lo_kk[d] = foot_lo[d];
     foot_n_kk[d] = foot_n[d];
-    fftlo_kk[d] = fftlo[d];
     fftn_kk[d] = fftn[d];
     for (int e = 0; e < 3; e++) mesh_vec_kk[d][e] = mesh_vec[d][e];
   }
   nfoot_kk = (int) nfoot;
-  nfft_kk = nfft;
   order_kk = order;
   nlower_kk = nlower;
-  nlocal_kk = atom->nlocal;
 }
 
 /* ----------------------------------------------------------------------
@@ -667,8 +669,7 @@ void ComputeXRDFFTKokkos<DeviceType>::fold_reduce(int tag)
 
     MPI_Reduce_scatter(sbuf,rbuf,recvcounts,MPI_FFT_SCALAR,MPI_SUM,world);
 
-    if (mpi_direct) Kokkos::fence();
-    else {
+    if (!mpi_direct) {
       k_density_slab.modify_host();
       k_density_slab.sync_device();
     }
@@ -796,10 +797,16 @@ void ComputeXRDFFTKokkos<DeviceType>::fold_reduce(int tag)
 
   for (int i = 0; i < nrecv; i++) {
     MPI_Status status;
+
+    // every message is taken into the same buffer, so the unpack of the
+    // previous one has to have read it before this one lands
+
+    Kokkos::fence();
+
     FFT_SCALAR *buf = mpi_direct ? d_recvbuf.data() : k_recvbuf.view_host().data();
     MPI_Recv(buf,(int)maxrecv,MPI_FFT_SCALAR,MPI_ANY_SOURCE,tag,world,&status);
-    if (mpi_direct) Kokkos::fence();
-    else {
+
+    if (!mpi_direct) {
       k_recvbuf.modify_host();
       k_recvbuf.sync_device();
     }
@@ -933,6 +940,24 @@ void ComputeXRDFFTKokkos<DeviceType>::compute_array()
   if ((me == 0) && echo)
     utils::logmesg(lmp,"-----\nCompute XRD/FFT id:{} Elapsed time: {:0.2f} s\n-----\n",
                    id,platform::walltime()-t0);
+}
+
+/* ----------------------------------------------------------------------
+   the mesh, the exchange buffers and the tables the kernels read are dual
+   views, so on a device they are held on both sides of it
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+double ComputeXRDFFTKokkos<DeviceType>::memory_usage()
+{
+  double bytes = ComputeXRDFFT::memory_usage();
+
+  if (!setup_done || (execution_space != Device)) return bytes;
+
+  bytes += (double)(nfoot + maxsend + maxrecv + 3*nfft) * sizeof(FFT_SCALAR);
+  bytes += (double)(nown*(3+nslot) + 3*order*KB_NCHEB) * sizeof(double);
+  bytes += (double)(nown + ntypes + bucket_maxatoms) * sizeof(int);
+  return bytes;
 }
 
 /* ---------------------------------------------------------------------- */
