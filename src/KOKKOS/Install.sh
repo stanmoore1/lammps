@@ -343,10 +343,16 @@ action meam_setup_done_kokkos.h meam_setup_done.cpp
 action memory_kokkos.h
 action min_cg_kokkos.cpp
 action min_cg_kokkos.h
+action min_fire_kokkos.cpp
+action min_fire_kokkos.h
 action min_kokkos.cpp
 action min_kokkos.h
 action min_linesearch_kokkos.cpp
 action min_linesearch_kokkos.h
+action min_quickmin_kokkos.cpp
+action min_quickmin_kokkos.h
+action min_sd_kokkos.cpp
+action min_sd_kokkos.h
 action mliap_data_kokkos.cpp mliap_data.cpp
 action mliap_data_kokkos.h mliap_data.h
 action mliap_descriptor_kokkos.h mliap_descriptor.h
