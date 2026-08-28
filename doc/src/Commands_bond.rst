@@ -50,7 +50,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`quartic/exp (k) <bond_quartic_exp>`
    * :doc:`rheo/shell <bond_rheo_shell>`
    * :doc:`special <bond_special>`
-   * :doc:`table (o) <bond_table>`
+   * :doc:`table (ko) <bond_table>`
 
 .. _angle:
 
@@ -100,7 +100,7 @@ OPT.
    * :doc:`mwlc (ko) <angle_mwlc>`
    * :doc:`quartic (ko) <angle_quartic>`
    * :doc:`spica (ko) <angle_spica>`
-   * :doc:`table (o) <angle_table>`
+   * :doc:`table (ko) <angle_table>`
 
 .. _dihedral:
 

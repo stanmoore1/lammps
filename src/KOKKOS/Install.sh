@@ -40,6 +40,8 @@ action angle_class2_kokkos.cpp angle_class2.cpp
 action angle_class2_kokkos.h angle_class2.h
 action angle_cosine_kokkos.cpp angle_cosine.cpp
 action angle_cosine_kokkos.h angle_cosine.h
+action angle_table_kokkos.cpp angle_table.cpp
+action angle_table_kokkos.h angle_table.h
 action angle_harmonic_kokkos.cpp angle_harmonic.cpp
 action angle_harmonic_kokkos.h angle_harmonic.h
 action angle_hybrid_kokkos.cpp angle_hybrid.cpp
@@ -79,6 +81,8 @@ action bond_class2_kokkos.cpp bond_class2.cpp
 action bond_class2_kokkos.h bond_class2.h
 action bond_fene_kokkos.cpp bond_fene.cpp
 action bond_fene_kokkos.h bond_fene.h
+action bond_table_kokkos.cpp bond_table.cpp
+action bond_table_kokkos.h bond_table.h
 action bond_harmonic_kokkos.cpp bond_harmonic.cpp
 action bond_harmonic_kokkos.h bond_harmonic.h
 action bond_hybrid_kokkos.cpp bond_hybrid.cpp
