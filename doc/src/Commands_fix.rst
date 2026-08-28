@@ -16,7 +16,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`adapt/fep <fix_adapt_fep>`
    * :doc:`addforce (k) <fix_addforce>`
    * :doc:`add/heat <fix_add_heat>`
-   * :doc:`addtorque/atom <fix_addtorque_atom>`
+   * :doc:`addtorque/atom (k) <fix_addtorque_atom>`
    * :doc:`addtorque/group (k) <fix_addtorque_group>`
    * :doc:`alchemy <fix_alchemy>`
    * :doc:`align/self <fix_align_self>`
@@ -238,7 +238,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`saed/vtk <fix_saed_vtk>`
    * :doc:`set <fix_set>`
    * :doc:`setforce (k) <fix_setforce>`
-   * :doc:`settorque/atom <fix_settorque_atom>`
+   * :doc:`settorque/atom (k) <fix_settorque_atom>`
    * :doc:`setforce/spin <fix_setforce>`
    * :doc:`sgcmc <fix_sgcmc>`
    * :doc:`shake (k) <fix_shake>`

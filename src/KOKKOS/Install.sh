@@ -160,6 +160,8 @@ action fix_addtorque_group_kokkos.cpp fix_addtorque_group.cpp
 action fix_addtorque_group_kokkos.h fix_addtorque_group.h
 action fix_aveforce_kokkos.cpp
 action fix_aveforce_kokkos.h
+action fix_addtorque_atom_kokkos.cpp fix_addtorque_atom.cpp
+action fix_addtorque_atom_kokkos.h fix_addtorque_atom.h
 action fix_brownian_kokkos.cpp fix_brownian.cpp
 action fix_brownian_kokkos.h fix_brownian.h
 action fix_cmap_kokkos.cpp fix_cmap.cpp
@@ -272,6 +274,8 @@ action fix_rx_kokkos.cpp fix_rx.cpp
 action fix_rx_kokkos.h fix_rx.h
 action fix_setforce_kokkos.cpp
 action fix_setforce_kokkos.h
+action fix_settorque_atom_kokkos.cpp fix_settorque_atom.cpp
+action fix_settorque_atom_kokkos.h fix_settorque_atom.h
 action fix_shake_kokkos.cpp fix_shake.cpp
 action fix_shake_kokkos.h fix_shake.h
 action fix_shardlow_kokkos.cpp fix_shardlow.cpp
