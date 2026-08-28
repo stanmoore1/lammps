@@ -36,7 +36,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`ave/time <fix_ave_time>`
    * :doc:`aveforce (k) <fix_aveforce>`
    * :doc:`balance <fix_balance>`
-   * :doc:`baoab <fix_baoab>`
+   * :doc:`baoab (k) <fix_baoab>`
    * :doc:`bocs <fix_bocs>`
    * :doc:`bond/break <fix_bond_break>`
    * :doc:`bond/create <fix_bond_create>`
@@ -150,7 +150,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`numdiff/virial <fix_numdiff_virial>`
    * :doc:`nve (giko) <fix_nve>`
    * :doc:`nve/asphere (gik) <fix_nve_asphere>`
-   * :doc:`nve/asphere/noforce <fix_nve_asphere_noforce>`
+   * :doc:`nve/asphere/noforce (k) <fix_nve_asphere_noforce>`
    * :doc:`nve/body <fix_nve_body>`
    * :doc:`nve/dot <fix_nve_dot>`
    * :doc:`nve/dotc/langevin <fix_nve_dotc_langevin>`
@@ -163,7 +163,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`nve/bpm/sphere <fix_nve_bpm_sphere>`
    * :doc:`nve/spin <fix_nve_spin>`
    * :doc:`nve/tri <fix_nve_tri>`
-   * :doc:`nvk <fix_nvk>`
+   * :doc:`nvk (k) <fix_nvk>`
    * :doc:`nvt (giko) <fix_nh>`
    * :doc:`nvt/asphere (o) <fix_nvt_asphere>`
    * :doc:`nvt/body <fix_nvt_body>`
@@ -194,7 +194,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`press/berendsen (k) <fix_press_berendsen>`
    * :doc:`press/langevin (k) <fix_press_langevin>`
    * :doc:`print <fix_print>`
-   * :doc:`propel/self <fix_propel_self>`
+   * :doc:`propel/self (k) <fix_propel_self>`
    * :doc:`property/atom (k) <fix_property_atom>`
    * :doc:`python/invoke <fix_python_invoke>`
    * :doc:`python/move <fix_python_move>`
@@ -298,7 +298,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`wall/lj93 (k) <fix_wall>`
    * :doc:`wall/lepton <fix_wall>`
    * :doc:`wall/morse (k) <fix_wall>`
-   * :doc:`wall/piston <fix_wall_piston>`
+   * :doc:`wall/piston (k) <fix_wall_piston>`
    * :doc:`wall/reflect (k) <fix_wall_reflect>`
    * :doc:`wall/reflect/stochastic <fix_wall_reflect_stochastic>`
    * :doc:`wall/region (k) <fix_wall_region>`

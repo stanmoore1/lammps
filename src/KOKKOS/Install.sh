@@ -174,6 +174,8 @@ action fix_deform_kokkos.cpp
 action fix_deform_kokkos.h
 action fix_drag_kokkos.cpp fix_drag.cpp
 action fix_drag_kokkos.h fix_drag.h
+action fix_baoab_kokkos.cpp fix_baoab.cpp
+action fix_baoab_kokkos.h fix_baoab.h
 action fix_dpd_energy_kokkos.cpp fix_dpd_energy.cpp
 action fix_dpd_energy_kokkos.h fix_dpd_energy.h
 action fix_dt_reset_kokkos.cpp
@@ -222,6 +224,8 @@ action fix_npt_kokkos.cpp
 action fix_npt_kokkos.h
 action fix_npt_sphere_kokkos.cpp
 action fix_npt_sphere_kokkos.h
+action fix_nve_asphere_noforce_kokkos.cpp fix_nve_asphere_noforce.cpp
+action fix_nve_asphere_noforce_kokkos.h fix_nve_asphere_noforce.h
 action fix_nve_kokkos.cpp
 action fix_nve_kokkos.h
 action fix_nve_limit_kokkos.cpp
@@ -238,6 +242,8 @@ action fix_nvt_sphere_kokkos.cpp
 action fix_nvt_sphere_kokkos.h
 action fix_nvt_sllod_kokkos.cpp
 action fix_nvt_sllod_kokkos.h
+action fix_nvk_kokkos.cpp fix_nvk.cpp
+action fix_nvk_kokkos.h fix_nvk.h
 action fix_oneway_kokkos.cpp fix_oneway.cpp
 action fix_oneway_kokkos.h fix_oneway.h
 action fix_planeforce_kokkos.cpp
@@ -248,6 +254,8 @@ action fix_press_langevin_kokkos.cpp
 action fix_press_langevin_kokkos.h
 action fix_property_atom_kokkos.cpp
 action fix_property_atom_kokkos.h
+action fix_propel_self_kokkos.cpp fix_propel_self.cpp
+action fix_propel_self_kokkos.h fix_propel_self.h
 action fix_qeq_reaxff_kokkos.cpp fix_qeq_reaxff.cpp
 action fix_qeq_reaxff_kokkos.h fix_qeq_reaxff.h
 action fix_reaxff_bonds_kokkos.cpp fix_reaxff_bonds.cpp
@@ -322,6 +330,8 @@ action fix_wall_lj93_kokkos.cpp
 action fix_wall_lj93_kokkos.h
 action fix_wall_morse_kokkos.cpp
 action fix_wall_morse_kokkos.h
+action fix_wall_piston_kokkos.cpp fix_wall_piston.cpp
+action fix_wall_piston_kokkos.h fix_wall_piston.h
 action fix_wall_reflect_kokkos.cpp
 action fix_wall_reflect_kokkos.h
 action fix_wall_region_kokkos.cpp
