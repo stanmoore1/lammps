@@ -621,6 +621,8 @@ action region_cone_kokkos.cpp
 action region_cone_kokkos.h
 action region_cylinder_kokkos.cpp
 action region_cylinder_kokkos.h
+action region_ellipsoid_kokkos.cpp
+action region_ellipsoid_kokkos.h
 action region_plane_kokkos.cpp
 action region_plane_kokkos.h
 action region_prism_kokkos.cpp
