@@ -44,14 +44,14 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`bond/react <fix_bond_react>`
    * :doc:`bond/swap <fix_bond_swap>`
    * :doc:`box/relax <fix_box_relax>`
-   * :doc:`brownian <fix_brownian>`
+   * :doc:`brownian (k) <fix_brownian>`
    * :doc:`brownian/asphere <fix_brownian>`
    * :doc:`brownian/sphere <fix_brownian>`
    * :doc:`charge/regulation <fix_charge_regulation>`
    * :doc:`cmap (k) <fix_cmap>`
    * :doc:`colvars <fix_colvars>`
    * :doc:`controller <fix_controller>`
-   * :doc:`damping/cundall <fix_damping_cundall>`
+   * :doc:`damping/cundall (k) <fix_damping_cundall>`
    * :doc:`deform (k) <fix_deform>`
    * :doc:`deform/pressure <fix_deform_pressure>`
    * :doc:`deposit <fix_deposit>`
@@ -79,7 +79,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`external (k) <fix_external>`
    * :doc:`ffl <fix_ffl>`
    * :doc:`filter/corotate <fix_filter_corotate>`
-   * :doc:`flow/gauss <fix_flow_gauss>`
+   * :doc:`flow/gauss (k) <fix_flow_gauss>`
    * :doc:`freeze (k) <fix_freeze>`
    * :doc:`gcmc <fix_gcmc>`
    * :doc:`gemc <fix_gemc>`
@@ -257,7 +257,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`spring/rg (k) <fix_spring_rg>`
    * :doc:`spring/self (k) <fix_spring_self>`
    * :doc:`srd <fix_srd>`
-   * :doc:`store/force <fix_store_force>`
+   * :doc:`store/force (k) <fix_store_force>`
    * :doc:`store/state <fix_store_state>`
    * :doc:`surface/global <fix_surface_global>`
    * :doc:`surface/local <fix_surface_local>`
@@ -282,7 +282,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`vector <fix_vector>`
    * :doc:`viscosity <fix_viscosity>`
    * :doc:`viscous (k) <fix_viscous>`
-   * :doc:`viscous/nonlinear <fix_viscous_nonlinear>`
+   * :doc:`viscous/nonlinear (k) <fix_viscous_nonlinear>`
    * :doc:`viscous/sphere (k) <fix_viscous_sphere>`
    * :doc:`wall/body/polygon <fix_wall_body_polygon>`
    * :doc:`wall/body/polyhedron <fix_wall_body_polyhedron>`

@@ -160,10 +160,14 @@ action fix_addtorque_group_kokkos.cpp fix_addtorque_group.cpp
 action fix_addtorque_group_kokkos.h fix_addtorque_group.h
 action fix_aveforce_kokkos.cpp
 action fix_aveforce_kokkos.h
+action fix_brownian_kokkos.cpp fix_brownian.cpp
+action fix_brownian_kokkos.h fix_brownian.h
 action fix_cmap_kokkos.cpp fix_cmap.cpp
 action fix_cmap_kokkos.h fix_cmap.h
 action fix_colvars_kokkos.cpp fix_colvars.cpp
 action fix_colvars_kokkos.h fix_colvars.h
+action fix_damping_cundall_kokkos.cpp fix_damping_cundall.cpp
+action fix_damping_cundall_kokkos.h fix_damping_cundall.h
 action fix_deform_kokkos.cpp
 action fix_deform_kokkos.h
 action fix_drag_kokkos.cpp fix_drag.cpp
@@ -182,6 +186,8 @@ action fix_eos_table_rx_kokkos.cpp fix_eos_table_rx.cpp
 action fix_eos_table_rx_kokkos.h fix_eos_table_rx.h
 action fix_external_kokkos.cpp
 action fix_external_kokkos.h
+action fix_flow_gauss_kokkos.cpp fix_flow_gauss.cpp
+action fix_flow_gauss_kokkos.h fix_flow_gauss.h
 action fix_freeze_kokkos.cpp fix_freeze.cpp
 action fix_freeze_kokkos.h fix_freeze.h
 action fix_gravity_kokkos.cpp
@@ -276,6 +282,8 @@ action fix_spring_rg_kokkos.cpp fix_spring_rg.cpp
 action fix_spring_rg_kokkos.h fix_spring_rg.h
 action fix_spring_self_kokkos.cpp
 action fix_spring_self_kokkos.h
+action fix_store_force_kokkos.cpp
+action fix_store_force_kokkos.h
 action fix_temp_berendsen_kokkos.cpp
 action fix_temp_berendsen_kokkos.h
 action fix_temp_csld_kokkos.cpp fix_temp_csld.cpp
@@ -288,6 +296,8 @@ action fix_ti_spring_kokkos.cpp fix_ti_spring.cpp
 action fix_ti_spring_kokkos.h fix_ti_spring.h
 action fix_viscous_kokkos.cpp
 action fix_viscous_kokkos.h
+action fix_viscous_nonlinear_kokkos.cpp fix_viscous_nonlinear.cpp
+action fix_viscous_nonlinear_kokkos.h fix_viscous_nonlinear.h
 action fix_viscous_sphere_kokkos.cpp fix_viscous_sphere.cpp
 action fix_viscous_sphere_kokkos.h fix_viscous_sphere.h
 action fix_wall_flow_kokkos.cpp fix_wall_flow.cpp
