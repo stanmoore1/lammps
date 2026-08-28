@@ -1,4 +1,5 @@
 .. index:: pair_style born/coul/dsf/cs
+.. index:: pair_style born/coul/dsf/cs/kk
 .. index:: pair_style born/coul/dsf/cs/omp
 .. index:: pair_style born/coul/long/cs
 .. index:: pair_style born/coul/long/cs/kk
@@ -28,7 +29,7 @@
 pair_style born/coul/dsf/cs command
 ===================================
 
-Accelerator Variants: *born/coul/dsf/cs/omp*
+Accelerator Variants: *born/coul/dsf/cs/kk*, *born/coul/dsf/cs/omp*
 
 pair_style born/coul/long/cs command
 ====================================
