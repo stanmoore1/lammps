@@ -47,6 +47,7 @@ void RegBlockKokkos<DeviceType>::match_all_kokkos(int groupbit_in, DAT::tdual_in
 {
   groupbit = groupbit_in;
   d_match = k_match_in.template view<DeviceType>();
+  k_remap.setup(domain);
   auto execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   atomKK->sync(execution_space, X_MASK | MASK_MASK);
   d_x = atomKK->k_x.view<DeviceType>();

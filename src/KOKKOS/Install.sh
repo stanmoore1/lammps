@@ -577,6 +577,7 @@ action rand_pool_wrap_kokkos.cpp
 action rand_pool_wrap_kokkos.h
 action region_block_kokkos.cpp
 action region_block_kokkos.h
+action region_remap_kokkos.h
 action region_sphere_kokkos.cpp
 action region_sphere_kokkos.h
 action remap_kokkos.cpp remap.cpp
