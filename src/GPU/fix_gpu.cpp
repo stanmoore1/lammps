@@ -154,6 +154,8 @@ FixGPU::FixGPU(LAMMPS *lmp, int narg, char **arg) :
       iarg += 2;
     } else if (strcmp(arg[iarg],"split") == 0) {
       if (iarg+2 > narg) utils::missing_cmd_args(FLERR,"package gpu split", error);
+      // the value is ignored, but parse it so malformed input is still an error
+      utils::numeric(FLERR,arg[iarg+1],false,lmp);
       if (comm->me == 0)
         error->warning(FLERR, "The 'split' keyword is deprecated. Host/device particle "
                        "splitting is no longer supported. The value is ignored.");
