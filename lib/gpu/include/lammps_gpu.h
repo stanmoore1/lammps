@@ -1594,6 +1594,21 @@ extern void zbl_gpu_compute(const int ago, const int inum, const int nall, doubl
                             bool &success);
 extern double zbl_gpu_bytes();
 
+// kspace ewald
+extern void ewald_gpu_init(const int nlocal, const int nall, FILE *screen, int &success);
+extern void ewald_gpu_setup(const int kmax, const int kcount, int *kxvecs, int *kyvecs,
+                            int *kzvecs, double *ug, double **eg, double **vg, double *unitk,
+                            int &success);
+extern int ewald_gpu_structure(const int ago, const int nlocal, const int nall, double **host_x,
+                               int *host_type, double *host_q, double *host_sfacrl,
+                               double *host_sfacim, bool &success);
+extern void ewald_gpu_compute(double *host_sfacrl_all, double *host_sfacim_all,
+                              const double qscale, const int slabflag, const int eflag_atom,
+                              const int vflag_atom, double *host_eatom, double **host_vatom,
+                              bool &success);
+extern void ewald_gpu_clear(const double cpu_time);
+extern double ewald_gpu_bytes();
+
 // pppm need two versions for single and double precision FFTs
 
 extern float *pppm_gpu_init_f(const int nlocal, const int nall, FILE *screen, const int order,
