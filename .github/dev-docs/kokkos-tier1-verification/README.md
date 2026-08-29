@@ -23,6 +23,7 @@ list.
     ./run_checks.sh detect      # LMP_KOKKOS_WATCH / LMP_KOKKOS_STALE detectors
     ./run_checks.sh mpi         # step0 again under two MPI ranks
     ./run_checks.sh detect_mpi  # detect again under two MPI ranks
+    ./run_checks.sh poison      # LMP_KOKKOS_POISON, needs the ASan build
 
 `step0` runs each deck twice from the same executable, once with the plain
 styles and once with `-sf kk`, and compares every thermo column with
@@ -35,7 +36,11 @@ communication; `MPIRUN` can be overridden in the environment.
 
 `detect` needs an executable built with `-D KOKKOS_DEBUG_SYNC=on`; see
 `../kokkos-sync-debugging.md` for what the reports mean and for the
-poison-mode build that pinpoints a stale access.  Judge its output by
+poison-mode build that pinpoints a stale access.  `poison` runs that build
+(`build-poison/lmp`, or `POISON_LMP`) with `LMP_KOKKOS_POISON=1`, which
+makes the non-current side of every view unreadable so AddressSanitizer
+stops at the offending instruction; it is the only detector that sees a
+read through a plain pointer.  Judge its output by
 diffing the reported labels (array plus the routine that touched it)
 against a run of a style of the same shape that is known to be clean, not
 by their absolute number: the KOKKOS infrastructure reports a fixed set of

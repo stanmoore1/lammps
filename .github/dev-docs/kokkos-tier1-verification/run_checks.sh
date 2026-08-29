@@ -127,4 +127,21 @@ detect_mpi() {
   done
 }
 
+
+# poison mode: the only detector that sees a read through a plain pointer.
+# needs an executable built with -D KOKKOS_DEBUG_SYNC_ASAN=on, which LMP must
+# point at (build-poison/lmp at the top of the repository by default).
+poison() {
+  echo "$CASES" | while IFS='|' read -r deck vars pkov; do
+    case "$deck" in ""|\#*) continue;; esac
+    L=$(label "$deck" "$vars"); VA=$(vargs "$vars"); PK=${pkov:-$GPUPK}
+    ( cd "$D" && LMP_KOKKOS_POISON=1 ASAN_OPTIONS=detect_leaks=0 \
+        ${POISON_LMP:-$ROOT/build-poison/lmp} -in "$deck" $DATA $VA -log none \
+        -screen "$OUT/$L.psn" -k on -sf kk -pk kokkos $PK > "$OUT/$L.psn.err" 2>&1 )
+    n=$(grep -c "ERROR: AddressSanitizer" "$OUT/$L.psn.err" 2>/dev/null)
+    fin=$(grep -c "Total wall time" "$OUT/$L.psn" 2>/dev/null)
+    printf '%-46s asan=%-5s finished=%s\n' "$L" "$n" "$fin"
+  done
+}
+
 "$@"
