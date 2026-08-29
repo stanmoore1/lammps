@@ -20,6 +20,7 @@
 #include "error.h"
 #include "force.h"
 #include "gpu_extra.h"
+#include "lammps_gpu.h"
 #include "neighbor.h"
 #include "pair.h"
 #include "pair_hybrid.h"
@@ -29,8 +30,6 @@
 #include "update.h"
 
 #include <cstring>
-
-#include "lammps_gpu.h"
 
 #if (LAL_USE_OMP == 1)
 #include <omp.h>

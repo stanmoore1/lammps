@@ -30,9 +30,9 @@
 
 #include "ewald_const.h"
 #include "kspace.h"
+#include "lammps_gpu.h"
 
 #include <cmath>
-#include "lammps_gpu.h"
 
 using namespace LAMMPS_NS;
 using namespace LAMMPS_GPU;
