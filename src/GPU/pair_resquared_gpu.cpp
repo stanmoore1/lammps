@@ -84,10 +84,9 @@ void PairRESquaredGPU::compute(int eflag, int vflag)
     }
     inum = atom->nlocal;
     firstneigh =
-        re_gpu_compute_n(neighbor->ago, inum, nall, atom->x, atom->type, sublo,
-                         subhi, atom->tag, atom->nspecial, atom->special,
-                         eflag, vflag, eflag_atom, vflag_atom, &ilist, &numneigh, success, ellipsoid,
-                         bonus);
+        re_gpu_compute_n(neighbor->ago, inum, nall, atom->x, atom->type, sublo, subhi, atom->tag,
+                         atom->nspecial, atom->special, eflag, vflag, eflag_atom, vflag_atom,
+                         &ilist, &numneigh, success, ellipsoid, bonus);
   } else {
     inum = list->inum;
     numneigh = list->numneigh;

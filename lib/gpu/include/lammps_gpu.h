@@ -550,8 +550,8 @@ extern int eam_fs_gpu_init(const int ntypes, double host_cutforcesq, int **host_
                            double **host_cutsq, double rdr, double rdrho, double rhomax,
                            double rhomin, const int he_flag, int nrhor, int nrho, int nz2r,
                            int nfrho, int nr, const int nlocal, const int nall, const int max_nbors,
-                           const int maxspecial, const double cell_size, int &gpu_mode, FILE *screen,
-                           int &fp_size);
+                           const int maxspecial, const double cell_size, int &gpu_mode,
+                           FILE *screen, int &fp_size);
 extern void eam_fs_gpu_clear();
 extern int **eam_fs_gpu_compute_n(const int ago, const int inum_full, const int nall,
                                   double **host_x, int *host_type, double *sublo, double *subhi,
@@ -597,8 +597,8 @@ extern int eam_he_gpu_init(const int ntypes, double host_cutforcesq, int **host_
                            double **host_cutsq, double rdr, double rdrho, double rhomax,
                            double rhomin, const int he_flag, int nrhor, int nrho, int nz2r,
                            int nfrho, int nr, const int nlocal, const int nall, const int max_nbors,
-                           const int maxspecial, const double cell_size, int &gpu_mode, FILE *screen,
-                           int &fp_size);
+                           const int maxspecial, const double cell_size, int &gpu_mode,
+                           FILE *screen, int &fp_size);
 extern void eam_he_gpu_clear();
 extern int **eam_he_gpu_compute_n(const int ago, const int inum_full, const int nall,
                                   double **host_x, int *host_type, double *sublo, double *subhi,

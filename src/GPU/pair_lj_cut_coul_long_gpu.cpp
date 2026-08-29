@@ -81,7 +81,8 @@ void PairLJCutCoulLongGPU::compute(int eflag, int vflag)
     inum = atom->nlocal;
     firstneigh = ljcl_gpu_compute_n(neighbor->ago, inum, nall, atom->x, atom->type, sublo, subhi,
                                     atom->tag, atom->nspecial, atom->special, eflag, vflag,
-                                    eflag_atom, vflag_atom, &ilist, &numneigh, success, atom->q, domain->boxlo, domain->prd, domain->periodicity);
+                                    eflag_atom, vflag_atom, &ilist, &numneigh, success, atom->q,
+                                    domain->boxlo, domain->prd, domain->periodicity);
   } else {
     inum = list->inum;
     ilist = list->ilist;
