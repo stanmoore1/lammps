@@ -17,6 +17,29 @@ which is what a GPU build would pick, and falls back to `neigh half newton on`
 (third field of a `CASES` line) for the styles that require a half neighbor
 list.
 
+## Building
+
+`tier1-packages.cmake` turns on the packages these decks need and nothing
+else.  The two executables the passes below want, from the top of the
+repository:
+
+    cmake -S cmake -B build-sync -G Ninja \
+      -C .github/dev-docs/kokkos-tier1-verification/tier1-packages.cmake \
+      -D PKG_KOKKOS=on -D Kokkos_ENABLE_SERIAL=on -D BUILD_MPI=on \
+      -D CMAKE_BUILD_TYPE=Release -D KOKKOS_DEBUG_SYNC=on \
+      -D BUILD_SHARED_LIBS=on -D DOWNLOAD_POTENTIALS=off -D ENABLE_TESTING=on
+
+    cmake -S cmake -B build-poison -G Ninja \
+      -C .github/dev-docs/kokkos-tier1-verification/tier1-packages.cmake \
+      -D PKG_KOKKOS=on -D Kokkos_ENABLE_SERIAL=on -D BUILD_MPI=on \
+      -D CMAKE_BUILD_TYPE=RelWithDebInfo \
+      -D KOKKOS_DEBUG_SYNC=on -D KOKKOS_DEBUG_SYNC_ASAN=on \
+      -D BUILD_SHARED_LIBS=on -D DOWNLOAD_POTENTIALS=off
+
+`step0` and `mpi` only compare styles against each other and run in any
+build; the detector passes need `build-sync`, and `poison` needs
+`build-poison`.
+
 ## Usage
 
     ./run_checks.sh step0       # thermo: plain CPU styles vs KOKKOS styles, same binary
