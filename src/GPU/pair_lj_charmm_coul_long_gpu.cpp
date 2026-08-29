@@ -165,4 +165,3 @@ double PairLJCharmmCoulLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + crml_gpu_bytes();
 }
-

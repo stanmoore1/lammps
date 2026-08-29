@@ -145,4 +145,3 @@ double PairCoulCutGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + coul_gpu_bytes();
 }
-

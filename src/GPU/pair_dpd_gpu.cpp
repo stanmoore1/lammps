@@ -140,4 +140,3 @@ double PairDPDGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + dpd_gpu_bytes();
 }
-

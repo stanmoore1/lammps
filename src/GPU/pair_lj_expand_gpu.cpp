@@ -145,4 +145,3 @@ double PairLJExpandGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + lje_gpu_bytes();
 }
-

@@ -147,4 +147,3 @@ double PairBornCoulWolfCSGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + borncwcs_gpu_bytes();
 }
-

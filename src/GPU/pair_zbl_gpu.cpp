@@ -138,4 +138,3 @@ double PairZBLGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + zbl_gpu_bytes();
 }
-

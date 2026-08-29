@@ -138,4 +138,3 @@ double PairYukawaColloidGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ykcolloid_gpu_bytes();
 }
-

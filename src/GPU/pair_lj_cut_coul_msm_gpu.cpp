@@ -151,4 +151,3 @@ double PairLJCutCoulMSMGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ljcm_gpu_bytes();
 }
-

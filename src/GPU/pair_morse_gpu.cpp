@@ -134,4 +134,3 @@ double PairMorseGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + mor_gpu_bytes();
 }
-

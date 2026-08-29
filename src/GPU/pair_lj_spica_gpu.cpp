@@ -136,5 +136,3 @@ double PairLJSPICAGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + spica_gpu_bytes();
 }
-
-

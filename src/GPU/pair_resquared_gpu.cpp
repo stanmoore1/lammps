@@ -162,4 +162,3 @@ double PairRESquaredGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + re_gpu_bytes();
 }
-

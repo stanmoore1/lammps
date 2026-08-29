@@ -140,4 +140,3 @@ double PairLJCutCoulDebyeGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ljcd_gpu_bytes();
 }
-

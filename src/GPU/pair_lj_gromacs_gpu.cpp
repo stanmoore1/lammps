@@ -137,4 +137,3 @@ double PairLJGromacsGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ljgrm_gpu_bytes();
 }
-

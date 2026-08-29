@@ -155,5 +155,3 @@ double PairLJSPICACoulLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + spical_gpu_bytes();
 }
-
-

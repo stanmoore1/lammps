@@ -147,4 +147,3 @@ double PairCoulDSFGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + cdsf_gpu_bytes();
 }
-

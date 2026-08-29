@@ -146,4 +146,3 @@ double PairCoulDebyeGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + cdebye_gpu_bytes();
 }
-

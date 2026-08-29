@@ -31,15 +31,15 @@
 #error Must include either lal_precision.h or lmptype.h before lammps_gpu.h
 #endif
 
+namespace LAMMPS_GPU {
+
 /* When included from the LAMMPS src side, tagint lives in LAMMPS_NS.
-   Bring it to global scope so the function declarations below can use it
-   unqualified.  From the lib/gpu side (lal_precision.h), tagint is already
-   at global scope, so this block is skipped. */
+   Bring it into this namespace so the function declarations below can use it
+   unqualified.  From the lib/gpu side (lal_precision.h), tagint is already at
+   global scope and is found by ordinary lookup, so this block is skipped. */
 #if defined(LMP_LMPTYPE_H) && !defined(LAL_PRECISION_H)
 using LAMMPS_NS::tagint;
 #endif
-
-namespace LAMMPS_GPU {
 
 // Device-level functions (lal_device.cpp)
 extern bool lmp_has_compatible_gpu_device();
@@ -1596,7 +1596,7 @@ extern double zbl_gpu_bytes();
 
 // pppm need two versions for single and double precision FFTs
 
-extern float *ppm_gpu_init_f(const int nlocal, const int nall, FILE *screen, const int order,
+extern float *pppm_gpu_init_f(const int nlocal, const int nall, FILE *screen, const int order,
                              const int nxlo_out, const int nylo_out, const int nzlo_out,
                              const int nxhi_out, const int nyhi_out, const int nzhi_out,
                              float **rho_coeff, float **_vd_brick, const double slab_volfactor,

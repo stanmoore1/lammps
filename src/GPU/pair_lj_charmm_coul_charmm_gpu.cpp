@@ -147,4 +147,3 @@ double PairLJCharmmCoulCharmmGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + crm_gpu_bytes();
 }
-

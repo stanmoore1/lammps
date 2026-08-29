@@ -136,4 +136,3 @@ double PairYukawaGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + yukawa_gpu_bytes();
 }
-

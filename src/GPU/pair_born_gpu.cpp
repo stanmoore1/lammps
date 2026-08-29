@@ -145,4 +145,3 @@ double PairBornGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + born_gpu_bytes();
 }
-
