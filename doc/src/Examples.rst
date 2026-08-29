@@ -180,7 +180,7 @@ Lowercase directories
 +-------------+------------------------------------------------------------------+
 | vashishta   | use of the Vashishta potential                                   |
 +-------------+------------------------------------------------------------------+
-| voronoi     | Voronoi tesselation via compute voronoi/atom command             |
+| voronoi     | Voronoi tessellation via compute voronoi/atom command            |
 +-------------+------------------------------------------------------------------+
 | wall        | use of reflective walls with different stochastic models         |
 +-------------+------------------------------------------------------------------+
