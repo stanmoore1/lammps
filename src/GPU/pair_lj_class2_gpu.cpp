@@ -135,4 +135,3 @@ double PairLJClass2GPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + lj96_gpu_bytes();
 }
-

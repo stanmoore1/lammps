@@ -206,4 +206,3 @@ double PairTableGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + table_gpu_bytes();
 }
-

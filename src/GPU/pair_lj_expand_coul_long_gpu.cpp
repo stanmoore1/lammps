@@ -164,4 +164,3 @@ double PairLJExpandCoulLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ljecl_gpu_bytes();
 }
-

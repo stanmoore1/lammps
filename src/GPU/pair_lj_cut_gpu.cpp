@@ -146,4 +146,3 @@ double PairLJCutGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ljl_gpu_bytes();
 }
-

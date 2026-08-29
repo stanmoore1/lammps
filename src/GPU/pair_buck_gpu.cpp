@@ -145,4 +145,3 @@ double PairBuckGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + buck_gpu_bytes();
 }
-

@@ -147,4 +147,3 @@ double PairCoulSlaterLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + csl_gpu_bytes();
 }
-

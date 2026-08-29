@@ -153,4 +153,3 @@ double PairLJClass2CoulLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + c2cl_gpu_bytes();
 }
-

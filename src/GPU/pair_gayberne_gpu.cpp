@@ -164,4 +164,3 @@ double PairGayBerneGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + gb_gpu_bytes();
 }
-

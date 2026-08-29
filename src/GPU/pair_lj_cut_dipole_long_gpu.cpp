@@ -160,4 +160,3 @@ double PairLJCutDipoleLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + dplj_gpu_bytes();
 }
-

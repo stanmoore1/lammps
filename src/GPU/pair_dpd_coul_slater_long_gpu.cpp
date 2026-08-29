@@ -160,4 +160,3 @@ double PairDPDCoulSlaterLongGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + dpd_coul_slater_long_gpu_bytes();
 }
-

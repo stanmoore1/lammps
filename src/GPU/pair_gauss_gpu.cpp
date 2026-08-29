@@ -143,4 +143,3 @@ double PairGaussGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + gauss_gpu_bytes();
 }
-

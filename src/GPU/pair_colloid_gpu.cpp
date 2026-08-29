@@ -152,4 +152,3 @@ double PairColloidGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + colloid_gpu_bytes();
 }
-

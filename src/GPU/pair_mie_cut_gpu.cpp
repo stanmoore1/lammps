@@ -137,4 +137,3 @@ double PairMIECutGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + mie_gpu_bytes();
 }
-

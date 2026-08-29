@@ -137,4 +137,3 @@ double PairBeckGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + beck_gpu_bytes();
 }
-

@@ -148,4 +148,3 @@ double PairLJSmoothGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ljsmt_gpu_bytes();
 }
-

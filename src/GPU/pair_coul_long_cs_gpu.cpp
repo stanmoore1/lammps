@@ -150,4 +150,3 @@ double PairCoulLongCSGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + clcs_gpu_bytes();
 }
-

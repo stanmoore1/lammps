@@ -147,4 +147,3 @@ double PairUFMGPU::memory_usage()
   double bytes = Pair::memory_usage();
   return bytes + ufml_gpu_bytes();
 }
-
