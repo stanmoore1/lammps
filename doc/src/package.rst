@@ -249,18 +249,18 @@ newton setting for bonded interactions is not affected by this keyword.
 
 .. versionchanged:: TBD
 
-   A pairwise Newton setting of *on* is no longer restricted.  Previously,
-   combining it with a *split* value of less than 1.0 was an error, because
-   the host/device particle-split load balancing required the setting to be
-   *off*.  That load balancing has been removed, so the restriction no
-   longer applies.
+A pairwise Newton setting of *on* is no longer restricted.  Previously,
+combining it with a *split* value of less than 1.0 was an error, because
+the host/device particle-split load balancing required the setting to be
+*off*.  That load balancing has been removed, so the restriction no
+longer applies.
 
-The *pair/only* keyword can change how any "gpu" suffix is applied.
-By default a suffix is applied to all styles for which an accelerated
+The *pair/only* keyword can change how any "gpu" suffix is applied.  By
+default a suffix is applied to all styles for which an accelerated
 variant is available.  However, that is not always the most effective
-way to use an accelerator.  With *pair/only* set to *on* the suffix
-will only by applied to supported pair styles, which tend to be the
-most effective in using an accelerator and their operation can be
+way to use an accelerator w.  With *pair/only* set to *on* the
+suffix will only by applied to supported pair styles, which tend to be
+the most effective in using an accelerator and their operation can be
 overlapped with all other computations on the CPU.
 
 The *binsize* keyword sets the size of bins used to bin atoms in
