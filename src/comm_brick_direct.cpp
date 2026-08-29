@@ -158,6 +158,13 @@ void CommBrickDirect::init()
     error->all(FLERR,
                "Comm brick/direct does not yet support comm_modify group");
 
+  // setup() only computes the 6 subdomain cutoffs for a uniform decomposition,
+  //   so anything else (e.g. after a balance command) would build the send
+  //   lists from cutoffs that were never set
+
+  if (layout != Comm::LAYOUT_UNIFORM)
+    error->all(FLERR,"Comm brick/direct requires a uniform processor grid");
+
   // allocate lists of atoms to send for first time if necessary
   // do now b/c domain->dimension may have changed since construction of this class
   //   if comm_style command specified before dimension command
@@ -242,9 +249,6 @@ void CommBrickDirect::setup()
   // subtract 1 for self in center of 3d stencil of surrounding procs
 
   ndirect = (ihi-ilo+1) * (jhi-jlo+1) * (khi-klo+1) - 1;
-
-  //printf("NDIRECT %d ijk lo/hi %d %d: %d %d: %d %d proc %d\n",
-  //       ndirect,ilo,ihi,jlo,jhi,klo,khi,me);
 
   if (ndirect > maxdirect) {
     deallocate_direct();
@@ -739,48 +743,84 @@ void CommBrickDirect::borders()
   int nlocal = atom->nlocal;
   int dim = domain->dimension;
 
-  int maxsend_list;
-  int xcheck,ycheck,zcheck;
-  double xlo,xhi,ylo,yhi,zlo,zhi;
+  // build every send list in a single pass over the owned atoms
+  // a list is identified by its per-dim state: 0 = lo slab, 1 = unrestricted,
+  //   2 = hi slab.  check_list/bounds_list for a dim depend only on that dim's
+  //   state, so the bounds tests are hoisted out of the per-list loop and each
+  //   atom's coords are read once instead of once per list
+
+  int dcheck[3][3];
+  double dlo[3][3],dhi[3][3];
+
+  for (int idim = 0; idim < 3; idim++)
+    for (int istate = 0; istate < 3; istate++) {
+      dcheck[idim][istate] = 0;
+      dlo[idim][istate] = dhi[idim][istate] = 0.0;
+    }
+
+  int nactive = 0;
+  int alist[27],astate[27][3];
+  int center_active = 0;
 
   for (ilist = 0; ilist < maxlist; ilist++) {
     if (!active_list[ilist]) continue;
 
-    xcheck = check_list[ilist][0];
-    ycheck = check_list[ilist][1];
-    zcheck = check_list[ilist][2];
-    xlo = bounds_list[ilist][0][0];
-    xhi = bounds_list[ilist][0][1];
-    ylo = bounds_list[ilist][1][0];
-    yhi = bounds_list[ilist][1][1];
-    zlo = bounds_list[ilist][2][0];
-    zhi = bounds_list[ilist][2][1];
+    int state[3];
+    state[0] = ilist % 3;
+    state[1] = (ilist / 3) % 3;
+    state[2] = (dim == 3) ? ilist / 9 : 1;
 
-    nsend = 0;
-    maxsend_list = maxsendatoms_list[ilist];
+    alist[nactive] = ilist;
+    astate[nactive][0] = state[0];
+    astate[nactive][1] = state[1];
+    astate[nactive][2] = state[2];
+    nactive++;
 
-    if (!xcheck && !ycheck && !zcheck) {
-      for (i = 0; i < nlocal; i++) {
-        if (nsend == maxsend_list) {
-          grow_list_direct(ilist,nsend);
-          maxsend_list = maxsendatoms_list[ilist];
-        }
-        sendatoms_list[ilist][nsend++] = i;
-      }
-    } else {
-      for (i = 0; i < nlocal; i++) {
-        if (xcheck && (x[i][0] < xlo || x[i][0] > xhi)) continue;
-        if (ycheck && (x[i][1] < ylo || x[i][1] > yhi)) continue;
-        if (zcheck && (x[i][2] < zlo || x[i][2] > zhi)) continue;
-        if (nsend == maxsend_list) {
-          grow_list_direct(ilist,nsend);
-          maxsend_list = maxsendatoms_list[ilist];
-        }
-        sendatoms_list[ilist][nsend++] = i;
-      }
+    for (int idim = 0; idim < 3; idim++) {
+      dcheck[idim][state[idim]] = check_list[ilist][idim];
+      dlo[idim][state[idim]] = bounds_list[ilist][idim][0];
+      dhi[idim][state[idim]] = bounds_list[ilist][idim][1];
     }
 
-    sendnum_list[ilist] = nsend;
+    // a stencil deeper than one proc can map an interior swap to the
+    //   unrestricted list in every dim, which then holds all owned atoms
+
+    if ((state[0] == 1) && (state[1] == 1) && (state[2] == 1)) center_active = 1;
+
+    sendnum_list[ilist] = 0;
+  }
+
+  int q[3][3];
+  q[0][1] = q[1][1] = q[2][1] = 1;
+
+  for (i = 0; i < nlocal; i++) {
+    const double xi = x[i][0];
+    const double yi = x[i][1];
+    const double zi = x[i][2];
+
+    q[0][0] = !dcheck[0][0] || ((xi >= dlo[0][0]) && (xi <= dhi[0][0]));
+    q[0][2] = !dcheck[0][2] || ((xi >= dlo[0][2]) && (xi <= dhi[0][2]));
+    q[1][0] = !dcheck[1][0] || ((yi >= dlo[1][0]) && (yi <= dhi[1][0]));
+    q[1][2] = !dcheck[1][2] || ((yi >= dlo[1][2]) && (yi <= dhi[1][2]));
+    q[2][0] = !dcheck[2][0] || ((zi >= dlo[2][0]) && (zi <= dhi[2][0]));
+    q[2][2] = !dcheck[2][2] || ((zi >= dlo[2][2]) && (zi <= dhi[2][2]));
+
+    // an atom in no lo/hi slab in any dim can only belong to the unrestricted
+    //   list, so skip it outright unless that list is in use
+
+    if (!center_active && !q[0][0] && !q[0][2] && !q[1][0] &&
+        !q[1][2] && !q[2][0] && !q[2][2]) continue;
+
+    for (int a = 0; a < nactive; a++) {
+      if (!q[0][astate[a][0]]) continue;
+      if (!q[1][astate[a][1]]) continue;
+      if (!q[2][astate[a][2]]) continue;
+      ilist = alist[a];
+      nsend = sendnum_list[ilist];
+      if (nsend == maxsendatoms_list[ilist]) grow_list_direct(ilist,nsend);
+      sendatoms_list[ilist][nsend] = i;
+      sendnum_list[ilist] = nsend + 1;
+    }
   }
 
   // set sendnum_direct and sendlist_direct for all swaps from per-list data
