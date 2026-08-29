@@ -241,15 +241,19 @@ void FixAddForceKokkos<DeviceType>::operator()(TagFixAddForceNonConstant, const 
     x_i[2] = static_cast<double>(x(i,2));
     auto unwrapKK = DomainKokkos::unmap(prd,h,triclinic,x_i,image(i));
 
+    // an atom-style variable supplies the value per atom, any other style
+    // (constant or equal-style variable) the same value for all of them
+
+    const double xv = (xstyle == ATOM) ? static_cast<double>(d_sforce(i,0)) : xvalue;
+    const double yv = (ystyle == ATOM) ? static_cast<double>(d_sforce(i,1)) : yvalue;
+    const double zv = (zstyle == ATOM) ? static_cast<double>(d_sforce(i,2)) : zvalue;
+
     if (estyle == ATOM) {
       result[0] += static_cast<double>(d_sforce(i,3));
     } else {
-      if (xstyle == EQUAL) result[0] -= xvalue * unwrapKK[0];
-      if (ystyle == EQUAL) result[0] -= yvalue * unwrapKK[1];
-      if (zstyle == EQUAL) result[0] -= zvalue * unwrapKK[2];
-      if (xstyle == ATOM) result[0] -= static_cast<double>(d_sforce(i,0)) * unwrapKK[0];
-      if (ystyle == ATOM) result[0] -= static_cast<double>(d_sforce(i,1)) * unwrapKK[1];
-      if (zstyle == ATOM) result[0] -= static_cast<double>(d_sforce(i,2)) * unwrapKK[2];
+      if (xstyle) result[0] -= xv * unwrapKK[0];
+      if (ystyle) result[0] -= yv * unwrapKK[1];
+      if (zstyle) result[0] -= zv * unwrapKK[2];
     }
     result[1] += static_cast<double>(f(i,0));
     result[2] += static_cast<double>(f(i,1));
@@ -262,9 +266,6 @@ void FixAddForceKokkos<DeviceType>::operator()(TagFixAddForceNonConstant, const 
     else if (zstyle) f(i,2) += static_cast<KK_ACC_FLOAT>(zvalue_kk);
 
     if (evflag) {
-      const double xv = (xstyle == ATOM) ? static_cast<double>(d_sforce(i,0)) : xvalue;
-      const double yv = (ystyle == ATOM) ? static_cast<double>(d_sforce(i,1)) : yvalue;
-      const double zv = (zstyle == ATOM) ? static_cast<double>(d_sforce(i,2)) : zvalue;
       KK_FLOAT v[6];
       v[0] = xstyle ? static_cast<KK_FLOAT>(xv * unwrapKK[0]) : static_cast<KK_FLOAT>(0.0);
       v[1] = ystyle ? static_cast<KK_FLOAT>(yv * unwrapKK[1]) : static_cast<KK_FLOAT>(0.0);

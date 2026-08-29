@@ -283,10 +283,13 @@ class Fix : protected Pointers {
   int dynamic;    // recount atoms for temperature computes
 
   // alloc = 0 tells ev_setup()/v_setup() to only update the flags and the
-  // maxeatom/maxvatom sizes, but not to allocate or zero the plain per-atom
-  // arrays.  Styles that manage eatom/vatom themselves (e.g. the KOKKOS
-  // variants, which store them in dual views) must pass alloc = 0, since
-  // otherwise the plain arrays allocated here are orphaned by the style.
+  // maxeatom/maxvatom/maxcvatom sizes, but not to allocate or zero any of the
+  // plain per-atom arrays.  Styles that manage eatom/vatom themselves (e.g.
+  // the KOKKOS variants, which store them in dual views) must pass alloc = 0,
+  // since otherwise the plain arrays allocated here are orphaned by the style.
+  // Note that this covers cvatom as well: a style that passes alloc = 0 has to
+  // provide the centroid virial itself or set centroidstressflag to
+  // CENTROID_NOTAVAIL, since cvatom is then left unallocated.
 
   void ev_init(int eflag, int vflag, int alloc = 1)
   {

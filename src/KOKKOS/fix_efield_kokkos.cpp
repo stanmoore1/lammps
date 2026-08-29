@@ -119,9 +119,11 @@ void FixEfieldKokkos<DeviceType>::post_force(int vflag)
     d_match = k_match.template view<DeviceType>();
   }
 
-  // reallocate sforce array if necessary
+  // reallocate efield array if necessary
+  // an atom-style energy or potential variable writes into efield[i][3],
+  // so the array is needed for those as well, not only for varflag == ATOM
 
-  if (varflag == ATOM && atom->nmax > maxatom) {
+  if (((varflag == ATOM) || (estyle == ATOM) || (pstyle == ATOM)) && atom->nmax > maxatom) {
     maxatom = atom->nmax;
     memoryKK->destroy_kokkos(k_efield,efield);
     memoryKK->create_kokkos(k_efield,efield,maxatom,4,"efield:efield");
@@ -157,7 +159,9 @@ void FixEfieldKokkos<DeviceType>::post_force(int vflag)
 
     FixEfield::update_efield_variables();
 
-    if (varflag == ATOM) {  // this can be removed when variable class is ported to Kokkos
+    // this can be removed when the variable class is ported to Kokkos
+
+    if ((varflag == ATOM) || (estyle == ATOM) || (pstyle == ATOM)) {
       k_efield.modify_host();
       k_efield.sync<DeviceType>();
     }

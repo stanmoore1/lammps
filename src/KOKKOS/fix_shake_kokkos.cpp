@@ -563,10 +563,12 @@ void FixShakeKokkos<DeviceType>::operator()(TagFixShakeMinPostForce<NEIGHFLAG,EV
       ev_tally<NEIGHFLAG>(ev,count,atomlist,total,eb,v);
     }
     if (output_every && !is_angle) {
-      Kokkos::atomic_add(&d_b_stats(type_idx, 0), 1.0);
-      Kokkos::atomic_add(&d_b_stats(type_idx, 1), (double)r);
-      Kokkos::atomic_add(&d_b_stats(type_idx, 0), 1.0);
-      Kokkos::atomic_add(&d_b_stats(type_idx, 1), (double)r);
+      // only atoms owned by this processor are counted, as on the CPU
+      const double nown = (double) ((idx0 < nlocal) + (idx1 < nlocal));
+      if (nown > 0.0) {
+        Kokkos::atomic_add(&d_b_stats(type_idx, 0), nown);
+        Kokkos::atomic_add(&d_b_stats(type_idx, 1), nown * (double)r);
+      }
       Kokkos::atomic_max(&d_b_stats(type_idx, 2), (double)r);
       Kokkos::atomic_min(&d_b_stats(type_idx, 3), (double)r);
     }
@@ -656,15 +658,23 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   comm->forward_comm(this);
   k_xshake.sync<DeviceType>();
 
-  // virial setup
+  // energy and virial setup, as FixShake::post_force() does.  the per-atom
+  // energy and virial are accumulated into dual views, so the plain
+  // base-class arrays must not be allocated here (alloc = 0)
 
-  // the per-atom virial is accumulated into a dual view, so the plain
-  // base-class vatom array must not be allocated here (alloc = 0)
+  int eflag = eflag_pre_reverse;
+  ev_init(eflag,vflag,0);
 
-  v_init(vflag,0);
+  // reallocate the per-atom energy and virial dual views if necessary.  the
+  // constraint forces contribute no per-atom energy during dynamics, but the
+  // freshly created view keeps it zeroed rather than holding on to whatever
+  // a preceding minimization left behind
 
-  // reallocate the per-atom virial dual view if necessary
-
+  if (eflag_atom) {
+    memoryKK->destroy_kokkos(k_eatom,eatom);
+    memoryKK->create_kokkos(k_eatom,eatom,maxeatom,"shake:eatom");
+    d_eatom = k_eatom.template view<DeviceType>();
+  }
   if (vflag_atom) {
     memoryKK->destroy_kokkos(k_vatom,vatom);
     memoryKK->create_kokkos(k_vatom,vatom,maxvatom,"shake:vatom");
