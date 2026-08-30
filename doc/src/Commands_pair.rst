@@ -12,6 +12,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
 
    * :doc:`none <pair_none>`
    * :doc:`zero <pair_zero>`
+   * :doc:`zero/coul <pair_zero>`
    * :doc:`hybrid (ko) <pair_hybrid>`
    * :doc:`hybrid/molecular (o) <pair_hybrid>`
    * :doc:`hybrid/overlay (ko) <pair_hybrid>`
