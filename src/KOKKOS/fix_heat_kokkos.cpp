@@ -19,7 +19,9 @@
 #include "error.h"
 #include "force.h"
 #include "input.h"
+#include "kokkos_base.h"
 #include "modify.h"
+#include "region.h"
 #include "update.h"
 #include "variable.h"
 
@@ -48,11 +50,12 @@ void FixHeatKokkos<DeviceType>::init()
 {
   FixHeat::init();
 
-  // the region match and the per-atom heat variable are host-only concepts;
-  // supporting them would force per-atom host/device transfers every heat step
+  if (region && !dynamic_cast<KokkosBase*>(region))
+    error->all(FLERR, "Cannot use fix heat/kk with region style {} that has no KOKKOS support",
+               region->style);
 
-  if (region)
-    error->all(FLERR, "Fix heat/kk does not (yet) support the region keyword");
+  // evaluating a per-atom heat variable is a host-only concept; supporting it
+  // would force per-atom host/device transfers every heat step
 
   if (hstyle == ATOM)
     error->all(FLERR, "Fix heat/kk does not (yet) support an atom-style variable as heat flux");
@@ -85,14 +88,33 @@ void FixHeatKokkos<DeviceType>::end_of_step()
   }
   const int nlocal = atom->nlocal;
 
-  // group momentum and twice the unscaled kinetic energy sum, reduced on
-  // the device (mirrors Group::vcm() + Group::ke() without the region)
+  // with a region, additionally restrict all sums to atoms currently inside
+  // it, and use the mass of those atoms in place of the static group mass
 
-  double result[4], all[4];
+  DAT::tdual_int_1d k_match;
+  l_region_flag = (region != nullptr) ? 1 : 0;
+  if (l_region_flag) {
+    region->prematch();
+    KokkosBase *regionKKBase = dynamic_cast<KokkosBase*>(region);
+    k_match = DAT::tdual_int_1d("heat:k_match", nlocal);
+    regionKKBase->match_all_kokkos(groupbit, k_match);
+    k_match.template sync<DeviceType>();
+    d_match = k_match.template view<DeviceType>();
+  }
+
+  // group momentum, twice the unscaled kinetic energy sum, and group mass,
+  // reduced on the device (mirrors Group::vcm() + Group::ke() + Group::mass())
+
+  double result[5], all[5];
   copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagFixHeatKE>(0,nlocal),*this,result);
   copymode = 0;
-  MPI_Allreduce(result,all,4,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(result,all,5,MPI_DOUBLE,MPI_SUM,world);
+
+  if (l_region_flag) {
+    masstotal = all[4];
+    if (masstotal == 0.0) error->all(FLERR, "Fix heat group has no atoms");
+  }
 
   double vcm[3];
   vcm[0] = all[0]/masstotal;
@@ -131,7 +153,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixHeatKokkos<DeviceType>::operator()(TagFixHeatKE, const int &i, value_type result) const
 {
-  if (mask[i] & groupbit) {
+  if ((mask[i] & groupbit) && (!l_region_flag || d_match[i])) {
     const double massone = l_rmass_flag ? (double)rmass[i] : (double)mass[type[i]];
     const double v0 = v(i,0);
     const double v1 = v(i,1);
@@ -140,6 +162,7 @@ void FixHeatKokkos<DeviceType>::operator()(TagFixHeatKE, const int &i, value_typ
     result[1] += massone * v1;
     result[2] += massone * v2;
     result[3] += massone * (v0*v0 + v1*v1 + v2*v2);
+    result[4] += massone;
   }
 }
 
@@ -150,7 +173,7 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void FixHeatKokkos<DeviceType>::operator()(TagFixHeatApply, const int &i) const
 {
-  if (mask[i] & groupbit) {
+  if ((mask[i] & groupbit) && (!l_region_flag || d_match[i])) {
     v(i,0) = l_scale * v(i,0) - l_vsub[0];
     v(i,1) = l_scale * v(i,1) - l_vsub[1];
     v(i,2) = l_scale * v(i,2) - l_vsub[2];
