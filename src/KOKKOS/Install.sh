@@ -605,6 +605,15 @@ action rand_pool_wrap_kokkos.cpp
 action rand_pool_wrap_kokkos.h
 action region_block_kokkos.cpp
 action region_block_kokkos.h
+action region_cone_kokkos.cpp
+action region_cone_kokkos.h
+action region_cylinder_kokkos.cpp
+action region_cylinder_kokkos.h
+action region_plane_kokkos.cpp
+action region_plane_kokkos.h
+action region_prism_kokkos.cpp
+action region_prism_kokkos.h
+action region_remap_kokkos.h
 action region_sphere_kokkos.cpp
 action region_sphere_kokkos.h
 action remap_kokkos.cpp remap.cpp

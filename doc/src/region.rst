@@ -3,7 +3,7 @@
 region command
 ==============
 
-Accelerator Variants: *block/kk*, *sphere/kk*
+Accelerator Variants: *block/kk*, *cone/kk*, *cylinder/kk*, *plane/kk*, *prism/kk*, *sphere/kk*
 
 Syntax
 """"""
@@ -77,7 +77,7 @@ Syntax
          Rx,Ry,Rz = axis of rotation vector
        *open* value = integer from 1-6 corresponding to face index (see below)
 
-* accelerated styles (with same args) = *block/kk, sphere/kk*
+* accelerated styles (with same args) = *block/kk, cone/kk, cylinder/kk, plane/kk, prism/kk, sphere/kk*
 
 Examples
 """"""""
@@ -426,9 +426,12 @@ sub-regions can be defined with the *open* keyword.
 
 .. note::
 
-  Currently, only *block* and *sphere* style regions are supported by KOKKOS.  The
-  code using the region (such as a fix or compute) must also be
-  supported by KOKKOS or no acceleration will occur.
+  Currently, only *block*, *cone*, *cylinder*, *plane*, *prism*, and
+  *sphere* style regions are supported by KOKKOS.  The code using the
+  region (such as a fix or compute) must also be supported by KOKKOS or
+  no acceleration will occur.  :doc:`Fix wall/region/kk <fix_wall_region>`
+  additionally requires surface contact support, which is currently only
+  implemented for *block* and *sphere* style regions.
 
 ----------
 
