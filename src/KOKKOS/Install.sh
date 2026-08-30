@@ -97,6 +97,8 @@ action compute_ke_atom_kokkos.cpp
 action compute_ke_atom_kokkos.h
 action compute_erotate_asphere_kokkos.cpp compute_erotate_asphere.cpp
 action compute_erotate_asphere_kokkos.h compute_erotate_asphere.h
+action compute_erotate_sphere_atom_kokkos.cpp
+action compute_erotate_sphere_atom_kokkos.h
 action compute_erotate_sphere_kokkos.cpp
 action compute_erotate_sphere_kokkos.h
 action compute_composition_atom_kokkos.cpp compute_composition_atom.cpp
@@ -123,6 +125,8 @@ action compute_temp_profile_kokkos.cpp
 action compute_temp_profile_kokkos.h
 action compute_temp_ramp_kokkos.cpp
 action compute_temp_ramp_kokkos.h
+action compute_temp_region_kokkos.cpp
+action compute_temp_region_kokkos.h
 action compute_temp_sphere_kokkos.cpp
 action compute_temp_sphere_kokkos.h
 action dihedral_charmm_kokkos.cpp dihedral_charmm.cpp
@@ -294,6 +298,8 @@ action fix_wall_gran_old.cpp fix_wall_gran.cpp
 action fix_wall_gran_old.h fix_wall_gran.h
 action fix_wall_harmonic_kokkos.cpp
 action fix_wall_harmonic_kokkos.h
+action fix_wall_harmonic_outside_kokkos.cpp
+action fix_wall_harmonic_outside_kokkos.h
 action fix_wall_lj126_kokkos.cpp
 action fix_wall_lj126_kokkos.h
 action fix_wall_lj1043_kokkos.cpp

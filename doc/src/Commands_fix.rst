@@ -292,7 +292,7 @@ parenthesis: g = GPU, i = INTEL, k = KOKKOS, o = OPENMP, t = OPT.
    * :doc:`wall/gran (k) <fix_wall_gran>`
    * :doc:`wall/gran/region <fix_wall_gran_region>`
    * :doc:`wall/harmonic (k) <fix_wall>`
-   * :doc:`wall/harmonic/outside <fix_wall>`
+   * :doc:`wall/harmonic/outside (k) <fix_wall>`
    * :doc:`wall/lj1043 (k) <fix_wall>`
    * :doc:`wall/lj126 (k) <fix_wall>`
    * :doc:`wall/lj93 (k) <fix_wall>`
