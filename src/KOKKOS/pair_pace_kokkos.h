@@ -37,7 +37,7 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeNeigh{};
   struct TagPairPACEComputeRadial{};
   struct TagPairPACEComputeAi{};
-  struct TagPairPACEConjugateAi{};
+  struct TagPairPACEComputeAiTeam{};
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
   struct TagPairPACEComputeWeights{};
@@ -69,11 +69,11 @@ class PairPACEKokkos : public PairPACE {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEComputeAi,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi>::member_type& team) const;
+  void operator() (TagPairPACEComputeAi,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEConjugateAi,const int& ii) const;
+  void operator() (TagPairPACEComputeAiTeam,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAiTeam>::member_type& team) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -109,6 +109,32 @@ class PairPACEKokkos : public PairPACE {
 
   int neighflag, max_ndensity;
   int nelements, lmax, nradmax, nradbase;
+
+  // ------------------------------------------------------------------
+  // GPU performance tuning constants (per-architecture).
+  //
+  // These set the team size used to launch each TeamPolicy kernel. They
+  // replace a single hard-coded team size (formerly 32 for every GPU
+  // kernel) so that occupancy can be tuned per kernel and per backend.
+  // The host backend falls back to the non-Kokkos evaluator in compute(),
+  // so the values in the host branch are only used to keep the launches
+  // well-formed and are not performance critical.
+  //
+  // NOTE: the values below intentionally reproduce the previous behaviour
+  // (team size 32 on all GPU kernels). They are the hook for the empirical
+  // per-architecture tuning sweep; do not change them without benchmarking.
+  // ------------------------------------------------------------------
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) || defined(KOKKOS_ENABLE_SYCL)
+  static constexpr int team_size_compute_neigh = 32;
+  static constexpr int team_size_compute_radial = 32;
+  static constexpr int team_size_compute_ai = 32;
+  static constexpr int team_size_compute_derivative = 32;
+#else
+  static constexpr int team_size_compute_neigh = 1;
+  static constexpr int team_size_compute_radial = 1;
+  static constexpr int team_size_compute_ai = 1;
+  static constexpr int team_size_compute_derivative = 1;
+#endif
 
   typename AT::t_neighbors_2d d_neighbors;
   typename AT::t_int_1d_randomread d_ilist;
@@ -149,6 +175,7 @@ class PairPACEKokkos : public PairPACE {
 
   friend void pair_virial_fdotr_compute<PairPACEKokkos>(PairPACEKokkos*);
 
+  void settings(int, char **) override;
   void grow(int, int);
   void copy_pertype();
   void copy_splines();
@@ -188,6 +215,46 @@ class PairPACEKokkos : public PairPACE {
   KOKKOS_INLINE_FUNCTION
   void evaluate_splines(const int, const int, KK_FLOAT, int, int, int, int) const;
 
+  // Direct (spline-free) evaluation of the ChebPow radial basis: computes the
+  // Chebyshev recurrence on the fly for gr/dgr, then fr/dfr via the crad
+  // matrix product. Trades the memory-bound spline-table lookup for higher
+  // arithmetic intensity (crad is per-element-pair constant and stays cached).
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void evaluate_radial_direct_chebpow(const int, const int, const KK_FLOAT, const int, const int) const;
+
+  // Shared inner radial loop for ComputeDerivative. Accumulates the gradient
+  // contribution of a single (l, m) spherical-harmonic channel into f_ji for
+  // all radial functions n. wscale folds in the factor-of-2 used for m > 0.
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void compute_derivative_radial(const int ii, const int jj, const int mu_j,
+      const int idx_sph, const int l, const complex &ylm, const complex (&dylm)[3],
+      const KK_FLOAT rinv, const KK_FLOAT (&r_hat)[3], const KK_FLOAT wscale,
+      KK_ACC_FLOAT (&f_ji)[3]) const;
+
+  // Shared inner radial loop for ComputeAi. Accumulates one (l, m) channel of
+  // the A basis functions over all radial functions n. M0 selects the m = 0
+  // path, whose ylm is purely real, so the (zero) imaginary accumulation is
+  // skipped entirely.
+  template<bool M0, bool ATOMIC>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void accumulate_A_sph(const int ii, const int jj, const int mu_j,
+      const int idx_sph, const int l, const complex &ylm) const;
+
+  // per-neighbor A accumulation, shared by the per-atom (ATOMIC=false) and
+  // neighbor-parallel team (ATOMIC=true) ComputeAi kernels
+  template<bool ATOMIC>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void compute_A_neighbor(const int ii, const int jj) const;
+
+  // transpose/conjugate one element's A_sph slice into the full A array
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void fill_conjugate_A_mu(const int ii, const int mu_j) const;
+
   template<class TagStyle>
   void check_team_size_for(int, int&, int);
 
@@ -226,11 +293,21 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3d A_rank1;
   t_ace_4c A;
 
-  t_ace_3c A_list;
-  t_ace_3c A_forward_prod;
+  // Compile-time bound on the basis-function rank (correlation/body order).
+  // ComputeRho keeps the per-ms-combination A product chain (A_list and the
+  // forward-product prefixes) in thread-local arrays of this size instead of
+  // global scratch, so the chain stays in registers and independent
+  // ms-combinations can overlap (instruction-level parallelism). Covers all
+  // standard ACE potentials; init_style errors out if a model exceeds it.
+  static constexpr int MAX_RANK = 8;
 
   t_ace_3d weights_rank1;
-  t_ace_4c weights;
+  // Spherical-harmonic weights, stored as separate real/imaginary arrays
+  // (rather than an interleaved complex array) so that the atomic
+  // accumulation in ComputeWeights is coalesced across the (innermost) atom
+  // index on GPUs. Mirrors the ulisttot_re/ulisttot_im layout in Kokkos SNAP.
+  t_ace_4d weights_re;
+  t_ace_4d weights_im;
 
   t_ace_1d e_atom;
   t_ace_2d rhos;
@@ -255,11 +332,24 @@ class PairPACEKokkos : public PairPACE {
   t_ace_3d d_values;
   t_ace_3d d_derivatives;
 
+  // direct (spline-free) radial evaluation
+  enum { RADBASE_OTHER = 0, RADBASE_CHEBPOW = 1 };
+  int radial_direct;                          // user flag: use direct Chebyshev evaluation
+  int ai_serial;                              // user flag: serial one-thread-per-atom ComputeAi (default is team+atomic)
+  Kokkos::View<int**, DeviceType> d_radbasename; // per element-pair radial basis code
+  t_fparams d_lambda, d_cut;                  // radial scaling lambda and cutoff, [nelements][nelements]
+  Kokkos::View<KK_FLOAT*****, DeviceType> d_crad; // crad coeffs [nelements][nelements][nradmax][lmax+1][nradbase]
+
   // Spherical Harmonics
 
   void pre_compute_harmonics(int);
 
-  t_ace_4c A_sph;
+  // Spherical-harmonic basis A, stored as separate real/imaginary arrays
+  // (rather than an interleaved complex array) so that the atomic
+  // accumulation over neighbors in ComputeAi is coalesced across the
+  // (innermost) atom index on GPUs. Mirrors Kokkos SNAP's ulisttot_re/im.
+  t_ace_4d A_sph_re;
+  t_ace_4d A_sph_im;
   t_ace_1d d_idx_sph;
   t_ace_1d alm;
   t_ace_1d blm;
