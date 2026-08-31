@@ -27,11 +27,9 @@
 
 // NOTES:
 // still need cutoff calculation for nonuniform layout
-// need forward_comm_array to test molecular systems
-// test msg tags with individual procs as multiple neighbors via big stencil
-// test when cutoffs >> box length
-// test with triclinic
-// doc msg tag logic in code
+//   until then init() rejects a non-uniform processor grid
+// still need forward/reverse comm invoked by a Bond, and variable-size
+//   reverse comm invoked by a Fix
 // doc stencil data structs and logic in code
 // CommBrick could use local maxsend in its borders() check for sendlist realloc
 //   instead of indexing the swap for each atom

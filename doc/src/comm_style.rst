@@ -34,6 +34,8 @@ to partition the simulation box must be a regular 3d grid of bricks,
 one per processor.  Each processor communicates with its 6 Cartesian
 neighbors in the grid to acquire information for nearby atoms.
 
+.. versionadded:: TBD
+
 The *brick/direct* style uses the same regular 3d grid of bricks as the
 *brick* style, but acquires ghost atoms differently.  Instead of the
 6-way exchange above, in which atoms are relayed through intermediate
@@ -42,8 +44,6 @@ processor exchanges atoms directly with each of the nearby processors
 that owns atoms within its ghost cutoff.  All of those exchanges are
 posted at once, so no processor waits on a relay of messages it is not
 part of.
-
-.. versionadded:: TBD
 
 This is most useful when the ghost cutoff is large compared to the size
 of a subdomain, which happens when a simulation is run on many
@@ -76,8 +76,8 @@ kinds of decompositions are allowed and the pattern of communication
 used to enable the decomposition.  A decomposition is created when the
 simulation box is first created, via the :doc:`create_box <create_box>`
 or :doc:`read_data <read_data>` or :doc:`read_restart <read_restart>`
-commands.  For both the *brick* and *tiled* styles, the initial
-decomposition will be the same, as described by
+commands.  For the *brick*, *brick/direct* and *tiled*
+styles, the initial decomposition will be the same, as described by
 :doc:`create_box <create_box>` and :doc:`processors <processors>`
 commands.  The decomposition can be changed via the
 :doc:`balance <balance>` or :doc:`fix balance <fix_balance>` commands.
