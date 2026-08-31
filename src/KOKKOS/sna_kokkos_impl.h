@@ -304,16 +304,16 @@ bigint SNAKokkos<DeviceType, real_type, accum_type, vector_length>::grow_rij(int
   // plain integer indices, that is a 32-bit type.  An array holding more than
   // MAXSMALLINT elements would then be indexed incorrectly, so report the size
   // of the largest one instead of allocating anything, and leave it to the
-  // caller to turn a chunk size that is too large into an error message.
+  // caller to turn a chunk size that is too large into an error message.  The
+  // three arrays that carry the largest factor on top of the chunk size --
+  // zlist, ulist_cpu and dulist_cpu -- are left out because they are declared
+  // with 64-bit indexing and can be addressed at any size.
 
   bigint max_elements = 3 * new_natom_pad * new_nmax;              // rij, dedr, da_gpu, db_gpu
   max_elements = MAX(max_elements, new_natom_pad * nelements * idxu_max);       // ulisttot
   max_elements = MAX(max_elements, new_natom_pad * nelements * idxu_half_max);  // ulisttot_re, ylist_re
-  max_elements = MAX(max_elements, new_natom_pad * ndoubles * idxz_max);        // zlist
   max_elements = MAX(max_elements, new_natom_pad * ntriples * idxb_max);        // blist
-  if (host_flag || legacy_on_gpu)
-    max_elements = MAX(max_elements, 3 * new_natom_pad * new_nmax * idxu_cache_max); // dulist_cpu
-  else
+  if (!host_flag && !legacy_on_gpu)
     max_elements = MAX(max_elements, 4 * new_natom_pad * new_nmax);             // sfac_gpu
 
   if (max_elements > MAXSMALLINT) return max_elements;

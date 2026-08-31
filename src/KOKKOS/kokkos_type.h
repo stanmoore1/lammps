@@ -230,6 +230,32 @@ using KKBigView =
                Kokkos::Experimental::Accessor<ValueType,
                  typename Device::memory_space,MemoryTraits>>;
 
+// Extents with NDynamic leading dimensions set at run time and one trailing
+// dimension of Last fixed at compile time, for the KKBigViewFixedLast types
+// below.
+
+template<class IndexType, int NDynamic, std::size_t Last, std::size_t... Dynamic>
+struct KKBigExtents : KKBigExtents<IndexType,NDynamic-1,Last,Kokkos::dynamic_extent,Dynamic...> {};
+
+template<class IndexType, std::size_t Last, std::size_t... Dynamic>
+struct KKBigExtents<IndexType,0,Last,Dynamic...> {
+  typedef Kokkos::extents<IndexType,Dynamic...,Last> type;
+};
+
+// The same as KKBigView for a view whose last dimension is fixed at compile
+// time, such as the three components of a vector: Rank is the number of leading
+// dimensions set at run time, Last the fixed one, so that a view spelled
+// Kokkos::View<double**[3],...> becomes KKBigViewFixedLast<double,2,3,...>.
+
+template<class ValueType, int Rank, std::size_t Last, class ArrayLayout, class Device,
+         class MemoryTraits = Kokkos::MemoryTraits<>>
+using KKBigViewFixedLast =
+  Kokkos::View<ValueType,
+               typename KKBigExtents<int64_t,Rank,Last>::type,
+               typename KKUnpaddedLayout<ArrayLayout>::type,
+               Kokkos::Experimental::Accessor<ValueType,
+                 typename Device::memory_space,MemoryTraits>>;
+
 // Helpers for readability
 
 using KKScatterSum = Kokkos::Experimental::ScatterSum;
