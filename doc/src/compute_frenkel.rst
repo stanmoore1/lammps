@@ -17,8 +17,8 @@ Syntax
 
   .. parsed-literal::
 
-       *drvac* value = distance for including vacancies in a cluster (nearest neighbor distances)
-       *drint* value = distance for including interstitials in a cluster (nearest neighbor distances)
+       *drvac* value = distance for including vacancies in a cluster (unitless multiple of nearest neighbor distance)
+       *drint* value = distance for including interstitials in a cluster (unitless multiple of nearest neighbor distance)
        *region* value = ID of a region (or *none*) to restrict the reference sites to
        *rescale* value = *yes* or *no* to co-scale the reference sites with the box
        *site_file* value = name of a file with explicit "x y z" site coordinates (or *none*)
@@ -108,15 +108,15 @@ site is then confirmed with the bisecting planes described above.  The
 bins and the lists of neighboring sites are set up once at the beginning
 of a run and rebuilt only when the simulation box changes.
 
-Nearby defects are further grouped into clusters.  Two defective sites
-are connected when they are closer to each other than *drvac* if the
-second site is empty, or closer than *drint* if it holds more than one
-atom.  A cluster is a group of defective sites that are connected in this
-way, either directly or through other defective sites of the same
-cluster.  Every defective site therefore belongs to exactly one cluster
-and the clusters do not overlap.  A cluster is identified by the smallest
-atom ID among its sites, and its position is the average of the positions
-of its sites.
+Nearby defective sites (0 or 2+ atoms) are further grouped into
+clusters.  Two defective sites are connected when they are closer to
+each other than *drvac* if the second site is empty, or closer than
+*drint* if it holds more than one atom.  A cluster is a group of
+defective sites that are connected in this way, either directly or
+through other defective sites of the same cluster.  Every defective site
+therefore belongs to exactly one cluster and the clusters do not
+overlap.  A cluster is identified by the smallest atom ID among its
+sites, and its position is the average of the positions of its sites.
 
 The size of a cluster is the number of its interstitials minus the number
 of its vacancies, so the sign of the size distinguishes interstitial-type
@@ -129,10 +129,10 @@ or the two distances.
 
 The optional keywords listed above adjust the settings of the analysis.
 
-The *drvac* and *drint* distances are given as multiples of the nearest
-neighbor distance of the reference lattice, not in distance units, so
-that the same setting has the same meaning for different lattices and
-different lattice constants.  They default to 1.5 and 1.82,
+The *drvac* and *drint* distances are specified as unitless multiples of
+the nearest neighbor distance of the reference lattice, not in distance
+units, so that the same setting has the same meaning for different
+lattices and different lattice constants.  They default to 1.5 and 1.82,
 respectively.  With those values a vacancy is connected to defects in
 the first two neighbor shells and a multiply occupied site to defects in
 the first three, and this is the case for simple cubic, bcc, and fcc
@@ -150,7 +150,7 @@ dimension, since otherwise every site in the empty space is counted as a
 vacancy.  Such a mistake is not detected as such, but a warning is
 printed when more than 20 percent of the reference sites are found to be
 empty, which also catches a reference lattice that does not match the
-crystal.
+crystalline structure of the atoms.
 
 Use *rescale yes* when the box changes size during the run (for example
 under :doc:`fix npt <fix_nh>` or while heating), so that the reference
