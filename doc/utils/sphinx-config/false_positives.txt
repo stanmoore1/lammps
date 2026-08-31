@@ -397,6 +397,7 @@ boostostat
 boostostatting
 Boresch
 borophene
+Bosilca
 bosonic
 bosons
 Botero
@@ -404,6 +405,7 @@ Botu
 Bouguet
 Bourasseau
 Bourne
+Bouteiller
 boxcolor
 boxhi
 boxlo
@@ -763,7 +765,6 @@ cygwin
 Cygwin
 cylindrically
 Cyrot
-cyrstals
 cython
 cz
 Daivis
@@ -954,6 +955,7 @@ dof
 doi
 Donadio
 Donev
+Dongarra
 dotc
 Doty
 downarrow
@@ -1131,7 +1133,6 @@ enobonds
 EnSight
 enthalpy
 enums
-envoke
 eos
 epair
 epcc
@@ -1257,6 +1258,8 @@ femtosecond
 femtoseconds
 fene
 Feng
+fenix
+Fenix
 Fennell
 fep
 FEP
@@ -1467,6 +1470,7 @@ Ghahremanpour
 Ghoufi
 Giacomo
 GiB
+Giem
 gif
 gifsicle
 Gillan
@@ -1629,6 +1633,7 @@ Henkes
 Hennig
 henrich
 Henrich
+Herault
 Hermitian
 Herrmann
 Hershchel
@@ -1799,7 +1804,6 @@ integrators
 Integrators
 intel
 intelmpi
-interal
 interatomic
 Interatomic
 interconvert
@@ -2815,6 +2819,7 @@ nhc
 nhi
 NiAlH
 Nicklas
+Nicolae
 Nieto
 Niklasson
 Nikolas
@@ -2895,7 +2900,6 @@ normz
 Noskov
 noslip
 notational
-noticable
 Nout
 noutcol
 Noutput
@@ -3080,7 +3084,6 @@ outmost
 outputss
 Ouyang
 overdamped
-overlayed
 oversubscription
 Ovito
 oxdna
@@ -3714,6 +3717,7 @@ Sanyal
 Sanz
 Saomoto
 Sarath
+Sarkar
 sawteeth
 sc
 scafacos
@@ -3804,7 +3808,6 @@ Shapeev
 shapex
 shapey
 shapez
-shapshot
 shardlow
 Shardlow
 shawn
@@ -4104,12 +4107,11 @@ templating
 Templeton
 Tencer
 Tequil
+Teranishi
 Terentyev
 ters
 tersoff
 Tersoff
-tesselation
-tesselations
 Tetot
 tex
 textrm
@@ -4153,7 +4155,6 @@ Thirumalai
 thr
 Threadripper
 threebody
-thrid
 ThunderX
 thylakoid
 THz
@@ -4380,6 +4381,7 @@ Uttormark
 uval
 uvm
 uwo
+uworld
 Uzdin
 vacf
 Vaid
@@ -4551,8 +4553,6 @@ Winkler
 wireframe
 wireframes
 Wirnsberger
-wirtes
-witin
 Wittmaack
 wn
 Wolde
