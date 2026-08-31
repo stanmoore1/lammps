@@ -118,9 +118,6 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(A_sph_im, "pace:A_sph_im", natom, nelements, idx_sph_max, nradmax + 1);
     MemKK::realloc_kokkos(A_rank1, "pace:A_rank1", natom, nelements, nradbase);
 
-    MemKK::realloc_kokkos(A_list, "pace:A_list", natom, idx_ms_combs_max, basis_set->rankmax);
-    //size is +1 of max to avoid out-of-boundary array access in double-triangular scheme
-    MemKK::realloc_kokkos(A_forward_prod, "pace:A_forward_prod", natom, idx_ms_combs_max, basis_set->rankmax + 1);
 
     MemKK::realloc_kokkos(e_atom, "pace:e_atom", natom);
     MemKK::realloc_kokkos(rhos, "pace:rhos", natom, basis_set->ndensitymax + 1); // +1 density for core repulsion
@@ -138,7 +135,6 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
     MemKK::realloc_kokkos(d_jj_min, "pace:j_min_pair", natom);
     MemKK::realloc_kokkos(d_corerep, "pace:corerep", natom); // per-atom corerep
 
-    MemKK::realloc_kokkos(dB_flatten, "pace:dB_flatten", natom, idx_ms_combs_max, basis_set->rankmax);
   }
 
   if (((int)fr.extent(0) < natom) || ((int)fr.extent(1) < maxneigh)) {
@@ -1042,6 +1038,29 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typenam
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
+typename PairPACEKokkos<DeviceType>::complex
+PairPACEKokkos<DeviceType>::read_A(const int ii, const int mu, const int l, const int m, const int n) const
+{
+  complex A_t;
+  if (m >= 0) {
+    const int idx_sph = d_idx_sph(l * (l + 1) + m);
+    A_t.re = A_sph_re(ii, mu, idx_sph, n);
+    A_t.im = A_sph_im(ii, mu, idx_sph, n);
+  } else {
+    const int p = -m;
+    const int idx_sph = d_idx_sph(l * (l + 1) + p);
+    const KK_FLOAT factor = (p % 2 == 0) ? 1.0 : -1.0;
+    A_t.re =  A_sph_re(ii, mu, idx_sph, n) * factor;
+    A_t.im = -A_sph_im(ii, mu, idx_sph, n) * factor;
+  }
+  return A_t;
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& iter) const
 {
   const int idx_ms_combs = iter / chunk_size;
@@ -1056,9 +1075,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
 
   const int idx_func = d_idx_funcs(mu_i, idx_ms_combs);
   const int rank = d_rank(mu_i, idx_func);
-  const int r = rank - 1;
 
-  // Basis functions B with iterative product and density rho(p) calculation
+  // Basis function B with iterative product and density rho(p) calculation
   if (rank == 1) {
     const int mu = d_mus(mu_i, idx_func, 0);
     const int n = d_ns(mu_i, idx_func, 0);
@@ -1068,49 +1086,18 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRho, const int& i
       Kokkos::atomic_add(&rhos(ii, p), d_ctildes(mu_i, idx_ms_combs, p) * A_cur);
     }
   } else { // rank > 1
-    // loop over {ms} combinations in sum
-
-    // loop over m, collect B  = product of A with given ms
-    A_forward_prod(ii, idx_ms_combs, 0) = complex::one();
-
-    // fill forward A-product triangle
+    // B = product of A over the ms-combination, accumulated in a register (no
+    // global product-chain scratch). The leave-one-out products needed for the
+    // weights are recomputed in ComputeWeights rather than stored in dB_flatten.
+    complex B = complex::one();
     for (int t = 0; t < rank; t++) {
       //TODO: optimize ns[t]-1 -> ns[t] during functions construction
       const int mu = d_mus(mu_i, idx_func, t);
       const int n = d_ns(mu_i, idx_func, t);
       const int l = d_ls(mu_i, idx_func, t);
       const int m = d_ms_combs(mu_i, idx_ms_combs, t); // current ms-combination (of length = rank)
-      // Read A(l,m) directly from the half-basis A_sph using the conjugate
-      // symmetry A(l,-p) = (-1)^p * conj(A(l,p)); avoids storing/reading the
-      // full (both-sign) complex A array and the ConjugateAi expansion kernel.
-      complex A_t;
-      if (m >= 0) {
-        const int idx_sph = d_idx_sph(l * (l + 1) + m);
-        A_t.re = A_sph_re(ii, mu, idx_sph, n - 1);
-        A_t.im = A_sph_im(ii, mu, idx_sph, n - 1);
-      } else {
-        const int p = -m;
-        const int idx_sph = d_idx_sph(l * (l + 1) + p);
-        const KK_FLOAT factor = (p % 2 == 0) ? 1.0 : -1.0;
-        A_t.re =  A_sph_re(ii, mu, idx_sph, n - 1) * factor;
-        A_t.im = -A_sph_im(ii, mu, idx_sph, n - 1) * factor;
-      }
-      A_list(ii, idx_ms_combs, t) = A_t;
-      A_forward_prod(ii, idx_ms_combs, t + 1) = A_forward_prod(ii, idx_ms_combs, t) * A_list(ii, idx_ms_combs, t);
+      B = B * read_A(ii, mu, l, m, n - 1);
     }
-
-    complex A_backward_prod = complex::one();
-
-    // fill backward A-product triangle
-    for (int t = r; t >= 1; t--) {
-      const complex dB = A_forward_prod(ii, idx_ms_combs, t) * A_backward_prod; // dB - product of all A's except t-th
-      dB_flatten(ii, idx_ms_combs, t) = dB;
-
-      A_backward_prod = A_backward_prod * A_list(ii, idx_ms_combs, t);
-    }
-    dB_flatten(ii, idx_ms_combs, 0) = A_forward_prod(ii, idx_ms_combs, 0) * A_backward_prod;
-
-    const complex B = A_forward_prod(ii, idx_ms_combs, rank);
 
     for (int p = 0; p < ndensity; ++p) {
       // real-part only multiplication
@@ -1227,7 +1214,17 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
     for (int t = 0; t < rank; ++t) {
       const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
       const int factor = (m_t % 2 == 0 ? 1 : -1);
-      const complex dB = dB_flatten(ii, idx_ms_combs, t);
+      // dB = product of all factors except t (leave-one-out), recomputed here
+      // from A_sph instead of reading a stored dB_flatten array.
+      complex dB = complex::one();
+      for (int s = 0; s < rank; ++s) {
+        if (s == t) continue;
+        const int mu_s = d_mus(mu_i, idx_func, s);
+        const int n_s = d_ns(mu_i, idx_func, s);
+        const int l_s = d_ls(mu_i, idx_func, s);
+        const int m_s = d_ms_combs(mu_i, idx_ms_combs, s);
+        dB = dB * read_A(ii, mu_s, l_s, m_s, n_s - 1);
+      }
       const int mu_t = d_mus(mu_i, idx_func, t);
       const int n_t = d_ns(mu_i, idx_func, t);
       const int l_t = d_ls(mu_i, idx_func, t);
@@ -1943,8 +1940,6 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += MemKK::memory_usage(A_rank1);
   bytes += MemKK::memory_usage(A_sph_re);
   bytes += MemKK::memory_usage(A_sph_im);
-  bytes += MemKK::memory_usage(A_list);
-  bytes += MemKK::memory_usage(A_forward_prod);
   bytes += MemKK::memory_usage(e_atom);
   bytes += MemKK::memory_usage(rhos);
   bytes += MemKK::memory_usage(dF_drho);
@@ -1955,7 +1950,6 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += MemKK::memory_usage(dF_drho_core);
   bytes += MemKK::memory_usage(dF_dfcut);
   bytes += MemKK::memory_usage(d_corerep);
-  bytes += MemKK::memory_usage(dB_flatten);
   bytes += MemKK::memory_usage(fr);
   bytes += MemKK::memory_usage(dfr);
   bytes += MemKK::memory_usage(gr);
