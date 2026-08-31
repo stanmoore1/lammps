@@ -28,7 +28,7 @@ class CommBrickDirect : public CommBrick {
   virtual void setup() override;                        // setup direct comm data structs
   virtual void forward_comm(int dummy = 0) override;    // forward comm of atom coords
   void reverse_comm() override;                 // reverse comm of forces
-  virtual void borders() override;                      // setup list of atoms to comm
+  virtual void borders() override;                      // setup list of atoms to comm                      // setup list of atoms to comm
 
   void forward_comm(class Pair *, int size = 0) override;                 // forward comm from a Pair
   void reverse_comm(class Pair *, int size = 0) override;                 // reverse comm from a Pair
@@ -121,6 +121,9 @@ class CommBrickDirect : public CommBrick {
 
   void order_swaps(int, int, int, int, int, int);
   void allocate_direct();
+  virtual void build_lists();     // build the per-swap lists of owned atoms
+  virtual void borders_comm();    // exchange border data for every swap
+
   virtual void allocate_lists();
   void deallocate_direct();
   virtual void deallocate_lists(int);

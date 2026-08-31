@@ -17,6 +17,8 @@
 #include "atom_kokkos.h"
 #include "atom_masks.h"
 #include "atom_vec_kokkos.h"
+#include "domain.h"
+#include "error.h"
 #include "kokkos.h"
 #include "memory_kokkos.h"
 
@@ -25,11 +27,77 @@ using namespace LAMMPS_NS;
 static constexpr double BUFFACTOR = 1.5;
 static constexpr int BUFMIN = 1024;
 
+
+/* ----------------------------------------------------------------------
+   build one send list on the device
+   counts per thread, then a team scan gives each thread a stable slot, so
+   the list comes out in increasing atom order exactly as the host build does
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+struct CommBrickDirectKokkos_BuildList {
+  typedef DeviceType device_type;
+  typedef ArrayTypes<DeviceType> AT;
+
+  typename AT::t_kkfloat_1d_3_lr _x;
+  typename AT::t_int_2d_lr _list;
+  typename AT::t_int_scalar _nsend;
+  int _ilist,_nlocal,_maxlist;
+  int _check[3];
+  double _lo[3],_hi[3];
+
+  CommBrickDirectKokkos_BuildList(
+      const DAT::ttransform_kkfloat_1d_3_lr &x,
+      const DAT::tdual_int_2d_lr &list,
+      const DAT::tdual_int_scalar &nsend,
+      int ilist, int nlocal, int maxlist,
+      const int *check, const double *lo, const double *hi):
+    _x(x.template view<DeviceType>()),
+    _list(list.template view<DeviceType>()),
+    _nsend(nsend.template view<DeviceType>()),
+    _ilist(ilist),_nlocal(nlocal),_maxlist(maxlist)
+  {
+    for (int d = 0; d < 3; d++) { _check[d] = check[d]; _lo[d] = lo[d]; _hi[d] = hi[d]; }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  bool keep(const int i) const {
+    for (int d = 0; d < 3; d++) {
+      if (!_check[d]) continue;
+      const double v = static_cast<double>(_x(i,d));
+      if ((v < _lo[d]) || (v > _hi[d])) return false;
+    }
+    return true;
+  }
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  void operator() (typename Kokkos::TeamPolicy<DeviceType>::member_type dev) const {
+    const int chunk = (_nlocal + dev.league_size() - 1) / dev.league_size();
+    const int teamstart = chunk*dev.league_rank();
+    const int teamend = (teamstart + chunk) < _nlocal ? (teamstart + chunk) : _nlocal;
+
+    int mysend = 0;
+    for (int i = teamstart + dev.team_rank(); i < teamend; i += dev.team_size())
+      if (keep(i)) mysend++;
+
+    const int my_store_pos = dev.team_scan(mysend,&_nsend());
+
+    if (my_store_pos + mysend < _maxlist) {
+      int m = my_store_pos;
+      for (int i = teamstart + dev.team_rank(); i < teamend; i += dev.team_size())
+        if (keep(i)) _list(_ilist,m++) = i;
+    }
+  }
+};
+
 /* ---------------------------------------------------------------------- */
 
 CommBrickDirectKokkos::CommBrickDirectKokkos(LAMMPS *lmp) : CommBrickDirect(lmp)
 {
   totalsend = 0;
+  border_device_flag = 0;
+  k_total_send = DAT::tdual_int_scalar("comm_direct:total_send");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -56,6 +124,8 @@ CommBrickDirectKokkos::CommBrickDirectKokkos(LAMMPS *lmp, Comm *oldcomm) :
   CommBrickDirect(lmp, oldcomm)
 {
   totalsend = 0;
+  border_device_flag = 0;
+  k_total_send = DAT::tdual_int_scalar("comm_direct:total_send");
 }
 
 /* ----------------------------------------------------------------------
@@ -367,18 +437,260 @@ void CommBrickDirectKokkos::exchange()
   atomKK->modified(Host,ALL_MASK);
 }
 
+
+/* ----------------------------------------------------------------------
+   build the per-swap lists of owned atoms, one kernel per active list
+------------------------------------------------------------------------- */
+
+void CommBrickDirectKokkos::build_lists()
+{
+  if (!border_device_flag) {
+    CommBrickDirect::build_lists();
+    return;
+  }
+
+  if (lmp->kokkos->exchange_comm_on_host) build_lists_device<LMPHostType>();
+  else build_lists_device<LMPDeviceType>();
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void CommBrickDirectKokkos::build_lists_device()
+{
+  const ExecutionSpace exec = ExecutionSpaceFromDevice<DeviceType>::space;
+  const int nlocal = atom->nlocal;
+  const int dim = domain->dimension;
+
+  atomKK->sync(exec,X_MASK);
+  k_sendatoms_list.sync<DeviceType>();
+
+  const int team_size = (exec == Device) ? 128 : 1;
+  const int nteam = (nlocal + team_size - 1) / team_size;
+
+  for (int ilist = 0; ilist < maxlist; ilist++) {
+    if (!active_list[ilist]) continue;
+
+    int check[3];
+    double lo[3],hi[3];
+    for (int d = 0; d < 3; d++) {
+      check[d] = check_list[ilist][d];
+      lo[d] = bounds_list[ilist][d][0];
+      hi[d] = bounds_list[ilist][d][1];
+    }
+    if (dim == 2) check[2] = 0;
+
+    int nsend = 0;
+
+    for (int attempt = 0; attempt < 2; attempt++) {
+      k_total_send.view_host()() = 0;
+      k_total_send.modify_host();
+      k_total_send.sync<DeviceType>();
+
+      CommBrickDirectKokkos_BuildList<DeviceType>
+        f(atomKK->k_x,k_sendatoms_list,k_total_send,ilist,nlocal,
+          maxsendatoms_list[ilist],check,lo,hi);
+      Kokkos::TeamPolicy<DeviceType> config(nteam > 0 ? nteam : 1,team_size);
+      Kokkos::parallel_for(config,f);
+
+      k_total_send.template modify<DeviceType>();
+      k_total_send.sync_host();
+      nsend = k_total_send.view_host()();
+
+      // the kernel only stores when the whole team fits, so on overflow the
+      //   list has to grow and the pass be repeated
+
+      if (nsend < maxsendatoms_list[ilist]) break;
+      grow_list_direct(ilist,nsend);
+      k_sendatoms_list.sync<DeviceType>();
+    }
+
+    sendnum_list[ilist] = nsend;
+  }
+
+  k_sendatoms_list.template modify<DeviceType>();
+
+  // the per-object comm routines still run on the host and read
+  //   sendatoms_list directly, so the host side has to be current
+
+  k_sendatoms_list.sync_host();
+}
+
+/* ----------------------------------------------------------------------
+   exchange border data for every swap on the device
+------------------------------------------------------------------------- */
+
+void CommBrickDirectKokkos::borders_comm()
+{
+  if (!border_device_flag) {
+    CommBrickDirect::borders_comm();
+    return;
+  }
+
+  if (lmp->kokkos->exchange_comm_on_host) borders_comm_device<LMPHostType>();
+  else borders_comm_device<LMPDeviceType>();
+}
+
+/* ---------------------------------------------------------------------- */
+
+template<class DeviceType>
+void CommBrickDirectKokkos::borders_comm_device()
+{
+  const ExecutionSpace exec = ExecutionSpaceFromDevice<DeviceType>::space;
+  const int ncol = ghost_velocity ?
+    size_border + atomKK->avecKK->size_velocity : size_border;
+
+  // buffers are indexed in atoms: sends carry sendnum per swap (ssum in all),
+  //   receives carry recvnum per swap (rsum in all)
+
+  if ((ssum_direct + 1 > (int) k_buf_send_border.view_device().extent(0)) ||
+      (ncol != (int) k_buf_send_border.view_device().extent(1)))
+    MemKK::realloc_kokkos(k_buf_send_border,"comm:buf_send_border",ssum_direct+1,ncol);
+
+  if ((rsum_direct + 1 > (int) k_buf_recv_border.view_device().extent(0)) ||
+      (ncol != (int) k_buf_recv_border.view_device().extent(1)))
+    MemKK::realloc_kokkos(k_buf_recv_border,"comm:buf_recv_border",rsum_direct+1,ncol);
+
+  k_sendatoms_list.sync<DeviceType>();
+
+  // post all receives for ghost atoms, except for swaps with self
+  // recv_offset_forward_atoms scans recvnum, so it indexes each swap's region
+
+  int npost = 0;
+
+  DeviceType().fence();
+
+  for (int iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (recvnum_direct[iswap] == 0) continue;
+    MPI_Irecv(k_buf_recv_border.view<DeviceType>().data() +
+              ncol*recv_offset_forward_atoms[iswap],
+              ncol*recvnum_direct[iswap],MPI_DOUBLE,
+              proc_direct[iswap],recvtag[iswap],world,&requests[npost++]);
+  }
+
+  // copies to self go through the send buffer, so do them before the sends
+  //   claim it
+
+  for (int iself = 0; iself < nself_direct; iself++) {
+    const int iswap = self_indices_direct[iself];
+    if (sendnum_direct[iswap] == 0) continue;
+    auto k_list = Kokkos::subview(k_sendatoms_list,swap2list[iswap],Kokkos::ALL);
+    if (ghost_velocity) {
+      atomKK->avecKK->pack_border_vel_kokkos(sendnum_direct[iswap],k_list,
+                                             k_buf_send_border,pbc_flag_direct[iswap],
+                                             pbc_direct[iswap],exec);
+      atomKK->avecKK->unpack_border_vel_kokkos(recvnum_direct[iswap],
+                                               firstrecv_direct[iswap],
+                                               k_buf_send_border,exec);
+    } else {
+      atomKK->avecKK->pack_border_kokkos(sendnum_direct[iswap],k_list,
+                                         k_buf_send_border,pbc_flag_direct[iswap],
+                                         pbc_direct[iswap],exec);
+      atomKK->avecKK->unpack_border_kokkos(recvnum_direct[iswap],
+                                           firstrecv_direct[iswap],
+                                           k_buf_send_border,exec);
+    }
+  }
+
+  // pack each remaining swap into its own region and send it
+
+  int nsendpost = 0;
+  int send_offset = 0;
+
+  for (int iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (sendnum_direct[iswap] == 0) continue;
+
+    auto k_list = Kokkos::subview(k_sendatoms_list,swap2list[iswap],Kokkos::ALL);
+    auto k_sub = Kokkos::subview(k_buf_send_border,
+                                 Kokkos::make_pair(send_offset,
+                                   send_offset+sendnum_direct[iswap]),
+                                 Kokkos::ALL);
+    int n;
+    if (ghost_velocity)
+      n = atomKK->avecKK->pack_border_vel_kokkos(sendnum_direct[iswap],k_list,k_sub,
+                                                 pbc_flag_direct[iswap],
+                                                 pbc_direct[iswap],exec);
+    else
+      n = atomKK->avecKK->pack_border_kokkos(sendnum_direct[iswap],k_list,k_sub,
+                                             pbc_flag_direct[iswap],
+                                             pbc_direct[iswap],exec);
+    if (n) {
+      DeviceType().fence();
+      MPI_Isend(k_buf_send_border.view<DeviceType>().data() + ncol*send_offset,
+                n,MPI_DOUBLE,proc_direct[iswap],sendtag[iswap],world,
+                &send_requests[nsendpost++]);
+      send_offset += sendnum_direct[iswap];
+    }
+  }
+
+  // unpack each message as it arrives
+
+  for (int ipost = 0; ipost < npost; ipost++) {
+    int irecv;
+    MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
+    const int iswap = recv_indices_direct[irecv];
+    auto k_sub = Kokkos::subview(k_buf_recv_border,
+                                 Kokkos::make_pair(recv_offset_forward_atoms[iswap],
+                                   recv_offset_forward_atoms[iswap]+recvnum_direct[iswap]),
+                                 Kokkos::ALL);
+    if (ghost_velocity)
+      atomKK->avecKK->unpack_border_vel_kokkos(recvnum_direct[iswap],
+                                               firstrecv_direct[iswap],k_sub,exec);
+    else
+      atomKK->avecKK->unpack_border_kokkos(recvnum_direct[iswap],
+                                           firstrecv_direct[iswap],k_sub,exec);
+  }
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+
+  DeviceType().fence();
+}
+
 /* ----------------------------------------------------------------------
    borders: list nearby atoms to send to neighboring procs at every timestep
 ------------------------------------------------------------------------- */
 
 void CommBrickDirectKokkos::borders()
 {
-  atomKK->sync(Host,ALL_MASK);
-  int prev_auto_sync = lmp->kokkos->auto_sync;
-  lmp->kokkos->auto_sync = 1;
-  CommBrickDirect::borders();
-  lmp->kokkos->auto_sync = prev_auto_sync;
-  atomKK->modified(Host,ALL_MASK);
+  // decide once whether the device path can handle this configuration
+  // extra border data, multi mode and a border group are not implemented there
+
+  if (!lmp->kokkos->exchange_comm_legacy) {
+    if (atom->nextra_border || mode != Comm::SINGLE || bordergroup) {
+      if (me == 0)
+        error->warning(FLERR,"Required border comm not yet implemented in Kokkos "
+                       "communication, switching to legacy exchange/border communication");
+      lmp->kokkos->exchange_comm_legacy = 1;
+    }
+  }
+
+  border_device_flag = !lmp->kokkos->exchange_comm_legacy;
+
+  if (border_device_flag) {
+
+    // build_lists() and borders_comm() run on the device
+
+    CommBrickDirect::borders();
+
+  } else {
+
+    if (ghost_velocity)
+      atomKK->sync(Host,atomKK->avecKK->datamask_border_vel);
+    else
+      atomKK->sync(Host,atomKK->avecKK->datamask_border);
+    k_sendatoms_list.sync_host();
+    int prev_auto_sync = lmp->kokkos->auto_sync;
+    lmp->kokkos->auto_sync = 1;
+    CommBrickDirect::borders();
+    lmp->kokkos->auto_sync = prev_auto_sync;
+    k_sendatoms_list.modify_host();
+    if (ghost_velocity)
+      atomKK->modified(Host,atomKK->avecKK->datamask_border_vel);
+    else
+      atomKK->modified(Host,atomKK->avecKK->datamask_border);
+  }
 
   // sendatoms_list is the host side of k_sendatoms_list, so the lists the
   //   build above wrote are already the device view's host data; it is grown

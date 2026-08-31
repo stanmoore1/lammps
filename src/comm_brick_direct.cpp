@@ -714,29 +714,13 @@ void CommBrickDirect::reverse_comm()
 }
 
 /* ----------------------------------------------------------------------
-   borders: list nearby atoms to send to neighboring procs at every timestep
-   one list is created for every swap that will be made
-   as list is made, actually do swaps
-   this does equivalent of a forward_comm(), so don't need to explicitly
-     call forward_comm() on reneighboring timestep
-   this routine is called before every reneighboring
-   for triclinic, atoms must be in lamda coords (0-1) before borders is called
-  // loop over conventional 6-way BRICK swaps in 3 dimensions
-  // construct BRICK_DIRECT swaps from them
-  // unlike borders() in CommBrick, cannot perform borders comm until end
-  // this is b/c the swaps take place simultaneously in all dimensions
-  //   and thus cannot contain ghost atoms in the forward comm
+   build the list of owned atoms to send in each swap
 ------------------------------------------------------------------------- */
 
-void CommBrickDirect::borders()
+void CommBrickDirect::build_lists()
 {
-  int i,n,iswap,ilist,nsend,nrecv;
+  int i,ilist,nsend;
 
-  // setup lists of atoms to send in each direct swap
-  // only maxlist possible lists (27 in 3d, 9 in 2d) regardless of stencil size
-  // skip non-active lists as flagged in setup()
-
-  AtomVec *avec = atom->avec;
   double **x = atom->x;
   int nlocal = atom->nlocal;
   int dim = domain->dimension;
@@ -820,6 +804,128 @@ void CommBrickDirect::borders()
       sendnum_list[ilist] = nsend + 1;
     }
   }
+}
+
+/* ----------------------------------------------------------------------
+   exchange border data for every swap
+------------------------------------------------------------------------- */
+
+void CommBrickDirect::borders_comm()
+{
+  int n,iswap,irecv,npost;
+  AtomVec *avec = atom->avec;
+
+  // perform border comm via direct swaps
+  // use pack/unpack border and pack/unpack border_vel
+  // post receives, copy to self, perform sends, wait for all incoming messages
+
+  int offset;
+
+  npost = 0;
+  for (iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (size_border_recv_direct[iswap]) {
+      offset = recv_offset_border_direct[iswap];
+      MPI_Irecv(&buf_recv_direct[offset],size_border_recv_direct[iswap],MPI_DOUBLE,
+                proc_direct[iswap],recvtag[iswap],world,&requests[npost++]);
+    }
+  }
+
+  // copy to self first, since the sends below use buf_send_direct from
+  //   offset 0 and their data must stay intact until they complete
+
+  for (int iself = 0; iself < nself_direct; iself++) {
+    iswap = self_indices_direct[iself];
+    if (sendnum_direct[iswap] == 0) continue;
+    if (ghost_velocity) {
+      avec->pack_border_vel(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
+                          pbc_flag_direct[iswap],pbc_direct[iswap]);
+      avec->unpack_border_vel(recvnum_direct[iswap],firstrecv_direct[iswap],buf_send_direct);
+    } else {
+      avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
+                        pbc_flag_direct[iswap],pbc_direct[iswap]);
+      avec->unpack_border(recvnum_direct[iswap],firstrecv_direct[iswap],buf_send_direct);
+    }
+  }
+
+  // each swap packs into its own region of buf_send_direct and is sent with
+  //   a non-blocking send, so packing a swap does not wait on the previous
+  //   swap's message being picked up by its receiver
+
+  int nsendpost = 0;
+  int send_offset = 0;
+
+  for (iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (sendnum_direct[iswap] == 0) continue;
+    if (ghost_velocity) {
+      n = avec->pack_border_vel(sendnum_direct[iswap],sendlist_direct[iswap],
+                                &buf_send_direct[send_offset],
+                                pbc_flag_direct[iswap],pbc_direct[iswap]);
+    } else {
+      n = avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],
+                            &buf_send_direct[send_offset],
+                            pbc_flag_direct[iswap],pbc_direct[iswap]);
+    }
+    if (n) {
+      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+                sendtag[iswap],world,&send_requests[nsendpost++]);
+      send_offset += n;
+    }
+  }
+
+  if (npost) {
+    if (ghost_velocity) {
+      for (int ipost = 0; ipost < npost; ipost++) {
+        MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
+        iswap = recv_indices_direct[irecv];
+        offset = recv_offset_border_direct[iswap];
+        avec->unpack_border_vel(recvnum_direct[iswap],firstrecv_direct[iswap],
+                                &buf_recv_direct[offset]);
+      }
+    } else {
+      for (int ipost = 0; ipost < npost; ipost++) {
+        MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
+        iswap = recv_indices_direct[irecv];
+        offset = recv_offset_border_direct[iswap];
+        avec->unpack_border(recvnum_direct[iswap],firstrecv_direct[iswap],
+                            &buf_recv_direct[offset]);
+      }
+    }
+  }
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+}
+
+/* ----------------------------------------------------------------------
+   borders: list nearby atoms to send to neighboring procs at every timestep
+   one list is created for every swap that will be made
+   as list is made, actually do swaps
+   this does equivalent of a forward_comm(), so don't need to explicitly
+     call forward_comm() on reneighboring timestep
+   this routine is called before every reneighboring
+   for triclinic, atoms must be in lamda coords (0-1) before borders is called
+  // loop over conventional 6-way BRICK swaps in 3 dimensions
+  // construct BRICK_DIRECT swaps from them
+  // unlike borders() in CommBrick, cannot perform borders comm until end
+  // this is b/c the swaps take place simultaneously in all dimensions
+  //   and thus cannot contain ghost atoms in the forward comm
+------------------------------------------------------------------------- */
+
+void CommBrickDirect::borders()
+{
+  int iswap,ilist,nsend,nrecv;
+
+  int nlocal = atom->nlocal;
+
+  // setup lists of atoms to send in each direct swap
+  // only maxlist possible lists (27 in 3d, 9 in 2d) regardless of stencil size
+  // skip non-active lists as flagged in setup()
+
+  AtomVec *avec = atom->avec;
+  int dim = domain->dimension;
+
+  build_lists();
 
   // set sendnum_direct and sendlist_direct for all swaps from per-list data
 
@@ -911,86 +1017,7 @@ void CommBrickDirect::borders()
 
   check_buffer_sizes();
 
-  // perform border comm via direct swaps
-  // use pack/unpack border and pack/unpack border_vel
-  // post receives, copy to self, perform sends, wait for all incoming messages
-
-  int offset;
-
-  npost = 0;
-  for (iswap = 0; iswap < ndirect; iswap++) {
-    if (proc_direct[iswap] == me) continue;
-    if (size_border_recv_direct[iswap]) {
-      offset = recv_offset_border_direct[iswap];
-      MPI_Irecv(&buf_recv_direct[offset],size_border_recv_direct[iswap],MPI_DOUBLE,
-                proc_direct[iswap],recvtag[iswap],world,&requests[npost++]);
-    }
-  }
-
-  // copy to self first, since the sends below use buf_send_direct from
-  //   offset 0 and their data must stay intact until they complete
-
-  for (int iself = 0; iself < nself_direct; iself++) {
-    iswap = self_indices_direct[iself];
-    if (sendnum_direct[iswap] == 0) continue;
-    if (ghost_velocity) {
-      avec->pack_border_vel(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
-                          pbc_flag_direct[iswap],pbc_direct[iswap]);
-      avec->unpack_border_vel(recvnum_direct[iswap],firstrecv_direct[iswap],buf_send_direct);
-    } else {
-      avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],buf_send_direct,
-                        pbc_flag_direct[iswap],pbc_direct[iswap]);
-      avec->unpack_border(recvnum_direct[iswap],firstrecv_direct[iswap],buf_send_direct);
-    }
-  }
-
-  // each swap packs into its own region of buf_send_direct and is sent with
-  //   a non-blocking send, so packing a swap does not wait on the previous
-  //   swap's message being picked up by its receiver
-
-  int nsendpost = 0;
-  int send_offset = 0;
-
-  for (iswap = 0; iswap < ndirect; iswap++) {
-    if (proc_direct[iswap] == me) continue;
-    if (sendnum_direct[iswap] == 0) continue;
-    if (ghost_velocity) {
-      n = avec->pack_border_vel(sendnum_direct[iswap],sendlist_direct[iswap],
-                                &buf_send_direct[send_offset],
-                                pbc_flag_direct[iswap],pbc_direct[iswap]);
-    } else {
-      n = avec->pack_border(sendnum_direct[iswap],sendlist_direct[iswap],
-                            &buf_send_direct[send_offset],
-                            pbc_flag_direct[iswap],pbc_direct[iswap]);
-    }
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
-  }
-
-  if (npost) {
-    if (ghost_velocity) {
-      for (int ipost = 0; ipost < npost; ipost++) {
-        MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
-        iswap = recv_indices_direct[irecv];
-        offset = recv_offset_border_direct[iswap];
-        avec->unpack_border_vel(recvnum_direct[iswap],firstrecv_direct[iswap],
-                                &buf_recv_direct[offset]);
-      }
-    } else {
-      for (int ipost = 0; ipost < npost; ipost++) {
-        MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
-        iswap = recv_indices_direct[irecv];
-        offset = recv_offset_border_direct[iswap];
-        avec->unpack_border(recvnum_direct[iswap],firstrecv_direct[iswap],
-                            &buf_recv_direct[offset]);
-      }
-    }
-  }
-
-  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+  borders_comm();
 
   // for molecular systems some bits are lost for local atom indices
   //   due to encoding of special pairs in neighbor lists
