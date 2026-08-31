@@ -67,7 +67,7 @@ void ComputeKEAtomKokkos<DeviceType>::compute_peratom()
   atomKK->sync(execution_space, datamask_read);
   atomKK->k_mass.sync<DeviceType>();
 
-  mvv2e = force->mvv2e;
+  mvv2e = static_cast<KK_FLOAT>(force->mvv2e);
   v = atomKK->k_v.view<DeviceType>();
   if (atomKK->rmass)
     rmass = atomKK->k_rmass.view<DeviceType>();

@@ -124,7 +124,10 @@ void FixGJFKokkos<DeviceType>::initial_integrate(int /* vflag */)
   type = atomKK->k_type.view<DeviceType>();
 
   if (l_rmass_flag) rmass = atomKK->k_rmass.view<DeviceType>();
-  else              mass  = atomKK->k_mass.view<DeviceType>();
+  else {
+    atomKK->k_mass.sync<DeviceType>();
+    mass = atomKK->k_mass.view<DeviceType>();
+  }
 
   // vhalf mode: copy lv → v at start of step (all but the first step)
   if (!osflag && lv_allocated) {
@@ -245,7 +248,10 @@ void FixGJFKokkos<DeviceType>::final_integrate()
   mask = atomKK->k_mask.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
   if (l_rmass_flag) rmass = atomKK->k_rmass.view<DeviceType>();
-  else              mass  = atomKK->k_mass.view<DeviceType>();
+  else {
+    atomKK->k_mass.sync<DeviceType>();
+    mass = atomKK->k_mass.view<DeviceType>();
+  }
 
   // these member vars were set in initial_integrate; they have the same values
   l_dtf = static_cast<KK_FLOAT>(0.5 * update->dt * force->ftm2v);

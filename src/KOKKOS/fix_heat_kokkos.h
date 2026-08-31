@@ -61,8 +61,8 @@ class FixHeatKokkos : public FixHeat {
 
   // set before each kernel launch
   int l_rmass_flag;
-  double l_scale;
-  double l_vsub[3];
+  KK_FLOAT l_scale;
+  KK_FLOAT l_vsub[3];
 };
 
 }    // namespace LAMMPS_NS
