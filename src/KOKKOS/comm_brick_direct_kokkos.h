@@ -34,9 +34,11 @@ class CommBrickDirectKokkos : public CommBrickDirect {
   void borders() override;                      // setup list of atoms to comm
 
   template<class DeviceType> void forward_comm_device();
+  template<class DeviceType> void reverse_comm_device();
 
  private:
   DAT::tdual_double_2d_lr k_buf_send_direct,k_buf_recv_direct;
+  DAT::tdual_double_2d_lr k_buf_send_reverse,k_buf_recv_reverse;
   DAT::tdual_int_2d_lr k_sendatoms_list;
   DAT::tdual_int_1d k_swap2list;
   DAT::tdual_int_2d k_pbc_direct;
@@ -48,6 +50,13 @@ class CommBrickDirectKokkos : public CommBrickDirect {
 
   void grow_send_direct(int, int) override;
   void grow_recv_direct(int) override;
+
+  // the send lists are the device's copy; sendatoms_list aliases its host side
+
+  void allocate_lists() override;
+  void deallocate_lists(int) override;
+  void grow_list_direct(int, int) override;
+  void lists_to_kokkos();
 };
 
 }    // namespace LAMMPS_NS

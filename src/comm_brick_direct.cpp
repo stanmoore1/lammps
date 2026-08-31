@@ -1871,9 +1871,12 @@ void CommBrickDirect::deallocate_lists(int nlist)
   memory->destroy(check_list);
   memory->destroy(bounds_list);
   memory->destroy(sendnum_list);
-  for (int ilist = 0; ilist < nlist; ilist++)
-    memory->destroy(sendatoms_list[ilist]);
-  memory->sfree(sendatoms_list);
+  if (sendatoms_list) {
+    for (int ilist = 0; ilist < nlist; ilist++)
+      memory->destroy(sendatoms_list[ilist]);
+    memory->sfree(sendatoms_list);
+    sendatoms_list = nullptr;
+  }
   memory->destroy(maxsendatoms_list);
 }
 

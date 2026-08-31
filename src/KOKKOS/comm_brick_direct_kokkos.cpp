@@ -23,6 +23,7 @@
 using namespace LAMMPS_NS;
 
 static constexpr double BUFFACTOR = 1.5;
+static constexpr int BUFMIN = 1024;
 
 /* ---------------------------------------------------------------------- */
 
@@ -39,6 +40,9 @@ CommBrickDirectKokkos::~CommBrickDirectKokkos()
 
   buf_send_direct = nullptr;
   buf_recv_direct = nullptr;
+
+  memoryKK->destroy_kokkos(k_sendatoms_list,sendatoms_list);
+  sendatoms_list = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -52,6 +56,64 @@ CommBrickDirectKokkos::CommBrickDirectKokkos(LAMMPS *lmp, Comm *oldcomm) :
   CommBrickDirect(lmp, oldcomm)
 {
   totalsend = 0;
+}
+
+/* ----------------------------------------------------------------------
+   replace the base class's per-list arrays with the host side of a dual view
+   so the lists built on the device are the same memory the host routines read
+------------------------------------------------------------------------- */
+
+void CommBrickDirectKokkos::lists_to_kokkos()
+{
+  if (sendatoms_list) {
+    for (int ilist = 0; ilist < maxlist; ilist++)
+      memory->destroy(sendatoms_list[ilist]);
+    memory->sfree(sendatoms_list);
+    sendatoms_list = nullptr;
+  }
+
+  k_sendatoms_list = DAT::tdual_int_2d_lr();
+  memoryKK->create_kokkos(k_sendatoms_list,sendatoms_list,maxlist,BUFMIN,
+                          "comm_direct:sendatoms_list");
+
+  for (int ilist = 0; ilist < maxlist; ilist++) {
+    maxsendatoms_list[ilist] = BUFMIN;
+    sendatoms_list[ilist] = &k_sendatoms_list.view_host()(ilist,0);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CommBrickDirectKokkos::allocate_lists()
+{
+  CommBrickDirect::allocate_lists();
+  lists_to_kokkos();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CommBrickDirectKokkos::deallocate_lists(int nlist)
+{
+  memoryKK->destroy_kokkos(k_sendatoms_list,sendatoms_list);
+  sendatoms_list = nullptr;
+  CommBrickDirect::deallocate_lists(nlist);
+}
+
+/* ----------------------------------------------------------------------
+   the dual view is rectangular, so every list grows together
+------------------------------------------------------------------------- */
+
+void CommBrickDirectKokkos::grow_list_direct(int /*ilist*/, int n)
+{
+  const int size = static_cast<int> (BUFFACTOR * n);
+
+  memoryKK->grow_kokkos(k_sendatoms_list,sendatoms_list,maxlist,size,
+                        "comm_direct:sendatoms_list");
+
+  for (int i = 0; i < maxlist; i++) {
+    maxsendatoms_list[i] = size;
+    sendatoms_list[i] = &k_sendatoms_list.view_host()(i,0);
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -184,17 +246,114 @@ void CommBrickDirectKokkos::forward_comm_device()
 
 void CommBrickDirectKokkos::reverse_comm()
 {
-  if (comm_f_only)
-    atomKK->sync(Host,F_MASK);
-  else
-    atomKK->sync(Host,ALL_MASK);
+  if (lmp->kokkos->reverse_comm_on_host) reverse_comm_device<LMPHostType>();
+  else reverse_comm_device<LMPDeviceType>();
+}
 
-  CommBrickDirect::reverse_comm();
+/* ---------------------------------------------------------------------- */
 
-  if (comm_f_only)
-    atomKK->modified(Host,F_MASK);
-  else
-    atomKK->modified(Host,ALL_MASK);
+template<class DeviceType>
+void CommBrickDirectKokkos::reverse_comm_device()
+{
+  // buffer offsets are in atoms; reverse comm moves size_reverse per atom
+  // recv_offset_reverse_atoms scans sendnum over swaps, so it indexes the
+  //   region each swap's owned-atom contributions arrive in
+
+  const int nrev = size_reverse;
+
+  // post all receives for owned atoms, except for swaps with self
+
+  int npost = 0;
+
+  DeviceType().fence();
+
+  for (int iswap = 0; iswap < ndirect; iswap++) {
+    if (proc_direct[iswap] == me) continue;
+    if (sendnum_direct[iswap] == 0) continue;
+    MPI_Irecv(k_buf_recv_reverse.view<DeviceType>().data() +
+              nrev*recv_offset_reverse_atoms[iswap],
+              nrev*sendnum_direct[iswap],MPI_DOUBLE,
+              proc_direct[iswap],sendtag[iswap],world,&requests[npost++]);
+  }
+
+  // copy/sum to self on device
+  // reads the ghost region and sums into owned atoms, so it is disjoint from
+  //   the sends below and can run before them
+
+  k_sendatoms_list.sync<DeviceType>();
+
+  for (int iself = 0; iself < nself_direct; iself++) {
+    const int iswap = self_indices_direct[iself];
+    if (sendnum_direct[iswap] == 0) continue;
+    auto k_list = Kokkos::subview(k_sendatoms_list,swap2list[iswap],Kokkos::ALL);
+    atomKK->avecKK->pack_reverse_self_kokkos(sendnum_direct[iswap],k_list,
+                                             firstrecv_direct[iswap]);
+  }
+
+  DeviceType().fence();
+
+  // send ghost contributions to the procs that own those atoms
+  // comm_f_only sends straight out of the ghost region of f, which the
+  //   unpack below never touches, so the sends can stay in flight
+
+  int nsendpost = 0;
+
+  if (comm_f_only && !atomKK->k_f.NEED_TRANSFORM) {
+
+    atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,F_MASK);
+    DeviceType().fence();
+
+    double *fdata = (double *) atomKK->k_f.view<DeviceType>().data();
+    const int fcols = atomKK->k_f.view<DeviceType>().extent(1);
+
+    for (int iswap = 0; iswap < ndirect; iswap++) {
+      if (proc_direct[iswap] == me) continue;
+      if (recvnum_direct[iswap] == 0) continue;
+      MPI_Isend(fdata + firstrecv_direct[iswap]*fcols,
+                nrev*recvnum_direct[iswap],MPI_DOUBLE,proc_direct[iswap],
+                recvtag[iswap],world,&send_requests[nsendpost++]);
+    }
+
+  } else {
+
+    int send_offset = 0;
+
+    for (int iswap = 0; iswap < ndirect; iswap++) {
+      if (proc_direct[iswap] == me) continue;
+      if (recvnum_direct[iswap] == 0) continue;
+      auto k_sub = Kokkos::subview(k_buf_send_reverse,
+                                   Kokkos::make_pair(send_offset,
+                                     send_offset+recvnum_direct[iswap]),
+                                   Kokkos::ALL);
+      const int n = atomKK->avecKK->pack_reverse_kokkos(recvnum_direct[iswap],
+                                                        firstrecv_direct[iswap],k_sub);
+      if (n) {
+        DeviceType().fence();
+        MPI_Isend(k_buf_send_reverse.view<DeviceType>().data() + nrev*send_offset,
+                  n,MPI_DOUBLE,proc_direct[iswap],recvtag[iswap],world,
+                  &send_requests[nsendpost++]);
+        send_offset += recvnum_direct[iswap];
+      }
+    }
+  }
+
+  // wait on incoming messages, summing each into the owned atoms as it lands
+
+  for (int i = 0; i < npost; i++) {
+    int irecv;
+    MPI_Waitany(npost,requests,&irecv,MPI_STATUS_IGNORE);
+    const int iswap = send_indices_direct[irecv];
+    auto k_list = Kokkos::subview(k_sendatoms_list,swap2list[iswap],Kokkos::ALL);
+    auto k_sub = Kokkos::subview(k_buf_recv_reverse,
+                                 Kokkos::make_pair(recv_offset_reverse_atoms[iswap],
+                                   recv_offset_reverse_atoms[iswap]+sendnum_direct[iswap]),
+                                 Kokkos::ALL);
+    atomKK->avecKK->unpack_reverse_kokkos(sendnum_direct[iswap],k_list,k_sub);
+  }
+
+  if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+
+  DeviceType().fence();
 }
 
 /* ----------------------------------------------------------------------
@@ -221,26 +380,13 @@ void CommBrickDirectKokkos::borders()
   lmp->kokkos->auto_sync = prev_auto_sync;
   atomKK->modified(Host,ALL_MASK);
 
-  // mirror the per-swap send lists and scans onto the device
-  // for the fused pack in forward_comm_device()
-
-  int maxsend = 0;
-  for (int ilist = 0; ilist < maxlist; ilist++)
-    maxsend = MAX(maxsend,maxsendatoms_list[ilist]);
-
-  if ((int) k_sendatoms_list.view_device().extent(1) < maxsend)
-    MemKK::realloc_kokkos(k_sendatoms_list,"comm_direct:sendatoms_list",maxlist,maxsend);
+  // sendatoms_list is the host side of k_sendatoms_list, so the lists the
+  //   build above wrote are already the device view's host data; it is grown
+  //   only through grow_list_direct(), which keeps the row pointers in step
 
   if ((int) k_sendnum_scan_direct.extent(0) < ndirect) {
     MemKK::realloc_kokkos(k_sendnum_scan_direct,"comm_direct:sendnum_scan",ndirect);
     MemKK::realloc_kokkos(k_firstrecv_direct,"comm_direct:firstrecv",ndirect);
-  }
-
-  for (int ilist = 0; ilist < maxlist; ilist++) {
-    if (!active_list[ilist]) continue;
-    const int nsend = sendnum_list[ilist];
-    for (int i = 0; i < nsend; i++)
-      k_sendatoms_list.view_host()(ilist,i) = sendatoms_list[ilist][i];
   }
 
   int scan = 0;
@@ -253,6 +399,20 @@ void CommBrickDirectKokkos::borders()
 
   if (totalsend > (int) k_buf_send_direct.view_device().extent(0))
     grow_send_direct(totalsend*size_forward,0);
+
+  // reverse comm buffers, indexed in atoms with size_reverse per atom
+  // sends carry the ghosts this proc received (rsum), receives carry the
+  //   owned-atom contributions coming back from every swap (ssum)
+
+  if ((rsum_direct > (int) k_buf_send_reverse.view_device().extent(0)) ||
+      (size_reverse != (int) k_buf_send_reverse.view_device().extent(1)))
+    MemKK::realloc_kokkos(k_buf_send_reverse,"comm:buf_send_reverse",
+                          rsum_direct+1,size_reverse);
+
+  if ((ssum_direct > (int) k_buf_recv_reverse.view_device().extent(0)) ||
+      (size_reverse != (int) k_buf_recv_reverse.view_device().extent(1)))
+    MemKK::realloc_kokkos(k_buf_recv_reverse,"comm:buf_recv_reverse",
+                          ssum_direct+1,size_reverse);
 
   k_sendatoms_list.modify_host();
   k_sendnum_scan_direct.modify_host();
