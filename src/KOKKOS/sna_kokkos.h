@@ -243,9 +243,13 @@ class SNAKokkos {
   typedef Kokkos::View<complex**, Kokkos::LayoutLeft, DeviceType> t_sna_2c_ll;
   typedef Kokkos::View<complex**, Kokkos::LayoutRight, DeviceType> t_sna_2c_lr;
   typedef Kokkos::View<complex***, DeviceType> t_sna_3c;
+  // zlist and the CPU u arrays are chunk_size by a potentially large product of
+  // the remaining dimensions, so they can pass 2^31 entries; see KKBigView
+  typedef KKBigView<complex, 3, typename DeviceType::array_layout, KKDeviceType> t_sna_3c_big;
   typedef Kokkos::View<complex***, Kokkos::LayoutLeft, DeviceType> t_sna_3c_ll;
   typedef Kokkos::View<complex***[3], DeviceType> t_sna_4c;
   typedef Kokkos::View<complex***[3], DeviceType> t_sna_4c3;
+  typedef KKBigViewFixedLast<complex, 3, 3, typename DeviceType::array_layout, KKDeviceType> t_sna_4c3_big;
   typedef Kokkos::View<complex****, Kokkos::LayoutLeft, DeviceType> t_sna_4c_ll;
   typedef Kokkos::View<complex**[3], DeviceType> t_sna_3c3;
   typedef Kokkos::View<complex*****, DeviceType> t_sna_5c;
@@ -436,15 +440,15 @@ class SNAKokkos {
   t_sna_3d ulisttot_im;
   t_sna_3c ulisttot; // un-folded ulisttot
 
-  t_sna_3c zlist;
+  t_sna_3c_big zlist;
   t_sna_3d blist;
 
   t_sna_3d ylist_re;
   t_sna_3d ylist_im;
 
   // Structures for the CPU backend only
-  t_sna_3c ulist_cpu;
-  t_sna_4c3 dulist_cpu;
+  t_sna_3c_big ulist_cpu;
+  t_sna_4c3_big dulist_cpu;
 
   // Modified structures for GPU backend
   t_sna_2c a_gpu; // Cayley-Klein `a`
