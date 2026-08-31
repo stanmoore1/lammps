@@ -246,6 +246,7 @@ automatically: read them before starting the corresponding kind of work.
 |---|---|
 | `src/KOKKOS/` styles (rules, policies) | `.github/instructions/kokkos.instructions.md` (auto) |
 | porting a style to KOKKOS | `.github/dev-docs/kokkos-porting-guide.md` + `kokkos-porting-backlog.md` |
+| porting/auditing `src/OPENMP/` (`/omp`) styles | `.github/dev-docs/openmp-porting.md` |
 | granular/DEM code or tests | `.github/instructions/granular-tests.instructions.md` (auto) |
 | documentation (`doc/`) | `.github/instructions/documentation.instructions.md` (auto) |
 | force-style YAML tests (`unittest/`) | `.github/instructions/force-style-tests.instructions.md` (auto) |
