@@ -176,12 +176,8 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::compute(i
   chunk_offset = 0;
 
   // beta and ninside are indexed with a chunk-relative atom index, exactly like
-  // the arrays grow_rij() allocates, so they are sized by the padded chunk size
-  // too.  Sizing them by the whole local atom count instead defeats the chunking
-  // (the allocation is then inum/chunk_size times larger than it needs to be) and
-  // makes the leading extent of beta large enough that the offset of
-  // beta(iatom,icoeff) leaves the range of a 32-bit integer past roughly 40
-  // million atoms per MPI rank on a device that uses a column-major layout.
+  //  the arrays grow_rij() allocates, so they are sized by the padded chunk size too
+
   if (beta_max < chunk_size) {
     beta_max = chunk_size;
     MemKK::realloc_kokkos(d_beta,"PairSNAPKokkos:beta", chunk_size, ncoeff);
