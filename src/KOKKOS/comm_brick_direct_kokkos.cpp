@@ -428,6 +428,14 @@ void CommBrickDirectKokkos::reverse_comm_device()
 
 /* ----------------------------------------------------------------------
    exchange: move atoms to correct processors
+   CommBrickDirect does not define its own exchange, it uses CommBrick's
+     dimension-by-dimension one, and the device version of that lives in
+     CommBrickKokkos::exchange_device().  CommBrickKokkos is a sibling of
+     this class rather than a parent, so that code cannot be reached from
+     here; running it on the device would mean either duplicating it and the
+     dual views it owns, or rearranging the class hierarchy so the direct
+     stencil and the KOKKOS exchange can be composed.  Until then the atoms
+     have to be synced to the host for the inherited routine.
 ------------------------------------------------------------------------- */
 
 void CommBrickDirectKokkos::exchange()

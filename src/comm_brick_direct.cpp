@@ -145,7 +145,14 @@ void CommBrickDirect::init_buffers_direct()
 void CommBrickDirect::init()
 {
   CommBrick::init();
-  init_buffers_direct();
+
+  // allocate once: init() runs before every run, and init_buffers_direct()
+  //   drops buf_send_direct/buf_recv_direct and calls allocate_direct() and
+  //   allocate_lists() over pointers that are already live, so calling it
+  //   again leaks all of them.  the oldcomm constructor does not call it, so
+  //   the first init() is where those allocations happen for comm_style.
+
+  if (!sendatoms_list) init_buffers_direct();
 
   // disallow options not supported by CommBrickDirect
 
