@@ -635,16 +635,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       Kokkos::parallel_for("ComputeNeigh",policy_neigh,*this);
     }
 
-    //ComputeRadial
-    {
-      int vector_length = vector_length_default;
-      int team_size = team_size_compute_radial;
-      check_team_size_for<TagPairPACEComputeRadial>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
-      typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeRadial> policy_radial(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
-      Kokkos::parallel_for("ComputeRadial",policy_radial,*this);
-    }
-
-    //ComputeAi
+    //ComputeAi (radial evaluation fused in)
     {
       int vector_length = vector_length_default;
       int team_size = team_size_compute_ai;
@@ -861,7 +852,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeNeigh,const typen
 template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadial, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeRadial>::member_type& team) const
+void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi>::member_type& team) const
 {
   // Extract the atom number
   int ii = team.team_rank() + team.team_size() * (team.league_rank() %
@@ -874,31 +865,17 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeRadial, const typ
   const int ncount = d_ncount(ii);
   if (jj >= ncount) return;
 
-  const KK_FLOAT r_norm = d_rnorms(ii, jj);
-  const int mu_i = d_map(type(i));
   const int mu_j = d_mu(ii, jj);
 
-  evaluate_splines(ii, jj, r_norm, nradbase, nradmax, mu_i, mu_j);
-}
-
-/* ---------------------------------------------------------------------- */
-
-template<class DeviceType>
-// NOLINTNEXTLINE
-KOKKOS_INLINE_FUNCTION
-void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeAi, const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi>::member_type& team) const
-{
-  // Extract the atom number
-  int ii = team.team_rank() + team.team_size() * (team.league_rank() %
-           ((chunk_size+team.team_size()-1)/team.team_size()));
-  if (ii >= chunk_size) return;
-
-  // Extract the neighbor number
-  const int jj = team.league_rank() / ((chunk_size+team.team_size()-1)/team.team_size());
-  const int ncount = d_ncount(ii);
-  if (jj >= ncount) return;
-
-  const int mu_j = d_mu(ii, jj);
+  // Evaluate radial functions for this (atom, neighbor) pair. Fused here (was a
+  // separate ComputeRadial kernel) to save a kernel launch and the rank-1 array
+  // round-trip: each thread writes gr/fr/cr for its own (ii,jj) slot and reads
+  // them back below, so there is no cross-thread dependency.
+  {
+    const KK_FLOAT r_norm = d_rnorms(ii, jj);
+    const int mu_i = d_map(type(i));
+    evaluate_splines(ii, jj, r_norm, nradbase, nradmax, mu_i, mu_j);
+  }
 
   // rank = 1
   for (int n = 0; n < nradbase; n++)
