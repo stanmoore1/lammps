@@ -189,7 +189,13 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::compute(i
     MemKK::realloc_kokkos(d_ninside,"PairSNAPKokkos:ninside", chunk_size);
   }
 
-  snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
+  const bigint max_elements = snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
+  if (max_elements > MAXSMALLINT)
+    error->all(FLERR, "Pair style snap/kk: chunksize {} is too large for this potential, "
+               "it needs an internal array of {} entries and the limit is {}. Set chunksize "
+               "to {} or less in the SNAP parameter file", chunksize, max_elements,
+               (bigint) MAXSMALLINT,
+               sna_suggested_chunk_size(chunk_size, max_elements, vector_length * padding_factor));
 
   EV_FLOAT ev;
 
