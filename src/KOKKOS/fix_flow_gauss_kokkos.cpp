@@ -158,9 +158,9 @@ void FixFlowGaussKokkos<DeviceType>::operator()(TagFixFlowGaussApply, const int 
 
     // f_app[jj] is 0 if flow[jj] is false
 
-    d_f(i,0) += f_app[0];
-    d_f(i,1) += f_app[1];
-    d_f(i,2) += f_app[2];
+    d_f(i,0) += static_cast<KK_ACC_FLOAT>(f_app[0]);
+    d_f(i,1) += static_cast<KK_ACC_FLOAT>(f_app[1]);
+    d_f(i,2) += static_cast<KK_ACC_FLOAT>(f_app[2]);
   }
 }
 
@@ -178,9 +178,9 @@ void FixFlowGaussKokkos<DeviceType>::operator()(TagFixFlowGaussApplyWork, const 
 
     // f_app[jj] is 0 if flow[jj] is false
 
-    d_f(i,0) += f_app[0];
-    d_f(i,1) += f_app[1];
-    d_f(i,2) += f_app[2];
+    d_f(i,0) += static_cast<KK_ACC_FLOAT>(f_app[0]);
+    d_f(i,1) += static_cast<KK_ACC_FLOAT>(f_app[1]);
+    d_f(i,2) += static_cast<KK_ACC_FLOAT>(f_app[2]);
 
     peAdded += static_cast<double>(f_app[0]*d_v(i,0) + f_app[1]*d_v(i,1) + f_app[2]*d_v(i,2));
   }

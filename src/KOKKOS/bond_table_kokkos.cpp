@@ -359,7 +359,7 @@ void BondTableKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int
 
     if (vflag_global) {
       if (newton_bond) {
-        for (int k = 0; k < 6; k++) ev.v[k] += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(2.0)*v_half_acc[k]);
+        for (int k = 0; k < 6; k++) ev.v[k] += static_cast<KK_ACC_FLOAT>(2.0)*v_half_acc[k];
       } else {
         if (i < nlocal) for (int k = 0; k < 6; k++) ev.v[k] += v_half_acc[k];
         if (j < nlocal) for (int k = 0; k < 6; k++) ev.v[k] += v_half_acc[k];

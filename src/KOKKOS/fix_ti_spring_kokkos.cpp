@@ -179,9 +179,9 @@ void FixTISpringKokkos<DeviceType>::pack_exchange_item(const int &mysend, int &o
 
   int m = nsend + offset;
   d_buf[mysend] = m;
-  d_buf[m++] = d_xoriginal(i,0);
-  d_buf[m++] = d_xoriginal(i,1);
-  d_buf[m++] = d_xoriginal(i,2);
+  d_buf[m++] = static_cast<double>(d_xoriginal(i,0));
+  d_buf[m++] = static_cast<double>(d_xoriginal(i,1));
+  d_buf[m++] = static_cast<double>(d_xoriginal(i,2));
   if (mysend == nsend-1) d_count() = m;
   offset = m - nsend;
 
@@ -249,9 +249,9 @@ void FixTISpringKokkos<DeviceType>::operator()(TagFixTISpringUnpackExchange, con
     if (i >= nrecv1)
       m = nextrarecv1 + d_buf[nextrarecv1 + i - nrecv1];
 
-    d_xoriginal(index,0) = d_buf[m++];
-    d_xoriginal(index,1) = d_buf[m++];
-    d_xoriginal(index,2) = d_buf[m++];
+    d_xoriginal(index,0) = static_cast<KK_FLOAT> (d_buf[m++]);
+    d_xoriginal(index,1) = static_cast<KK_FLOAT> (d_buf[m++]);
+    d_xoriginal(index,2) = static_cast<KK_FLOAT> (d_buf[m++]);
   }
 }
 

@@ -219,9 +219,9 @@ void FixBAOABKokkos<DeviceType>::operator()(TagFixBAOABInitial<RMASS,ZERO>, cons
     (d_v(i,0)*d_v(i,0) + d_v(i,1)*d_v(i,1) + d_v(i,2)*d_v(i,2));
 
   rand_type rand_gen = rand_pool.get_state();
-  const KK_FLOAT r0 = rand_gen.normal();
-  const KK_FLOAT r1 = rand_gen.normal();
-  const KK_FLOAT r2 = rand_gen.normal();
+  const KK_FLOAT r0 = static_cast<KK_FLOAT>(rand_gen.normal());
+  const KK_FLOAT r1 = static_cast<KK_FLOAT>(rand_gen.normal());
+  const KK_FLOAT r2 = static_cast<KK_FLOAT>(rand_gen.normal());
   rand_pool.free_state(rand_gen);
 
   d_v(i,0) = l_c1 * d_v(i,0) + c2 * r0;

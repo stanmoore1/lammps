@@ -90,7 +90,7 @@ void ComputeErotateSphereAtomKokkos<DeviceType>::operator()(TagComputeErotateSph
     d_erot[i] =
       (omega(i,0)*omega(i,0) + omega(i,1)*omega(i,1) + omega(i,2)*omega(i,2)) *
       radius[i] * radius[i] * rmass[i];
-    d_erot[i] *= pfactor;
+    d_erot[i] *= static_cast<KK_FLOAT>(pfactor);
   } else {
     d_erot[i] = 0.0;
   }

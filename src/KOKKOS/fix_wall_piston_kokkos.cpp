@@ -255,18 +255,18 @@ void FixWallPistonKokkos<DeviceType>::operator()(TagFixWallPistonTemp<RMASS>, co
   }
 
   rand_type rand_gen = rand_pool.get_state();
-  const KK_FLOAT r0 = rand_gen.drand() - static_cast<KK_FLOAT>(0.5);
-  const KK_FLOAT r1 = rand_gen.drand() - static_cast<KK_FLOAT>(0.5);
-  const KK_FLOAT r2 = rand_gen.drand() - static_cast<KK_FLOAT>(0.5);
+  const KK_FLOAT r0 = static_cast<KK_FLOAT>(rand_gen.drand() - 0.5);
+  const KK_FLOAT r1 = static_cast<KK_FLOAT>(rand_gen.drand() - 0.5);
+  const KK_FLOAT r2 = static_cast<KK_FLOAT>(rand_gen.drand() - 0.5);
   rand_pool.free_state(rand_gen);
 
   // the per-type branch of the base style damps v_z relative to the piston,
   // the per-atom-mass branch damps the lab-frame v_z
 
-  d_f(i,0) += gamma1*d_v(i,0) + gamma2*r0;
-  d_f(i,1) += gamma1*d_v(i,1) + gamma2*r1;
-  if (RMASS) d_f(i,2) += gamma1*d_v(i,2) + gamma2*r2;
-  else d_f(i,2) += gamma1*(d_v(i,2)-l_vz) + gamma2*r2;
+  d_f(i,0) += static_cast<KK_ACC_FLOAT>(gamma1*d_v(i,0) + gamma2*r0);
+  d_f(i,1) += static_cast<KK_ACC_FLOAT>(gamma1*d_v(i,1) + gamma2*r1);
+  if (RMASS) d_f(i,2) += static_cast<KK_ACC_FLOAT>(gamma1*d_v(i,2) + gamma2*r2);
+  else d_f(i,2) += static_cast<KK_ACC_FLOAT>(gamma1*(d_v(i,2)-l_vz) + gamma2*r2);
 }
 
 /* ---------------------------------------------------------------------- */

@@ -87,18 +87,23 @@ void FixViscousNonlinearKokkos<DeviceType>::operator()(TagFixViscousNonlinear,
     const KK_FLOAT vrel1 = d_v(i,1) - m_v_fluid[1];
     const KK_FLOAT vrel2 = d_v(i,2) - m_v_fluid[2];
     const KK_FLOAT vmag = Kokkos::sqrt(vrel0*vrel0 + vrel1*vrel1 + vrel2*vrel2);
-    if (vmag == 0.0) return;
+    if (vmag == static_cast<KK_FLOAT>(0.0)) return;
+
+    const KK_FLOAT rho_fluid_kk = static_cast<KK_FLOAT>(rho_fluid);
+    const KK_FLOAT mu_fluid_kk = static_cast<KK_FLOAT>(mu_fluid);
 
     const KK_FLOAT r = d_radius[i];
-    const KK_FLOAT re = rho_fluid * vmag * (2.0 * r) / mu_fluid;
-    const KK_FLOAT cd = (24.0 / re) * (1.0 + 0.15 * Kokkos::pow(re, static_cast<KK_FLOAT>(0.687)));
+    const KK_FLOAT re = rho_fluid_kk * vmag * (static_cast<KK_FLOAT>(2.0) * r) / mu_fluid_kk;
+    const KK_FLOAT cd = (static_cast<KK_FLOAT>(24.0) / re) * (static_cast<KK_FLOAT>(1.0) +
+      static_cast<KK_FLOAT>(0.15) * Kokkos::pow(re, static_cast<KK_FLOAT>(0.687)));
 
     // F = -1/2 Cd rho_g (pi r^2) |v_rel| v_rel
 
-    const KK_FLOAT pref = 0.5 * cd * rho_fluid * MY_PI * r * r * vmag;
-    d_f(i,0) -= pref * vrel0;
-    d_f(i,1) -= pref * vrel1;
-    d_f(i,2) -= pref * vrel2;
+    const KK_FLOAT pref = static_cast<KK_FLOAT>(0.5) * cd * rho_fluid_kk *
+      static_cast<KK_FLOAT>(MY_PI) * r * r * vmag;
+    d_f(i,0) -= static_cast<KK_ACC_FLOAT>(pref * vrel0);
+    d_f(i,1) -= static_cast<KK_ACC_FLOAT>(pref * vrel1);
+    d_f(i,2) -= static_cast<KK_ACC_FLOAT>(pref * vrel2);
   }
 }
 

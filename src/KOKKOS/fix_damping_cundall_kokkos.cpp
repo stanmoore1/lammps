@@ -137,31 +137,34 @@ void FixDampingCundallKokkos<DeviceType>::operator()(TagFixDampingCundall<SCALE>
                                                      const int &i) const
 {
   if (d_mask[i] & groupbit) {
+    const KK_FLOAT gamma_lin_kk = static_cast<KK_FLOAT>(gamma_lin);
+    const KK_FLOAT gamma_ang_kk = static_cast<KK_FLOAT>(gamma_ang);
+
     KK_FLOAT gamma_l, gamma_a;
     if (SCALE == TYPE) {
-      gamma_l = gamma_lin * d_scalegamma(d_type(i));
-      gamma_a = gamma_ang * d_scalegamma(d_type(i));
+      gamma_l = gamma_lin_kk * d_scalegamma(d_type(i));
+      gamma_a = gamma_ang_kk * d_scalegamma(d_type(i));
     } else if (SCALE == VARIABLE) {
-      gamma_l = gamma_lin * d_scaleval(i);
-      gamma_a = gamma_ang * d_scaleval(i);
+      gamma_l = gamma_lin_kk * d_scaleval(i);
+      gamma_a = gamma_ang_kk * d_scaleval(i);
     } else {    // scalestyle NONE
-      gamma_l = gamma_lin;
-      gamma_a = gamma_ang;
+      gamma_l = gamma_lin_kk;
+      gamma_a = gamma_ang_kk;
     }
 
-    const KK_FLOAT signf0 = (d_f(i,0)*d_v(i,0) >= 0.0) ? 1.0 : -1.0;
-    const KK_FLOAT signf1 = (d_f(i,1)*d_v(i,1) >= 0.0) ? 1.0 : -1.0;
-    const KK_FLOAT signf2 = (d_f(i,2)*d_v(i,2) >= 0.0) ? 1.0 : -1.0;
-    d_f(i,0) *= 1.0 - gamma_l*signf0;
-    d_f(i,1) *= 1.0 - gamma_l*signf1;
-    d_f(i,2) *= 1.0 - gamma_l*signf2;
+    const KK_FLOAT signf0 = (static_cast<KK_FLOAT>(d_f(i,0))*d_v(i,0) >= static_cast<KK_FLOAT>(0.0)) ? 1.0 : -1.0;
+    const KK_FLOAT signf1 = (static_cast<KK_FLOAT>(d_f(i,1))*d_v(i,1) >= static_cast<KK_FLOAT>(0.0)) ? 1.0 : -1.0;
+    const KK_FLOAT signf2 = (static_cast<KK_FLOAT>(d_f(i,2))*d_v(i,2) >= static_cast<KK_FLOAT>(0.0)) ? 1.0 : -1.0;
+    d_f(i,0) *= static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(1.0) - gamma_l*signf0);
+    d_f(i,1) *= static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(1.0) - gamma_l*signf1);
+    d_f(i,2) *= static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(1.0) - gamma_l*signf2);
 
-    const KK_FLOAT signt0 = (d_torque(i,0)*d_omega(i,0) >= 0.0) ? 1.0 : -1.0;
-    const KK_FLOAT signt1 = (d_torque(i,1)*d_omega(i,1) >= 0.0) ? 1.0 : -1.0;
-    const KK_FLOAT signt2 = (d_torque(i,2)*d_omega(i,2) >= 0.0) ? 1.0 : -1.0;
-    d_torque(i,0) *= 1.0 - gamma_a*signt0;
-    d_torque(i,1) *= 1.0 - gamma_a*signt1;
-    d_torque(i,2) *= 1.0 - gamma_a*signt2;
+    const KK_FLOAT signt0 = (static_cast<KK_FLOAT>(d_torque(i,0))*d_omega(i,0) >= static_cast<KK_FLOAT>(0.0)) ? 1.0 : -1.0;
+    const KK_FLOAT signt1 = (static_cast<KK_FLOAT>(d_torque(i,1))*d_omega(i,1) >= static_cast<KK_FLOAT>(0.0)) ? 1.0 : -1.0;
+    const KK_FLOAT signt2 = (static_cast<KK_FLOAT>(d_torque(i,2))*d_omega(i,2) >= static_cast<KK_FLOAT>(0.0)) ? 1.0 : -1.0;
+    d_torque(i,0) *= static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(1.0) - gamma_a*signt0);
+    d_torque(i,1) *= static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(1.0) - gamma_a*signt1);
+    d_torque(i,2) *= static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(1.0) - gamma_a*signt2);
   }
 }
 

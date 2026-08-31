@@ -134,9 +134,9 @@ void FixPropelSelfKokkos<DeviceType>::operator()(TagFixPropelSelfDipole, const i
     const KK_FLOAT fy = static_cast<KK_FLOAT>(magnitude) * d_mu(i,1);
     const KK_FLOAT fz = static_cast<KK_FLOAT>(magnitude) * d_mu(i,2);
 
-    d_f(i,0) += fx;
-    d_f(i,1) += fy;
-    d_f(i,2) += fz;
+    d_f(i,0) += static_cast<KK_ACC_FLOAT>(fx);
+    d_f(i,1) += static_cast<KK_ACC_FLOAT>(fy);
+    d_f(i,2) += static_cast<KK_ACC_FLOAT>(fz);
 
     if (evflag) tally(result,i,fx,fy,fz);
   }
@@ -163,9 +163,9 @@ void FixPropelSelfKokkos<DeviceType>::operator()(TagFixPropelSelfVelocity, const
     const KK_FLOAT fy = fnorm * d_v(i,1);
     const KK_FLOAT fz = fnorm * d_v(i,2);
 
-    d_f(i,0) += fx;
-    d_f(i,1) += fy;
-    d_f(i,2) += fz;
+    d_f(i,0) += static_cast<KK_ACC_FLOAT>(fx);
+    d_f(i,1) += static_cast<KK_ACC_FLOAT>(fy);
+    d_f(i,2) += static_cast<KK_ACC_FLOAT>(fz);
 
     if (evflag) tally(result,i,fx,fy,fz);
   }

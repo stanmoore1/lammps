@@ -138,28 +138,38 @@ void FixBrownianKokkos<DeviceType>::operator()(TagFixBrownian<Tp_UNIFORM,Tp_GAUS
     if (Tp_2D) {
       dz = 0.0;
       if (Tp_UNIFORM) {
-        dx = l_dt * (l_g1 * d_f(i,0) + l_g2 * (rand_gen.drand() - 0.5));
-        dy = l_dt * (l_g1 * d_f(i,1) + l_g2 * (rand_gen.drand() - 0.5));
+        dx = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,0))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.drand() - 0.5));
+        dy = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,1))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.drand() - 0.5));
       } else if (Tp_GAUSS) {
-        dx = l_dt * (l_g1 * d_f(i,0) + l_g2 * rand_gen.normal());
-        dy = l_dt * (l_g1 * d_f(i,1) + l_g2 * rand_gen.normal());
+        dx = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,0))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.normal()));
+        dy = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,1))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.normal()));
       } else {
-        dx = l_dt * l_g1 * d_f(i,0);
-        dy = l_dt * l_g1 * d_f(i,1);
+        dx = l_dt * l_g1 * static_cast<KK_FLOAT>(d_f(i,0));
+        dy = l_dt * l_g1 * static_cast<KK_FLOAT>(d_f(i,1));
       }
     } else {
       if (Tp_UNIFORM) {
-        dx = l_dt * (l_g1 * d_f(i,0) + l_g2 * (rand_gen.drand() - 0.5));
-        dy = l_dt * (l_g1 * d_f(i,1) + l_g2 * (rand_gen.drand() - 0.5));
-        dz = l_dt * (l_g1 * d_f(i,2) + l_g2 * (rand_gen.drand() - 0.5));
+        dx = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,0))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.drand() - 0.5));
+        dy = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,1))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.drand() - 0.5));
+        dz = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,2))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.drand() - 0.5));
       } else if (Tp_GAUSS) {
-        dx = l_dt * (l_g1 * d_f(i,0) + l_g2 * rand_gen.normal());
-        dy = l_dt * (l_g1 * d_f(i,1) + l_g2 * rand_gen.normal());
-        dz = l_dt * (l_g1 * d_f(i,2) + l_g2 * rand_gen.normal());
+        dx = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,0))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.normal()));
+        dy = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,1))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.normal()));
+        dz = l_dt * (l_g1 * static_cast<KK_FLOAT>(d_f(i,2))
+                     + l_g2 * static_cast<KK_FLOAT>(rand_gen.normal()));
       } else {
-        dx = l_dt * l_g1 * d_f(i,0);
-        dy = l_dt * l_g1 * d_f(i,1);
-        dz = l_dt * l_g1 * d_f(i,2);
+        dx = l_dt * l_g1 * static_cast<KK_FLOAT>(d_f(i,0));
+        dy = l_dt * l_g1 * static_cast<KK_FLOAT>(d_f(i,1));
+        dz = l_dt * l_g1 * static_cast<KK_FLOAT>(d_f(i,2));
       }
     }
 

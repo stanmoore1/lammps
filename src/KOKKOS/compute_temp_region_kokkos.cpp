@@ -126,7 +126,7 @@ void ComputeTempRegionKokkos<DeviceType>::operator()(TagComputeTempRegionScalar<
     if (RMASS) massone = rmass[i];
     else massone = mass[type[i]];
     t_kk.t0 += 1.0;
-    t_kk.t1 += (v(i,0)*v(i,0) + v(i,1)*v(i,1) + v(i,2)*v(i,2)) * massone;
+    t_kk.t1 += static_cast<double>((v(i,0)*v(i,0) + v(i,1)*v(i,1) + v(i,2)*v(i,2)) * massone);
   }
 }
 
@@ -184,12 +184,12 @@ void ComputeTempRegionKokkos<DeviceType>::operator()(TagComputeTempRegionVector<
     KK_FLOAT massone = 0.0;
     if (RMASS) massone = rmass[i];
     else massone = mass[type[i]];
-    t_kk.t0 += massone * v(i,0)*v(i,0);
-    t_kk.t1 += massone * v(i,1)*v(i,1);
-    t_kk.t2 += massone * v(i,2)*v(i,2);
-    t_kk.t3 += massone * v(i,0)*v(i,1);
-    t_kk.t4 += massone * v(i,0)*v(i,2);
-    t_kk.t5 += massone * v(i,1)*v(i,2);
+    t_kk.t0 += static_cast<double>(massone * v(i,0)*v(i,0));
+    t_kk.t1 += static_cast<double>(massone * v(i,1)*v(i,1));
+    t_kk.t2 += static_cast<double>(massone * v(i,2)*v(i,2));
+    t_kk.t3 += static_cast<double>(massone * v(i,0)*v(i,1));
+    t_kk.t4 += static_cast<double>(massone * v(i,0)*v(i,2));
+    t_kk.t5 += static_cast<double>(massone * v(i,1)*v(i,2));
   }
 }
 

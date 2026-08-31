@@ -100,9 +100,9 @@ KOKKOS_INLINE_FUNCTION
 void FixStoreForceKokkos<DeviceType>::operator()(TagFixStoreForce, const int &i) const
 {
   if (d_mask[i] & groupbit) {
-    d_foriginal(i,0) = d_f(i,0);
-    d_foriginal(i,1) = d_f(i,1);
-    d_foriginal(i,2) = d_f(i,2);
+    d_foriginal(i,0) = static_cast<KK_FLOAT>(d_f(i,0));
+    d_foriginal(i,1) = static_cast<KK_FLOAT>(d_f(i,1));
+    d_foriginal(i,2) = static_cast<KK_FLOAT>(d_f(i,2));
   } else {
     d_foriginal(i,0) = d_foriginal(i,1) = d_foriginal(i,2) = 0.0;
   }
