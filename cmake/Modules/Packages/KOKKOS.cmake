@@ -5,6 +5,12 @@ if(CMAKE_CXX_STANDARD LESS 20)
 be set to at least C++20")
 endif()
 
+# set policy to use the time of extraction as timestamps of files unpacked from downloaded
+# archives, so that updating an archive version triggers rebuilding all dependent objects
+ if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 # Set Kokkos Precision
 set(KOKKOS_PREC "double" CACHE STRING "LAMMPS KOKKOS precision")
 set(KOKKOS_PREC_VALUES double mixed single)
@@ -176,7 +182,8 @@ set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/domain_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/modify_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/rand_pool_wrap_kokkos.cpp
-                       ${KOKKOS_PKG_SOURCES_DIR}/tune_kokkos.cpp)
+                       ${KOKKOS_PKG_SOURCES_DIR}/tune_kokkos.cpp
+                       ${KOKKOS_PKG_SOURCES_DIR}/variable_kokkos.cpp)
 
 
 # fix wall/gran has been refactored in an incompatible way. Use old version of base class for now

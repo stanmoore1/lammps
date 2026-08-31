@@ -113,6 +113,42 @@ versions use an incompatible API and thus LAMMPS will fail to compile.
 
 ----------
 
+.. _fenix_build:
+
+FENIX package
+-------------
+
+.. versionadded:: TBD
+
+To build with this package you must have the `Fenix library
+<https://github.com/sandialabs/fenix>` available on your system. The Fenix
+library must be newer than version 1 (currently meaning built from the default
+"develop" branch). Older versions use an incompatible API and this LAMMPS will
+fail to compile.
+
+.. tabs::
+
+   .. tab:: CMake build
+
+      .. code-block:: bash
+
+         -D WITH_FENIX=value # enables FENIX package
+                             # value = yes or no (default)
+
+      If CMake cannot find the Fenix library or include files, you can set the
+      following:
+
+      .. code-block:: bash
+
+         -D FENIX_ROOT=/path/to/fenix/install
+
+   .. tab:: Traditional make
+
+      The Fenix package does not support the traditional make build. You need to
+      build LAMMPS with CMake.
+
+----------
+
 .. _graphics:
 
 GRAPHICS package
@@ -1229,8 +1265,8 @@ module included in the LAMMPS source distribution.
       .. code-block:: bash
 
          -D PKG_COLVARS=yes          # enable the package itself
-         -D COLVARS_LEPTON=yes       # use the Lepton library for custom expression (on by defaul)
-         -D COLVARS_DEBUG=no         # eneable debugging message (verbose, off by default)
+         -D COLVARS_LEPTON=yes       # use the Lepton library for custom expression (on by default)
+         -D COLVARS_DEBUG=no         # enable debugging message (verbose, off by default)
 
    .. tab:: Traditional make
 

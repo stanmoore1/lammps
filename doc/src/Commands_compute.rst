@@ -32,8 +32,8 @@ OPT.
    * :doc:`cnp/atom (o) <compute_cnp_atom>`
    * :doc:`com <compute_com>`
    * :doc:`com/chunk <compute_com_chunk>`
-   * :doc:`composition/atom (k) <compute_composition_atom>`
-   * :doc:`contact/atom <compute_contact_atom>`
+   * :doc:`composition/atom (ko) <compute_composition_atom>`
+   * :doc:`contact/atom (o) <compute_contact_atom>`
    * :doc:`coord/atom (ko) <compute_coord_atom>`
    * :doc:`count/type <compute_count_type>`
    * :doc:`damage/atom <compute_damage_atom>`
@@ -76,6 +76,7 @@ OPT.
    * :doc:`hma <compute_hma>`
    * :doc:`improper <compute_improper>`
    * :doc:`improper/local <compute_improper_local>`
+   * :doc:`inertia <compute_inertia>`
    * :doc:`inertia/chunk <compute_inertia_chunk>`
    * :doc:`ke <compute_ke>`
    * :doc:`ke/atom (o) <compute_ke_atom>`
