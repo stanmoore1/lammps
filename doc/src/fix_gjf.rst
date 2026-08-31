@@ -143,6 +143,11 @@ The keyword *method* selects one of the eight GJ-methods implemented in LAMMPS.
 
 ----------
 
+Example input scripts using this fix can be found in the
+``examples/PACKAGES/gjf`` folder.
+
+----------
+
 .. include:: accel_styles.rst
 
 ----------
