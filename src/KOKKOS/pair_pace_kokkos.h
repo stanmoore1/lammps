@@ -37,7 +37,6 @@ class PairPACEKokkos : public PairPACE {
   struct TagPairPACEComputeNeigh{};
   struct TagPairPACEComputeRadial{};
   struct TagPairPACEComputeAi{};
-  struct TagPairPACEConjugateAi{};
   struct TagPairPACEComputeRho{};
   struct TagPairPACEComputeFS{};
   struct TagPairPACEComputeWeights{};
@@ -70,10 +69,6 @@ class PairPACEKokkos : public PairPACE {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (TagPairPACEComputeAi,const typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi>::member_type& team) const;
-
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  void operator() (TagPairPACEConjugateAi,const int& ii) const;
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -260,7 +255,6 @@ class PairPACEKokkos : public PairPACE {
   typedef typename Kokkos::View<KK_FLOAT*, DeviceType>::host_mirror_type th_ace_1d;
 
   t_ace_3d A_rank1;
-  t_ace_4c A;
 
   t_ace_3c A_list;
   t_ace_3c A_forward_prod;
