@@ -363,10 +363,13 @@ PairPACEKokkos<DeviceType>::~PairPACEKokkos()
 {
   if (copymode) return;
 
-  // with host_flag the base class compute() is used and eatom/vatom are
-  // plain arrays from Pair::ev_setup() that are freed in ~Pair(); calling
-  // destroy_kokkos() on them would clear the pointers without freeing
-  if (!host_flag) {
+  // the base class compute() is only used on a host backend with the
+  // recursive evaluator; there eatom/vatom are plain arrays from
+  // Pair::ev_setup() that are freed in ~Pair(), and calling destroy_kokkos()
+  // on them would clear the pointers without freeing them.  In every other
+  // case the KOKKOS compute() allocated them, so they must be freed here --
+  // otherwise ~Pair() frees a Kokkos allocation and aborts.
+  if (!(host_flag && recursive)) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
   }
