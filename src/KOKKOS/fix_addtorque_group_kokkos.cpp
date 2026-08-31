@@ -163,6 +163,7 @@ void FixAddTorqueGroupKokkos<DeviceType>::post_force(int /*vflag*/)
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagFixAddTorqueGroupRmass>(0,nlocal),
                             *this, result);
   } else {
+    atomKK->k_mass.sync<DeviceType>();
     mass = atomKK->k_mass.view<DeviceType>();
     type = atomKK->k_type.view<DeviceType>();
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType,TagFixAddTorqueGroupMass>(0,nlocal),
@@ -189,9 +190,9 @@ void FixAddTorqueGroupKokkos<DeviceType>::operator()(TagFixAddTorqueGroupMass,
 {
   if (mask[i] & groupbit) {
     Few<double,3> x_i;
-    x_i[0] = x(i,0);
-    x_i[1] = x(i,1);
-    x_i[2] = x(i,2);
+    x_i[0] = static_cast<double>(x(i,0));
+    x_i[1] = static_cast<double>(x(i,1));
+    x_i[2] = static_cast<double>(x(i,2));
     auto unwrap = DomainKokkos::unmap(prd,h,triclinic,x_i,image(i));
     double dx = unwrap[0] - l_xcm[0];
     double dy = unwrap[1] - l_xcm[1];
@@ -199,17 +200,18 @@ void FixAddTorqueGroupKokkos<DeviceType>::operator()(TagFixAddTorqueGroupMass,
     double vx = l_mvv2e*(dz*l_omega[1]-dy*l_omega[2]);
     double vy = l_mvv2e*(dx*l_omega[2]-dz*l_omega[0]);
     double vz = l_mvv2e*(dy*l_omega[0]-dx*l_omega[1]);
-    const double massone = mass[type[i]];
+    const double massone = static_cast<double>(mass[type[i]]);
     double fx = massone * (dz*l_domegadt[1]-dy*l_domegadt[2] + vz*l_omega[1]-vy*l_omega[2]);
     double fy = massone * (dx*l_domegadt[2]-dz*l_domegadt[0] + vx*l_omega[2]-vz*l_omega[0]);
     double fz = massone * (dy*l_domegadt[0]-dx*l_domegadt[1] + vy*l_omega[0]-vx*l_omega[1]);
-    result[0] -= fx*x(i,0) + fy*x(i,1) + fz*x(i,2);
-    result[1] += dy*f(i,2) - dz*f(i,1);
-    result[2] += dz*f(i,0) - dx*f(i,2);
-    result[3] += dx*f(i,1) - dy*f(i,0);
-    f(i,0) += fx;
-    f(i,1) += fy;
-    f(i,2) += fz;
+    result[0] -= fx*static_cast<double>(x(i,0)) + fy*static_cast<double>(x(i,1))
+      + fz*static_cast<double>(x(i,2));
+    result[1] += dy*static_cast<double>(f(i,2)) - dz*static_cast<double>(f(i,1));
+    result[2] += dz*static_cast<double>(f(i,0)) - dx*static_cast<double>(f(i,2));
+    result[3] += dx*static_cast<double>(f(i,1)) - dy*static_cast<double>(f(i,0));
+    f(i,0) += static_cast<KK_ACC_FLOAT>(fx);
+    f(i,1) += static_cast<KK_ACC_FLOAT>(fy);
+    f(i,2) += static_cast<KK_ACC_FLOAT>(fz);
   }
 }
 
@@ -224,9 +226,9 @@ void FixAddTorqueGroupKokkos<DeviceType>::operator()(TagFixAddTorqueGroupRmass,
 {
   if (mask[i] & groupbit) {
     Few<double,3> x_i;
-    x_i[0] = x(i,0);
-    x_i[1] = x(i,1);
-    x_i[2] = x(i,2);
+    x_i[0] = static_cast<double>(x(i,0));
+    x_i[1] = static_cast<double>(x(i,1));
+    x_i[2] = static_cast<double>(x(i,2));
     auto unwrap = DomainKokkos::unmap(prd,h,triclinic,x_i,image(i));
     double dx = unwrap[0] - l_xcm[0];
     double dy = unwrap[1] - l_xcm[1];
@@ -234,17 +236,18 @@ void FixAddTorqueGroupKokkos<DeviceType>::operator()(TagFixAddTorqueGroupRmass,
     double vx = l_mvv2e*(dz*l_omega[1]-dy*l_omega[2]);
     double vy = l_mvv2e*(dx*l_omega[2]-dz*l_omega[0]);
     double vz = l_mvv2e*(dy*l_omega[0]-dx*l_omega[1]);
-    const double massone = rmass[i];
+    const double massone = static_cast<double>(rmass[i]);
     double fx = massone * (dz*l_domegadt[1]-dy*l_domegadt[2] + vz*l_omega[1]-vy*l_omega[2]);
     double fy = massone * (dx*l_domegadt[2]-dz*l_domegadt[0] + vx*l_omega[2]-vz*l_omega[0]);
     double fz = massone * (dy*l_domegadt[0]-dx*l_domegadt[1] + vy*l_omega[0]-vx*l_omega[1]);
-    result[0] -= fx*x(i,0) + fy*x(i,1) + fz*x(i,2);
-    result[1] += dy*f(i,2) - dz*f(i,1);
-    result[2] += dz*f(i,0) - dx*f(i,2);
-    result[3] += dx*f(i,1) - dy*f(i,0);
-    f(i,0) += fx;
-    f(i,1) += fy;
-    f(i,2) += fz;
+    result[0] -= fx*static_cast<double>(x(i,0)) + fy*static_cast<double>(x(i,1))
+      + fz*static_cast<double>(x(i,2));
+    result[1] += dy*static_cast<double>(f(i,2)) - dz*static_cast<double>(f(i,1));
+    result[2] += dz*static_cast<double>(f(i,0)) - dx*static_cast<double>(f(i,2));
+    result[3] += dx*static_cast<double>(f(i,1)) - dy*static_cast<double>(f(i,0));
+    f(i,0) += static_cast<KK_ACC_FLOAT>(fx);
+    f(i,1) += static_cast<KK_ACC_FLOAT>(fy);
+    f(i,2) += static_cast<KK_ACC_FLOAT>(fz);
   }
 }
 

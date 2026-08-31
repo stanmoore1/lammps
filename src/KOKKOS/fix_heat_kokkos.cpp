@@ -48,6 +48,10 @@ FixHeatKokkos<DeviceType>::FixHeatKokkos(LAMMPS *lmp, int narg, char **arg) :
 template<class DeviceType>
 void FixHeatKokkos<DeviceType>::init()
 {
+  // the base class init() sums the group mass on the host
+
+  atomKK->sync(Host, MASK_MASK | TYPE_MASK | RMASS_MASK);
+
   FixHeat::init();
 
   if (region && !dynamic_cast<KokkosBase*>(region))
@@ -134,10 +138,10 @@ void FixHeatKokkos<DeviceType>::end_of_step()
   if (escale < 0.0) error->all(FLERR, "Fix heat kinetic energy went negative");
   scale = sqrt(escale);
 
-  l_scale = scale;
-  l_vsub[0] = (scale - 1.0)*vcm[0];
-  l_vsub[1] = (scale - 1.0)*vcm[1];
-  l_vsub[2] = (scale - 1.0)*vcm[2];
+  l_scale = static_cast<KK_FLOAT>(scale);
+  l_vsub[0] = static_cast<KK_FLOAT>((scale - 1.0)*vcm[0]);
+  l_vsub[1] = static_cast<KK_FLOAT>((scale - 1.0)*vcm[1]);
+  l_vsub[2] = static_cast<KK_FLOAT>((scale - 1.0)*vcm[2]);
 
   copymode = 1;
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixHeatApply>(0,nlocal),*this);
@@ -154,15 +158,15 @@ KOKKOS_INLINE_FUNCTION
 void FixHeatKokkos<DeviceType>::operator()(TagFixHeatKE, const int &i, value_type result) const
 {
   if ((mask[i] & groupbit) && (!l_region_flag || d_match[i])) {
-    const double massone = l_rmass_flag ? (double)rmass[i] : (double)mass[type[i]];
-    const double v0 = v(i,0);
-    const double v1 = v(i,1);
-    const double v2 = v(i,2);
-    result[0] += massone * v0;
-    result[1] += massone * v1;
-    result[2] += massone * v2;
-    result[3] += massone * (v0*v0 + v1*v1 + v2*v2);
-    result[4] += massone;
+    const KK_FLOAT massone = l_rmass_flag ? rmass[i] : mass[type[i]];
+    const KK_FLOAT v0 = v(i,0);
+    const KK_FLOAT v1 = v(i,1);
+    const KK_FLOAT v2 = v(i,2);
+    result[0] += static_cast<double>(massone * v0);
+    result[1] += static_cast<double>(massone * v1);
+    result[2] += static_cast<double>(massone * v2);
+    result[3] += static_cast<double>(massone * (v0*v0 + v1*v1 + v2*v2));
+    result[4] += static_cast<double>(massone);
   }
 }
 
