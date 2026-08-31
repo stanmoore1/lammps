@@ -29,7 +29,7 @@ Syntax
        *recursive* = use recursive algorithm for basis functions
        *chunksize* value = number of atoms in each pass
        *neigh* value = *auto* or *shared* or *global*
-         *auto* = automatically select team scratch memory level for the neighbor list build (default)
+         *auto* = select the team scratch memory level automatically (default)
          *shared* = force on-chip (level 0) shared memory scratch
          *global* = force global (level 1) memory scratch
 
@@ -98,9 +98,10 @@ two passes (running on a single GPU).
 
 The keyword *neigh* is only recognized by the KOKKOS versions of the pair
 styles (*pace/kk* and *pace/extrapolation/kk*); the non-accelerated styles
-will stop with an "unknown keyword" error if it is given.  It only has an
-effect on GPU backends, where team scratch memory is a limited resource.  It controls which level of Kokkos team scratch memory is
-used to build the short neighbor list.  Level 0 is fast on-chip shared
+will stop with an "unknown keyword" error if it is given.  It only has
+an effect on GPU backends, where team scratch memory is a limited
+resource.  It controls which level of Kokkos team scratch memory is used
+to build the short neighbor list.  Level 0 is fast on-chip shared
 memory, but it is a limited resource that can be exceeded when atoms
 have many neighbors and/or when there are many atomic species, which
 would otherwise abort the run with an error such as "Requested too much
@@ -117,6 +118,17 @@ of level 0 (on-chip) scratch memory, and *global* forces the use of
 level 1 (global) scratch memory; the latter can be used to silence the
 fallback warning or to force global memory when the automatic heuristic
 is too conservative.
+
+.. versionchanged:: TBD
+
+When *pace/kk* is used with the *product* keyword on a CPU backend
+(KOKKOS built with the OpenMP or Serial back end), the calculation now
+runs in the KOKKOS kernels and uses all available threads.  Previously
+*pace/kk* stopped with an error when more than one thread was used on a
+CPU.  With the *recursive* keyword, or for potentials whose correlation
+order exceeds what the CPU kernels support, *pace/kk* prints a warning
+and falls back to the non-accelerated evaluator, which is single
+threaded; use the *product* keyword to get the threaded calculation.
 
 Extrapolation grade
 """""""""""""""""""

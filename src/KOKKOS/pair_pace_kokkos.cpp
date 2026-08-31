@@ -30,6 +30,8 @@
 #include "neigh_request.h"
 #include "utils.h"
 
+#include <vector>
+
 #include "ace-evaluator/ace_version.h"
 #include "ace-evaluator/ace_radial.h"
 
@@ -352,6 +354,8 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   neigh_scratch_request = NEIGH_SCRATCH_AUTO;
   neigh_scratch_level = 0;
   neigh_scratch_warned = 0;
+
+  host_fallback = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -363,13 +367,12 @@ PairPACEKokkos<DeviceType>::~PairPACEKokkos()
 {
   if (copymode) return;
 
-  // the base class compute() is only used on a host backend with the
-  // recursive evaluator; there eatom/vatom are plain arrays from
-  // Pair::ev_setup() that are freed in ~Pair(), and calling destroy_kokkos()
-  // on them would clear the pointers without freeing them.  In every other
-  // case the KOKKOS compute() allocated them, so they must be freed here --
-  // otherwise ~Pair() frees a Kokkos allocation and aborts.
-  if (!(host_flag && recursive)) {
+  // when init_style() fell back to the base class, its compute() is used and
+  // eatom/vatom are plain arrays from Pair::ev_setup() that are freed in
+  // ~Pair(); calling destroy_kokkos() on them would clear the pointers without
+  // freeing them.  In every other case the KOKKOS compute() allocated them, so
+  // they must be freed here -- otherwise ~Pair() frees a Kokkos allocation.
+  if (!host_fallback) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
     memoryKK->destroy_kokkos(k_vatom,vatom);
   }
@@ -737,16 +740,31 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::init_style()
 {
-  // the recursive evaluator has no KOKKOS implementation.  On a GPU that is
-  // an error (see compute()), but on a CPU backend the non-accelerated
-  // evaluator is available and is what pace/kk used before it gained CPU
-  // kernels, so keep using it rather than rejecting the default keyword.
+  // two cases have no KOKKOS kernels on a CPU backend.  On a GPU each of them
+  // is an error (see compute()), but on a CPU the non-accelerated evaluator is
+  // available and is what pace/kk used before it gained CPU kernels, so use it
+  // rather than rejecting the potential.  host_fallback records the choice for
+  // compute() and the destructor.
+
   if (host_flag && recursive) {
     if (comm->me == 0)
       error->warning(FLERR, "Pair style pace/kk has no KOKKOS implementation of the "
                             "recursive evaluator and falls back to the non-accelerated "
                             "one; use the 'product' keyword for the threaded KOKKOS "
                             "calculation");
+    host_fallback = 1;
+  } else if (host_flag && (aceimpl->basis_set->rankmax > MAX_RANK_CPU)) {
+    // the CPU kernels hold the leave-one-out products of a basis function in
+    // small fixed-size stack arrays, which caps the correlation order
+    if (comm->me == 0)
+      error->warning(FLERR, "Pair style pace/kk supports a maximum correlation order of "
+                            "{} on CPU backends, but this potential uses {}; falling back "
+                            "to the non-accelerated evaluator",
+                     MAX_RANK_CPU, aceimpl->basis_set->rankmax);
+    host_fallback = 1;
+  }
+
+  if (host_fallback) {
     PairPACE::init_style();
     return;
   }
@@ -766,11 +784,6 @@ void PairPACEKokkos<DeviceType>::init_style()
     error->all(FLERR,"Must use half neighbor list style with pair pace/kk");
 
   auto basis_set = aceimpl->basis_set;
-
-  if (host_flag && basis_set->rankmax > MAX_RANK_CPU)
-    error->all(FLERR, "Pair style pace/kk supports a maximum correlation order of {} "
-                      "on CPU backends, but this potential file uses {}",
-               MAX_RANK_CPU, basis_set->rankmax);
 
   nelements = basis_set->nelements;
   lmax = basis_set->lmax;
@@ -921,7 +934,7 @@ void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
   // memory level used to build the short neighbor list, then forward the
   // remaining keywords to the CPU base class
 
-  auto base_arg = new char*[narg];
+  std::vector<char *> base_arg(narg);
   int base_narg = 0;
   int iarg = 0;
   while (iarg < narg) {
@@ -943,9 +956,7 @@ void PairPACEKokkos<DeviceType>::settings(int narg, char **arg)
     }
   }
 
-  PairPACE::settings(base_narg, base_arg);
-
-  delete[] base_arg;
+  PairPACE::settings(base_narg, base_arg.data());
 }
 
 /* ----------------------------------------------------------------------
@@ -1041,7 +1052,7 @@ struct FindMaxNumNeighs {
 template<class DeviceType>
 void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 {
-  if (host_flag && recursive) {
+  if (host_fallback) {
     atomKK->sync(Host,X_MASK|TYPE_MASK);
     PairPACE::compute(eflag_in,vflag_in);
     atomKK->modified(Host,F_MASK);
@@ -3368,6 +3379,8 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   bytes += MemKK::memory_usage(d_ls);
   bytes += MemKK::memory_usage(d_ms_combs);
   bytes += MemKK::memory_usage(d_ctildes);
+  bytes += MemKK::memory_usage(d_idx_sph);
+  bytes += MemKK::memory_usage(d_idx_sph_cpu);
   bytes += MemKK::memory_usage(alm);
   bytes += MemKK::memory_usage(blm);
   bytes += MemKK::memory_usage(cl);

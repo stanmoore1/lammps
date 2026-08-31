@@ -138,6 +138,10 @@ class PairPACEKokkos : public PairPACE {
   // and the unused kernel set is never instantiated (cf. pair_snap_kokkos.h)
   static constexpr int host_flag =
       (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
+
+  // set by init_style() when a CPU backend has to defer to the non-accelerated
+  // base class because there are no KOKKOS kernels for the requested case
+  int host_fallback;
   // team scratch memory level used by the ComputeNeigh short neighbor list build:
   //   NEIGH_SCRATCH_AUTO   - automatically use level 0 (fast on-chip shared
   //                          memory) when it fits, else fall back to level 1

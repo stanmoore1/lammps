@@ -30,6 +30,8 @@
 #include "neigh_request.h"
 #include "utils.h"
 
+#include <vector>
+
 #include "ace-evaluator/ace_version.h"
 #include "ace-evaluator/ace_radial.h"
 
@@ -517,7 +519,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::settings(int narg, char **arg)
   // memory level used to build the short neighbor list, then forward the
   // remaining keywords to the CPU base class
 
-  auto base_arg = new char*[narg];
+  std::vector<char *> base_arg(narg);
   int base_narg = 0;
   int iarg = 0;
   while (iarg < narg) {
@@ -539,9 +541,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::settings(int narg, char **arg)
     }
   }
 
-  PairPACEExtrapolation::settings(base_narg, base_arg);
-
-  delete[] base_arg;
+  PairPACEExtrapolation::settings(base_narg, base_arg.data());
 }
 
 /* ----------------------------------------------------------------------
