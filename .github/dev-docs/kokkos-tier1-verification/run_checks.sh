@@ -57,9 +57,7 @@ in.regions|
 in.asphere|
 in.min|ms sd
 in.min|ms quickmin
-# min fire/kk reports a stale fnorm/fmax under the split-memory debug build
-# (pre-existing: reproduces with the unpatched style), so leave those columns out
-in.min|ms fire nrm no
+in.min|ms fire
 in.min|ms cg
 EOC
 )
