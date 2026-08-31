@@ -601,9 +601,6 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   Kokkos::parallel_reduce("pace::find_maxneigh", inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Max<int>(maxneigh));
 
   int vector_length_default = 1;
-  int team_size_default = 1;
-  if (!host_flag)
-    team_size_default = 32;
 
   chunk_size = MIN(chunksize,inum); // "chunksize" variable is set by user
   chunk_offset = 0;
@@ -632,7 +629,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     //Neigh
     {
       int vector_length = vector_length_default;
-      int team_size = team_size_default;
+      int team_size = team_size_compute_neigh;
       check_team_size_for<TagPairPACEComputeNeigh>(chunk_size,team_size,vector_length);
       int scratch_size = scratch_size_helper<int>(team_size * maxneigh);
       typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeNeigh> policy_neigh(chunk_size,team_size,vector_length);
@@ -643,7 +640,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     //ComputeRadial
     {
       int vector_length = vector_length_default;
-      int team_size = team_size_default;
+      int team_size = team_size_compute_radial;
       check_team_size_for<TagPairPACEComputeRadial>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeRadial> policy_radial(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       Kokkos::parallel_for("ComputeRadial",policy_radial,*this);
@@ -652,7 +649,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     //ComputeAi
     {
       int vector_length = vector_length_default;
-      int team_size = team_size_default;
+      int team_size = team_size_compute_ai;
       check_team_size_for<TagPairPACEComputeAi>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       typename Kokkos::TeamPolicy<DeviceType, TagPairPACEComputeAi> policy_ai(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       Kokkos::parallel_for("ComputeAi",policy_ai,*this);
@@ -685,7 +682,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     //ComputeDerivative
     {
       int vector_length = vector_length_default;
-      int team_size = team_size_default;
+      int team_size = team_size_compute_derivative;
       check_team_size_for<TagPairPACEComputeDerivative>(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       typename Kokkos::TeamPolicy<DeviceType,TagPairPACEComputeDerivative> policy_derivative(((chunk_size+team_size-1)/team_size)*maxneigh,team_size,vector_length);
       Kokkos::parallel_for("ComputeDerivative",policy_derivative,*this);
