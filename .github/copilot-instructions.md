@@ -92,7 +92,9 @@ platform, style, and regression workflows.
 `src/` and the corresponding `make fix-*`; build failures -> check for `-S cmake`,
 package dependencies, and VLA usage; unit tests -> rerun the single test with
 `ctest -V -R <name>`; regression tests -> verify the Python environment and whether
-example inputs were modified.
+example inputs were modified.  A unit-test failure on only ONE Linux CI job is
+usually the `LAMMPS_SIZES=bigbig` configuration (64-bit `tagint`) -- reproduce with
+a minimal bigbig build first (see the testing guide) before suspecting anything else.
 
 ## Repository Structure
 
