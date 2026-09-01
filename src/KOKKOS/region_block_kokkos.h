@@ -55,8 +55,8 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
 
   void prematch() override
   {
-    RegBlock::prematch();
-    k_remap.setup(domain);
+    Region::prematch();
+    boxremap.capture(domain);
   }
 
 // NOLINTNEXTLINE
@@ -67,9 +67,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
   KOKKOS_INLINE_FUNCTION
   int match_kokkos(double x, double y, double z) const
   {
-    // Region::match() maps the coordinate back into the box if periodic, since
-    // not all subclasses/methods treat a region extending beyond a periodic edge
-    k_remap.remap(x,y,z);
+    boxremap.remap(x,y,z);
     if (dynamic) inverse_transform(x,y,z);
     if (openflag) return 1;
     return !(k_inside(x,y,z) ^ interior);
@@ -83,9 +81,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
     double xs, ys, zs;
     double xnear[3], xorig[3];
 
-    // Region::surface() maps the coordinate back into the box if periodic, since
-    // not all subclasses/methods treat a region extending beyond a periodic edge
-    k_remap.remap(x, y, z);
+    boxremap.remap(x, y, z);
 
     if (dynamic) {
       xorig[0] = x; xorig[1] = y; xorig[2] = z;
@@ -104,8 +100,7 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
       //   however, when exactly on top of a periodic boundary
       //   both could return 1, so run exterior then interior
       ncontact = surface_exterior_kokkos(xnear, cutoff, contact);
-      if (ncontact == 0)
-        ncontact = surface_interior_kokkos(xnear, cutoff, contact);
+      if (ncontact == 0) ncontact = surface_interior_kokkos(xnear, cutoff, contact);
     }
 
     if (rotateflag && ncontact) {
@@ -123,10 +118,10 @@ class RegBlockKokkos : public RegBlock, public KokkosBase  {
     return ncontact;
   }
 
-  RegionRemapKokkos k_remap;
 
  private:
   int groupbit;
+  RegionRemapKokkos boxremap;
   typename AT::t_int_1d d_match;
   typename AT::t_kkfloat_1d_3_lr_randomread d_x;
   typename AT::t_int_1d_randomread d_mask;

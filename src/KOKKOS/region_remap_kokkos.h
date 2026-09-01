@@ -11,55 +11,43 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
+// clang-format off
 #ifndef LMP_REGION_REMAP_KOKKOS_H
 #define LMP_REGION_REMAP_KOKKOS_H
 
 #include "domain.h"
+
 #include "kokkos_type.h"
 
 namespace LAMMPS_NS {
 
-/* ----------------------------------------------------------------------
-   device-side copy of Domain::remap(double *)
-
-   Region::match() and Region::surface() map a coordinate back into the
-   periodic box before testing it, because not every region subclass handles
-   a region that reaches past a periodic edge.  The KOKKOS regions run the
-   same test inside a kernel, where the Domain instance is not reachable, so
-   the few box quantities remap() needs are copied into this struct on the
-   host and captured by value with the region object.
-------------------------------------------------------------------------- */
+// device-side equivalent of the Domain::remap() call in Region::match()
+// and Region::surface(): positions must be wrapped back into the periodic
+// box before region matching.  The struct is a plain-data member of the
+// region classes and is copied to the device with the region functor, so
+// capture() must be called on the host (from prematch() and
+// match_all_kokkos()) before launching any kernel that uses remap().
 
 struct RegionRemapKokkos {
-  int triclinic, xperiodic, yperiodic, zperiodic;
-  double lo[3], hi[3], period[3];
-  double boxlo[3], h[6], h_inv[6];
+  int triclinic;
+  int xperiodic, yperiodic, zperiodic;
+  double boxlo[3], boxhi[3], prd[3];
+  double boxlo_lamda[3], boxhi_lamda[3], prd_lamda[3];
+  double h[6], h_inv[6];
 
-  RegionRemapKokkos() : triclinic(0), xperiodic(0), yperiodic(0), zperiodic(0)
-  {
-    for (int i = 0; i < 3; i++) lo[i] = hi[i] = period[i] = boxlo[i] = 0.0;
-    for (int i = 0; i < 6; i++) h[i] = h_inv[i] = 0.0;
-  }
-
-  // refresh from the Domain instance; call whenever the box may have changed
-
-  void setup(Domain *domain)
+  void capture(Domain *domain)
   {
     triclinic = domain->triclinic;
     xperiodic = domain->xperiodic;
     yperiodic = domain->yperiodic;
     zperiodic = domain->zperiodic;
     for (int i = 0; i < 3; i++) {
-      if (triclinic) {
-        lo[i] = domain->boxlo_lamda[i];
-        hi[i] = domain->boxhi_lamda[i];
-        period[i] = domain->prd_lamda[i];
-      } else {
-        lo[i] = domain->boxlo[i];
-        hi[i] = domain->boxhi[i];
-        period[i] = domain->prd[i];
-      }
       boxlo[i] = domain->boxlo[i];
+      boxhi[i] = domain->boxhi[i];
+      prd[i] = domain->prd[i];
+      boxlo_lamda[i] = domain->boxlo_lamda[i];
+      boxhi_lamda[i] = domain->boxhi_lamda[i];
+      prd_lamda[i] = domain->prd_lamda[i];
     }
     for (int i = 0; i < 6; i++) {
       h[i] = domain->h[i];
@@ -76,13 +64,17 @@ struct RegionRemapKokkos {
     if (triclinic == 0) {
       coord[0] = x; coord[1] = y; coord[2] = z;
     } else {
-      const double d0 = x - boxlo[0];
-      const double d1 = y - boxlo[1];
-      const double d2 = z - boxlo[2];
-      coord[0] = h_inv[0]*d0 + h_inv[5]*d1 + h_inv[4]*d2;
-      coord[1] = h_inv[1]*d1 + h_inv[3]*d2;
-      coord[2] = h_inv[2]*d2;
+      const double dx = x - boxlo[0];
+      const double dy = y - boxlo[1];
+      const double dz = z - boxlo[2];
+      coord[0] = h_inv[0]*dx + h_inv[5]*dy + h_inv[4]*dz;
+      coord[1] = h_inv[1]*dy + h_inv[3]*dz;
+      coord[2] = h_inv[2]*dz;
     }
+
+    const double *lo = (triclinic == 0) ? boxlo : boxlo_lamda;
+    const double *hi = (triclinic == 0) ? boxhi : boxhi_lamda;
+    const double *period = (triclinic == 0) ? prd : prd_lamda;
 
     if (xperiodic) {
       while (coord[0] < lo[0]) coord[0] += period[0];
@@ -112,6 +104,6 @@ struct RegionRemapKokkos {
   }
 };
 
-}    // namespace LAMMPS_NS
+}
 
 #endif
