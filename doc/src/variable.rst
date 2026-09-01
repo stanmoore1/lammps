@@ -380,7 +380,7 @@ floating-point value.  The default format is "%.15g".  This variable
 style allows an equal-style variable to be formatted precisely when it
 is evaluated.
 
-.. versionchanged:: TBD
+.. versionchanged:: 31Aug2026
 
 A conversion in the format string must match a floating-point value.  The
 string may now also contain additional text and use all flags and
