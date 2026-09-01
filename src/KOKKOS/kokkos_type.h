@@ -276,6 +276,11 @@ using KKBigDualView =
 // the arguments above.  Two lines there now take the arguments directly, which
 // leaves every existing dual view type exactly as it was.
 //
+// LAMMPS's own TransformView needed the same treatment: it now takes the
+// dual view it wraps as a template argument and spells its pinned mirror from
+// that dual view's device view, so that KKBigTransformView can wrap a
+// KKBigDualView.  That part is LAMMPS code and stays.
+//
 // Everywhere that relies on this carries the name of this comment, so
 //
 //   grep -rn LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND src/ lib/kokkos/
@@ -779,12 +784,15 @@ struct dual_hash_type {
 };
 
 
-template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceType>
+template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceType,
+         class KKDualView = Kokkos::DualView<KKType, KKLayout, KKSpace>>
 struct TransformView {
 
   static constexpr int NEED_TRANSFORM = !(std::is_same<KKType,LegacyType>::value && std::is_same<KKLayout,Kokkos::LayoutRight>::value);
 
-  typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;
+  // the dual view being wrapped; KKBigTransformView below passes one with
+  // 64-bit indexing, the default is the ordinary one for KKType
+  typedef KKDualView kk_view;
   typedef typename Kokkos::DualView<LegacyType, Kokkos::LayoutRight, KKSpace>::t_host legacy_view;
 
  private:
@@ -802,11 +810,14 @@ struct TransformView {
   typedef typename legacy_view::value_type value_type;
   typedef typename legacy_view::array_layout array_layout;
 
-  typedef Kokkos::View<typename kk_view::data_type,
-               typename kk_view::array_layout,
+  // spelled from the device view rather than the dual view's traits, so that
+  // it is right for a dual view built from the 64-bit view arguments too;
+  // whole-view copies between this and a 64-bit view work in both directions
+  typedef Kokkos::View<typename kk_view::t_dev::data_type,
+               typename kk_view::t_dev::array_layout,
                typename std::conditional<
-                 std::is_same_v<typename kk_view::execution_space,LMPDeviceType>,
-                 LMPPinnedHostType,typename kk_view::memory_space>::type,
+                 std::is_same_v<typename kk_view::t_dev::execution_space,LMPDeviceType>,
+                 LMPPinnedHostType,typename kk_view::t_dev::memory_space>::type,
                Kokkos::MemoryTraits<Kokkos::Unmanaged> > pinned_mirror_type;
 
   int modified_hostkk_legacy; // Kokkos host was modified wrt legacy host
@@ -979,7 +990,7 @@ struct TransformView {
 
       if (modified_legacy_device) {
         if (buffer) {
-          pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+          pinned_mirror_type tmp_view((typename kk_view::t_dev::value_type*)buffer, d_view.layout());
           Kokkos::deep_copy(LMPHostType(),tmp_view,h_view);
           Kokkos::deep_copy(LMPHostType(),d_view,tmp_view);
 
@@ -1023,7 +1034,7 @@ struct TransformView {
     }
 
     if (buffer && k_view.need_sync_device()) {
-      pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+      pinned_mirror_type tmp_view((typename kk_view::t_dev::value_type*)buffer, d_view.layout());
       Kokkos::deep_copy(LMPHostType(),tmp_view,h_viewkk);
       Kokkos::deep_copy(LMPHostType(),d_view,tmp_view);
       k_view.clear_sync_state();
@@ -1071,7 +1082,7 @@ struct TransformView {
     }
 
     if (buffer && k_view.need_sync_host()) {
-      pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+      pinned_mirror_type tmp_view((typename kk_view::t_dev::value_type*)buffer, d_view.layout());
       Kokkos::deep_copy(LMPHostType(),tmp_view,d_view);
       Kokkos::deep_copy(LMPHostType(),h_viewkk,tmp_view);
       k_view.clear_sync_state();
@@ -1093,7 +1104,7 @@ struct TransformView {
 
       if (modified_device_legacy) {
         if (buffer) {
-          pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
+          pinned_mirror_type tmp_view((typename kk_view::t_dev::value_type*)buffer, d_view.layout());
           Kokkos::deep_copy(LMPHostType(),tmp_view,d_view);
           Kokkos::deep_copy(LMPHostType(),h_view,tmp_view);
 
@@ -1256,6 +1267,18 @@ struct TransformView {
 
 };
 
+// A TransformView around a dual view with 64-bit indexing: its device and
+// Kokkos-side host views are the KKBigView types, the legacy host view is as
+// before.  The element type and rank come from the classic data type, so the
+// arguments are spelled exactly like TransformView's.
+
+template<class KKType, class LegacyType, class KKLayout, class KKSpace = LMPDeviceType>
+using KKBigTransformView =
+  TransformView<KKType, LegacyType, KKLayout, KKSpace,
+                KKBigDualView<typename Kokkos::ViewTraits<KKType>::value_type,
+                              static_cast<int>(Kokkos::ViewTraits<KKType>::rank),
+                              KKLayout, typename KKDevice<KKSpace>::value>>;
+
 // --------------------------------------------------------------------------------
 
 // For device views with fully qualified types
@@ -1365,6 +1388,12 @@ typedef TransformView<int**, int**, LMPDeviceLayout> ttransform_int_2d;
 typedef TransformView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceLayout> ttransform_tagint_2d;
 typedef TransformView<KK_FLOAT**, double**, LMPDeviceLayout> ttransform_kkfloat_2d;
 typedef TransformView<KK_FLOAT**, double**, Kokkos::LayoutRight> ttransform_kkfloat_2d_lr;
+
+// LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
+typedef KKBigTransformView<int**, int**, LMPDeviceLayout> ttransform_int_2d_big;
+typedef KKBigTransformView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceLayout> ttransform_tagint_2d_big;
+typedef KKBigTransformView<KK_FLOAT**, double**, LMPDeviceLayout> ttransform_kkfloat_2d_big;
+typedef KKBigTransformView<KK_FLOAT**, double**, Kokkos::LayoutRight> ttransform_kkfloat_2d_lr_big;
 typedef TransformView<KK_FLOAT*[2], double*[2], LMPDeviceLayout> ttransform_kkfloat_1d_2;
 typedef TransformView<KK_FLOAT*[3], double*[3], LMPDeviceLayout> ttransform_kkfloat_1d_3;
 typedef TransformView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttransform_kkfloat_1d_3_lr;
@@ -1397,6 +1426,7 @@ KOKKOS_DEVICE_BIGVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, LMPDeviceType::array_layout, kkfloat_2d_dl_big)
 KOKKOS_DEVICE_BIGVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
+KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, Kokkos::LayoutRight, kkfloat_2d_lr_big)
 
 KOKKOS_DEVICE_BIGDUALVIEW(int, 2, LMPDeviceLayout, int_2d_big)
 KOKKOS_DEVICE_BIGDUALVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
@@ -1477,6 +1507,7 @@ KOKKOS_HOST_BIGVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, LMPDeviceType::array_layout, kkfloat_2d_dl_big)
 KOKKOS_HOST_BIGVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
+KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, Kokkos::LayoutRight, kkfloat_2d_lr_big)
 
 KOKKOS_HOST_BIGDUALVIEW(int, 2, LMPDeviceLayout, int_2d_big)
 KOKKOS_HOST_BIGDUALVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
