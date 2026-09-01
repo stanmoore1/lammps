@@ -118,6 +118,17 @@ level 1 (global) scratch memory; the latter can be used to silence the
 fallback warning or to force global memory when the automatic heuristic
 is too conservative.
 
+.. versionchanged:: TBD
+
+When *pace/kk* is used with the *product* keyword on a CPU backend
+(KOKKOS built with the OpenMP or Serial back end), the calculation now
+runs in the KOKKOS kernels and uses all available threads.  Previously
+*pace/kk* stopped with an error when more than one thread was used on a
+CPU.  With the *recursive* keyword, or for potentials whose correlation
+order exceeds what the CPU kernels support, *pace/kk* prints a warning
+and falls back to the non-accelerated evaluator, which is single
+threaded; use the *product* keyword to get the threaded calculation.
+
 Extrapolation grade
 """""""""""""""""""
 
