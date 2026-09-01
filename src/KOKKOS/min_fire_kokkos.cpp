@@ -50,6 +50,13 @@ void MinFireKokkos::init() {
   alpha = alpha0;
   last_negative = ntimestep_start = update->ntimestep;
   vdotf_negatif = 0;
+
+  // the per-type masses are written through the plain host array, so the
+  // device copy has to be brought up to date before the kernels below divide
+  // by it.  AtomKokkos::set_mass() claims the host write, but nothing syncs
+  // the device side; fix nve/kk and fix nh/kk do the same in their init().
+
+  atomKK->k_mass.sync_device();
 }
 
 void MinFireKokkos::setup_style() {
