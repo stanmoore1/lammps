@@ -56,7 +56,6 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
   ~PairPACEExtrapolationKokkos() override;
 
   void compute(int, int) override;
-  void settings(int, char **) override;
   void coeff(int, char **) override;
   void init_style() override;
   double init_one(int, int) override;
@@ -110,19 +109,6 @@ class PairPACEExtrapolationKokkos : public PairPACEExtrapolation {
  protected:
   int inum, maxneigh, chunk_size, chunk_offset, idx_ms_combs_max, total_num_functions_max, idx_sph_max;
   int host_flag;
-
-  // team scratch memory level used by the ComputeNeigh short neighbor list build:
-  //   NEIGH_SCRATCH_AUTO   - automatically use level 0 (fast on-chip shared
-  //                          memory) when it fits, else fall back to level 1
-  //                          (global memory)
-  //   NEIGH_SCRATCH_SHARED - always use level 0
-  //   NEIGH_SCRATCH_GLOBAL - always use level 1
-  enum { NEIGH_SCRATCH_AUTO = 0, NEIGH_SCRATCH_SHARED, NEIGH_SCRATCH_GLOBAL };
-  int neigh_scratch_request;  // user preference (pair_style "neigh" keyword)
-  int neigh_scratch_level;    // level actually used by ComputeNeigh (0 or 1)
-  int neigh_scratch_warned;   // whether the auto-fallback warning was printed
-
-  int neigh_scratch_level_select(int scratch_size, int max_level0);
 
   int eflag, vflag;
 

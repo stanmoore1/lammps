@@ -24,14 +24,10 @@ Syntax
 
   .. parsed-literal::
 
-     keyword = *product* or *recursive* or *chunksize* or *neigh*
+     keyword = *product* or *recursive* or *chunksize*
        *product* = use product algorithm for basis functions
        *recursive* = use recursive algorithm for basis functions
        *chunksize* value = number of atoms in each pass
-       *neigh* value = *auto* or *shared* or *global*
-         *auto* = select the team scratch memory level automatically (default)
-         *shared* = force on-chip (level 0) shared memory scratch
-         *global* = force global (level 1) memory scratch
 
 .. code-block:: LAMMPS
 
@@ -93,31 +89,6 @@ atomic cluster expansion and is used to avoid running out of memory.
 For example if there are 8192 atoms in the simulation and the
 *chunksize* is set to 4096, the ACE calculation will be broken up into
 two passes (running on a single GPU).
-
-.. versionadded:: TBD
-
-The keyword *neigh* is only recognized by the KOKKOS versions of the pair
-styles (*pace/kk* and *pace/extrapolation/kk*); the non-accelerated styles
-will stop with an "unknown keyword" error if it is given.  It only has
-an effect on GPU backends, where team scratch memory is a limited
-resource.  It controls which level of Kokkos team scratch memory is used
-to build the short neighbor list.  Level 0 is fast on-chip shared
-memory, but it is a limited resource that can be exceeded when atoms
-have many neighbors and/or when there are many atomic species, which
-would otherwise abort the run with an error such as "Requested too much
-scratch memory on level 0".  Level 1 is (much larger) global memory,
-which avoids the limit at the cost of slower access.
-
-With the default value *auto*, the pair style queries the amount of
-shared memory available on the device (rather than assuming a fixed
-value such as 48 KiB, so that larger limits available in newer versions
-of the Kokkos library are used automatically) and transparently falls
-back to level 1 when the request does not fit into level 0, printing a
-warning the first time this happens.  The value *shared* forces the use
-of level 0 (on-chip) scratch memory, and *global* forces the use of
-level 1 (global) scratch memory; the latter can be used to silence the
-fallback warning or to force global memory when the automatic heuristic
-is too conservative.
 
 .. versionchanged:: TBD
 
