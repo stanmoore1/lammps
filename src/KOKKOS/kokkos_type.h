@@ -256,6 +256,33 @@ using KKBigViewFixedLast =
                Kokkos::Experimental::Accessor<ValueType,
                  typename Device::memory_space,MemoryTraits>>;
 
+// A dual view whose device and host views are both indexed with 64-bit
+// arithmetic; its device view is the same type KKBigView gives.
+
+template<class ValueType, int Rank, class ArrayLayout, class Device,
+         class MemoryTraits = Kokkos::MemoryTraits<>>
+using KKBigDualView =
+  Kokkos::DualView<ValueType,
+                   Kokkos::dextents<int64_t,Rank>,
+                   typename KKUnpaddedLayout<ArrayLayout>::type,
+                   Kokkos::Experimental::Accessor<ValueType,
+                     typename Device::memory_space,MemoryTraits>>;
+
+// LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
+//
+// The dual views built from KKBigDualView depend on a local change to the
+// bundled Kokkos: Kokkos_DualView.hpp built its device view from the view
+// traits rather than from its own template arguments, so it could not be given
+// the arguments above.  Two lines there now take the arguments directly, which
+// leaves every existing dual view type exactly as it was.
+//
+// Everywhere that relies on this carries the name of this comment, so
+//
+//   grep -rn LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND src/ lib/kokkos/
+//
+// lists what to revisit once a released Kokkos carries the change: the local
+// change to lib/kokkos can be dropped, and these declarations stay as they are.
+
 // Helpers for readability
 
 using KKScatterSum = Kokkos::Experimental::ScatterSum;
@@ -1249,8 +1276,21 @@ typedef typename tdual_##SUFFIX::t_host_um t_##SUFFIX##_um; \
 typedef typename tdual_##SUFFIX::t_host_const_um t_##SUFFIX##_const_um; \
 typedef typename tdual_##SUFFIX::t_host_const_randomread t_##SUFFIX##_randomread;
 
-// For views that need 64-bit indexing, see KKBigView above.  These have no
-// dual view counterpart: they hold data that only ever lives on one side.
+// Dual views whose device and host views are both indexed with 64-bit
+// arithmetic.  The device view is the same type KOKKOS_BIGVIEW gives, so the
+// two macros are used together: KOKKOS_DEVICE_BIGVIEW for the view names and
+// this for the dual view that holds them.
+
+#define KOKKOS_BIGDUALVIEW(TYPE, RANK, LAYOUT, DEVICE, SUFFIX) \
+typedef KKBigDualView<TYPE, RANK, LAYOUT, DEVICE> tdual_##SUFFIX;
+
+#define KOKKOS_DEVICE_BIGDUALVIEW(TYPE, RANK, LAYOUT, SUFFIX) \
+KOKKOS_BIGDUALVIEW(TYPE, RANK, LAYOUT, typename KKDevice<LMPDeviceType>::value, SUFFIX)
+
+#define KOKKOS_HOST_BIGDUALVIEW(TYPE, RANK, LAYOUT, SUFFIX) \
+KOKKOS_BIGDUALVIEW(TYPE, RANK, LAYOUT, typename KKDevice<LMPHostType>::value, SUFFIX)
+
+// For views that need 64-bit indexing, see KKBigView above.
 #define KOKKOS_BIGVIEW(TYPE, RANK, LAYOUT, DEVICE, SUFFIX) \
 typedef KKBigView<TYPE, RANK, LAYOUT, DEVICE> t_##SUFFIX; \
 typedef KKBigView<const TYPE, RANK, LAYOUT, DEVICE> t_##SUFFIX##_const; \
@@ -1356,6 +1396,12 @@ KOKKOS_DEVICE_BIGVIEW(int, 2, LMPDeviceLayout, int_2d_big)
 KOKKOS_DEVICE_BIGVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, LMPDeviceType::array_layout, kkfloat_2d_dl_big)
+KOKKOS_DEVICE_BIGVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
+
+KOKKOS_DEVICE_BIGDUALVIEW(int, 2, LMPDeviceLayout, int_2d_big)
+KOKKOS_DEVICE_BIGDUALVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
+KOKKOS_DEVICE_BIGDUALVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
+KOKKOS_DEVICE_BIGDUALVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
 
 // Neighbor Types
 
@@ -1430,6 +1476,12 @@ KOKKOS_HOST_BIGVIEW(int, 2, LMPDeviceLayout, int_2d_big)
 KOKKOS_HOST_BIGVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, LMPDeviceType::array_layout, kkfloat_2d_dl_big)
+KOKKOS_HOST_BIGVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
+
+KOKKOS_HOST_BIGDUALVIEW(int, 2, LMPDeviceLayout, int_2d_big)
+KOKKOS_HOST_BIGDUALVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
+KOKKOS_HOST_BIGDUALVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
+KOKKOS_HOST_BIGDUALVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
 
 // Neighbor Types
 
