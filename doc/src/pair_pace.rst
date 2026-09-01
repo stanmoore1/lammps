@@ -90,7 +90,7 @@ For example if there are 8192 atoms in the simulation and the
 *chunksize* is set to 4096, the ACE calculation will be broken up into
 two passes (running on a single GPU).
 
-.. versionchanged:: 31Aug2026
+.. versionchanged:: 2Sep2026
 
 When *pace/kk* is used with the *product* keyword on a CPU backend
 (KOKKOS built with the OpenMP or Serial back end), the calculation now

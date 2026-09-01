@@ -41,7 +41,7 @@ Examples
 Description
 """""""""""
 
-.. versionadded:: 31Aug2026
+.. versionadded:: 2Sep2026
 
 The *bpm/zero* bond style is the :doc:`BPM package <Howto_bpm>` analogue of
 :doc:`bond_style zero <bond_zero>`: it stores the initial reference state
