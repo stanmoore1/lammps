@@ -808,13 +808,17 @@ void PairPACEExtrapolationKokkos<DeviceType>::compute(int eflag_in, int vflag_in
     if (flag_compute_extrapolation_grade){
         h_gamma = Kokkos::create_mirror_view(d_gamma);
         Kokkos::deep_copy(h_gamma, d_gamma);
-        memcpy(extrapolation_grade_gamma+chunk_offset, (void *) h_gamma.data(), sizeof(double)*chunk_size);
+        // element-wise rather than memcpy: the mirrors are KK_FLOAT, which is
+        // float in single/mixed precision builds, while the targets are double
+        for (int i = 0; i < chunk_size; i++)
+          extrapolation_grade_gamma[chunk_offset+i] = h_gamma(i);
     }
 
     if (flag_corerep_factor) {
       h_corerep = Kokkos::create_mirror_view(d_corerep);
       Kokkos::deep_copy(h_corerep,d_corerep);
-      memcpy(corerep_factor+chunk_offset, (void *) h_corerep.data(), sizeof(double)*chunk_size);
+      for (int i = 0; i < chunk_size; i++)
+        corerep_factor[chunk_offset+i] = h_corerep(i);
     }
 
     chunk_offset += chunk_size;

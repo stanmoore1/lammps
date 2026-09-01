@@ -1218,7 +1218,10 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (flag_corerep_factor) {
       h_corerep = Kokkos::create_mirror_view(d_corerep);
       Kokkos::deep_copy(h_corerep,d_corerep);
-      memcpy(corerep_factor+chunk_offset, (void *) h_corerep.data(), sizeof(double)*chunk_size);
+      // element-wise rather than memcpy: the mirror is KK_FLOAT, which is
+      // float in single/mixed precision builds, while corerep_factor is double
+      for (int i = 0; i < chunk_size; i++)
+        corerep_factor[chunk_offset+i] = h_corerep(i);
     }
 
     chunk_offset += chunk_size;
@@ -2471,11 +2474,13 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivativeCPU, co
     const int jj_min = is_zbl ? (int) d_jj_min(ii) : -1;
     const KK_FLOAT dfc = is_zbl ? dF_dfcut(ii) : 0.0;
 
-    double rxb[V], ryb[V], rzb[V], rinvb[V];
-    double fr_b[PACE_BATCH_NRL_MAX * V];
-    double dfr_b[PACE_BATCH_NRL_MAX * V];
-    double dgr_b[PACE_BATCH_NRB_MAX * V];
-    double fxb[V], fyb[V], fzb[V];
+    // lane buffers in the precision of the views they are gathered from and
+    // of pace_batched_derivative(), which is float in single/mixed builds
+    KK_FLOAT rxb[V], ryb[V], rzb[V], rinvb[V];
+    KK_FLOAT fr_b[PACE_BATCH_NRL_MAX * V];
+    KK_FLOAT dfr_b[PACE_BATCH_NRL_MAX * V];
+    KK_FLOAT dgr_b[PACE_BATCH_NRB_MAX * V];
+    KK_FLOAT fxb[V], fyb[V], fzb[V];
     int jidx[V];
 
     for (int mu = 0; mu < nelements; mu++) {
