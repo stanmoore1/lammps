@@ -126,6 +126,8 @@ elseif(EXTERNAL_KOKKOS)
 else()
   set(LAMMPS_LIB_KOKKOS_SRC_DIR ${LAMMPS_LIB_SOURCE_DIR}/kokkos)
   set(LAMMPS_LIB_KOKKOS_BIN_DIR ${LAMMPS_LIB_BINARY_DIR}/kokkos)
+  # Legacy views are no longer supported
+  set(Kokkos_ENABLE_IMPL_VIEW_LEGACY OFF CACHE BOOL "" FORCE)
   # build KOKKOS internal libraries as static libraries but with PIC, if needed
   if(BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS_WAS_ON YES)
