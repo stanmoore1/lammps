@@ -341,7 +341,7 @@ struct DomainPBCFunctor {
    In that case the base class versions must be used on the host.
 ------------------------------------------------------------------------- */
 
-int DomainKokkos::detached_atom_x()
+int DomainKokkos::detached_atom_x() const
 {
   if ((atom->nmax == 0) || (atom->x == nullptr)) return 0;
   return atom->x[0] != atomKK->k_x.view_host().data();
@@ -362,6 +362,9 @@ void DomainKokkos::pbc()
 {
   // atom->x, atom->v, atom->image are temporary host copies (dump_modify pbc
   // yes).  Apply PBC to those copies and leave the Kokkos views untouched.
+  // Only the group mask is synced here on purpose: the caller owns the three
+  // buffers it substituted and has already filled them, so syncing x, v or
+  // image would overwrite them with the Kokkos data they were copied from.
 
   if (detached_atom_x()) {
     atomKK->sync(Host,MASK_MASK);
