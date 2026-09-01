@@ -136,7 +136,7 @@ void NBinKokkos<DeviceType>::bin_atoms()
 
       auto d_bincount = k_bincount.view<DeviceType>();
       int max_bincount = 0;
-      Kokkos::parallel_reduce(mbins,
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,mbins),
         LAMMPS_LAMBDA(const int i, int &max_val) {
           max_val = MAX(max_val,d_bincount[i]);
         },Kokkos::Max<int>(max_bincount));

@@ -602,7 +602,9 @@ void FixShakeKokkos<DeviceType>::operator()(TagFixShakeMinPostForce<NEIGHFLAG,EV
     if (output_every) {
       KK_FLOAT angle = Kokkos::acos((r1*r1 + r2*r2 - r3*r3) / (static_cast<KK_FLOAT>(2.0)*r1*r2)) * static_cast<KK_FLOAT>(180.0)/static_cast<KK_FLOAT>(MY_PI);
       int mt = d_shake_type(m, 2);
-      int count = (i0 < nlocal) + (i1 < nlocal) + (i2 < nlocal);
+      // the plain style counts the angle once per owned outer atom and
+      // leaves the central one out, see FixShake::bond_force()
+      int count = (i1 < nlocal) + (i2 < nlocal);
       if (count > 0) {
         Kokkos::atomic_add(&d_a_stats(mt, 0), (double)count);
         Kokkos::atomic_add(&d_a_stats(mt, 1), (double)count * static_cast<double>(angle));
