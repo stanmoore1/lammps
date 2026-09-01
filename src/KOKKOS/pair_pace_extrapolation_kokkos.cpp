@@ -28,7 +28,6 @@
 #include "memory_kokkos.h"
 #include "neighbor_kokkos.h"
 #include "neigh_request.h"
-#include "utils.h"
 
 #include "ace-evaluator/ace_version.h"
 #include "ace-evaluator/ace_radial.h"
@@ -66,7 +65,6 @@ PairPACEExtrapolationKokkos<DeviceType>::PairPACEExtrapolationKokkos(LAMMPS *lmp
 
   host_flag = (execution_space == HostKK);
 
-  neigh_scratch_request = NEIGH_SCRATCH_AUTO;
   neigh_scratch_level = 0;
   neigh_scratch_warned = 0;
 }
@@ -504,44 +502,6 @@ double PairPACEExtrapolationKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq.modify_host();
 
   return cutone;
-}
-
-/* ----------------------------------------------------------------------
-   global settings
-------------------------------------------------------------------------- */
-
-template<class DeviceType>
-void PairPACEExtrapolationKokkos<DeviceType>::settings(int narg, char **arg)
-{
-  // intercept the KOKKOS-only "neigh" keyword, which selects the team scratch
-  // memory level used to build the short neighbor list, then forward the
-  // remaining keywords to the CPU base class
-
-  auto base_arg = new char*[narg];
-  int base_narg = 0;
-  int iarg = 0;
-  while (iarg < narg) {
-    if (strcmp(arg[iarg], "neigh") == 0) {
-      if (iarg+2 > narg)
-        utils::missing_cmd_args(FLERR, "pair_style pace/extrapolation neigh", error);
-      if (strcmp(arg[iarg+1], "auto") == 0)
-        neigh_scratch_request = NEIGH_SCRATCH_AUTO;
-      else if (strcmp(arg[iarg+1], "shared") == 0)
-        neigh_scratch_request = NEIGH_SCRATCH_SHARED;
-      else if (strcmp(arg[iarg+1], "global") == 0)
-        neigh_scratch_request = NEIGH_SCRATCH_GLOBAL;
-      else
-        error->all(FLERR, "Unknown pair_style pace/extrapolation neigh keyword: {}", arg[iarg+1]);
-      iarg += 2;
-    } else {
-      base_arg[base_narg++] = arg[iarg];
-      iarg++;
-    }
-  }
-
-  PairPACEExtrapolation::settings(base_narg, base_arg);
-
-  delete[] base_arg;
 }
 
 /* ----------------------------------------------------------------------

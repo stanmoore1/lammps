@@ -29,7 +29,7 @@ Syntax
        *recursive* = use recursive algorithm for basis functions
        *chunksize* value = number of atoms in each pass
        *neigh* value = *auto* or *shared* or *global*
-         *auto* = automatically select team scratch memory level for the neighbor list build (default)
+         *auto* = select the team scratch memory level automatically (default)
          *shared* = force on-chip (level 0) shared memory scratch
          *global* = force global (level 1) memory scratch
 
@@ -96,13 +96,13 @@ two passes (running on a single GPU).
 
 .. versionadded:: TBD
 
-The keyword *neigh* is only recognized by the KOKKOS versions of the pair
-styles (*pace/kk* and *pace/extrapolation/kk*); the non-accelerated styles
-stop with an "unknown keyword" error if it is given.  It only has an effect
-on GPU backends.  It controls which level of Kokkos team scratch memory is
-used to build the short neighbor list.  Level 0 is fast on-chip shared
-memory, but it is a limited resource that can be exceeded when atoms
-have many neighbors and/or when there are many atomic species, which
+The keyword *neigh* is only applicable when using the pair styles *pace*
+and *pace/extrapolation* with the KOKKOS package on GPUs and is ignored
+otherwise, so that the same input file can be used with and without the
+KOKKOS package.  This keyword controls which level of Kokkos team scratch
+memory is used to build the short neighbor list.  Level 0 is fast on-chip
+shared memory, but it is a limited resource that can be exceeded when
+atoms have many neighbors and/or when there are many atomic species, which
 would otherwise abort the run with an error such as "Requested too much
 scratch memory on level 0".  Level 1 is (much larger) global memory,
 which avoids the limit at the cost of slower access.
