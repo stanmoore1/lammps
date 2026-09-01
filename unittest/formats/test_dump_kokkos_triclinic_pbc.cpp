@@ -4,12 +4,18 @@
    Domain::pbc() and, for a triclinic box, to Domain::x2lamda() and
    Domain::lamda2x().  The KOKKOS versions of those three functions work on
    the Kokkos views instead, so they remapped the real atom data and left the
-   copies that are written to the dump file untouched.
+   copies that are written to the dump file untouched.  The copies were then
+   wrapped against the lamda bounds [0,1) rather than the box bounds, which
+   moves atoms by up to a box length and increments the wrong image flags.
 
-   The test runs the same input twice in the same process, once without and
-   once with the KOKKOS package, and compares the two dump files.  The atoms
-   have to have moved out of the box before the dump for the difference to
-   show up, so a short run precedes it.
+   Wrapping an atom into the box must not move it, so the unwrapped position
+   is the same with and without "pbc yes".  Two dumps of the same timestep,
+   one with the remapping and one without, therefore have to write the same
+   unwrapped coordinates.  Comparing the two inside a single run keeps the
+   test independent of the KOKKOS backend and of the floating point precision
+   the package was compiled with, both of which the CI varies.  The atoms have
+   to have left the box before the dump for the difference to show up, so a
+   short run precedes it.
 ------------------------------------------------------------------------- */
 
 #include "../testing/core.h"
@@ -17,11 +23,13 @@
 #include "info.h"
 #include "utils.h"
 
+#include "fmt/format.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -31,7 +39,7 @@ using LAMMPS_NS::utils::split_words;
 
 namespace {
 
-// one line of the dump file: atom id and its coordinates
+// one line of the dump file: atom id and its unwrapped coordinates
 
 struct DumpAtom {
     int id;
@@ -58,18 +66,30 @@ std::vector<DumpAtom> read_dump(const std::string &path)
     return atoms;
 }
 
-// run the same triclinic input with or without the KOKKOS package and return
-// the coordinates that "dump_modify pbc yes" wrote
+}    // namespace
 
-std::vector<DumpAtom> run_input(bool with_kokkos, const std::string &dumpfile)
+TEST(DumpKokkosTriclinicPbc, pbc_yes_keeps_unwrapped_coords)
 {
-    LAMMPS::argv args = {"LAMMPS_test", "-log", "none", "-echo", "none", "-screen", "none"};
-    if (with_kokkos) {
-        for (const auto &arg : {"-k", "on", "t", "2", "-sf", "kk"})
-            args.emplace_back(arg);
-    }
+    if (!Info::has_package("KOKKOS")) GTEST_SKIP() << "KOKKOS package not available";
+    if (Info::has_accelerator_feature("KOKKOS", "api", "cuda") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "hip") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
+        GTEST_SKIP() << "KOKKOS GPU build needs a GPU, use a CPU-only preset";
 
-    delete_file(dumpfile);
+    // the serial backend refuses to start with more than one thread
+
+    const bool threaded = (Info::has_accelerator_feature("KOKKOS", "api", "openmp") ||
+                           Info::has_accelerator_feature("KOKKOS", "api", "pthreads"));
+    const char *nthreads = threaded ? "2" : "1";
+
+    const std::string plainfile = "dump_tric_pbc_plain.melt";
+    const std::string remapfile = "dump_tric_pbc_remap.melt";
+    delete_file(plainfile);
+    delete_file(remapfile);
+
+    LAMMPS::argv args = {"LAMMPS_test", "-log", "none", "-echo",    "none",
+                         "-screen",     "none", "-k",   "on",       "t",
+                         nthreads,      "-sf",  "kk"};
 
     ::testing::internal::CaptureStdout();
     auto *lmp = new LAMMPS(args, MPI_COMM_WORLD);
@@ -87,45 +107,37 @@ std::vector<DumpAtom> run_input(bool with_kokkos, const std::string &dumpfile)
     lmp->input->one("velocity all create 2.0 12345");
     lmp->input->one("fix 1 all nve");
 
-    // let the atoms drift out of the box, then dump with pbc yes
+    // let the atoms drift out of the box, then dump the same timestep twice
 
     lmp->input->one("run 20 post no");
-    lmp->input->one(fmt::format("dump d all custom 1 {} id x y z", dumpfile));
-    lmp->input->one("dump_modify d pbc yes");
+    lmp->input->one(fmt::format("dump plain all custom 1 {} id xu yu zu", plainfile));
+    lmp->input->one(fmt::format("dump remap all custom 1 {} id xu yu zu", remapfile));
+    lmp->input->one("dump_modify remap pbc yes");
     lmp->input->one("run 0 post no");
-    lmp->input->one("undump d");
+    lmp->input->one("undump plain");
+    lmp->input->one("undump remap");
     delete lmp;
     (void) ::testing::internal::GetCapturedStdout();
 
-    return read_dump(dumpfile);
-}
+    auto plain = read_dump(plainfile);
+    auto remap = read_dump(remapfile);
 
-}    // namespace
+    // the remapping is done on host copies in double precision, so the
+    // unwrapped coordinates have to agree to within rounding of the box
+    // lengths that were added and subtracted again
 
-TEST(DumpKokkosTriclinicPbc, pbc_yes_matches_the_plain_styles)
-{
-    if (!Info::has_package("KOKKOS")) GTEST_SKIP() << "KOKKOS package not available";
-    if (Info::has_accelerator_feature("KOKKOS", "api", "cuda") ||
-        Info::has_accelerator_feature("KOKKOS", "api", "hip") ||
-        Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
-        GTEST_SKIP() << "KOKKOS GPU build needs a GPU, use a CPU-only preset";
-
-    auto plain  = run_input(false, "dump_tric_pbc_plain.melt");
-    auto kokkos = run_input(true, "dump_tric_pbc_kokkos.melt");
-
-    ASSERT_FALSE(plain.empty());
-    ASSERT_EQ(plain.size(), kokkos.size());
-
-    const double tol = 1.0e-10;
+    const double tol = 1.0e-9;
+    EXPECT_FALSE(plain.empty());
+    ASSERT_EQ(plain.size(), remap.size());
     for (std::size_t i = 0; i < plain.size(); ++i) {
-        ASSERT_EQ(plain[i].id, kokkos[i].id);
-        EXPECT_NEAR(plain[i].x, kokkos[i].x, tol) << "atom " << plain[i].id;
-        EXPECT_NEAR(plain[i].y, kokkos[i].y, tol) << "atom " << plain[i].id;
-        EXPECT_NEAR(plain[i].z, kokkos[i].z, tol) << "atom " << plain[i].id;
+        ASSERT_EQ(plain[i].id, remap[i].id);
+        EXPECT_NEAR(plain[i].x, remap[i].x, tol) << "atom " << plain[i].id;
+        EXPECT_NEAR(plain[i].y, remap[i].y, tol) << "atom " << plain[i].id;
+        EXPECT_NEAR(plain[i].z, remap[i].z, tol) << "atom " << plain[i].id;
     }
 
-    delete_file("dump_tric_pbc_plain.melt");
-    delete_file("dump_tric_pbc_kokkos.melt");
+    delete_file(plainfile);
+    delete_file(remapfile);
 }
 
 int main(int argc, char **argv)
