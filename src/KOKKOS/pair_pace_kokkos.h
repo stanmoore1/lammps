@@ -136,7 +136,7 @@ class PairPACEKokkos : public PairPACE {
   // compile-time host/device switch, so the branches below are "if constexpr"
   // and the unused kernel set is never instantiated (cf. pair_snap_kokkos.h)
   static constexpr int host_flag =
-      (ExecutionSpaceFromDevice<DeviceType>::space == LAMMPS_NS::HostKK);
+      HostBackendFromDevice<DeviceType>::value;
 
   // set by init_style() when a CPU backend has to defer to the non-accelerated
   // base class because there are no KOKKOS kernels for the requested case
