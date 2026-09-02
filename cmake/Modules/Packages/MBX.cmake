@@ -73,6 +73,8 @@ if(DOWNLOAD_MBX)
       URL     ${MBXLIB_URL}
       URL_HASH SHA256=${MBXLIB_SHA256}
       BUILD_IN_SOURCE TRUE
+      # restore the timestamp order that autotools generated files require (see AutotoolsTouch.cmake)
+      PATCH_COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=<SOURCE_DIR> -P ${LAMMPS_DIR}/cmake/Modules/AutotoolsTouch.cmake
       CONFIGURE_COMMAND mingw64-configure
                         --prefix=<INSTALL_DIR>
                         --disable-i-pi-plugin
@@ -88,6 +90,8 @@ if(DOWNLOAD_MBX)
     ExternalProject_Add(mbx_build
       URL     ${MBXLIB_URL}
       URL_HASH SHA256=${MBXLIB_SHA256}
+      # restore the timestamp order that autotools generated files require (see AutotoolsTouch.cmake)
+      PATCH_COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=<SOURCE_DIR> -P ${LAMMPS_DIR}/cmake/Modules/AutotoolsTouch.cmake
       CONFIGURE_COMMAND <SOURCE_DIR>/configure
                         --prefix=<INSTALL_DIR>
                         --disable-i-pi-plugin

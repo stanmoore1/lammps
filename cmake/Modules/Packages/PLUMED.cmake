@@ -61,6 +61,8 @@ if((CMAKE_SYSTEM_NAME STREQUAL "Windows") AND (CMAKE_CROSSCOMPILING))
     URL     ${PLUMED_URL} ${PLUMED_FALLBACK}
     URL_HASH SHA256=${PLUMED_SHA256}
     BUILD_IN_SOURCE 1
+    # restore the timestamp order that autotools generated files require (see AutotoolsTouch.cmake)
+    PATCH_COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=<SOURCE_DIR> -P ${LAMMPS_DIR}/cmake/Modules/AutotoolsTouch.cmake
     CONFIGURE_COMMAND ${CROSS_CONFIGURE} --disable-shared --disable-bsymbolic --disable-dlopen
                                          --disable-python --enable-cxx=${PLUMED_CXX_STANDARD}
                                          --enable-modules=-adjmat:+crystallization:-dimred:+drr:+eds:-fisst:+funnel:+logmfd:+manyrestraints:+maze:+opes:+multicolvar:-pamm:-piv:+s2cm:-sasa:-ves
@@ -146,6 +148,8 @@ else()
       URL     ${PLUMED_URL} ${PLUMED_FALLBACK}
       URL_HASH SHA256=${PLUMED_SHA256}
       BUILD_IN_SOURCE 1
+      # restore the timestamp order that autotools generated files require (see AutotoolsTouch.cmake)
+      PATCH_COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=<SOURCE_DIR> -P ${LAMMPS_DIR}/cmake/Modules/AutotoolsTouch.cmake
       CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR>
                                              ${CONFIGURE_REQUEST_PIC}
                                              --enable-modules=all
