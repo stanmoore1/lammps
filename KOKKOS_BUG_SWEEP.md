@@ -244,6 +244,33 @@ Same defect `95cf1400b` fixed in efield/kk, shake/kk and wall/region/kk
 
 Fix: `v_init(vflag,0)`.
 
+### 1.20 `pair_pod_kokkos.cpp:1789` -- `sizeof(double)` byte count over a `KK_FLOAT` mirror (CONFIRMED, dead code)
+
+`savematrix2binfile()` does
+`fwrite(A.data(), sizeof(double) * (nrows*ncols), 1, fp)` where `A` is the
+mirror of a `View<KK_FLOAT*>`: the shape fixed in `0ed8a1ba7`.  In single or
+mixed precision it reads twice the allocation and writes a file that does not
+match its own `double` header.  Only reachable from `savedatafordebugging()`,
+whose sole call (`:308`) is commented out.  Fix: delete the three debugging
+dumpers (`pair_pod_kokkos.h:219-221`) per the review rules on commented-out
+debug code, or stage through a `double` array.
+
+### 1.21 `pair_eam_kokkos.cpp:1184` -- HIP scratch sized with `sizeof(double)` for a `KK_FLOAT` view (CONFIRMED, performance)
+
+`Kokkos::PerTeam(MAX_CACHE_ROWS*7*sizeof(double))` feeds a
+`View<KK_FLOAT*[7], scratch_memory_space, Unmanaged>` (lines 868 and 971).
+Over-allocation, so no corruption, but twice the LDS per team and the matching
+occupancy loss on AMD in single/mixed.  Fix: `sizeof(KK_FLOAT)`.
+
+### 1.22 `compute_temp_profile_kokkos.cpp:333` -- wrong side of a TransformView synced (PLAUSIBLE)
+
+`atomKK->k_mass.sync<LMPHostType>()` followed by `double *mass = atom->mass`.
+On a TransformView the templated `sync<LMPHostType>()` refreshes the `KK_FLOAT`
+host mirror, not the legacy `double` array `atom->mass` points to
+(`kokkos_type.h:1077-1081`); they alias only in a double build.  Harmless today
+because per-type masses are only ever written on the legacy side, but the only
+such call in the package.  Fix: `atomKK->k_mass.sync_host()`.
+
 ## 2. Leaks and housekeeping
 
 ### 2.1 `pair_uf3_kokkos.cpp:62-75` -- centroid array never freed (CONFIRMED)
@@ -299,7 +326,43 @@ wasted copies and a false claim under `KOKKOS_DEBUG_SYNC`.
 
 ## 3. clang -Wall -Wextra
 
-(pending: double, single and mixed precision builds of the KOKKOS package objects)
+Serial backend (clang 18 has no libomp here), all packages of
+`cmake/presets/kokkos-packages.cmake` except COLVARS, ML-PACE from a local
+clone, 375 KOKKOS package objects per precision.  In addition every
+`src/KOKKOS/*.cpp` was syntax-checked with g++ under
+`-DLMP_KOKKOS_SINGLE_SINGLE` and `-DLMP_KOKKOS_SINGLE_DOUBLE`, and the 98
+styles ported since April were fully compiled at `-O2` in single precision:
+no errors, so nothing else in the package is double-only after `0ed8a1ba7`.
+
+### 3.1 double precision: compiles, 1076 warnings, none a bug
+
+| category | count | assessment |
+|---|---|---|
+| `-Wunused-parameter` | 1054 | unnamed-parameter noise from the functor interfaces |
+| `-Wsign-compare` | 11 | `int` loop index against `extent()`/`size()`: `atom_vec_kokkos.cpp:2976-3023`, `comm_kokkos.cpp:1162`, `pair_uf3_kokkos.cpp:789`; benign |
+| `-Wunused-variable` | 4 | see below |
+| `-Wunused-const-variable` | 3 | `dihedral_table_kokkos.cpp:39-41` (`TOLERANCE`, `SMALL`, `SMALLER`) |
+| `-Wunused-but-set-variable` | 3 | see below |
+| `-Wmismatched-tags` | 1 | see below |
+
+Worth cleaning up:
+
+- `fix_shake_kokkos.cpp:522` -- `i0` is unused since the angle statistics fix
+  in `fa275ab5f` dropped the central atom from the count.  Delete the line.
+- `fix_qeq_reaxff_kokkos.h:339` -- `FixQEqReaxFFKokkosNeighborFunctor`
+  forward-declared as `struct`, defined as `class`.  clang notes this can
+  break linking under the MSVC ABI, which LAMMPS supports; make the two agree.
+- `comm_kokkos.cpp:1183` (`count_bonus`), `comm_kokkos.cpp:1541` (`mlo`,
+  `mhi`: assigned in the `mode != SINGLE` branch of `borders_device()`, but
+  multi mode falls back to the legacy path before reaching it, so dead),
+  `pair_uf3_kokkos.cpp:886` (`v_f`: the per-atom virial is tallied inside
+  `ev_tally`/`ev_tally3`, which take their own scatter access), and
+  `npair_kokkos.cpp:157` (`nbor_chunk_size`, consumed only in the GPU block at
+  line 317).  Dead locals, no missing logic behind any of them.
+
+### 3.2 single and mixed precision
+
+(pending)
 
 ## 4. Searched and found clean
 
