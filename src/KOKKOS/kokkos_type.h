@@ -268,25 +268,10 @@ using KKBigDualView =
                    Kokkos::Experimental::Accessor<ValueType,
                      typename Device::memory_space,MemoryTraits>>;
 
-// LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
-//
-// The dual views built from KKBigDualView depend on a local change to the
-// bundled Kokkos: Kokkos_DualView.hpp built its device view from the view
-// traits rather than from its own template arguments, so it could not be given
-// the arguments above.  Two lines there now take the arguments directly, which
-// leaves every existing dual view type exactly as it was.
-//
-// LAMMPS's own TransformView needed the same treatment: it now takes the
-// dual view it wraps as a template argument and spells its pinned mirror from
-// that dual view's device view, so that KKBigTransformView can wrap a
-// KKBigDualView.  That part is LAMMPS code and stays.
-//
-// Everywhere that relies on this carries the name of this comment, so
-//
-//   grep -rn LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND src/ lib/kokkos/
-//
-// lists what to revisit once a released Kokkos carries the change: the local
-// change to lib/kokkos can be dropped, and these declarations stay as they are.
+// KKBigDualView needs a Kokkos::DualView that builds its device view from its
+// own template arguments; the bundled Kokkos carries that change (see the note
+// in lib/kokkos/containers/src/Kokkos_DualView.hpp) until a release does.
+// Nothing here changes when it does.
 
 // Helpers for readability
 
@@ -1389,7 +1374,6 @@ typedef TransformView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceLayout>
 typedef TransformView<KK_FLOAT**, double**, LMPDeviceLayout> ttransform_kkfloat_2d;
 typedef TransformView<KK_FLOAT**, double**, Kokkos::LayoutRight> ttransform_kkfloat_2d_lr;
 
-// LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
 typedef KKBigTransformView<int**, int**, LMPDeviceLayout> ttransform_int_2d_big;
 typedef KKBigTransformView<LAMMPS_NS::tagint**, LAMMPS_NS::tagint**, LMPDeviceLayout> ttransform_tagint_2d_big;
 typedef KKBigTransformView<KK_FLOAT**, double**, LMPDeviceLayout> ttransform_kkfloat_2d_big;

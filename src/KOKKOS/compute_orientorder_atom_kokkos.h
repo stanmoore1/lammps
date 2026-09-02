@@ -93,7 +93,6 @@ class ComputeOrientOrderAtomKokkos : public ComputeOrientOrderAtom {
   void operator() (TagComputeOrientOrderAtomBOOP2, const int& ii) const;
 
   DAT::ttransform_kkfloat_2d k_qnarray;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename AT::t_kkfloat_2d_big d_qnarray;
 
  private:

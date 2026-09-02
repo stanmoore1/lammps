@@ -79,9 +79,7 @@ class FixNeighHistoryKokkos : public FixNeighHistory, public KokkosBase {
                               int nrecv1,int nrecv1extra,
                               ExecutionSpace space) override;
 
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename DAT::tdual_int_2d_big k_firstflag;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename DAT::tdual_kkfloat_2d_big k_firstvalue;
 
  private:
@@ -90,21 +88,15 @@ class FixNeighHistoryKokkos : public FixNeighHistory, public KokkosBase {
 
   typename AT::t_tagint_1d tag;
 
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename AT::t_int_2d_big d_firstflag;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename AT::t_kkfloat_2d_big d_firstvalue;
 
   DAT::tdual_int_1d k_npartner;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   DAT::ttransform_tagint_2d_big k_partner;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   DAT::ttransform_kkfloat_2d_big k_valuepartner;
 
   typename AT::t_int_1d d_npartner;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename AT::t_tagint_2d_big d_partner;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename AT::t_kkfloat_2d_big d_valuepartner;
 
   typename AT::t_int_1d d_sendlist;

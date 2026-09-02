@@ -56,7 +56,6 @@ template <class DeviceType> class ComputeCompositionAtomKokkos : public ComputeC
   typename AT::t_int_1d d_ilist;
   typename AT::t_int_1d d_numneigh;
   DAT::ttransform_kkfloat_2d k_result;
-  // LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
   typename AT::t_kkfloat_2d_big d_result;
 };
 

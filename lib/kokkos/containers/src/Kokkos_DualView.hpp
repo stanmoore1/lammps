@@ -99,14 +99,13 @@ struct is_dual_view<const DualView<DT, DP...>> : public std::true_type {};
 template <class T>
 inline constexpr bool is_dual_view_v = is_dual_view<T>::value;
 
-// LMP_KOKKOS_DUALVIEW_64BIT_WORKAROUND
-//
-// Local LAMMPS change, not present in Kokkos 5.2.1: build the device view from
+// LAMMPS: patched relative to Kokkos 5.2.1, to be superseded by the equivalent
+// change in an upstream Kokkos release.  The device view is built from
 // DualView's own template arguments rather than from the view traits, so that a
 // dual view can be given the newer Kokkos::View template arguments and be
-// indexed with 64-bit arithmetic.  Every dual view spelled the classic way
-// keeps exactly the types it had.  Remove this, and the helper below, once a
-// released Kokkos carries the equivalent.  See src/KOKKOS/kokkos_type.h.
+// indexed with 64-bit arithmetic.  Every dual view spelled the classic way keeps
+// exactly the types it had.  When the bundled Kokkos is next updated, this
+// comment and the helper below go with it; nothing in LAMMPS changes.
 
 namespace Impl {
 // The const device view of a DualView.  With the classic View template
