@@ -51,7 +51,9 @@ double ComputeTempSphereKokkos<DeviceType>::compute_scalar()
 
   if (tempbias) {
     if (tbias->invoked_scalar != update->ntimestep) tbias->compute_scalar();
+    atomKK->sync(tbias->execution_space, tbias->datamask_read);
     tbias->remove_bias_all();
+    atomKK->modified(tbias->execution_space, tbias->datamask_modify);
     atomKK->sync(execution_space, V_MASK);
   }
 
@@ -75,7 +77,9 @@ double ComputeTempSphereKokkos<DeviceType>::compute_scalar()
   copymode = 0;
 
   if (tempbias) {
+    atomKK->sync(tbias->execution_space, tbias->datamask_read);
     tbias->restore_bias_all();
+    atomKK->modified(tbias->execution_space, tbias->datamask_modify);
     atomKK->sync(execution_space, V_MASK);
   }
 
@@ -117,7 +121,9 @@ void ComputeTempSphereKokkos<DeviceType>::compute_vector()
 
   if (tempbias) {
     if (tbias->invoked_vector != update->ntimestep) tbias->compute_vector();
+    atomKK->sync(tbias->execution_space, tbias->datamask_read);
     tbias->remove_bias_all();
+    atomKK->modified(tbias->execution_space, tbias->datamask_modify);
     atomKK->sync(execution_space, V_MASK);
   }
 
@@ -141,7 +147,9 @@ void ComputeTempSphereKokkos<DeviceType>::compute_vector()
   copymode = 0;
 
   if (tempbias) {
+    atomKK->sync(tbias->execution_space, tbias->datamask_read);
     tbias->restore_bias_all();
+    atomKK->modified(tbias->execution_space, tbias->datamask_modify);
     atomKK->sync(execution_space, V_MASK);
   }
 
