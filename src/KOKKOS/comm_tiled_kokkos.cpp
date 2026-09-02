@@ -570,8 +570,8 @@ void CommTiledKokkos::reverse_comm_device(Pair *pair, int size)
 {
   int i,n,nsize,nsend,nrecv;
 
-  if (size) nsize = MAX(pair->comm_reverse, pair->comm_reverse_off);
-  else nsize = pair->comm_reverse;
+  if (size) nsize = size;
+  else nsize = MAX(pair->comm_reverse, pair->comm_reverse_off);
 
   KokkosBase* pairKKBase = dynamic_cast<KokkosBase*>(pair);
 

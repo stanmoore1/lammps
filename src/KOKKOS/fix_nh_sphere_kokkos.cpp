@@ -49,7 +49,6 @@ FixNHSphereKokkos<DeviceType>::FixNHSphereKokkos(LAMMPS *lmp, int narg, char **a
     }
     iarg++;
   }
-  fprintf(stderr, "flags dipole %d  dlm %d\n", this->dipole_flag, this->dlm_flag);
 
 }
 
