@@ -45,6 +45,10 @@ message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package"
 ########################################################################
 # consistency checks and Kokkos options/settings required by LAMMPS
 
+# temporarily enable Kokkos legacy view implementation to prevent integer overflows when indexing neighborlist views
+option(Kokkos_ENABLE_IMPL_VIEW_LEGACY "Enable legacy Kokkos view implementation" ON)
+mark_as_advanced(Kokkos_ENABLE_IMPL_VIEW_LEGACY)
+
 if(Kokkos_ENABLE_HIP)
   option(Kokkos_ENABLE_HIP_MULTIPLE_KERNEL_INSTANTIATIONS "Enable multiple kernel instantiations with HIP" ON)
   mark_as_advanced(Kokkos_ENABLE_HIP_MULTIPLE_KERNEL_INSTANTIATIONS)
@@ -126,8 +130,6 @@ elseif(EXTERNAL_KOKKOS)
 else()
   set(LAMMPS_LIB_KOKKOS_SRC_DIR ${LAMMPS_LIB_SOURCE_DIR}/kokkos)
   set(LAMMPS_LIB_KOKKOS_BIN_DIR ${LAMMPS_LIB_BINARY_DIR}/kokkos)
-  # Legacy views are no longer supported
-  set(Kokkos_ENABLE_IMPL_VIEW_LEGACY OFF CACHE BOOL "" FORCE)
   # build KOKKOS internal libraries as static libraries but with PIC, if needed
   if(BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS_WAS_ON YES)
