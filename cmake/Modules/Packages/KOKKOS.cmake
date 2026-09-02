@@ -55,6 +55,13 @@ set(Kokkos_ENABLE_IMPL_VIEW_LEGACY ON CACHE BOOL "" FORCE)
 set(Kokkos_ENABLE_DEPRECATION_WARNINGS OFF CACHE BOOL "" FORCE)
 mark_as_advanced(Kokkos_ENABLE_IMPL_VIEW_LEGACY Kokkos_ENABLE_DEPRECATION_WARNINGS)
 
+# Kokkos removed Kokkos_ENABLE_CUDA_UVM in 5.2 (deprecated since 4.0); CMake
+# would otherwise accept the stale setting and silently do nothing with it
+if(Kokkos_ENABLE_CUDA_UVM)
+  message(FATAL_ERROR "The option Kokkos_ENABLE_CUDA_UVM is no longer supported by Kokkos. "
+    "Use -D Kokkos_ENABLE_IMPL_CUDA_UNIFIED_MEMORY=on instead, which requires CUDA 12.2 or later")
+endif()
+
 if(Kokkos_ENABLE_HIP)
   option(Kokkos_ENABLE_HIP_MULTIPLE_KERNEL_INSTANTIATIONS "Enable multiple kernel instantiations with HIP" ON)
   mark_as_advanced(Kokkos_ENABLE_HIP_MULTIPLE_KERNEL_INSTANTIATIONS)
