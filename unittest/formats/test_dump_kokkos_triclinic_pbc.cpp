@@ -21,6 +21,7 @@
 #include "../testing/core.h"
 #include "../testing/utils.h"
 #include "info.h"
+#include "library.h"
 #include "utils.h"
 
 #include "fmt/format.h"
@@ -145,6 +146,15 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     ::testing::InitGoogleMock(&argc, argv);
     const int rv = RUN_ALL_TESTS();
+
+    // finalize the KOKKOS package explicitly: otherwise Kokkos is torn down by
+    // static destructors at program exit.  With the Serial backend that frees
+    // the scratch memory of the default execution space instance through a
+    // fence on the execution space registry, which has already been destroyed
+    // at that point, and the test segfaults after having passed.  Same
+    // workaround as the force-style and FFT3d test drivers.
+    lammps_kokkos_finalize();
+
     MPI_Finalize();
     return rv;
 }
