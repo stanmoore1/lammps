@@ -50,7 +50,7 @@ FixNPHSphereKokkos<DeviceType>::FixNPHSphereKokkos(LAMMPS *lmp, int narg, char *
 
 namespace LAMMPS_NS {
 template class FixNPHSphereKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNPHSphereKokkos<LMPHostType>;
 #endif
 }

@@ -56,7 +56,7 @@ void NeighListKokkos<DeviceType>::grow(int nmax)
 
 namespace LAMMPS_NS {
 template class NeighListKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NeighListKokkos<LMPHostType>;
 #endif
 }

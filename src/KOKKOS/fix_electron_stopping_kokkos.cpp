@@ -116,7 +116,7 @@ template <class DeviceType> void FixElectronStoppingKokkos<DeviceType>::post_for
                           Kokkos::Min<FixElectronStoppingErrorValue>(error_value));
   if (error_value.i < nlocal) {
     atomKK->sync(ExecutionSpaceFromDevice<LMPHostType>::space, TAG_MASK);
-    tagint error_tag = (atomKK->k_tag.view<LMPHostType>())(error_value.i);
+    tagint error_tag = (atomKK->k_tag.view_host())(error_value.i);
     error->one(FLERR, "Fix electron/stopping/kk: kinetic energy too high for atom {}: {} vs {}",
                error_tag, error_value.energy, elstop_ranges[0][table_entries - 1]);
   }
@@ -186,7 +186,7 @@ FixElectronStoppingKokkos<DeviceType>::operator()(TagFixElectronStopping, const 
 
 namespace LAMMPS_NS {
 template class FixElectronStoppingKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixElectronStoppingKokkos<LMPHostType>;
 #endif
 }    // namespace LAMMPS_NS

@@ -170,7 +170,7 @@ void NPairSkipKokkos<DeviceType,TRIM>::operator()(TagNPairSkipCountLocal, const 
 namespace LAMMPS_NS {
 template class NPairSkipKokkos<LMPDeviceType,0>;
 template class NPairSkipKokkos<LMPDeviceType,1>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NPairSkipKokkos<LMPHostType,0>;
 template class NPairSkipKokkos<LMPHostType,1>;
 #endif

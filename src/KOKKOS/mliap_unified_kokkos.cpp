@@ -391,7 +391,7 @@ template class MLIAPDummyModelKokkos<LMPDeviceType>;
 template class MLIAPDummyDescriptorKokkos<LMPDeviceType>;
 template MLIAPBuildUnifiedKokkos_t<LMPDeviceType> LAMMPS_NS::build_unified(char *unified_fname, MLIAPDataKokkos<LMPDeviceType> *data, LAMMPS *lmp,
                                              char *coefffilename);
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class MLIAPDummyModelKokkos<LMPHostType>;
 template class MLIAPDummyDescriptorKokkos<LMPHostType>;
 template MLIAPBuildUnifiedKokkos_t<LMPHostType> LAMMPS_NS::build_unified(char *unified_fname, MLIAPDataKokkos<LMPHostType> *data, LAMMPS *lmp,

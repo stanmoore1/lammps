@@ -246,7 +246,7 @@ void PairTersoffZBLKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (evflag)
       Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairTersoffZBLCompute<HALFTHREAD,1> >(0,inum),*this,ev);
     else {
-      if (execution_space == HostKK) {
+      if (HostBackendFromDevice<DeviceType>::value) {
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairTersoffZBLCompute<HALFTHREAD,0> >(0,inum),*this);
       } else {
 #ifdef LMP_KOKKOS_TERSOFF_MDRANGEPOLICY_WORKAROUND
@@ -1136,7 +1136,7 @@ int PairTersoffZBLKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairTersoffZBLKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairTersoffZBLKokkos<LMPHostType>;
 #endif
 }

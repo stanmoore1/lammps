@@ -1118,7 +1118,7 @@ void ImproperClass2Kokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, cons
 
 namespace LAMMPS_NS {
 template class ImproperClass2Kokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ImproperClass2Kokkos<LMPHostType>;
 #endif
 }

@@ -521,7 +521,7 @@ void DihedralCosineSquaredRestrictedKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, c
 
 namespace LAMMPS_NS {
 template class DihedralCosineSquaredRestrictedKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class DihedralCosineSquaredRestrictedKokkos<LMPHostType>;
 #endif
 }

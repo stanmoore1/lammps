@@ -510,7 +510,7 @@ void ImproperCvffKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, const 
 
 namespace LAMMPS_NS {
 template class ImproperCvffKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ImproperCvffKokkos<LMPHostType>;
 #endif
 }

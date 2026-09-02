@@ -228,7 +228,7 @@ typedef tdual_int_64::t_dev_um t_int_64_um;
 
 };
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template <>
 struct FFTArrayTypes<LMPHostType> {
 

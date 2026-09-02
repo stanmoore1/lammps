@@ -352,7 +352,7 @@ double PairColloidKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairColloidKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairColloidKokkos<LMPHostType>;
 #endif
 }

@@ -166,7 +166,7 @@ void ComputeCompositionAtomKokkos<DeviceType>::operator()(TagComputeCompositionA
 
 namespace LAMMPS_NS {
 template class ComputeCompositionAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeCompositionAtomKokkos<LMPHostType>;
 #endif
 }

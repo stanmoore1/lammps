@@ -172,7 +172,7 @@ void MLIAPModelPythonKokkos<DeviceType>::compute_force_gradients(class MLIAPData
 
 namespace LAMMPS_NS {
 template class MLIAPModelPythonKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class MLIAPModelPythonKokkos<LMPHostType>;
 #endif
 }

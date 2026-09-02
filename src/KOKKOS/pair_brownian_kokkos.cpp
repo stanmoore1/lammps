@@ -621,7 +621,7 @@ void PairBrownianKokkos<DeviceType>::coeff(int narg, char **arg)
 
 namespace LAMMPS_NS {
 template class PairBrownianKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairBrownianKokkos<LMPHostType>;
 #endif
 }

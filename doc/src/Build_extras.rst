@@ -966,6 +966,112 @@ speedup on GPUs for some models, but a slowdown for others. LayoutRight
 is always used for positions on GPUs since it has been found to be
 faster, and when compiling exclusively for CPUs.
 
+.. versionadded:: TBD
+
+The CMake option ``-D KOKKOS_DEBUG_SYNC=on`` builds a version of the
+KOKKOS package that checks the transfers of per-atom data between the
+host and the device.  It is a tool for developers working on KOKKOS
+styles and is off by default; a build with the option off is unaffected.
+
+A KOKKOS style declares which per-atom arrays it reads and which it
+modifies, and the package copies data between the host and the device
+based on those declarations.  If a style fails to declare that it
+modified an array, a later copy overwrites the new values with old ones,
+which changes the results without any error message.  On a GPU this is
+hard to track down, and on a CPU it cannot be observed at all, because
+the host and the device then use the same memory and no copies take
+place.  With this option the CPU version keeps a separate copy of the
+per-atom data for the device and performs the transfers between them, so
+that a missing declaration changes the results in a plain CPU run, where
+it can be found with a debugger.
+
+.. note::
+
+   Runs with this option enabled use about twice as much memory for
+   per-atom data and are considerably slower.
+
+.. warning::
+
+   Give the run the settings a GPU would use, or the problem may not
+   come back.  The :doc:`package kokkos <package>` command takes its
+   defaults from whether the build found a GPU, and this build has not,
+   so without further arguments the communication, the atom sorting and
+   the atom map all run on the host through the plain LAMMPS code and
+   never touch the device copy at all, the neighbor list is built the
+   half-list way, and the pair styles run with Newton's third law on.
+   None of the transfers that the missing declaration would spoil are
+   then made, so a problem seen on a GPU leaves no trace here.  Ask for
+   the GPU settings by hand:
+
+   .. code-block:: bash
+
+      lmp -in in.file -k on -sf kk -pk kokkos neigh full newton off \
+          comm device sort device atom/map device gpu/aware on
+
+   Change one of them back only to find out which one the problem needs.
+
+The strongest of the checks needs AddressSanitizer in the build as well:
+
+.. code-block:: bash
+
+   cmake -D KOKKOS_DEBUG_SYNC=on -D KOKKOS_DEBUG_SYNC_ASAN=on ...
+
+and is switched on by setting ``LMP_KOKKOS_POISON`` in the environment.
+It marks the bytes of whichever copy of an array is out of date as off
+limits, so any use of stale data -- through a Kokkos view, a plain
+LAMMPS pointer, or a copy inside a library -- stops the run at the
+faulting source line with a report of what was touched and from where.
+Only taking a pointer without using it stays silent.  By default the
+first fault stops the run; set ``ASAN_OPTIONS=halt_on_error=0`` to log
+every fault and keep going instead, and add ``detect_leaks=0`` to quiet
+the leak reports from the MPI library on parallel runs.
+
+Once a run built this way gives different results from the same run
+without the option, these environment variables narrow down which array
+is at fault and where.  They are read at the first use and cost nothing
+when unset, and each takes the text to look for in a view's name, so that
+one array can be followed on its own; an empty value selects every view.
+
+* ``LMP_KOKKOS_WATCH`` reports an array that was written on one side,
+  never declared as modified, and then discarded by a copy from the other
+  side, naming the element, the old and the new value, and the two calls
+  the write happened between.  Set ``LMP_KOKKOS_WATCH_BT`` as well for a
+  listing of the routines that were running when it was found, and
+  ``LMP_KOKKOS_WATCH_SKIP`` to a comma separated list of names to leave
+  out the scratch buffers that are filled and thrown away on purpose.
+* ``LMP_KOKKOS_STALE`` reports an array read while the other side holds
+  newer values that differ from it, which is a missing copy rather than a
+  missing declaration.  Each report names the array, which of its two
+  copies was read, and the routine that read it, so a run can be compared
+  against one of the unmodified code by its reports alone; the totals per
+  array and reader are printed when the run ends.
+* ``LMP_KOKKOS_STALE_STRICT`` extends that to an array whose two copies
+  differ although nothing is waiting to be copied, which is what a write
+  through one of the plain LAMMPS pointers with no matching declaration
+  leaves behind: nothing will ever bring the two together again.  It needs
+  ``LMP_KOKKOS_WATCH`` set as well, for the record of which copy the values
+  are on.
+* ``LMP_KOKKOS_TRACE`` prints every copy, declaration and resize of an
+  array along with the counters that drive them.
+* ``LMP_KOKKOS_PARANOID`` copies an array between the host and the device
+  after each declaration, so those never differ.  A run that is correct
+  with one array treated this way and wrong without it is missing a copy
+  of that array.
+* ``LMP_KOKKOS_VERIFY`` checks that the two copies of an array really do
+  hold the same values whenever the counters say they agree.
+* ``LMP_KOKKOS_ALIAS`` keeps a single copy for the selected arrays, as a
+  control.  A run that fails with two copies and passes here has a real
+  error; one that fails both ways points at the emulation itself.
+
+Note that a CPU build using reduced precision, as set by the
+``KOKKOS_PREC`` option above, already finds some of these errors on its
+own with no need for this option.  The per-atom arrays are then kept in
+single precision for the KOKKOS styles and in double precision for the
+rest of LAMMPS, so those two copies are separate and a missing
+declaration between them changes the results.  What this option adds is
+the copy between the host and the device, which is the one a GPU
+actually uses.
+
 ----------
 
 .. _lepton:

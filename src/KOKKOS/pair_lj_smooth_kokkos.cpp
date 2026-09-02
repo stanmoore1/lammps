@@ -267,7 +267,7 @@ double PairLJSmoothKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairLJSmoothKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJSmoothKokkos<LMPHostType>;
 #endif
 }

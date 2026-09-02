@@ -221,7 +221,7 @@ void FixWallMorseKokkos<DeviceType>::v_tally(value_type result, int n, int i,
 
 namespace LAMMPS_NS {
 template class FixWallMorseKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixWallMorseKokkos<LMPHostType>;
 #endif
 }

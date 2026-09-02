@@ -169,6 +169,7 @@ action dihedral_hybrid_kokkos.cpp dihedral_hybrid.cpp
 action dihedral_hybrid_kokkos.h dihedral_hybrid.h
 action domain_kokkos.cpp
 action domain_kokkos.h
+action dual_view_kokkos.h
 action dynamical_matrix_kokkos.cpp dynamical_matrix.cpp
 action dynamical_matrix_kokkos.h dynamical_matrix.h
 action fft3d_kokkos.cpp fft3d.cpp
@@ -375,6 +376,7 @@ action kokkos_base.h
 action kokkos_few.h
 action kokkos_type.h
 action kokkos.cpp
+action datamask_audit_kokkos.cpp
 action kokkos.h
 action math_extra_kokkos.h
 action math_special_kokkos.cpp

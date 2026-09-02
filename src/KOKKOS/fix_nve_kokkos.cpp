@@ -247,7 +247,7 @@ void FixNVEKokkos<DeviceType>::cleanup_copy()
 
 namespace LAMMPS_NS {
 template class FixNVEKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNVEKokkos<LMPHostType>;
 #endif
 }

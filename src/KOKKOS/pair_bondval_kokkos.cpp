@@ -390,7 +390,7 @@ double PairBondValKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutone*cutone;
   k_cutsq.modify_host();
   k_params.template modify<LMPHostType>();
-  k_energy0.template modify<LMPHostType>();
+  k_energy0.modify_host();
 
   return cutone;
 }
@@ -840,7 +840,7 @@ struct PairBondValKokkos<DeviceType>::policyInstance {
 
 namespace LAMMPS_NS {
 template class PairBondValKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairBondValKokkos<LMPHostType>;
 #endif
 }

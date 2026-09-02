@@ -1661,7 +1661,7 @@ double PairUF3Kokkos<DeviceType>::single(int /*i*/, int /*j*/, int itype, int jt
 
 namespace LAMMPS_NS {
 template class PairUF3Kokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairUF3Kokkos<LMPHostType>;
 #endif
 }    // namespace LAMMPS_NS

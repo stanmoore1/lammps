@@ -179,7 +179,7 @@ void FixDtResetKokkos<DeviceType>::operator()(TagFixDtResetRMass, const int &i, 
 
 namespace LAMMPS_NS {
 template class FixDtResetKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixDtResetKokkos<LMPHostType>;
 #endif
 }

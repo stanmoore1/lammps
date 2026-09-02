@@ -854,7 +854,7 @@ void FixLangevinKokkos<DeviceType>::sort_kokkos(Kokkos::BinSort<KeyViewType, Bin
 
 namespace LAMMPS_NS {
 template class FixLangevinKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixLangevinKokkos<LMPHostType>;
 #endif
 }

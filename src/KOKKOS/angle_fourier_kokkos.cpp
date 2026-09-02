@@ -366,7 +366,7 @@ void AngleFourierKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i, const i
 
 namespace LAMMPS_NS {
 template class AngleFourierKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class AngleFourierKokkos<LMPHostType>;
 #endif
 }

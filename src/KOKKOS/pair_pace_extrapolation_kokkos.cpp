@@ -63,7 +63,7 @@ PairPACEExtrapolationKokkos<DeviceType>::PairPACEExtrapolationKokkos(LAMMPS *lmp
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
-  host_flag = (execution_space == HostKK);
+  host_flag = HostBackendFromDevice<DeviceType>::value;
 
   neigh_scratch_level = 0;
   neigh_scratch_warned = 0;
@@ -2188,7 +2188,7 @@ double PairPACEExtrapolationKokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class PairPACEExtrapolationKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairPACEExtrapolationKokkos<LMPHostType>;
 #endif
 }

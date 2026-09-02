@@ -105,7 +105,7 @@ void FixWallReflectKokkos<DeviceType>::operator()(TagFixWallReflectPostIntegrate
 
 namespace LAMMPS_NS {
 template class FixWallReflectKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixWallReflectKokkos<LMPHostType>;
 #endif
 }

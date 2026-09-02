@@ -83,7 +83,7 @@ double ComputeERotateSphereKokkos<DeviceType>::compute_scalar()
 
 namespace LAMMPS_NS {
 template class ComputeERotateSphereKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeERotateSphereKokkos<LMPHostType>;
 #endif
 }

@@ -208,7 +208,7 @@ class SNAKokkos {
 
   using KKDeviceType = typename KKDevice<DeviceType>::value;
   static constexpr LAMMPS_NS::ExecutionSpace execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  static constexpr int host_flag = (execution_space == LAMMPS_NS::HostKK);
+  static constexpr int host_flag = HostBackendFromDevice<DeviceType>::value;
 
   typedef Kokkos::View<int*, DeviceType> t_sna_1i;
   typedef Kokkos::View<real_type*, DeviceType> t_sna_1d;

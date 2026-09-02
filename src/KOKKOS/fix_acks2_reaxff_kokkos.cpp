@@ -300,7 +300,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::pre_force(int /*vflag*/)
 
   // compute_H
 
-  if (execution_space == HostKK) { // CPU
+  if (HostBackendFromDevice<DeviceType>::value) { // CPU
     if (neighflag == FULL) {
       FixACKS2ReaxFFKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(this);
       Kokkos::parallel_scan(nn,computeH_functor);
@@ -1427,7 +1427,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::sparse_matvec_acks2(typename AT::t_kkfloa
 
   if (neighflag == FULL) {
     int teamsize;
-    if (execution_space == HostKK) teamsize = 1;
+    if (HostBackendFromDevice<DeviceType>::value) teamsize = 1;
     else teamsize = 128;
 
     Kokkos::parallel_for(Kokkos::TeamPolicy<DeviceType,TagACKS2SparseMatvec3_Full>(nn,teamsize),*this);
@@ -2015,7 +2015,7 @@ void FixACKS2ReaxFFKokkos<DeviceType>::get_chi_field()
 
 namespace LAMMPS_NS {
 template class FixACKS2ReaxFFKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixACKS2ReaxFFKokkos<LMPHostType>;
 #endif
 }

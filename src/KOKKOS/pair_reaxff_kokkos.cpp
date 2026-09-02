@@ -85,7 +85,7 @@ PairReaxFFKokkos<DeviceType>::PairReaxFFKokkos(LAMMPS *lmp) : PairReaxFF(lmp)
   k_count_angular_torsion = DAT::tdual_int_1d("PairReaxFF::count_angular_torsion",2);
   d_count_angular_torsion = k_count_angular_torsion.template view<DeviceType>();
 
-  if (execution_space == HostKK) list_blocking_flag = 1;
+  if (HostBackendFromDevice<DeviceType>::value) list_blocking_flag = 1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -854,7 +854,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     // zero
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxZero>(0,nmax),*this);
 
-    if (execution_space == HostKK) { // CPU
+    if (HostBackendFromDevice<DeviceType>::value) { // CPU
       if (neighflag == HALF)
         Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxBuildListsHalfBlocking<HALF>>(0,ignum),*this);
       else if (neighflag == HALFTHREAD)
@@ -896,7 +896,7 @@ void PairReaxFFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     }
   }
 
-  if (execution_space != HostKK) // GPU
+  if (!HostBackendFromDevice<DeviceType>::value) // GPU
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxBuildListsFull>(0,ignum),*this);
 
   // allocate duplicated memory
@@ -4409,7 +4409,7 @@ void PairReaxFFKokkos<DeviceType>::operator()(TagPairReaxFindBondSpecies, const 
 }
 
 template class PairReaxFFKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairReaxFFKokkos<LMPHostType>;
 #endif
 }

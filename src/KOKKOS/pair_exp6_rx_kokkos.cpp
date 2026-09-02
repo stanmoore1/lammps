@@ -2591,7 +2591,7 @@ int PairExp6rxKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairExp6rxKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairExp6rxKokkos<LMPHostType>;
 #endif
 }

@@ -138,7 +138,7 @@ void FixExternalKokkos<DeviceType>::grow_arrays(int nmax)
 
 namespace LAMMPS_NS {
 template class FixExternalKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixExternalKokkos<LMPHostType>;
 #endif
 }

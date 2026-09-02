@@ -246,7 +246,7 @@ double PairLJClass2Kokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairLJClass2Kokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJClass2Kokkos<LMPHostType>;
 #endif
 }

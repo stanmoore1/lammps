@@ -250,7 +250,7 @@ void FixWallLJ1043Kokkos<DeviceType>::v_tally(value_type result, int n, int i,
 
 namespace LAMMPS_NS {
 template class FixWallLJ1043Kokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixWallLJ1043Kokkos<LMPHostType>;
 #endif
 }

@@ -295,7 +295,7 @@ void FixWallFlowKokkos<DeviceType>::unpack_exchange_kokkos(DAT::tdual_double_2d_
 
 namespace LAMMPS_NS {
 template class FixWallFlowKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixWallFlowKokkos<LMPHostType>;
 #endif
 }    // namespace LAMMPS_NS

@@ -479,7 +479,7 @@ double PairLJExpandCoulLongKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairLJExpandCoulLongKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJExpandCoulLongKokkos<LMPHostType>;
 #endif
 }

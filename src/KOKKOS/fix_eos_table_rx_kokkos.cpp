@@ -593,7 +593,7 @@ void FixEOStableRXKokkos<DeviceType>::create_kokkos_tables()
 
 namespace LAMMPS_NS {
 template class FixEOStableRXKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixEOStableRXKokkos<LMPHostType>;
 #endif
 }

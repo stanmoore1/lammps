@@ -1599,7 +1599,7 @@ template class NPairKokkos<LMPDeviceType,1,1,0,0,1>;
 template class NPairKokkos<LMPDeviceType,1,0,0,0,1>;
 template class NPairKokkos<LMPDeviceType,1,1,0,1,1>;
 template class NPairKokkos<LMPDeviceType,1,0,0,1,1>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NPairKokkos<LMPHostType,0,0,0,0,0>;
 template class NPairKokkos<LMPHostType,0,0,1,0,0>;
 template class NPairKokkos<LMPHostType,1,1,0,0,0>;

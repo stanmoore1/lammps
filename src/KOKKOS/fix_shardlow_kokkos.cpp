@@ -791,7 +791,7 @@ double FixShardlowKokkos<DeviceType>::memory_usage()
 
 namespace LAMMPS_NS {
 template class FixShardlowKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixShardlowKokkos<LMPHostType>;
 #endif
 }

@@ -39,8 +39,61 @@ string(TOUPPER ${KOKKOS_LAYOUT} KOKKOS_LAYOUT)
 
 target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_LAYOUT_${KOKKOS_LAYOUT})
 
+# Set Kokkos host/device data transfer debugging
+option(KOKKOS_DEBUG_SYNC "Check KOKKOS host/device data transfers" OFF)
+if(KOKKOS_DEBUG_SYNC)
+  target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_DEBUG_SYNC)
+  # LMP_KOKKOS_WATCH_BT prints a backtrace at the point a coherence error is
+  # found; keep the dynamic symbols so that it names functions rather than
+  # offsets the reader has to feed to addr2line
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(lammps PUBLIC -rdynamic)
+  endif()
+endif()
+
+# The poison mode of the sync debugging marks the stale copy of each array as
+# off limits through AddressSanitizer, so any access to it stops the run at the
+# faulting line.  Built with recovery so ASAN_OPTIONS=halt_on_error=0 can turn
+# a run into a survey that logs every stale access instead of stopping at the
+# first.  Applied globally so the styles' kernels are instrumented wherever
+# they are instantiated.
+option(KOKKOS_DEBUG_SYNC_SPLIT_HOST "Give the KOKKOS sync debugging separate host and device execution spaces" OFF)
+if(KOKKOS_DEBUG_SYNC_SPLIT_HOST)
+  if(NOT KOKKOS_DEBUG_SYNC)
+    message(FATAL_ERROR "KOKKOS_DEBUG_SYNC_SPLIT_HOST requires KOKKOS_DEBUG_SYNC=on")
+  endif()
+  if(NOT Kokkos_ENABLE_SERIAL OR NOT Kokkos_ENABLE_OPENMP)
+    message(FATAL_ERROR
+      "KOKKOS_DEBUG_SYNC_SPLIT_HOST needs both Kokkos backends: "
+      "-D Kokkos_ENABLE_SERIAL=on -D Kokkos_ENABLE_OPENMP=on. "
+      "OpenMP stands in for the device and Serial for the host, which is what "
+      "makes the /kk/host and /kk/device variants of a style distinct.")
+  endif()
+  target_compile_definitions(lammps PRIVATE -DLMP_KOKKOS_SPLIT_HOST)
+endif()
+
+option(KOKKOS_DEBUG_SYNC_ASAN "Add AddressSanitizer to the KOKKOS sync debugging" OFF)
+if(KOKKOS_DEBUG_SYNC_ASAN)
+  if(NOT KOKKOS_DEBUG_SYNC)
+    message(FATAL_ERROR "KOKKOS_DEBUG_SYNC_ASAN requires KOKKOS_DEBUG_SYNC=on")
+  endif()
+  # Through the flag variables rather than add_compile_options()/add_link_options():
+  # this file is processed after the lammps and lmp targets already exist, so the
+  # directory properties would not reach the final link line and the sanitizer
+  # runtime would come up undefined.
+  string(APPEND CMAKE_CXX_FLAGS " -fsanitize=address -fsanitize-recover=address")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " -fsanitize=address")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " -fsanitize=address")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" PARENT_SCOPE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" PARENT_SCOPE)
+endif()
+
 message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")
 message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package")
+if(KOKKOS_DEBUG_SYNC)
+  message(STATUS "Checking host/device data transfers for KOKKOS package")
+endif()
 
 ########################################################################
 # consistency checks and Kokkos options/settings required by LAMMPS
@@ -164,6 +217,7 @@ endif()
 
 set(KOKKOS_PKG_SOURCES_DIR ${LAMMPS_SOURCE_DIR}/KOKKOS)
 set(KOKKOS_PKG_SOURCES ${KOKKOS_PKG_SOURCES_DIR}/kokkos.cpp
+                        ${KOKKOS_PKG_SOURCES_DIR}/datamask_audit_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/atom_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/atom_map_kokkos.cpp
                        ${KOKKOS_PKG_SOURCES_DIR}/atom_vec_kokkos.cpp

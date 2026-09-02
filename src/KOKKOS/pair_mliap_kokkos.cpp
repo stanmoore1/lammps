@@ -672,7 +672,7 @@ template int PairMLIAPKokkos<LMPDeviceType>::forward_comm<float>(float*,float*,c
 template int PairMLIAPKokkos<LMPDeviceType>::forward_comm<double>(double*,double*,const int);
 template int PairMLIAPKokkos<LMPDeviceType>::reverse_comm<float>(float*,float*,const int);
 template int PairMLIAPKokkos<LMPDeviceType>::reverse_comm<double>(double*,double*,const int);
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairMLIAPKokkos<LMPHostType>;
 template int PairMLIAPKokkos<LMPHostType>::forward_comm<float>(float*,float*,const int);
 template int PairMLIAPKokkos<LMPHostType>::forward_comm<double>(double*,double*,const int);

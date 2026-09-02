@@ -87,7 +87,7 @@ void FixPlaneForceKokkos<DeviceType>::operator()(TagFixPlaneForce, const int &i)
 
 namespace LAMMPS_NS {
 template class FixPlaneForceKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixPlaneForceKokkos<LMPHostType>;
 #endif
 }

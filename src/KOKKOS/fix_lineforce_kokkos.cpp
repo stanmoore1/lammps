@@ -87,7 +87,7 @@ void FixLineForceKokkos<DeviceType>::operator()(TagFixLineForce, const int &i) c
 
 namespace LAMMPS_NS {
 template class FixLineForceKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixLineForceKokkos<LMPHostType>;
 #endif
 }

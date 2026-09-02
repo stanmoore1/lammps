@@ -463,7 +463,7 @@ int FixNVTSllodKokkos<DeviceType>::modify_param(int narg, char **arg)
 }
 namespace LAMMPS_NS {
 template class FixNVTSllodKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNVTSllodKokkos<LMPHostType>;
 #endif
 }

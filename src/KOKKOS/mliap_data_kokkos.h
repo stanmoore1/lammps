@@ -213,7 +213,7 @@ public:
   }
 
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
   MLIAPDataKokkosDevice(MLIAPDataKokkos<LMPHostType> &base) : ndescriptors(-1),nparams(-1),nelements(-1),ntotal(-1),nlistatoms(-1),nlocal(-1),natomneigh(-1),
       nneigh_max(-1),npairs(-1)
   {

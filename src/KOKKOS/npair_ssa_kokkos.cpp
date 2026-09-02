@@ -754,7 +754,7 @@ void NPairSSAKokkosExecute<DeviceType>::build_ghosts_onePhase(int workPhase) con
 
 namespace LAMMPS_NS {
 template class NPairSSAKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NPairSSAKokkos<LMPHostType>;
 #endif
 }

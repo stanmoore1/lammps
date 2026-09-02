@@ -326,7 +326,7 @@ void NBinSSAKokkos<DeviceType>::sortBin(
 
 namespace LAMMPS_NS {
 template class NBinSSAKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NBinSSAKokkos<LMPHostType>;
 #endif
 }

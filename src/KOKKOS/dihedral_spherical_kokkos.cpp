@@ -727,7 +727,7 @@ void DihedralSphericalKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int i1, c
 
 namespace LAMMPS_NS {
 template class DihedralSphericalKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class DihedralSphericalKokkos<LMPHostType>;
 #endif
 }

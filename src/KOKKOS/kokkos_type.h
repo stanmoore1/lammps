@@ -18,6 +18,8 @@
 #include "pointers.h"
 #include "lmptype.h"
 
+#include "dual_view_kokkos.h"
+
 #include <Kokkos_Core.hpp>
 #include <Kokkos_DualView.hpp>
 #include <Kokkos_Timer.hpp>
@@ -169,13 +171,51 @@ t_scalar3<Scalar> operator *
 }
 
 // set LMPHostype and LMPDeviceType from Kokkos Default Types
+
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+
+// A CPU sync-debugging build that also wants the host/device EXECUTION edge.
+// Without a GPU backend the two default types are one and the same, so the
+// /kk/host and /kk/device variants of a style register the same class and a
+// run that mixes them exercises nothing: the bugs that live between a host
+// executing style and a device executing one cannot happen.  Standing OpenMP
+// in for the device and Serial for the host makes them distinct types, so the
+// two variants become distinct classes routed to different spaces, while both
+// still allocate in host memory and keep the split-buffer emulation working.
+// Serial stands in for the device and OpenMP is the host.  That way round,
+// not the other: Kokkos takes a dual view's host side to be
+// DefaultHostExecutionSpace, which is OpenMP whenever OpenMP is built, so
+// naming Serial the host would make every sync<LMPHostType>() fail its
+// static assert.
+typedef Kokkos::Serial LMPDeviceType;
+typedef Kokkos::OpenMP LMPHostType;
+
+#else
+
 typedef Kokkos::DefaultExecutionSpace LMPDeviceType;
 typedef Kokkos::HostSpace::execution_space LMPHostType;
+
+#endif
 
 // set default device layout
 
 #if !defined (LMP_KOKKOS_LAYOUT_LEGACY) && !defined (LMP_KOKKOS_LAYOUT_DEFAULT)
 #define LMP_KOKKOS_LAYOUT_LEGACY
+#endif
+
+// Whether a style that runs on the host may simply use the device buffer.  It
+// may when the two share memory, which is every ordinary CPU build and any
+// unified-memory GPU build.  It may NOT under LMP_KOKKOS_SPLIT_HOST: the two
+// sides are separate allocations there precisely so that a host executing
+// style and a device executing one can be told apart, and handing the host
+// style the device buffer would collapse that distinction again -- it would
+// write its forces into the side it does not then claim.
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+static constexpr bool LMP_DEVICE_REACHABLE_FROM_HOST = false;
+#else
+static constexpr bool LMP_DEVICE_REACHABLE_FROM_HOST =
+    Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,
+                               LMPHostType::memory_space>::accessible;
 #endif
 
 #if defined(LMP_KOKKOS_LAYOUT_LEGACY)
@@ -217,10 +257,54 @@ using KKScatterView = Kokkos::Experimental::ScatterView<DataType, Layout, Device
 template<class Device>
 struct ExecutionSpaceFromDevice;
 
+// Whether Device runs on the host processor.  This asks about the backend, not
+// about which side of the host/device data transfer a style is placed on, so it
+// must not be answered with ExecutionSpaceFromDevice: a sync-debugging build
+// without a GPU backend deliberately places host-backend styles on the device
+// side to keep those transfers alive, and a style that read its team and tile
+// sizes off that would ask a Serial backend for GPU sized teams.
+
+template<class Device>
+struct HostBackendFromDevice {
+  static constexpr int value =
+    std::is_same<typename Device::memory_space, Kokkos::HostSpace>::value ? 1 : 0;
+};
+
+#if defined(LMP_KOKKOS_DEBUG_SYNC) && !defined(LMP_KOKKOS_GPU) && !defined(LMP_KOKKOS_SPLIT_HOST)
+
+// In a sync-debugging build without a GPU backend LMPHostType is also the default
+// execution space, so styles are routed to the Device space to keep the device
+// coherence edge live.  Otherwise every style runs on HostKK and the device edge,
+// where the host/device sync and modify bugs live, is never exercised at all.
+// LMP_KOKKOS_SPLIT_HOST gives the two their own types instead, and then each
+// belongs in its own space and this stand-in is neither needed nor right.
+
+template<>
+struct ExecutionSpaceFromDevice<LMPHostType> {
+  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
+};
+
+#else
+
 template<>
 struct ExecutionSpaceFromDevice<LMPHostType> {
   static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::HostKK;
 };
+
+#endif
+
+#if defined(LMP_KOKKOS_SPLIT_HOST)
+
+// Serial stands in for the device in this build, so it is the space the
+// device styles belong to; OpenMP is the host and takes the HostKK space
+// from the branch above.
+
+template<>
+struct ExecutionSpaceFromDevice<Kokkos::Serial> {
+  static const LAMMPS_NS::ExecutionSpace space = LAMMPS_NS::Device;
+};
+
+#endif
 
 #ifdef KOKKOS_ENABLE_CUDA
 template<>
@@ -632,20 +716,20 @@ struct dual_hash_type {
  }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),hash_type&> view() {return d_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),hash_type&> view() {return d_view;}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),host_hash_type&> view() {return h_view;}
-
-  template<class DeviceType>
-// NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const hash_type&> const_view() const {return d_view;}
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),host_hash_type&> view() {return h_view;}
 
   template<class DeviceType>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const host_hash_type&> const_view() const {return h_view;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const hash_type&> const_view() const {return d_view;}
+
+  template<class DeviceType>
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const host_hash_type&> const_view() const {return h_view;}
 
   void modify_device()
   {
@@ -678,10 +762,10 @@ struct dual_hash_type {
   }
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_host();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_host();}
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
@@ -699,7 +783,7 @@ struct TransformView {
 
   static constexpr int NEED_TRANSFORM = !(std::is_same<KKType,LegacyType>::value && std::is_same<KKLayout,Kokkos::LayoutRight>::value);
 
-  typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;
+  typedef LAMMPS_NS::DualView<KKType, KKLayout, KKSpace> kk_view;
   typedef typename Kokkos::DualView<LegacyType, Kokkos::LayoutRight, KKSpace>::t_host legacy_view;
 
  private:
@@ -711,8 +795,19 @@ struct TransformView {
  public:
   // does the DualView have only one device
 
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+
+  // the dual view provides a second allocation for the device side even when
+  // Kokkos would alias the two, so the device edge is never collapsed here
+
+  static constexpr int SINGLE_DEVICE = 0;
+
+#else
+
   static constexpr int SINGLE_DEVICE =
     std::is_same_v<typename kk_view::t_dev::device_type, typename kk_view::t_host::device_type>;
+
+#endif
 
   typedef typename legacy_view::value_type value_type;
   typedef typename legacy_view::array_layout array_layout;
@@ -798,10 +893,32 @@ struct TransformView {
     }
   }
 
+  // Trace the legacy/Kokkos-host/device triangle, which the dual view below
+  // cannot see: it knows only its own two sides, while the copies between them
+  // and the plain LAMMPS pointers are decided by the four flags here.  Selected
+  // by the same LMP_KOKKOS_TRACE that selects a dual view.
+  void tvtrace(const char *op) const
+  {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    static const char *f = std::getenv("LMP_KOKKOS_TRACE");
+    if (!f || !d_view.data()) return;
+    const std::string label = d_view.label();
+    if (*f && label.find(f) == std::string::npos) return;
+    std::fprintf(stderr,
+                 "[transform] %-22s %-20s hostkk_legacy=%d device_legacy=%d "
+                 "legacy_hostkk=%d legacy_device=%d\n",
+                 label.c_str(), op, modified_hostkk_legacy, modified_device_legacy,
+                 modified_legacy_hostkk, modified_legacy_device);
+#else
+    (void) op;
+#endif
+  }
+
   // mark device as modified wrt all
 
   void modify_device()
   {
+    tvtrace("modify_device");
     if (SINGLE_DEVICE) return modify_hostkk();
 
     k_view.modify_device();
@@ -829,6 +946,7 @@ struct TransformView {
 
   void modify_hostkk()
   {
+    tvtrace("modify_hostkk");
     k_view.modify_host();
     modify_hostkk_legacy();
   }
@@ -921,6 +1039,7 @@ struct TransformView {
 
   void sync_device(void* buffer = nullptr, int async_flag = 0)
   {
+    tvtrace("sync_device");
     if (SINGLE_DEVICE) return sync_hostkk(buffer,async_flag);
 
     if (!d_view.data()) return;
@@ -971,6 +1090,7 @@ struct TransformView {
 
   void sync_hostkk(void* buffer = nullptr, int async_flag = 0)
   {
+    tvtrace("sync_hostkk");
     if (!h_viewkk.data()) return;
 
     // prevent double copy
@@ -1053,6 +1173,7 @@ struct TransformView {
   // sync all to legacy host
 
   void sync_host(void* buffer = nullptr, int async_flag = 0) {
+    tvtrace("sync_host_legacy");
     if constexpr (NEED_TRANSFORM) {
       if (!h_view.data()) return;
 
@@ -1096,31 +1217,45 @@ struct TransformView {
     return static_cast<int>(k_view.extent(r));
   }
 
-  template<class DeviceType>
-  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_dev&> view() {return d_view;}
+  // The stale read check has to sit on every way out of this class, not only on
+  // view_device()/view_hostkk() below: a style asks for its buffers through
+  // whichever of these spellings its author happened to use.
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),typename kk_view::t_host&> view() {return h_viewkk;}
+  std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),typename kk_view::t_dev&> view() {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(true);
+#endif
+    return d_view;
+  }
+
+  template<class DeviceType>
+  std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),typename kk_view::t_host&> view() {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(false);
+#endif
+    return h_viewkk;
+  }
 
   template<class DeviceType>
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_dev&> view() const {return d_view;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const typename kk_view::t_dev&> view() const {return d_view;}
 
   template<class DeviceType>
 // NOLINTNEXTLINE
-  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),const typename kk_view::t_host&> view() const {return h_viewkk;}
+  KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || LMP_DEVICE_REACHABLE_FROM_HOST),const typename kk_view::t_host&> view() const {return h_viewkk;}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> modify() {modify_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> modify() {modify_hostkk();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> modify() {modify_hostkk();}
 
   template<class DeviceType>
-  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_device();}
+  std::enable_if_t<(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_device();}
 
   template<class DeviceType>
-  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::accessible),void> sync() {sync_hostkk();}
+  std::enable_if_t<!(std::is_same<DeviceType,LMPDeviceType>::value || LMP_DEVICE_REACHABLE_FROM_HOST),void> sync() {sync_hostkk();}
 
   void clear_sync_state()
   {
@@ -1163,11 +1298,37 @@ struct TransformView {
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  const typename kk_view::t_host& view_hostkk() const { return h_viewkk; }
+  const typename kk_view::t_host& view_hostkk() const
+  {
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(false);
+#endif
+    return h_viewkk;
+  }
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  const typename kk_view::t_dev& view_device() const { return d_view; }
+  const typename kk_view::t_dev& view_device() const
+  {
+    // These hand out buffers cached from k_view rather than asking k_view for
+    // them, so without this the stale read check never sees the reads that
+    // matter: every per-atom array reaches a style through here.
+#ifdef LMP_KOKKOS_DEBUG_SYNC
+    k_view.stale_check(true);
+#endif
+    return d_view;
+  }
+
+// NOLINTNEXTLINE
+  KOKKOS_INLINE_FUNCTION
+  const typename kk_view::t_dev& impl_view_device() const
+  {
+    // The same buffer without the check above, for the debugging tools only.
+    // The datamask audit surveys every per-atom array on both ends of every
+    // style call, and going through view_device() made it turn up in its own
+    // report as the routine that read an array while it was stale.
+    return d_view;
+  }
 
 };
 
@@ -1175,7 +1336,7 @@ struct TransformView {
 
 // For device views with fully qualified types
 #define KOKKOS_DEVICE_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
-typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef LAMMPS_NS::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_dev t_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_dev_const t_##SUFFIX##_const; \
 typedef typename tdual_##SUFFIX::t_dev_um t_##SUFFIX##_um; \
@@ -1184,7 +1345,7 @@ typedef typename tdual_##SUFFIX::t_dev_const_randomread t_##SUFFIX##_randomread;
 
 // For host views with fully qualified types
 #define KOKKOS_HOST_DUALVIEW(TYPE, LAYOUT, SUFFIX) \
-typedef Kokkos::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
+typedef LAMMPS_NS::DualView<TYPE, LAYOUT, LMPDeviceType> tdual_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_host t_##SUFFIX; \
 typedef typename tdual_##SUFFIX::t_host_const t_##SUFFIX##_const; \
 typedef typename tdual_##SUFFIX::t_host_um t_##SUFFIX##_um; \
@@ -1295,7 +1456,7 @@ typedef tdual_neighbors_2d_lr::t_dev_const_randomread t_neighbors_2d_randomread_
 
 };
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template <>
 struct ArrayTypes<LMPHostType> {
 
@@ -1376,6 +1537,17 @@ typedef tdual_neighbors_2d_lr::t_host_const_randomread t_neighbors_2d_lr_randomr
 //default LAMMPS Types
 typedef struct ArrayTypes<LMPDeviceType> DAT;
 typedef struct ArrayTypes<LMPHostType> HAT;
+
+#ifndef LMP_KOKKOS_DEBUG_SYNC
+
+// Without the sync debugging option the dual views must be plain Kokkos dual
+// views, so that a normal build is unaffected by the option even existing.
+
+static_assert(std::is_same_v<DAT::tdual_int_1d,
+                             Kokkos::DualView<int *, Kokkos::LayoutRight, LMPDeviceType>>,
+              "LAMMPS_NS::DualView must be Kokkos::DualView unless LMP_KOKKOS_DEBUG_SYNC is set");
+
+#endif
 
 // View-of-views pattern (used by fix property/atom for the per-atom custom
 // iarray/darray arrays, which are "ragged" -- each property has its own column

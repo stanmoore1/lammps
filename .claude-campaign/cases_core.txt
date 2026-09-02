@@ -1,0 +1,7 @@
+micelle in.micelle 1 -
+melt in.melt 4 -
+melt in.melt 4 gpu/aware:on:comm:device
+peptide in.peptide 4 gpu/aware:on:comm:device
+template in.molecular-mix 4 -
+rigid in.rigid.cubes 4 -
+rigid in.rigid.cubes.multirun 4 gpu/aware:on:comm:device

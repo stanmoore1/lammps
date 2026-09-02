@@ -96,7 +96,7 @@ void FixViscousKokkos<DeviceType>::operator()(TagFixViscous, const int &i) const
 
 namespace LAMMPS_NS {
 template class FixViscousKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixViscousKokkos<LMPHostType>;
 #endif
 }

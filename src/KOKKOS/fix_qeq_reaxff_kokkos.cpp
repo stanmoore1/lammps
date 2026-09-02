@@ -576,7 +576,7 @@ void FixQEqReaxFFKokkos<DeviceType>::sparse_matvec_kokkos(typename AT::t_kkfloat
   int teamsize;
   int vectorsize;
   int leaguesize;
-  if (execution_space == HostKK) {
+  if (HostBackendFromDevice<DeviceType>::value) {
     teamsize = 1;
     vectorsize = 1;
     leaguesize = nn;
@@ -1747,7 +1747,7 @@ void FixQEqReaxFFKokkosNeighborFunctor<DeviceType>::operator()(TagQEqNeighborCom
 
 namespace LAMMPS_NS {
 template class FixQEqReaxFFKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixQEqReaxFFKokkos<LMPHostType>;
 #endif
 }

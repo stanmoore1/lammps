@@ -655,7 +655,7 @@ void AngleSPICAKokkos<DeviceType>::ev_tally13(EV_FLOAT &ev, const int i, const i
 
 namespace LAMMPS_NS {
 template class AngleSPICAKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class AngleSPICAKokkos<LMPHostType>;
 #endif
 }

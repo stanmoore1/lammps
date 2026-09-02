@@ -192,7 +192,7 @@ void CommKokkos::forward_comm_device()
             MPI_Irecv(buf,size_forward_recv[iswap],MPI_DOUBLE,
                       recvproc[iswap],0,world,&request);
           }
-          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+          auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                      k_buf_send,pbc_flag[iswap],pbc[iswap]);
           if (n) {
@@ -213,7 +213,7 @@ void CommKokkos::forward_comm_device()
                       size_forward_recv[iswap],MPI_DOUBLE,
                       recvproc[iswap],0,world,&request);
           }
-          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+          auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap],k_sendlist_iswap,
                                          k_buf_send,pbc_flag[iswap],pbc[iswap]);
           if (n) {
@@ -233,7 +233,7 @@ void CommKokkos::forward_comm_device()
                       size_forward_recv[iswap],MPI_DOUBLE,
                       recvproc[iswap],0,world,&request);
           }
-          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+          auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                      k_buf_send,pbc_flag[iswap],pbc[iswap]);
           if (n) {
@@ -250,12 +250,12 @@ void CommKokkos::forward_comm_device()
       } else {
         if (!ghost_velocity) {
           if (sendnum[iswap]) {
-            auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+            auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
             n = atomKK->avecKK->pack_comm_self_kokkos(sendnum[iswap],k_sendlist_iswap,
                                      firstrecv[iswap],pbc_flag[iswap],pbc[iswap]);
           }
         } else {
-          auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+          auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
           n = atomKK->avecKK->pack_comm_vel_kokkos(sendnum[iswap],k_sendlist_iswap,
                                          k_buf_send,pbc_flag[iswap],pbc[iswap]);
           atomKK->avecKK->unpack_comm_vel_kokkos(recvnum[iswap],firstrecv[iswap],k_buf_send);
@@ -344,12 +344,12 @@ void CommKokkos::reverse_comm_device()
           DeviceType().fence();
         }
       }
-      auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+      auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
       atomKK->avecKK->unpack_reverse_kokkos(sendnum[iswap],k_sendlist_iswap,
                                 k_buf_recv);
     } else {
       if (sendnum[iswap]) {
-        auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+        auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
         n = atomKK->avecKK->pack_reverse_self_kokkos(sendnum[iswap],k_sendlist_iswap,
                                  firstrecv[iswap]);
       }
@@ -409,7 +409,7 @@ void CommKokkos::forward_comm_device(Fix *fix, int size)
 
     // pack buffer
 
-    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+    auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
     n = fixKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                       k_buf_send_fix,pbc_flag[iswap],pbc[iswap]);
 
@@ -526,7 +526,7 @@ void CommKokkos::reverse_comm_device(Fix *fix, int size)
         buf_recv_fix = k_buf_recv_fix.view<DeviceType>().data();
       } else {
         k_buf_send_fix.modify<DeviceType>();
-        k_buf_send_fix.sync<LMPHostType>();
+        k_buf_send_fix.sync_host();
         buf_send_fix = k_buf_send_fix.view_host().data();
         buf_recv_fix = k_buf_recv_fix.view_host().data();
       }
@@ -549,14 +549,14 @@ void CommKokkos::reverse_comm_device(Fix *fix, int size)
       }
 
       if (!lmp->kokkos->gpu_aware_flag) {
-        k_buf_recv_fix.modify<LMPHostType>();
+        k_buf_recv_fix.modify_host();
         k_buf_recv_fix.sync<DeviceType>();
       }
       k_buf_tmp = k_buf_recv_fix;
     } else k_buf_tmp = k_buf_send_fix;
 
     // unpack buffer
-    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+    auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
     fixKKBase->unpack_reverse_comm_kokkos(sendnum[iswap], k_sendlist_iswap,k_buf_tmp);
   }
 
@@ -626,7 +626,7 @@ void CommKokkos::forward_comm_device(Compute *compute, int size)
 
     // pack buffer
 
-    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+    auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
     n = computeKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                       k_buf_send_compute,pbc_flag[iswap],pbc[iswap]);
 
@@ -783,7 +783,7 @@ void CommKokkos::forward_comm_device(Pair *pair, int size)
 
     // pack buffer
 
-    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+    auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
     n = pairKKBase->pack_forward_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                        k_buf_send_pair,pbc_flag[iswap],pbc[iswap]);
 
@@ -967,7 +967,7 @@ void CommKokkos::reverse_comm_device(Pair *pair, int size)
 
     // unpack buffer
 
-    auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+    auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
     pairKKBase->unpack_reverse_comm_kokkos(sendnum[iswap],k_sendlist_iswap,
                                        k_buf_tmp);
   }
@@ -1553,9 +1553,14 @@ void CommKokkos::borders_device() {
 
   k_sendlist.sync<DeviceType>();
 
+  // the team size is a property of the backend, not of the logical execution
+  // space: only a GPU backend can run teams this wide, so guard on the backend
+
   int team_size = 1;
+#ifdef LMP_KOKKOS_GPU
   if (exec_space == Device)
     team_size = 128;
+#endif
 
   // do swaps over all 3 dimensions
 
@@ -1686,12 +1691,12 @@ void CommKokkos::borders_device() {
       if (nsend*size_border > maxsend)
         grow_send_kokkos(nsend*size_border,0);
       if (ghost_velocity) {
-        auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+        auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
         n = atomKK->avecKK->
           pack_border_vel_kokkos(nsend,k_sendlist_iswap,k_buf_send,
                                  pbc_flag[iswap],pbc[iswap],exec_space);
       } else {
-        auto k_sendlist_iswap = Kokkos::subview(k_sendlist,iswap,Kokkos::ALL);
+        auto k_sendlist_iswap = LAMMPS_NS::subview(k_sendlist,iswap,Kokkos::ALL);
         n = atomKK->avecKK->
           pack_border_kokkos(nsend,k_sendlist_iswap,k_buf_send,
                              pbc_flag[iswap],pbc[iswap],exec_space);
@@ -1783,8 +1788,8 @@ void CommKokkos::copy_swap_info()
 {
   if (nswap > (int)k_swap.extent(1)) {
     k_swap = DAT::tdual_int_2d_lr("comm:swap",2,nswap);
-    k_firstrecv    = Kokkos::subview(k_swap,0,Kokkos::ALL);
-    k_sendnum_scan = Kokkos::subview(k_swap,1,Kokkos::ALL);
+    k_firstrecv    = LAMMPS_NS::subview(k_swap,0,Kokkos::ALL);
+    k_sendnum_scan = LAMMPS_NS::subview(k_swap,1,Kokkos::ALL);
   }
   int scan = 0;
   for (int iswap = 0; iswap < nswap; iswap++) {
@@ -1802,8 +1807,8 @@ void CommKokkos::copy_swap_info()
   if (totalsend > (int)k_pbc.extent(0)) {
     k_pbc = DAT::tdual_int_2d("comm:pbc",totalsend,6);
     k_swap2 = DAT::tdual_int_2d_lr("comm:swap2",2,totalsend);
-    k_pbc_flag = Kokkos::subview(k_swap2,0,Kokkos::ALL);
-    k_g2l = Kokkos::subview(k_swap2,1,Kokkos::ALL);
+    k_pbc_flag = LAMMPS_NS::subview(k_swap2,0,Kokkos::ALL);
+    k_g2l = LAMMPS_NS::subview(k_swap2,1,Kokkos::ALL);
   }
 
   for (int iswap = 0; iswap < nswap; iswap++) {
@@ -1977,7 +1982,7 @@ void CommKokkos::forward_comm_array(int nsize, double **array)
    liblammps.so.
 ------------------------------------------------------------------------- */
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 namespace LAMMPS_NS {
 template void CommKokkos::forward_comm_device<LMPHostType>(Fix *, int);
 template void CommKokkos::reverse_comm_device<LMPHostType>(Fix *, int);

@@ -362,7 +362,7 @@ void MLIAPDataKokkos<DeviceType>::sync(ExecutionSpace space, uint64_t mask, bool
 /* ---------------------------------------------------------------------- */
 
 template class MLIAPDataKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class MLIAPDataKokkos<LMPHostType>;
 #endif
 }// namespace

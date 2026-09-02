@@ -542,7 +542,7 @@ void DihedralCosineShiftExpKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int 
 
 namespace LAMMPS_NS {
 template class DihedralCosineShiftExpKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class DihedralCosineShiftExpKokkos<LMPHostType>;
 #endif
 }

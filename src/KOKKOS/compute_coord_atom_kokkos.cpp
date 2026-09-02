@@ -235,7 +235,7 @@ void ComputeCoordAtomKokkos<DeviceType>::operator()(TagComputeCoordAtom<CSTYLE,N
 
 namespace LAMMPS_NS {
 template class ComputeCoordAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeCoordAtomKokkos<LMPHostType>;
 #endif
 }

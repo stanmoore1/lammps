@@ -304,7 +304,7 @@ void ComputeTempDeformKokkos<DeviceType>::operator()(TagComputeTempDeformApplyBi
 
 namespace LAMMPS_NS {
 template class ComputeTempDeformKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeTempDeformKokkos<LMPHostType>;
 #endif
 }

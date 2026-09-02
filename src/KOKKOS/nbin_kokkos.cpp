@@ -208,7 +208,7 @@ void NBinKokkos<DeviceType>::binatomsItem(const int &i) const
 
 namespace LAMMPS_NS {
 template class NBinKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class NBinKokkos<LMPHostType>;
 #endif
 }
