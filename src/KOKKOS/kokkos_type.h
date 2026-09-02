@@ -268,11 +268,6 @@ using KKBigDualView =
                    Kokkos::Experimental::Accessor<ValueType,
                      typename Device::memory_space,MemoryTraits>>;
 
-// KKBigDualView needs a Kokkos::DualView that builds its device view from its
-// own template arguments; the bundled Kokkos carries that change (see the note
-// in lib/kokkos/containers/src/Kokkos_DualView.hpp) until a release does.
-// Nothing here changes when it does.
-
 // Helpers for readability
 
 using KKScatterSum = Kokkos::Experimental::ScatterSum;
