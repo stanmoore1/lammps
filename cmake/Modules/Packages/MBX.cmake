@@ -35,12 +35,6 @@ if(CONFIGURE_REQUEST_PIC)
   list(APPEND MBX_CONFIG_FLAGS ${CONFIGURE_REQUEST_PIC})
 endif()
 
-set(MBXLIB_URL "https://github.com/paesanilab/MBX/releases/download/v1.4.0/mbx-1.4.0.tar.gz" CACHE STRING "URL for MBX tarball")
-set(MBXLIB_SHA256 "219de5af7cd81bdf8c3394c3aeee923cf4de7dd322769441a35c7cf4950bf912" CACHE STRING "SHA256 checksum of MBX tarball")
-
-mark_as_advanced(MBXLIB_URL)
-mark_as_advanced(MBXLIB_SHA256)
-
 set(MBX_LINK_LIBS)
 find_package(FFTW3 REQUIRED)
 if(FFTW3_FOUND)
@@ -59,6 +53,9 @@ endif()
 option(DOWNLOAD_MBX "Download MBX package instead of using an already installed one" ${DOWNLOAD_MBX_DEFAULT})
 if(DOWNLOAD_MBX)
   message(STATUS "MBX download requested - we will build our own")
+  SetDownloadSettings(MBXLIB "MBX"
+    "https://github.com/paesanilab/MBX/releases/download/v1.4.0/mbx-1.4.0.tar.gz"
+    "219de5af7cd81bdf8c3394c3aeee923cf4de7dd322769441a35c7cf4950bf912")
   set(MBX_BUILD_BYPRODUCTS "<INSTALL_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}mbx${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   message(STATUS "MBX_CONFIG_CC: ${MBX_CONFIG_CC}")
