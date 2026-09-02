@@ -360,9 +360,13 @@ Worth cleaning up:
   `npair_kokkos.cpp:157` (`nbor_chunk_size`, consumed only in the GPU block at
   line 317).  Dead locals, no missing logic behind any of them.
 
-### 3.2 single and mixed precision
+### 3.2 single and mixed precision: compile, same 1076 warnings
 
-(pending)
+All 375 objects build in `KOKKOS_PREC=single` and `KOKKOS_PREC=mixed`,
+including `pair_pace_kokkos.cpp` and `pair_pace_extrapolation_kokkos.cpp`
+after `0ed8a1ba7`.  The warning sets are identical to the double build, line
+for line: clang finds nothing precision-specific.  The precision hazards that
+remain (1.20-1.22) are byte counts and sync sides that no warning flag sees.
 
 ## 4. Searched and found clean
 
