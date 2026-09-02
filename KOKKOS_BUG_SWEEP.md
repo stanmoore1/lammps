@@ -450,8 +450,26 @@ remain (1.20-1.22) are byte counts and sync sides that no warning flag sees.
 Every CONFIRMED entry is fixed in the two commits following the list
 (`1b9111575`, `35015de67`): 1.1-1.6, 1.10-1.17, 1.19-1.21, 2.1, 2.2, and the
 three clean-ups of 3.1 (`i0` in fix shake/kk, the `struct`/`class` tag in
-fix qeq/reaxff/kk).  The PLAUSIBLE entries (1.7-1.9, 1.18, 1.22, 2.3-2.5) are
-left for a decision.
+fix qeq/reaxff/kk).
+
+A third commit takes the PLAUSIBLE entries that are cheap and carry no
+behaviour change in any current test: 1.7 (mass syncs in fix spring/kk, fix
+wall/flow/kk, compute ave/sphere/atom/kk), 1.8 (the inertia host sync now
+covers radius, the ellipsoid indices and the bonus data; there are no masks
+for line/tri/body, which have no KOKKOS atom style), 1.9 (host syncs before
+the radius/mask loops of fix nh/sphere/kk `init()` and before
+`ComputeTempSphereKokkos` calls the base `dof_compute()`), 1.22
+(`sync_host()` in compute temp/profile/kk), 1.23 (`map_one()` claims its host
+write, `map_clear()` releases both sides before the whole-array reset), 2.3
+(`v_init(vflag,0)` in fix rigid/small/kk and its Nose-Hoover variants, which
+zero `d_vatom` themselves), 2.4 (the never-written per-atom energy of the
+three granular styles is no longer claimed and copied), 2.5
+(`MPI_STATUSES_IGNORE` in the tiled Waitall calls; the tiled pair comm takes
+its send pointer after the pack; `copymode` guards for `NBin` -- added to the
+core class, whose destructor frees the bins -- and for `MLIAP_SO3Kokkos`; the
+`rotate()` locals of region ellipsoid/kk renamed away from the semi-axes)
+and 2.6 (the dead `k_cut_inner` views of pair lj/gromacs/kk removed).  Only
+1.18 (SNAP scratch fallback) is left open.
 
 Two of the fixes go slightly beyond the entry:
 

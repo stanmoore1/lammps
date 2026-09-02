@@ -165,7 +165,7 @@ void CommTiledKokkos::forward_comm_device()
                         firstrecv[iswap][nrecv],pbc_flag[iswap][nsend],pbc[iswap][nsend]);
       }
       if (recvother[iswap]) {
-        MPI_Waitall(nrecv,requests,MPI_STATUS_IGNORE);
+        MPI_Waitall(nrecv,requests,MPI_STATUSES_IGNORE);
         DeviceType().fence();
       }
 
@@ -519,6 +519,9 @@ void CommTiledKokkos::forward_comm_device(Pair *pair, int size)
           k_buf_send_pair.sync_host();
         }
         DeviceType().fence();
+        // take the pointer after the pack, which may have resized the buffer
+        buf_send_pair = lmp->kokkos->gpu_aware_flag ? k_buf_send_pair.view<DeviceType>().data()
+                                                    : k_buf_send_pair.view_host().data();
         MPI_Send(buf_send_pair,n,MPI_DOUBLE,sendproc[iswap][i],0,world);
       }
     }
@@ -532,7 +535,7 @@ void CommTiledKokkos::forward_comm_device(Pair *pair, int size)
     }
 
     if (recvother[iswap]) {
-      MPI_Waitall(nrecv,requests,MPI_STATUS_IGNORE);
+      MPI_Waitall(nrecv,requests,MPI_STATUSES_IGNORE);
       DeviceType().fence();
       if (!lmp->kokkos->gpu_aware_flag) {
         k_buf_recv_pair.modify_host();
@@ -637,6 +640,9 @@ void CommTiledKokkos::reverse_comm_device(Pair *pair, int size)
           k_buf_send_pair.sync_host();
         }
         DeviceType().fence();
+        // take the pointer after the pack, which may have resized the buffer
+        buf_send_pair = lmp->kokkos->gpu_aware_flag ? k_buf_send_pair.view<DeviceType>().data()
+                                                    : k_buf_send_pair.view_host().data();
         MPI_Send(buf_send_pair,n,MPI_DOUBLE,recvproc[iswap][i],0,world);
       }
     }
@@ -650,7 +656,7 @@ void CommTiledKokkos::reverse_comm_device(Pair *pair, int size)
     }
 
     if (sendother[iswap]) {
-      MPI_Waitall(nsend,requests,MPI_STATUS_IGNORE);
+      MPI_Waitall(nsend,requests,MPI_STATUSES_IGNORE);
       DeviceType().fence();
       if (!lmp->kokkos->gpu_aware_flag) {
         k_buf_recv_pair.modify_host();
