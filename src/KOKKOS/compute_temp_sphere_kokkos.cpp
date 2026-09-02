@@ -85,7 +85,11 @@ double ComputeTempSphereKokkos<DeviceType>::compute_scalar()
 
   double t = t_kk.t0;
   MPI_Allreduce(&t, &scalar, 1, MPI_DOUBLE, MPI_SUM, world);
-  if (dynamic || tempbias == 2) dof_compute();
+  if (dynamic || tempbias == 2) {
+    // the base class counts the degrees of freedom on the host copies
+    atomKK->sync(Host, RADIUS_MASK | MASK_MASK);
+    dof_compute();
+  }
   if (dof < 0.0 && natoms_temp > 0.0)
     error->all(FLERR, "Temperature compute degrees of freedom < 0");
   scalar *= tfactor;
