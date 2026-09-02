@@ -10,7 +10,8 @@ shape is there, the consequence depends on usage.
 Section 1 lists bugs that change results or crash.  Section 2 lists leaks and
 housekeeping.  Section 3 lists what the clang `-Wall -Wextra` builds (double,
 single, mixed precision) turned up.  Section 4 lists what was searched and found
-clean.
+clean.  Section 5 records which entries are fixed on this branch and how the
+fixes were verified.
 
 ## 1. Wrong results or crashes
 
@@ -421,3 +422,53 @@ remain (1.20-1.22) are byte counts and sync sides that no warning flag sees.
   `temp/sphere`, `gyration`, `centro/atom`, `entropy/atom`, bond/angle table
   lookups): reductions, group and region handling, unit factors and table
   interpolation match the base classes.
+
+## 5. Status of the fixes on this branch
+
+Every CONFIRMED entry is fixed in the two commits following the list
+(`1b9111575`, `35015de67`): 1.1-1.6, 1.10-1.17, 1.19-1.21, 2.1, 2.2, and the
+three clean-ups of 3.1 (`i0` in fix shake/kk, the `struct`/`class` tag in
+fix qeq/reaxff/kk).  The PLAUSIBLE entries (1.7-1.9, 1.18, 1.22, 2.3-2.5) are
+left for a decision.
+
+Two of the fixes go slightly beyond the entry:
+
+- 1.10 is fixed centrally: `CommKokkos::forward_comm(Pair *)` and the tiled
+  twin now take the host path for any pair style that does not implement
+  `KokkosBase`, rather than teaching `pair hybrid/scaled` the device packing.
+- 1.13 is fixed in the plain `CommTiled::reverse_comm(Pair *)` as well, since
+  the KOKKOS class copied the defect from there.
+
+Verification (gcc, OpenMP backend, double precision):
+
+- every touched object also compiles under clang `-Wall -Wextra`, and the
+  ML-IAP object under gcc with `PKG_ML-IAP` enabled;
+- `ctest -R "FixTimestep|PairStyle:dpd|PairStyle:uf3|PairStyle:hybrid|PairStyle:eam|PairStyle:lj_cut"`:
+  191 of 191 pass, KOKKOS sub-cases included;
+- `examples/cmap` shortened to 200 steps with `press`, a `pe/atom` sum and a
+  `stress/atom` sum printed: plain and `-sf kk` agree to every digit, and the
+  per-atom sums equal the global energy and pressure (before 1.15 the KOKKOS
+  pressure lacked the CMAP virial and the per-atom sums were short by it);
+- `compute temp/sphere bias <temp/chunk>` on a 864-atom sphere run: plain and
+  `-sf kk` agree to every digit;
+- `min_style quickmin` on a perturbed fcc lattice and `examples/peptide` with
+  `fix shake`: agree with the plain run to round-off.
+
+Confirmation with the split-memory debugging build
+(`claude/lammps-kokkos-dualview-debug-t9be12`, `-D KOKKOS_DEBUG_SYNC=on`,
+Serial backend, `LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1`,
+`-pk kokkos ... comm device sort device atom/map device gpu/aware on`), fixed
+code against the same input with the one fix reverted:
+
+- 1.4 `compute temp/sphere/kk`: with the fix reverted the tool reports
+  `[watch] atom:v: the host side was written without a claim and this
+  sync_device has nothing to copy -- the device keeps stale data`, then stale
+  device reads of `atom:v` in `ComputeTempSphereKokkos::compute_scalar()` and
+  `FixNVESphereKokkos::initial_integrate()`, and the biased temperature comes
+  out 0.837 instead of the 0.738 of the plain run.  With the fix: no report,
+  same numbers as the plain run.  Confirmed.
+- 1.14 `fix shake/kk` pack claim: no difference under this input.  The stale
+  claim only matters on the host comm path that `correct_coordinates()`
+  forces, which the peptide example does not take.  The reasoning stands; the
+  tool could not exercise it here.
+- 1.1 `min quickmin/kk`: see the note added below once the second pass is in.
