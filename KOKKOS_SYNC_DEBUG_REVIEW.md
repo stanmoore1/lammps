@@ -237,4 +237,63 @@ None of these change what is detected.
 
 ## 6. Measurements from this session
 
-(filled in below)
+Setup: the tooling merged onto the sweep fixes (scratch branch
+`claude/kk-sync-debug-run`), gcc, Serial backend, `-D KOKKOS_DEBUG_SYNC=on`,
+Release, MPI stubs, the GPU package settings from the documentation.  The
+scripts and inputs are in `.github/dev-docs/kokkos-sync-harness/`.
+
+### 6.1 Overhead (6912-atom LJ, 200 steps, one thread, best of two)
+
+| binary and mode | loop time | relative |
+|---|---|---|
+| ordinary build (gcc, OpenMP backend, 1 thread) | 1.25 s | 1.0 |
+| debug build, `LMP_KOKKOS_ALIAS=1` (no split) | 1.17 s | 0.93 |
+| debug build, split, no detector | 1.28 s | 1.02 |
+| split + `LMP_KOKKOS_STALE= _STRICT=1` | 1.20 s | 0.96 |
+| split + `LMP_KOKKOS_WATCH=` (every view) | 1.71 s | 1.36 |
+| split + `LMP_KOKKOS_WATCH=atom:x` | 1.34 s | 1.07 |
+| split + watch every view + strict stale | 4.31 s | 3.4 |
+| split + `LMP_KOKKOS_AUDIT=1` | 1.08 s | 0.86 |
+
+The split and the stale check are free on this input; the copies they add
+are the copies a GPU would make.  Watching every view costs the shadow
+copies and compares (item 3.3 would remove most of it).  The combination of
+watch and strict stale is the expensive one, and it is the combination the
+documentation recommends as the default detector run; the audit is cheap here
+because only one fix runs per step.  Bigger inputs scale these linearly.
+
+### 6.2 Confirmations of the sweep's findings (fixed code vs one fix reverted)
+
+| entry | tool verdict |
+|---|---|
+| 1.4 temp/sphere/kk bias claim | **confirmed**: `[watch] atom:v: the host side was written without a claim ...`, stale reads in `compute_scalar()` and `FixNVESphereKokkos::initial_integrate()`, biased temperature 0.837 instead of 0.738 |
+| 1.1 quickmin/kk masses | **confirmed** once nothing else syncs the masses: `[stale] atom::mass: device side read while host side is newer, from MinQuickMinKokkos::iterate(int)`, minimization stops after 2 iterations with a zero force norm; silent and identical results while thermo's `temp/kk` syncs `k_mass` first |
+| 1.14 shake/kk pack claim | not exercised: the host comm path needs `correct_coordinates()`, which `examples/peptide` never takes |
+| 1.3 compute reaxff/atom/kk datamasks | not visible: the compute runs inside `fix ave/atom`'s audit window, and that plain fix is itself reported as "declares every array"; watch/stale see no difference and the results are identical under this input |
+
+### 6.3 Noise on correct code
+
+Every input produces reports on the fixed code (5 to 140 per run), all of
+three shapes, none of them a bug:
+
+- **accessor before sync**: `view<DeviceType>()` taken before the `sync` of
+  the same function (`neigh:cutneighsq` in `NPairKokkos::build()`,
+  `atom:x/v/f` in `FixShakeKokkos::post_force()` and
+  `unconstrained_update()`, `atom:tag/type/mask` in the neighbor build of a
+  minimization);
+- **resize**: both sides read inside `AtomVec*Kokkos::grow()` and
+  `grow_pointers()`;
+- **atom map**: `atom:map_array` host side written without a claim and read
+  stale in `map_clear()`/`map_set_device()` on every molecular input.  This
+  one is real code, not tool noise: `AtomKokkos::map_one()`
+  (`atom_map_kokkos.cpp:389-390`) syncs the host side and writes it with no
+  `modify_host()`; it has no consequence because the device map is rebuilt
+  from scratch before it is read, but the claim is missing, and
+  `map_clear()`'s whole-array reset wants a `clear_sync_state()` so that the
+  stale read of what it is about to overwrite is not reported.  Listed as
+  sweep entry 1.23.
+
+The 638 force-style and fix-timestep unit tests were also run under
+`WATCH= STALE= STALE_STRICT=1` (in-process `-k on t 1 -sf kk`, host package
+defaults since the test harness fixes the arguments): see the note at the
+end of `KOKKOS_BUG_SWEEP.md` section 5 for the tally.

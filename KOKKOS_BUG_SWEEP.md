@@ -272,6 +272,19 @@ host mirror, not the legacy `double` array `atom->mass` points to
 because per-type masses are only ever written on the legacy side, but the only
 such call in the package.  Fix: `atomKK->k_mass.sync_host()`.
 
+### 1.23 `atom_map_kokkos.cpp:389-390` -- `map_one()` writes the host map without a claim (PLAUSIBLE)
+
+`AtomKokkos::map_one()` does `k_map_array.sync_host()` and then writes
+`view_host()[global] = local` with no `modify_host()`.  The split-memory
+debugging build reports it on every molecular input (`[watch]
+atom:map_array: the host side was written, never claimed, and is now lost`).
+No consequence today: `map_clear()` and `map_set_device()` rebuild the whole
+device array before any device lookup, so the lost host writes are never
+needed there.  Fix: `k_map_array.modify_host()` after the write (and the
+hash branch likewise), and a `clear_sync_state()` before the whole-array
+reset in `map_clear()` so its stale read of the data it overwrites is not
+reported.
+
 ## 2. Leaks and housekeeping
 
 ### 2.1 `pair_uf3_kokkos.cpp:62-75` -- centroid array never freed (CONFIRMED)
@@ -471,4 +484,15 @@ code against the same input with the one fix reverted:
   claim only matters on the host comm path that `correct_coordinates()`
   forces, which the peptide example does not take.  The reasoning stands; the
   tool could not exercise it here.
-- 1.1 `min quickmin/kk`: see the note added below once the second pass is in.
+- 1.1 `min quickmin/kk`: with the fix reverted and the input's thermo using
+  a temperature compute, the tool is silent and the results are identical,
+  because `compute temp/kk` syncs `k_mass` to the device before the first
+  iteration: the missing sync is masked by another style.  With
+  `thermo_style custom step pe fnorm fmax` (nothing else touches the masses)
+  the reverted run reports `[stale] atom::mass: device side read while host
+  side is newer, from MinQuickMinKokkos::iterate(int)` (counters host 2,
+  device 0) and the minimization stops after two iterations with a force norm
+  of zero, the zero-mass NaN failure the entry predicts; the fixed run does
+  100 iterations to a force norm of 0.124 like the plain build.  Confirmed,
+  and a good example of a bug that hides behind whichever other style happens
+  to sync the same view.
