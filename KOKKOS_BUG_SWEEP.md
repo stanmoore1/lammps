@@ -338,6 +338,15 @@ wasted copies and a false claim under `KOKKOS_DEBUG_SYNC`.
   but one `memory->create` in an `NBin` path reproduces `f912fb14b`; a
   `copymode` guard is cheap insurance.
 
+### 2.6 `pair_lj_gromacs_kokkos.cpp:95-96, 222-228` -- dead `k_cut_inner` dual views with a stale claim (cosmetic)
+
+`k_cut_inner`/`k_cut_inner_sq` are created over the base arrays and synced to
+the device in `compute()`, but the kernels read the cutoffs from `params`
+(`:167`, `:196`) and nothing ever claims the host writes `init_one()` makes,
+so the split-memory build reports `[watch] pair:cut_inner: the host side was
+written without a claim` on every lj/gromacs run.  Harmless: the device
+copies are never read.  Either drop the two dual views or claim them.
+
 ## 3. clang -Wall -Wextra
 
 Serial backend (clang 18 has no libomp here), all packages of
@@ -496,3 +505,13 @@ code against the same input with the one fix reverted:
   100 iterations to a force norm of 0.124 like the plain build.  Confirmed,
   and a good example of a bug that hides behind whichever other style happens
   to sync the same view.
+
+Unit-test sweep under the split-memory build (all 638 force-style and
+fix-timestep tests, `kokkos_serial` sub-case, `LMP_KOKKOS_WATCH=
+LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1`): 638 pass, 0 fail (29 needed
+`LAMMPS_POTENTIALS` set, which the first pass lacked).  223 tests produce
+reports; every family is one of the three noise shapes described in
+`KOKKOS_SYNC_DEBUG_REVIEW.md` section 6.3 (accessor before the function's own
+sync, resize, atom map) except 1.23 (`map_one()`) and 2.6 (lj/gromacs), both
+added above.  No further sync/modify bug surfaced in the test suite on the
+fixed code.

@@ -295,5 +295,19 @@ three shapes, none of them a bug:
 
 The 638 force-style and fix-timestep unit tests were also run under
 `WATCH= STALE= STALE_STRICT=1` (in-process `-k on t 1 -sf kk`, host package
-defaults since the test harness fixes the arguments): see the note at the
-end of `KOKKOS_BUG_SWEEP.md` section 5 for the tally.
+defaults since the test harness fixes the arguments): 638 pass, 223 produce
+reports, all of the three shapes above plus one dead-view claim in
+`pair lj/gromacs/kk` (sweep 2.6).  Further accessor-before-sync sites seen
+there: `GroupKokkos::xcm_kk()` (`group_kokkos.h:90-102`),
+`FixRigidSmallKokkos::set_xv_kokkos()` (`fix_rigid_small_kokkos.cpp:1290` vs
+`:1320`), `FixNVELimitKokkos::final_integrate()`, `VerletKokkos::force_clear()`
+and `Special::combine()` around `grow_kokkos`.  Item 3.2 (settle the report
+at the kernel launch) would remove all of them at once.
+
+Bottom line: on this code base the tool finds the "claim missing" and
+"stale read" classes reliably and names the routine (two sweep findings
+confirmed, one demonstrated to be masked by an unrelated sync); it cannot
+see the execution-space, device-compiler, fence, precision and parity
+classes, which together were the majority of the bugs on the two branches.
+The device-compiler CI job of 5.1 and the launch check of 5.2 are the
+cheapest way to cover most of that remainder.
