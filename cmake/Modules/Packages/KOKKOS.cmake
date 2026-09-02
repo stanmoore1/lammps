@@ -45,9 +45,15 @@ message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package"
 ########################################################################
 # consistency checks and Kokkos options/settings required by LAMMPS
 
-# temporarily enable Kokkos legacy view implementation to prevent integer overflows when indexing neighborlist views
-option(Kokkos_ENABLE_IMPL_VIEW_LEGACY "Enable legacy Kokkos view implementation" ON)
-mark_as_advanced(Kokkos_ENABLE_IMPL_VIEW_LEGACY)
+# Kokkos 5.2 still provides the legacy view implementation, which computes
+# view offsets in 64-bit arithmetic; the newer one does not, and can index a
+# view of more than 2^31 entries incorrectly, e.g. a neighbor list.  Keep the
+# legacy views until the KOKKOS package is ready for the newer ones (Kokkos 5.3
+# removes them), and do not let the build be talked out of it.  The legacy
+# implementation is deprecated in 5.2, so silence the warnings about it.
+set(Kokkos_ENABLE_IMPL_VIEW_LEGACY ON CACHE BOOL "" FORCE)
+set(Kokkos_ENABLE_DEPRECATION_WARNINGS OFF CACHE BOOL "" FORCE)
+mark_as_advanced(Kokkos_ENABLE_IMPL_VIEW_LEGACY Kokkos_ENABLE_DEPRECATION_WARNINGS)
 
 if(Kokkos_ENABLE_HIP)
   option(Kokkos_ENABLE_HIP_MULTIPLE_KERNEL_INSTANTIATIONS "Enable multiple kernel instantiations with HIP" ON)
