@@ -3994,6 +3994,7 @@ streitz
 Streitz
 strerror
 strided
+Strix
 stringstreams
 strmatch
 strncmp
