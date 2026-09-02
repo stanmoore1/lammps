@@ -471,6 +471,16 @@ core class, whose destructor frees the bins -- and for `MLIAP_SO3Kokkos`; the
 and 2.6 (the dead `k_cut_inner` views of pair lj/gromacs/kk removed).  Only
 1.18 (SNAP scratch fallback) is left open.
 
+Verification of that commit: gcc build clean, clang `-Wall -Wextra` adds no
+warning, 168 of 168 fix-timestep, granular, gromacs and neighbor-sensitive
+pair tests pass, temp/sphere and peptide match the plain runs as before.  On
+the split-memory build the `[watch] atom:map_array: ... never claimed`
+reports of `examples/peptide` go from 7 to 0 with the `map_one()` claim;
+the ten `[stale]` lines that remain are the tool flagging the device
+accessor of the whole-array overwrites in `map_clear()` and
+`map_set_device()`, the accessor-before-write shape it cannot tell from a
+read.
+
 Two of the fixes go slightly beyond the entry:
 
 - 1.10 is fixed centrally: `CommKokkos::forward_comm(Pair *)` and the tiled
