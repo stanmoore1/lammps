@@ -97,3 +97,20 @@ pack/unpack scan identical to fix_spring_self_kokkos.  IMPORTANTLY its post_forc
 confirming fix_spring_self_kokkos.cpp:105 is the defect.
 Both grow_kokkos overloads (with and without the trailing n2=3) are valid
 (memory_kokkos.h:222-263), so the differing calls in the two files are both fine.
+
+== fix_viscous_kokkos (DONE) - NO FINDINGS ==
+Base: src/fix_viscous.{cpp,h}.  drag = gamma[type[i]] identical; per-type gamma copied
+into a self-allocated DualView in init() with modify_host()+sync<Dev>(); respa rejected;
+base dtor has copymode guard.  Kokkos::DualView::view_device() is KOKKOS_INLINE_FUNCTION
+(lib/kokkos/containers/src/Kokkos_DualView.hpp:395) so using the DualView inside the
+functor is legal.
+
+== fix_viscous_nonlinear_kokkos (DONE) - NO FINDINGS ==
+Base: src/GRANULAR/fix_viscous_nonlinear.{cpp,h}.  Schiller-Naumann Cd/Re/pref formulas
+match line by line; Kokkos::pow/sqrt used; vmag==0 early return == CPU continue; respa
+rejected; datamask_read/modify correct (V|F|RADIUS|MASK / F).
+
+== fix_viscous_sphere_kokkos (DONE) - NO FINDINGS ==
+Base: src/GRANULAR/fix_viscous_sphere.{cpp,h}.  drag selection per scalestyle matches
+CPU (VS_ enum order identical); VARIABLE and respa rejected in init(); OMEGA/TORQUE
+masks correct; base dtor has copymode guard.

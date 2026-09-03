@@ -26,3 +26,5 @@ mliap_model_linear_kokkos.cpp
 mliap_model_linear_kokkos.h
 mliap_model_python_kokkos.cpp
 mliap_model_python_kokkos.h
+mliap_so3_kokkos.cpp
+mliap_so3_kokkos.h

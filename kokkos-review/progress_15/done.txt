@@ -20,3 +20,9 @@ fix_temp_csvr_kokkos.cpp
 fix_temp_csvr_kokkos.h
 fix_ti_spring_kokkos.cpp
 fix_ti_spring_kokkos.h
+fix_viscous_kokkos.cpp
+fix_viscous_kokkos.h
+fix_viscous_nonlinear_kokkos.cpp
+fix_viscous_nonlinear_kokkos.h
+fix_viscous_sphere_kokkos.cpp
+fix_viscous_sphere_kokkos.h

@@ -1,0 +1,169 @@
+[
+  {
+    "file": "src/KOKKOS/fix_deform_kokkos.cpp",
+    "line": 78,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "update_box() syncs x to the host BEFORE calling the base class and marks the host modified AFTER it, but the base class updates x on the DEVICE in between (DomainKokkos::x2lamda/lamda2x), so the trailing modified(Host,ALL_MASK) makes the stale pre-deform host coordinates newer than the remapped device coordinates and the next sync to device reverts every atom position.",
+    "evidence": "src/KOKKOS/fix_deform_kokkos.cpp:71-80:\n  void FixDeformKokkos::update_box() {\n    if (remapflag == Domain::X_REMAP && !rfix.empty()) atomKK->sync(Host,ALL_MASK);\n    FixDeform::update_box();\n    if (remapflag == Domain::X_REMAP && !rfix.empty()) atomKK->modified(Host,ALL_MASK);\n  }\nFixDeform::update_box (src/fix_deform.cpp:892-916) calls update_domain(), which at src/fix_deform.cpp:1243 does `domain->x2lamda(atom->nlocal, groupbit)` and at src/fix_deform.cpp:1279 `domain->lamda2x(atom->nlocal, groupbit)`. Both are overridden by DomainKokkos (domain_kokkos.h:40,42); DomainKokkos::lamda2x(int,int) (domain_kokkos.cpp:625-642) runs a device kernel and ends with `atomKK->modified(Device,X_MASK)`. atomKK->modified(Host,ALL_MASK) then reaches TransformView::modify_host -> Kokkos::DualView::modify_host (kokkos_type.h:878-886, k_x is a TransformView with NEED_TRANSFORM==0 for the default double build, kokkos_type.h:700,1257), so the host modify counter becomes device+1 and the next `sync(Device,X_MASK)` deep-copies host->device. auto_sync is 0 during a run (verlet_kokkos.cpp:311) and FixDeformKokkos sets datamask_read/modify = EMPTY_MASK (fix_deform_kokkos.cpp:33-34), so ModifyKokkos::end_of_step (modify_kokkos.cpp:440-453) does not re-sync either. The sibling override migrate_atoms() (fix_deform_kokkos.cpp:62-67) is safe only because there the device write (x2lamda) happens BEFORE the sync, and the file's own comment at lines 49-53 documents exactly this hazard for pre_exchange().",
+    "failure_scenario": "`fix deform ... remap x` (the default) together with any rigid fix (rfix is filled with every fix whose rigid_flag is set, src/fix_deform.cpp:693-696) in a KOKKOS GPU run: on every deform step the device receives the coordinates as they were before the affine remap, so atoms are not rescaled with the box, the system immediately develops overlaps/lost atoms and the trajectory is wrong. In a Kokkos debug build (KOKKOS_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK) it instead aborts with a concurrent host/device modification error.",
+    "suggested_fix": "Drop the ALL_MASK bracket entirely (Fix::deform() only transforms the fix-owned xcm arrays, not per-atom data -- see src/RIGID/fix_rigid.cpp:1285-1293), or, if a host bracket is really wanted, narrow it to the fields the rigid fixes read and place the sync/modified pair around only the `ifix->deform()` loops rather than around the device x2lamda/lamda2x calls."
+  },
+  {
+    "file": "src/KOKKOS/fix_dt_reset_kokkos.cpp",
+    "line": 71,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "The per-type mass array is read on the device without ever syncing atomKK->k_mass, which is only ever marked modify_host(); on a GPU the kernel therefore reads a zero-initialized device view, massinv becomes infinite and the computed timestep collapses to 0.",
+    "evidence": "src/KOKKOS/fix_dt_reset_kokkos.cpp:62 syncs only `V_MASK | F_MASK | MASK_MASK | TYPE_MASK | RMASS_MASK` -- there is no mask bit for the per-type mass -- and line 71 then does `mass = atomKK->k_mass.view<DeviceType>();`, used at line 123 `massinv = static_cast<KK_FLOAT>(1.0) / mass[type[i]];` inside the device kernel. `grep -n 'k_mass' src/KOKKOS/fix_dt_reset_kokkos.cpp` yields only that one line: no `k_mass.sync<DeviceType>()` anywhere in the file or its header. k_mass is only ever marked host-modified: src/KOKKOS/atom_kokkos.cpp:313-316 (`create_kokkos(k_mass,mass,ntypes+1,...)` followed by `k_mass.modify_host()`) and the four AtomKokkos::set_mass overloads at atom_kokkos.cpp:287,293,299,305. The required idiom is src/KOKKOS/fix_nve_kokkos.cpp:45-46 `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();`, also used by compute_temp_kokkos.cpp:46, compute_ke_atom_kokkos.cpp:68, fix_flow_gauss_kokkos.cpp, group_kokkos.h:64 and a dozen others.",
+    "failure_scenario": "GPU run with a per-type-mass atom style and `fix dt/reset/kk` but no other /kk style that happens to sync k_mass first (e.g. plain `fix nve` without the kk suffix, or `fix nve/limit/kk`, which also never syncs it): the device k_mass view is the zero-filled allocation, so massinv = 1/0 = inf, dtf = sqrt(2*xmax/(ftm2v*sqrt(fsq)*inf)) = 0, dt reduces to 0 and update->dt is set to 0 (or to tmin), stalling the run. With rmass styles the code is unaffected because RMASS_MASK is in the sync list.",
+    "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.template sync<DeviceType>();` to FixDtResetKokkos::init() (or immediately before line 71), exactly as fix_nve_kokkos.cpp:45-46 does."
+  },
+  {
+    "file": "src/KOKKOS/fix_electron_stopping_kokkos.cpp",
+    "line": 84,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "The per-type mass array is read on the device without ever syncing atomKK->k_mass, which is only ever marked modify_host(), so on a GPU the kernel reads a zero-initialized device view and every atom's kinetic energy comes out as 0.",
+    "evidence": "src/KOKKOS/fix_electron_stopping_kokkos.cpp:41 lists `X_MASK | V_MASK | F_MASK | TYPE_MASK | TAG_MASK | MASK_MASK | RMASS_MASK` -- there is no mask bit for the per-type mass -- and line 84 does `d_mass = atomKK->k_mass.view<DeviceType>();`, used at line 143 `double massone = (d_rmass.data()) ? ... : static_cast<double>(d_mass(itype));` inside the device kernel. `grep -n 'k_mass' src/KOKKOS/fix_electron_stopping_kokkos.cpp` returns only line 84: no sync anywhere. k_mass is only ever marked host-modified (src/KOKKOS/atom_kokkos.cpp:313-316 and the set_mass overloads at 287,293,299,305), so every consumer must sync it itself; the correct idiom is src/KOKKOS/fix_nve_kokkos.cpp:45-46 `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();`, and it is followed by compute_temp_kokkos.cpp:46, compute_ke_atom_kokkos.cpp:68, group_kokkos.h:64, fix_flow_gauss_kokkos.cpp etc. The CPU base reads the host array directly: src/EXTRA-FIX/fix_electron_stopping.cpp:172 `double massone = (atom->rmass) ? atom->rmass[i] : atom->mass[itype];`.",
+    "failure_scenario": "GPU run of `fix electron/stopping/kk` on a per-type-mass atom style (the normal case for the radiation-damage workflows this fix targets) without another /kk style that happens to sync k_mass first: d_mass(itype) reads the zero-filled device allocation, so energy = 0.5*mvv2e*0*v2 = 0, every atom fails the `energy < Ecut` test and NO electronic stopping force is ever applied -- the fix silently does nothing and SeLoss stays 0.",
+    "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.template sync<DeviceType>();` in FixElectronStoppingKokkos::init() (or right before line 84), as fix_nve_kokkos.cpp:45-46 does."
+  },
+  {
+    "file": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+    "line": 93,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The table temperature bounds lo and hi are stored in INTEGER Kokkos views in all three table structs, so the double bounds read from the EOS table file are truncated toward zero; every table index and every clamp in energy_lookup/temperature_lookup is then computed from the wrong lower bound.",
+    "evidence": "src/KOKKOS/fix_eos_table_rx_kokkos.h:93,99,105 all declare `typename AT::t_int_1d lo,hi;` / `HAT::t_int_1d lo,hi;`, while the CPU struct is src/DPD-REACT/fix_eos_table_rx.h:44-51 `struct Table { int ninput; double lo, hi; ... }` with src/DPD-REACT/fix_eos_table_rx.cpp:108-109 `tb->lo = tb->rfile[0]; tb->hi = tb->rfile[tb->ninput-1];` -- the first and last TEMPERATURE in the table file. The truncation happens at src/KOKKOS/fix_eos_table_rx_kokkos.cpp:563-564 `h_table->lo[i] = tb->lo; h_table->hi[i] = tb->hi;` (double -> int). The truncated value is then used for the index arithmetic at fix_eos_table_rx_kokkos.cpp:348-354 `thetai = MAX(thetai,d_table_const.lo(ispecies)); thetai = MIN(thetai,d_table_const.hi(ispecies)); itable = static_cast<int>((thetai - d_table_const.lo(ispecies)) * d_table_const.invdelta(ispecies));` whereas invdelta is still the correct double (fix_eos_table_rx.cpp:465-466 `tb->delta = (tb->hi - tb->lo)/tlm1`). That this is a copy-paste slip is visible in the parent it was cloned from: src/KOKKOS/pair_table_kokkos.h:71-92 has `t_int_1d nshiftbits,nmask;` in that slot and keeps the physical quantities as `t_double_1d innersq,invdelta,deltasq6;`.",
+    "failure_scenario": "An EOS table whose first temperature is not an exact integer -- e.g. lo=0.5, hi=10.5, tablength=1000 so invdelta=99.9: lo is stored as 0 and hi as 10, thetai is clamped to [0,10] instead of [0.5,10.5], and for thetai=5.0 the code reads itable=499 instead of the correct 449, i.e. an energy from a completely different part of the table. At the top of the range itable reaches 999 while d_table_const.de only has tablength-1=999 entries (indices 0..998), so it also reads one element past the end of de. Every `fix eos/table/rx/kk` run with non-integer table bounds gets wrong internal energies/temperatures; the plain `fix eos/table/rx` gets them right.",
+    "suggested_fix": "Change `lo,hi` to `typename AT::t_kkfloat_1d` / `HAT::t_kkfloat_1d` in all three structs (TableDeviceConst, TableDevice, TableHost) and cast with static_cast<KK_FLOAT> in create_kokkos_tables(), matching what pair_table_kokkos.h does for innersq/invdelta/deltasq6."
+  },
+  {
+    "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+    "line": 394,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "temperature_lookup() copies the table bounds into local `int` variables, truncating them a second time and breaking the `if (t1==hi) delta = -delta;` test that tells the secant solver to search downward from the top of the table.",
+    "evidence": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp:394-400:\n  int lo = d_table_const.lo(0);\n  int hi = d_table_const.hi(0);\n  t1 = MAX(thetai,lo);\n  t1 = MIN(t1,hi);\n  if (t1==hi) delta = -delta;\nand the same `lo`/`hi` are reused for the clamp at lines 422-423. The CPU version keeps them as doubles: src/DPD-REACT/fix_eos_table_rx.cpp (FixEOStableRX::temperature_lookup) `Table *tb = &tables[0]; ... t1 = MAX(thetai,tb->lo); t1 = MIN(t1,tb->hi); if (t1==tb->hi) delta = -delta;` with `double lo, hi` (fix_eos_table_rx.h:46). This is a second, independent truncation: even after the views in fix_eos_table_rx_kokkos.h:93/99/105 are changed to floating point, these two local declarations would still round the bounds to whole numbers.",
+    "failure_scenario": "A table with hi = 10.5: t1 is clamped to 10 and `t1 == hi` is compared against the int 10, so with a starting temperature at or above the table maximum the solver keeps delta positive and steps t2 = 1.001*t1 further outside the table instead of stepping back inside; energy_lookup then re-clamps and f2-f1 collapses, tripping the 'Secant solver did not converge because table bounds were exceeded' warning path and returning the clamped t1 rather than the correct temperature.",
+    "suggested_fix": "Declare them as `KK_FLOAT lo = d_table_const.lo(0); KK_FLOAT hi = d_table_const.hi(0);` (together with the view type change in the header)."
+  },
+  {
+    "file": "src/KOKKOS/fix_efield_kokkos.cpp",
+    "line": 158,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "FixEfield::update_efield_variables() evaluates equal- and atom-style variables on the host through the plain atom->x/atom->v pointers, but post_force only ever syncs to the device, so on a GPU the variables are evaluated against stale host coordinates.",
+    "evidence": "src/KOKKOS/fix_efield_kokkos.cpp:83 `atomKK->sync(execution_space, datamask_read);` (execution_space == Device for efield/kk) is the only sync in the routine; line 158 then calls `FixEfield::update_efield_variables();`, which at src/fix_efield.cpp:504-522 runs `input->variable->compute_equal(xvar)` / `input->variable->compute_atom(xvar, igroup, &efield[0][0], 4, 0)`. Variable evaluation goes straight to atom->x / atom->v / any non-KOKKOS compute on the host (there is no atomKK reference anywhere in src/variable.cpp), and auto_sync is 0 for the whole run (verlet_kokkos.cpp:311) with ModifyKokkos::post_force only re-enabling it for fixes that are NOT kokkosable. The rest of the package does this correctly: fix_aveforce_kokkos.cpp:85 `atomKK->sync(Host, ALL_MASK);` immediately before its compute_equal calls at 87-89, fix_addtorque_group_kokkos.cpp:79 the same before 81-83, and fix_damping_cundall_kokkos.cpp:89 `atomKK->sync(Host,ALL_MASK);` before its compute_atom at line 90.",
+    "failure_scenario": "GPU run of `fix efield/kk` with a position-dependent field, e.g. `variable ez atom 0.5*z` + `fix f all efield/kk 0.0 0.0 v_ez`: atom->x on the host was last refreshed at setup (or at the last dump), so every step the field is computed from the setup-time coordinates and the applied force is wrong; the same applies to `energy`/`potential` atom-style variables and to any equal-style variable that pulls in a non-KOKKOS per-atom compute.",
+    "suggested_fix": "Add `atomKK->sync(Host, ALL_MASK);` immediately before the FixEfield::update_efield_variables() call (as fix_aveforce_kokkos.cpp:85 does). The same omission exists in fix_addforce_kokkos.cpp:139-151 and fix_addtorque_atom_kokkos.cpp:123-131, which should be fixed together."
+  },
+  {
+    "file": "src/KOKKOS/fix_acks2_reaxff_kokkos.cpp",
+    "line": 343,
+    "severity": "medium",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "A leftover `|| 1` in the compute_X dispatch makes the condition always true, so the GPU team/scratch code path for compute_X is dead and every GPU run falls back to the serialized parallel_scan range policy.",
+    "evidence": "src/KOKKOS/fix_acks2_reaxff_kokkos.cpp:343 `if (execution_space == HostKK || 1) { // CPU`. The corresponding H-matrix dispatch 40 lines above is correct: line 303 `if (execution_space == HostKK) { // CPU`, and fix_qeq_reaxff_kokkos.cpp:579 also uses the plain `if (execution_space == HostKK)`. Because of `|| 1` the `else` block at lines 354-376 (FixACKS2ReaxFFKokkosComputeXFunctor team launch, plus its `Kokkos::deep_copy(d_mfill_offset,0)`) can never execute.",
+    "failure_scenario": "Any GPU run of `fix acks2/reaxff/kk`: compute_X is executed with `Kokkos::parallel_scan(nn, ...)` over a RangePolicy on the device, which serializes the neighbor loop per atom instead of using the team/vector kernel, giving a large slowdown on the X-matrix build. It also means compute_x_team has been shipped untested; note that if it were re-enabled it contains a race, `a_X_diag[i] -= X_val` at line 1156 is executed by all 32 vector lanes of a ThreadVectorRange with a non-atomic accessor when NEIGHFLAG==FULL.",
+    "suggested_fix": "Drop the `|| 1` so the team path is used on device, and re-verify compute_x_team (in particular make the `a_X_diag[i]` update at line 1156 a per-thread accumulation or an atomic) before enabling it."
+  },
+  {
+    "file": "src/KOKKOS/fix_cmap_kokkos.cpp",
+    "line": 57,
+    "severity": "medium",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "The KOKKOS constructor re-creates all of the base class's plain arrays as dual views without first freeing the base allocations, orphaning ~4 MB per MPI rank (12 arrays: g_axis, the four cmap grids, num_crossterm and the six crossterm_* arrays).",
+    "evidence": "src/MOLECULE/fix_cmap.cpp:94-98 allocates `g_axis`, `cmapgrid`, `d1cmapgrid`, `d2cmapgrid`, `d12cmapgrid` with memory->create, and line 116 `FixCMAP::grow_arrays(atom->nmax)` allocates `num_crossterm` and `crossterm_type`/`crossterm_atom1..5` with memory->grow. src/KOKKOS/fix_cmap_kokkos.cpp:57-61 then calls `memoryKK->create_kokkos(k_g_axis,g_axis,...)` etc. and line 82 calls `FixCMAPKokkos::grow_arrays(atom->nmax)` -> `memoryKK->grow_kokkos(...)`, with no `memory->destroy(...)` in between. memory_kokkos.h:69-76 `grow_kokkos` for a 1d array does `array = data.view_host().data();` (the old pointer is simply dropped), and memory_kokkos.h:223-242 for a 2d array only `srealloc`s the row-pointer block, so the base's contiguous data block (the old `array[0]`) is leaked. Compare fix_addforce_kokkos.cpp:125-126 and fix_acks2_reaxff_kokkos.cpp:93-94, which both call `memory->destroy(...)` immediately before handing the pointer to the KOKKOS allocator.",
+    "failure_scenario": "Any `fix cmap/kk` run leaks 5 grid arrays (~110 KB) plus nmax*(4 + 6*4 + 5*6*8) bytes of per-atom arrays -- about 4.4 MB per rank at nmax = 16384 -- for the lifetime of the process; repeated fix/unfix or `clear` cycles accumulate it, and leak checkers in CI will flag it.",
+    "suggested_fix": "Add `memory->destroy(g_axis); memory->destroy(cmapgrid); memory->destroy(d1cmapgrid); memory->destroy(d2cmapgrid); memory->destroy(d12cmapgrid);` before line 57 and `memory->destroy(num_crossterm); memory->destroy(crossterm_type); memory->destroy(crossterm_atom1..5);` before the grow_arrays() call at line 82."
+  },
+  {
+    "file": "src/KOKKOS/fix_addtorque_atom_kokkos.cpp",
+    "line": 115,
+    "severity": "medium",
+    "category": "memory",
+    "confidence": "likely",
+    "summary": "The KOKKOS constructor frees the base class's storque array and sets the pointer to nullptr but never allocates the replacement dual view, so `storque` stays null until `atom->nmax > maxatom` first becomes true; the atom-style variable path then dereferences a null pointer.",
+    "evidence": "src/KOKKOS/fix_addtorque_atom_kokkos.cpp:115-116 `memory->destroy(storque); storque = nullptr;` -- no create_kokkos follows. src/GRANULAR/fix_addtorque_atom.cpp:99-100 leaves the base with `maxatom = 1; memory->create(storque, maxatom, 3, ...)`, and the KOKKOS class does not reset `maxatom`. The only allocation site is src/KOKKOS/fix_addtorque_atom_kokkos.cpp:169-174 `if (varflag == ATOM && atom->nmax > maxatom) { ... create_kokkos(k_storque,storque,maxatom,3,...) }`, which is skipped whenever `atom->nmax <= 1`. Line 193 then evaluates `&storque[0][0]`. The two sibling styles do it correctly: fix_addforce_kokkos.cpp:125-127 and fix_setforce_kokkos.cpp:43-44 both call `memory->destroy(sforce)` followed immediately by `memoryKK->create_kokkos(k_sforce,sforce,maxatom,...)` in the constructor.",
+    "failure_scenario": "A rank whose `atom->nmax` is still the 1 set by `AtomVec::grow(1)` in create_box.cpp:274 / atom.cpp:696 (a sub-domain that never owns or ghosts an atom) running `fix addtorque/atom/kk` with an atom-style variable: line 169's guard is false, `storque` is null, and `input->variable->compute_atom(xvar,igroup,&storque[0][0],3,0)` at line 193 dereferences null -> segfault. The plain CPU fix does not crash there because the base allocation survives.",
+    "suggested_fix": "Follow fix_addforce_kokkos/fix_setforce_kokkos: in the constructor replace the base allocation with `memoryKK->create_kokkos(k_storque,storque,maxatom,3,\"addtorque/atom:storque\"); d_storque = k_storque.view<DeviceType>();` right after `memory->destroy(storque)`."
+  },
+  {
+    "file": "src/KOKKOS/fix_colvars_kokkos.cpp",
+    "line": 79,
+    "severity": "low",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "fix colvars/kk is a pure delegating wrapper (sync to host, call the CPU hook, mark modified) with no device kernel, which the package's FULL PORTS ONLY rule forbids and which names colvars as the example to leave unported.",
+    "evidence": "src/KOKKOS/fix_colvars_kokkos.cpp:79-93 is the whole implementation: `post_force` does `atomKK->sync(Host,X_MASK|F_MASK|TAG_MASK|IMAGE_MASK); FixColvars::post_force(vflag); atomKK->modified(Host,F_MASK);` and `end_of_step` likewise; there is no Kokkos kernel anywhere in the file, and the constructor does not even set `execution_space`. .github/instructions/kokkos.instructions.md, section 'FULL PORTS ONLY (project policy)': 'A /kk variant that just syncs to host, calls the CPU base-class hook, and marks modified is a fake port and is forbidden. ... If a fix's per-atom work genuinely cannot run on-device (host-only variable eval, plain double ** arrays like fix move's xoriginal, external library coupling like colvars), leave it unported rather than shipping a delegating wrapper.'",
+    "failure_scenario": "No numerical error; the styles colvars/kk, colvars/kk/device and colvars/kk/host advertise GPU residency they do not provide, and each post_force forces a full x/f/tag/image device-to-host transfer. Functionally the syncs cover exactly what FixColvars::post_force (src/COLVARS/fix_colvars.cpp:560-563) and ::end_of_step (708-710) read, and setup() is covered because VerletKokkos::setup only clears auto_sync around modify->setup (verlet_kokkos.cpp:196-198) after everything was kept host-current, so this is a policy issue rather than a correctness one.",
+    "suggested_fix": "Either delete the style per the stated policy, or add an explicit exemption note in the KOKKOS instructions if the maintainers intend to keep it."
+  },
+  {
+    "file": "src/KOKKOS/fix_electron_stopping_kokkos.cpp",
+    "line": 140,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The region test is applied before the energy checks instead of after them, so an atom outside the region whose kinetic energy exceeds the stopping table no longer triggers the 'kinetic energy too high' error that the CPU fix raises.",
+    "evidence": "src/KOKKOS/fix_electron_stopping_kokkos.cpp:138-152 orders the tests mask -> numneigh -> `if (region && !d_match(i)) return;` -> energy -> `if (energy > d_elstop_ranges(0, table_entries-1)) { error_value = {i, energy}; return; }`. The CPU base does the opposite and says so explicitly: src/EXTRA-FIX/fix_electron_stopping.cpp:165-185 `// Do fast checks first, only then the region check` -- mask (166), numneigh (169), energy vs table max with `error->one(...)` (178-180), and only then `if (region) { if (region->match(...) != 1) continue; }` (182-185).",
+    "failure_scenario": "An input with `fix electron/stopping ... region <r>` where a fast atom outside region r exceeds the tabulated energy range: the CPU fix aborts with 'kinetic energy too high for atom N', the /kk fix runs on silently. Forces are identical in both cases, so this only changes whether the user is told the table is too short.",
+    "suggested_fix": "Move the `if (region && !d_match(i)) return;` test to after the `energy > d_elstop_ranges(0, table_entries-1)` check so the two versions raise the same error, or note the intentional difference in a comment."
+  },
+  {
+    "file": "src/KOKKOS/fix_enforce2d_kokkos.cpp",
+    "line": 41,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixEnforce2DKokkos::setup() unconditionally calls post_force(), dropping the base class's rRESPA branch that zeroes the z force in every stored respa level array, and the style never rejects rRESPA the way its sibling /kk fixes do.",
+    "evidence": "src/KOKKOS/fix_enforce2d_kokkos.cpp:40-44:\n  template <class DeviceType>\n  void FixEnforce2DKokkos<DeviceType>::setup(int vflag) { post_force(vflag); }\nThe base does more: src/fix_enforce2d.cpp:62-74\n  if (utils::strmatch(update->integrate_style,\"^verlet\")) post_force(vflag);\n  else { int nlevels_respa = (dynamic_cast<Respa *>(update->integrate))->nlevels;\n         for (int ilevel = 0; ilevel < nlevels_respa; ilevel++) {\n           respa->copy_flevel_f(ilevel); post_force_respa(vflag,ilevel,0); respa->copy_f_flevel(ilevel); } }\nFixEnforce2DKokkos also has no init() override, so unlike fix_drag_kokkos.cpp:54-55, fix_dt_reset_kokkos.cpp:53-54 and fix_efield_kokkos.cpp:74-75 it never raises 'Cannot (yet) use respa with Kokkos'. KokkosLMP::respa_check (src/KOKKOS/kokkos.cpp:953-977) only refuses fixes whose execution_space is Device, and its whole body is inside `#ifdef LMP_KOKKOS_GPU`, so in a Serial/OpenMP KOKKOS build (where LMPDeviceType == LMPHostType and execution_space == Host) `run_style respa` with `fix enforce2d/kk` is accepted.",
+    "failure_scenario": "CPU-only KOKKOS build, `-sf kk`, `run_style respa` with `fix enforce2d`: at setup the per-level force arrays keep whatever f_z they were given (e.g. from a fix langevin or an added force in an inner level), because the level loop that the CPU fix runs is skipped; Respa::sum_flevel_f then re-injects that z component on the first step of a 2d run.",
+    "suggested_fix": "Either drop the setup() override so the base class version runs (post_force is virtual and will still dispatch to the KOKKOS kernel), or add an init() override that rejects rRESPA like the neighbouring /kk fixes do."
+  },
+  {
+    "file": "src/KOKKOS/fix_cmap_kokkos.cpp",
+    "line": 212,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "The bounds guard on the crossterm list uses `>` where `>=` is needed, so an index equal to maxcrossterm would be written one element past the end of d_crosstermlist.",
+    "evidence": "src/KOKKOS/fix_cmap_kokkos.cpp:212 `if (l_ncrosstermlist > maxcrossterm) Kokkos::abort(\"l_ncrosstermlist > maxcrossterm\");` followed at 214-219 by `d_crosstermlist(l_ncrosstermlist,0..5) = ...`. d_crosstermlist is allocated with exactly `maxcrossterm` rows at line 158 (`memoryKK->create_kokkos(d_crosstermlist,maxcrossterm,CMAPMAX,...)`), so the valid range is 0..maxcrossterm-1. The CPU base uses the correct comparison, src/MOLECULE/fix_cmap.cpp:279 `if (ncrosstermlist == maxcrossterm) { maxcrossterm += LISTDELTA; ... }`. Additionally the check runs before the `if(is_final)` branch, where in the non-final scan pass `l_ncrosstermlist` is only a per-thread partial offset, so it does not reliably guard anything.",
+    "failure_scenario": "A rank whose local crossterm count reaches maxcrossterm (= ncmap) writes six ints past the end of d_crosstermlist without tripping the guard. Reaching that count requires one rank to own every crossterm in the system, so this is a latent rather than routinely-hit overflow.",
+    "suggested_fix": "Change the comparison to `>=` and move it inside the `if (is_final)` branch so it tests the actual write index."
+  },
+  {
+    "file": "src/KOKKOS/fix_drag_kokkos.cpp",
+    "line": 140,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "The device-side minimum_image() applies at most a single box-length wrap per dimension (if/else if), whereas Domain::minimum_image() loops (while) until the separation is inside the half box, so a drag point more than ~1.5 box lengths from an atom gets a different image than the CPU fix.",
+    "evidence": "src/KOKKOS/fix_drag_kokkos.cpp:142-154 `if (m_xperiodic) { if (dx > m_xprd_half) dx -= m_xprd; else if (dx < -m_xprd_half) dx += m_xprd; }` (and the triclinic branch 155-180 likewise). src/domain.cpp Domain::minimum_image(const std::string&,int,double&,double&,double&) uses `while (fabs(dx) > xprd_half) { ... }` in every branch and additionally raises 'Atoms have moved too far apart ... for minimum image' when fabs(dx) > MAXIMGCOUNT*xprd. The CPU fix calls exactly that function: src/EXTRA-FIX/fix_drag.cpp:124 `domain->minimum_image(FLERR, dx,dy,dz);`.",
+    "failure_scenario": "`fix drag` with a target point specified well outside the periodic box (e.g. box 0..100 and `fix drag all drag 350 50 50 1.0 0.1`): the CPU fix wraps dx three times and pulls atoms toward the nearest image of the target, the /kk fix wraps once and applies a drag force of the wrong direction/magnitude, so ftotal and the trajectory differ between the two. For a target inside the box the two agree.",
+    "suggested_fix": "Replace the single conditional wraps with `while` loops (as in bond_harmonic_restrain_kokkos.cpp/dihedral_table_kokkos.cpp, which have the same shortcut but where the separation is bounded), or document/enforce that the drag point must lie inside the box."
+  },
+  {
+    "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+    "line": 85,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "The dynamic_cast to FixRxKokkos<DeviceType> is not checked for failure, so a fix rx whose KOKKOS instantiation does not match this fix's DeviceType leaves rx_fixKK null and init()/setup()/post_integrate() dereference it.",
+    "evidence": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp:85 `rx_fixKK = dynamic_cast<FixRxKokkos<DeviceType> *>(rx_fix);` with no null test; it is then dereferenced unconditionally whenever rx_flag is set, at lines 121-122, 185-186 and 239-240 (`rx_fixKK->get_k_species_ind_to_atom_prop_ind()`). The base class only guarantees that rx_fix is a FixRX matching the style regex `^rx/kk` (src/DPD-REACT/fix_eos_table_rx.cpp:57-65), which covers both FixRxKokkos<LMPDeviceType> and FixRxKokkos<LMPHostType>. The sibling style shows the intended guard: src/KOKKOS/fix_dpd_energy_kokkos.cpp:35-37 `pairDPDEKK = dynamic_cast<decltype(pairDPDEKK)>(pairDPDE); if (!pairDPDEKK) error->all(FLERR,\"Must use pair_style dpd/fdt/energy/kk with fix dpd/energy/kk\");`.",
+    "failure_scenario": "Mixing suffixes on a GPU build, e.g. `fix r all rx/kk/host ...` together with `fix e all eos/table/rx/kk ...` (device): the dynamic_cast between the two different template instantiations fails, rx_fixKK stays null, and the first call to FixEOStableRXKokkos::init() segfaults instead of printing a diagnostic.",
+    "suggested_fix": "Add `if (rx_flag && !rx_fixKK) error->all(FLERR,\"Must use fix rx/kk with the same suffix as fix eos/table/rx/kk\");` right after the cast, following fix_dpd_energy_kokkos.cpp:36-37."
+  }
+]
+
+COVERAGE: all files read completely
