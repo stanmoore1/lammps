@@ -12,8 +12,8 @@ else()
     endif()
 
     SetDownloadSettings(PACELIB "PACE evaluator library"
-      "https://github.com/ICAMS/lammps-user-pace/archive/refs/tags/v.2023.11.25.fix2.tar.gz"
-      "e0885351a8a730f5576dace2374fa470523a4526383c6a64af571e1344a40686")
+      "https://github.com/ICAMS/lammps-user-pace/archive/refs/tags/v.2025.12.4.p1.tar.gz"
+      "21e9d7ad2094eef0f19958d154866fc725fc6ccfa82ec3681ef2b006545ced96")
     GetFallbackURL(PACELIB_URL PACELIB_FALLBACK)
 
     # LOCAL_ML-PACE points to top-level dir with local lammps-user-pace repo,
