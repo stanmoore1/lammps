@@ -56,6 +56,19 @@ if(DOWNLOAD_MBX)
   SetDownloadSettings(MBXLIB "MBX"
     "https://github.com/paesanilab/MBX/releases/download/v1.4.0/mbx-1.4.0.tar.gz"
     "219de5af7cd81bdf8c3394c3aeee923cf4de7dd322769441a35c7cf4950bf912")
+
+  # apply patches to the MBX sources of known versions (e.g. so that they compile without OpenMP)
+  get_filename_component(_mbx_archive "${MBXLIB_URL}" NAME)
+  string(REGEX REPLACE "\\.(tar\\.gz|tgz|tar\\.xz|txz|zip)$" "" _mbx_version "${_mbx_archive}")
+  set(MBX_PATCH_FILE ${LAMMPS_DIR}/cmake/patches/${_mbx_version}-openmp.patch)
+  set(MBX_PATCH_COMMAND)
+  if(EXISTS ${MBX_PATCH_FILE})
+    find_package(Patch REQUIRED)
+    message(STATUS "Patching MBX sources with ${MBX_PATCH_FILE}")
+    set(MBX_PATCH_COMMAND COMMAND ${Patch_EXECUTABLE} -p1 -i ${MBX_PATCH_FILE})
+  else()
+    message(STATUS "No patch file ${MBX_PATCH_FILE} found for MBX archive ${_mbx_archive}")
+  endif()
   set(MBX_BUILD_BYPRODUCTS "<INSTALL_DIR>/lib/${CMAKE_STATIC_LIBRARY_PREFIX}mbx${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   message(STATUS "MBX_CONFIG_CC: ${MBX_CONFIG_CC}")
@@ -72,6 +85,7 @@ if(DOWNLOAD_MBX)
       BUILD_IN_SOURCE TRUE
       # restore the timestamp order that autotools generated files require (see AutotoolsTouch.cmake)
       PATCH_COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=<SOURCE_DIR> -P ${LAMMPS_DIR}/cmake/Modules/AutotoolsTouch.cmake
+                    ${MBX_PATCH_COMMAND}
       CONFIGURE_COMMAND mingw64-configure
                         --prefix=<INSTALL_DIR>
                         --disable-i-pi-plugin
@@ -89,6 +103,7 @@ if(DOWNLOAD_MBX)
       URL_HASH SHA256=${MBXLIB_SHA256}
       # restore the timestamp order that autotools generated files require (see AutotoolsTouch.cmake)
       PATCH_COMMAND ${CMAKE_COMMAND} -D SOURCE_DIR=<SOURCE_DIR> -P ${LAMMPS_DIR}/cmake/Modules/AutotoolsTouch.cmake
+                    ${MBX_PATCH_COMMAND}
       CONFIGURE_COMMAND <SOURCE_DIR>/configure
                         --prefix=<INSTALL_DIR>
                         --disable-i-pi-plugin
