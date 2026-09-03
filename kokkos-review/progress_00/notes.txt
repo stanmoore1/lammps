@@ -1,0 +1,73 @@
+GROUP 00 - angle_* KOKKOS styles (16 styles, 32 files). ALL FILES READ COMPLETELY.
+
+Base-class locations used for the comparison:
+  angle_charmm                    -> src/MOLECULE/angle_charmm.cpp
+  angle_class2                    -> src/CLASS2/angle_class2.cpp
+  angle_class2_p6                 -> src/MOFFF/angle_class2_p6.cpp
+  angle_class2xe                  -> src/CLASS2/angle_class2xe.cpp
+  angle_cosine                    -> src/MOLECULE/angle_cosine.cpp
+  angle_cosine_delta              -> src/EXTRA-MOLECULE/angle_cosine_delta.cpp
+                                     (derives from AngleCosineSquared; no own allocate/coeff/
+                                      read_restart -> those come from src/MOLECULE/angle_cosine_squared.cpp,
+                                      which HAS `if (copymode) return;` and `virtual void allocate()`)
+  angle_cosine_periodic           -> src/EXTRA-MOLECULE/angle_cosine_periodic.cpp
+  angle_cosine_shift              -> src/EXTRA-MOLECULE/angle_cosine_shift.cpp
+  angle_cosine_shift_exp          -> src/EXTRA-MOLECULE/angle_cosine_shift_exp.cpp
+  angle_cosine_squared            -> src/MOLECULE/angle_cosine_squared.cpp
+  angle_cosine_squared_restricted -> src/EXTRA-MOLECULE/angle_cosine_squared_restricted.cpp
+  angle_cross                     -> src/YAFF/angle_cross.cpp
+  angle_dipole                    -> src/DIPOLE/angle_dipole.cpp
+  angle_fourier                   -> src/EXTRA-MOLECULE/angle_fourier.cpp
+  angle_fourier_simple            -> src/EXTRA-MOLECULE/angle_fourier_simple.cpp
+  angle_gaussian                  -> src/EXTRA-MOLECULE/angle_gaussian.cpp
+
+Checks already performed (do not redo):
+- Every kernel's force/energy expression compared term-by-term with the CPU compute() loop.
+  All 16 match except the SMALL/1e-12 clamp in cosine/shift/exp and the cosine/delta energy
+  reformulation (both reported).
+- ev_tally in all 16 compared with Angle::ev_tally (src/angle.cpp:200-280). All semantically
+  equivalent (some compute 3*THIRD*e instead of e for the newton_bond branch - FP-only diff,
+  not reported).
+- All 15 CPU base classes have `if (copymode) return;` (or `if (allocated && !copymode)`) in
+  their destructor and `virtual void allocate()` in the header. VERIFIED OK.
+- All base read_restart() call allocate() (virtual -> Kokkos override runs), so the Kokkos
+  read_restart() overrides that do NOT re-create dual views (p6, class2xe, cosine_delta,
+  cosine, cosine_periodic, cosine_shift, cosine_shift_exp, cosine_squared,
+  cosine_squared_restricted, cross, dipole, fourier, fourier_simple, gaussian) are CORRECT.
+- All headers use `typename AT::t_...` for views assigned from atomKK (x, f, mu, torque);
+  DAT:: is only used for self-allocated dual views (k_eatom, k_vatom, coefficient views).
+  VERIFIED OK - no rule-3 violations in this group.
+- All 16 .cpp files have the explicit template instantiation block with the
+  `#ifdef LMP_KOKKOS_GPU ... LMPHostType` line. OK.
+- No alternative logical tokens, no VLAs, no sprintf/printf, no std:: math in device code
+  except the plain `fmod` in angle_fourier_simple_kokkos.cpp:186 (reported).
+- sync/modify discipline: every style modify_host()s its coefficient dual views in
+  coeff()/read_restart() and sync<DeviceType>()s them either right there (charmm) or at the
+  top of compute() (all others). No stale-coefficient bug found.
+- atomKK->sync/modified are done by the caller (src/KOKKOS/verlet_kokkos.cpp:167-171,
+  257-261, 472-479) using datamask_read/datamask_modify; all 16 datamasks are correct
+  (angle_dipole additionally declares MU_MASK|TORQUE_MASK read and TORQUE_MASK modify).
+- eatom/vatom zeroing: ev_init(eflag,vflag,0) passes alloc=0 so Angle::ev_setup does NOT
+  zero eatom/vatom (src/angle.cpp:133-176); the Kokkos styles zero them either by
+  destroy+create (charmm, class2, cosine) or by Kokkos::deep_copy(...,0.0) on reuse (the
+  other 13). Both are correct.
+- doc/src/*.rst all carry `.. index:: angle_style <name>/kk` and the `/kk` entry on the
+  Accelerator Variants line; doc/src/Commands_bond.rst carries the `k` letter for all 16.
+  Only nit: angle_cosine.rst lists "*cosine/omp*, *cosine/kk*" (not alphabetical) - too
+  minor to report.
+- CMake picks up the new files automatically via RegisterStylesExt in
+  cmake/Modules/Packages/KOKKOS.cmake:304, so the missing src/KOKKOS/Install.sh entries do
+  NOT break the CMake build (KOKKOS Install.sh's action() only removes stale files; the
+  legacy make build is refused outright). Reported as a low-severity rule issue only.
+
+Candidates considered and DROPPED (do not re-report):
+- 3*THIRD*eangle vs eangle in the newton_bond branch of charmm/cross/dipole/fourier/
+  fourier_simple/gaussian ev_tally: FP round-off only.
+- angle_cosine_shift_exp: opt1[i] is left uninitialised by the base coeff() when
+  doExpansion[i] is true, and the Kokkos coeff() copies it unconditionally. Harmless
+  (value is never read in that branch) and the same "uninitialised" state exists on the CPU.
+- angle_cosine_shift_exp base has a pre-existing CPU inconsistency (doExpansion threshold
+  0.001 in coeff() vs 0.01 in read_restart()); the Kokkos port mirrors the base faithfully,
+  so it is not a KOKKOS bug.
+- k_eatom/k_vatom declared DAT::ttransform_kkacc_1d while charmm uses a DeviceType-templated
+  TransformView: both are self-allocated dual views, allowed by rule 3.

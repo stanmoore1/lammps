@@ -1,0 +1,79 @@
+rules_C (datamask/sync-modify audit) progress notes
+===================================================
+Mechanism understood:
+ - VerletKokkos (src/KOKKOS/verlet_kokkos.cpp:156-190,246-280,438-505) syncs
+   atomKK->sync(space,style->datamask_read) before force->pair/bond/.../kspace compute
+   and atomKK->modified(space,style->datamask_modify) after.
+ - ModifyKokkos (modify_kokkos.cpp) does the same around every fix/compute hook.
+ - So a style may legitimately have datamask_read=EMPTY_MASK IF it does its own
+   atomKK->sync(execution_space, ...) inside each hook.  Many KOKKOS fixes do exactly that.
+ - AtomKokkos::sync/modified -> avecKK->sync/modified + fix_prop_atom.
+
+Scripts (all in this dir):
+ - scan.py/scan_report.json : file-level crude mask-vs-field diff (noisy)
+ - scan4.py/scan4.json      : per-function split (col-0 '{'..'}') + k_field use + sync/modified masks
+ - scan5.py/scan5.json      : view->field binding + write detection vs datamask_modify
+ - rep6.py/rep6.txt         : per-function "field used without covering sync/datamask_read"
+Sub-steps done: 1 (collect fields), 2 (datamasks), 3+4 script pass. Verification in progress.
+
+VERIFIED (step 3/4):
+ CONFIRMED: fix_wall_flow_kokkos.cpp:38 (V_MASK not in datamask_read, d_v partially written)
+ CONFIRMED: fix_wall_region_kokkos.cpp:98 (RADIUS_MASK missing, d_radius read for COLLOID)
+ CONFIRMED: pair_dpd_kokkos.cpp:179 (tag read in kernel, TAG_MASK never synced)
+ LOW: fix_wall_{harmonic,harmonic_outside,lj93,lj126,lj1043,morse}_kokkos + wall_region:
+      V_MASK in datamask_read but v never used (spurious)
+ LOW: fix_rx_kokkos.cpp:1583 h_mask host read w/o sync(Host,MASK_MASK) (diagnostics only)
+ LOW: fix_langevin_kokkos.cpp:765-766 modified(V_MASK)+k_lv.modify<Device>() but the kernel
+      (TallyEnergyFunctor/compute_energy_item) writes nothing
+ POSSIBLE: min_sd_kokkos.cpp:45 set_search_direction reads k_f device view w/o sync(Device,F_MASK)
+      (siblings min_cg:53, min_linesearch:104/180, quickmin:116, fire:126 all do)
+ FALSE POSITIVES (verified covered): fix_shardlow pre_neighbor, fix_rigid_small set_xv_kokkos
+      (extra_read at 1320-1327), fix_nve_asphere*, fix_brownian, fix_eos_table_rx pack/unpack
+      (callers sync), pair_hybrid_scaled (fmask), fix_reaxff_species (kokkosable=0 -> auto_sync),
+      verlet/min force_clear, pair_table*/compute_style (called from compute, dmr covers),
+      atom_vec_* sync/modified/sync_pinned/grow_pointers (these ARE the sync impl).
+Sub-steps 1-5 done. Next: step 6 (own DualView k_* modify/sync discipline) + step 7 (spurious modify).
+
+STEP 6 (own/atom DualView sync-modify) progress
+ - min_sd_kokkos.cpp:45 POSSIBLE -> FALSE POSITIVE: MinSDKokkos::iterate line 81 does
+   atomKK->sync(Device,F_MASK) before the first set_search_direction(), and every later
+   call is preceded by min_linesearch_kokkos.cpp:432/104/180 sync(Device,F_MASK).
+ - scripts added: scan9.py/scan9.json (flag/error DualView device->host discipline),
+   scan10.py/scan10.json (per-function host write without modify_host).
+ - scan10: only 3 hits, all false positives (comm_kokkos k_count sentinel; copy_swap_info
+   writes subviews of k_swap/k_swap2 which ARE modify_host'ed; npair k_mycutneighsq is
+   assigned to k_cutneighsq which is modify_host'ed at line 77).
+ - scan9 false positives: angle_class2/dihedral_class2/dihedral_class2xe/improper_class2
+   k_setflag* (coeff does modify_host, compute() syncs at lines ~100/122-127/93);
+   angle_spica k_setflag and pair_pod k_cutsq are never synced BUT their d_ views are
+   never dereferenced in any kernel (dead) -> not reported;
+   fix_neigh_history k_firstflag/k_firstvalue modify<Device> with no host read -> fine.
+ - scan8 "modify in coeff/init_one but sync only in setup fn": all hits have modify+sync
+   in the SAME function -> fine.  neighbor_kokkos k_cutneighsq/k_ex* are synced in
+   npair_kokkos.cpp:209-218.  atom_map k_map_* are synced by every consumer
+   (fix_cmap 175/178, fix_shake 221/224/249/252/401/404, fix_rigid_small 2583/2586).
+ CONFIRMED (new, k_mass family): atomKK->k_mass has NO mask bit in src/atom_masks.h and is
+   only ever modify_host()'ed (atom_kokkos.cpp:287-316), so each style must call
+   k_mass.sync<DeviceType>() itself (idiom: fix_nve_kokkos.cpp:45-46).  Files that
+   dereference the device k_mass view with NO sync anywhere:
+   fix_nve_limit(93,167) HIGH, fix_shake(639,865), fix_gravity(69), fix_momentum(72),
+   fix_dt_reset(71), fix_electron_stopping(84), fix_shardlow(219).
+   NOT a bug: fix_langevin binds `mass` (169,751) but never dereferences it.
+
+STEP 6/7 completion
+ - scan11.py/scan11.json (file-level device-modify vs host-read), scan12.py/scan12.json
+   (per-function host read of a device-modified k_* without sync_host): no new bugs;
+   comm k_buf_send, nbin_ssa k_bins/k_gbins/k_gbincount, fix_langevin k_flangevin,
+   fix_shake/fix_gjf/fix_spring_self/fix_ti_spring constructors all verified FP.
+ - scan10 host-write-without-modify_host: 3 hits, all FP (see above).
+ - Verified FP from rep6b leftovers: fix_property_atom grow_arrays (IARRAY/DARRAY handled
+   via the inner DualView handshake), variable_kokkos::atom_vector (sync_host(mask) at 78),
+   npair_trim_kokkos::trim_to_cpu (neighbor_kokkos.cpp:339 syncs Host,ALL_MASK for
+   non-kokkos lists), domain_kokkos::detached_atom_x (pointer compare only),
+   pair_table_rx::single (sync_host at 1225), pair_hybrid_scaled TORQUE (fmask),
+   pair_table_kokkos (separate d_table/h_table, deep_copy at 401), granular pair k_eatom
+   (d_eatom never written).
+ STEP 7 (spurious masks): fix_qeq_reaxff:65 X_MASK, fix_acks2_reaxff:60 X_MASK,
+   fix_wall_* V_MASK, fix_langevin:765-766.  fix_reaxff_species DVECTOR_MASK skipped
+   (kokkosable=0 -> auto_sync, already known).
+ Sub-steps 1-7 DONE.

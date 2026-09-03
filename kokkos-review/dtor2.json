@@ -1,0 +1,261 @@
+[
+ {
+  "class": "AngleCharmm",
+  "file": "src/MOLECULE/angle_charmm.cpp",
+  "line": 47,
+  "mentions_copymode": true,
+  "users": [
+   "AngleCharmmKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n    memory->destroy(k_ub);\n    memory->destroy(r_ub);\n  }"
+ },
+ {
+  "class": "AngleCosine",
+  "file": "src/MOLECULE/angle_cosine.cpp",
+  "line": 40,
+  "mentions_copymode": true,
+  "users": [
+   "AngleCosineKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n  }"
+ },
+ {
+  "class": "AngleHarmonic",
+  "file": "src/MOLECULE/angle_harmonic.cpp",
+  "line": 43,
+  "mentions_copymode": true,
+  "users": [
+   "AngleHarmonicKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n  }"
+ },
+ {
+  "class": "AngleSPICA",
+  "file": "src/CG-SPICA/angle_spica.cpp",
+  "line": 56,
+  "mentions_copymode": true,
+  "users": [
+   "AngleSPICAKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n    memory->destroy(repscale);\n\n    allocated = 0;\n  }"
+ },
+ {
+  "class": "BondFENE",
+  "file": "src/MOLECULE/bond_fene.cpp",
+  "line": 41,
+  "mentions_copymode": true,
+  "users": [
+   "BondFENEKokkos",
+   "BondFENENMKokkos"
+  ],
+  "nusers": 2,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n    memory->destroy(epsilon);\n    memory->destroy(sigma);\n  }"
+ },
+ {
+  "class": "BondFENENM",
+  "file": "src/EXTRA-MOLECULE/bond_fene_nm.cpp",
+  "line": 38,
+  "mentions_copymode": true,
+  "users": [
+   "BondFENENMKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(nn);\n    memory->destroy(mm);\n  }"
+ },
+ {
+  "class": "BondGaussian",
+  "file": "src/EXTRA-MOLECULE/bond_gaussian.cpp",
+  "line": 43,
+  "mentions_copymode": true,
+  "users": [
+   "BondGaussianKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(nterms);\n    memory->destroy(bond_temperature);\n    for (int i = 1; i <= atom->nbondtypes; i++) {\n      delete[] alpha[i];\n      delete[] width[i];\n      delete[] r0[i];\n    }\n    delete[] alpha;\n    delete[] width;\n    delete[] r0;\n  }"
+ },
+ {
+  "class": "BondGromos",
+  "file": "src/MOLECULE/bond_gromos.cpp",
+  "line": 41,
+  "mentions_copymode": true,
+  "users": [
+   "BondGromosKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n  }"
+ },
+ {
+  "class": "BondHarmonic",
+  "file": "src/MOLECULE/bond_harmonic.cpp",
+  "line": 36,
+  "mentions_copymode": true,
+  "users": [
+   "BondHarmonicKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n  }"
+ },
+ {
+  "class": "BondQuarticExp",
+  "file": "src/EXTRA-MOLECULE/bond_quartic_exp.cpp",
+  "line": 39,
+  "mentions_copymode": true,
+  "users": [
+   "BondQuarticExpKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(r0);\n    memory->destroy(k2);\n    memory->destroy(k3);\n    memory->destroy(k4);\n    memory->destroy(A);\n    memory->destroy(B);\n  }"
+ },
+ {
+  "class": "ComputeTemp",
+  "file": "src/compute_temp.cpp",
+  "line": 42,
+  "mentions_copymode": true,
+  "users": [
+   "ComputeTempKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (!copymode) delete[] vector;"
+ },
+ {
+  "class": "ComputeTempCOM",
+  "file": "src/compute_temp_com.cpp",
+  "line": 45,
+  "mentions_copymode": true,
+  "users": [
+   "ComputeTempCOMKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (!copymode)\n    delete [] vector;"
+ },
+ {
+  "class": "DihedralCharmm",
+  "file": "src/MOLECULE/dihedral_charmm.cpp",
+  "line": 52,
+  "mentions_copymode": true,
+  "users": [
+   "DihedralCharmmKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(multiplicity);\n    memory->destroy(shift);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n    memory->destroy(weight);\n  }"
+ },
+ {
+  "class": "DihedralCharmmfsw",
+  "file": "src/MOLECULE/dihedral_charmmfsw.cpp",
+  "line": 55,
+  "mentions_copymode": true,
+  "users": [
+   "DihedralCharmmfswKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(multiplicity);\n    memory->destroy(shift);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n    memory->destroy(weight);\n  }"
+ },
+ {
+  "class": "DihedralHarmonic",
+  "file": "src/MOLECULE/dihedral_harmonic.cpp",
+  "line": 44,
+  "mentions_copymode": true,
+  "users": [
+   "DihedralHarmonicKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(sign);\n    memory->destroy(multiplicity);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n  }"
+ },
+ {
+  "class": "DihedralMultiHarmonic",
+  "file": "src/MOLECULE/dihedral_multi_harmonic.cpp",
+  "line": 46,
+  "mentions_copymode": true,
+  "users": [
+   "DihedralMultiHarmonicKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(a1);\n    memory->destroy(a2);\n    memory->destroy(a3);\n    memory->destroy(a4);\n    memory->destroy(a5);\n  }"
+ },
+ {
+  "class": "DihedralOPLS",
+  "file": "src/MOLECULE/dihedral_opls.cpp",
+  "line": 47,
+  "mentions_copymode": true,
+  "users": [
+   "DihedralOPLSKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k1);\n    memory->destroy(k2);\n    memory->destroy(k3);\n    memory->destroy(k4);\n  }"
+ },
+ {
+  "class": "FixShardlow",
+  "file": "src/DPD-REACT/fix_shardlow.cpp",
+  "line": 118,
+  "mentions_copymode": false,
+  "users": [
+   "FixShardlowKokkos"
+  ],
+  "nusers": 1,
+  "body": "memory->destroy(rand_state);\n  maxRNG = 0;"
+ },
+ {
+  "class": "ImproperHarmonic",
+  "file": "src/MOLECULE/improper_harmonic.cpp",
+  "line": 47,
+  "mentions_copymode": true,
+  "users": [
+   "ImproperHarmonicKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(chi);\n  }"
+ },
+ {
+  "class": "NeighborKokkos",
+  "file": "src/KOKKOS/neighbor_kokkos.cpp",
+  "line": 52,
+  "mentions_copymode": true,
+  "users": [
+   "NeighborKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_cutneighsq,cutneighsq);\n    cutneighsq = nullptr;\n\n    memoryKK->destroy_kokkos(k_cutneighghostsq,cutneighghostsq);\n    cutneighghostsq = nullptr;\n\n    memoryKK->destroy_kokkos(k_ex_type,ex_type);\n    memoryKK->destroy_kokkos(k_ex1_type,ex1_type);\n    memoryKK->destroy_kokkos(k_ex2_type,ex2_type);\n    memoryKK->destroy_kokkos(k_ex_mol_group,ex_mol_group);\n    memoryKK->destroy_kokkos(k_ex1_bit,ex1_bit);\n    memoryKK->destroy_kokkos(k_ex2_bit,ex2_bit);\n    memoryKK->destroy_kokkos(k_ex_mol_bit,ex_mol_bit);\n    memoryKK->destroy_kokkos(k_ex_mol_intra,ex_mol_intra);\n  }"
+ },
+ {
+  "class": "Pair",
+  "file": "src/pair.cpp",
+  "line": 138,
+  "mentions_copymode": true,
+  "users": [
+   "PairADPKokkos",
+   "PairBeckKokkos",
+   "PairBondValKokkos",
+   "PairBondValVecKokkos",
+   "PairBornCoulDSFCSKokkos",
+   "PairBornCoulDSFKokkos"
+  ],
+  "nusers": 107,
+  "body": "num_tally_compute = 0;\n  memory->sfree((void *) list_tally_compute);\n  list_tally_compute = nullptr;\n\n  if (copymode) return;\n\n  if (elements)\n    for (int i = 0; i < nelements; i++) delete[] elements[i];\n  delete[] elements;\n\n  delete[] map;\n  memory->destroy(eatom);\n  memory->destroy(vatom);\n  memory->destroy(cvatom);"
+ },
+ {
+  "class": "PairCoulSlaterLong",
+  "file": "src/EXTRA-PAIR/pair_coul_slater_long.cpp",
+  "line": 46,
+  "mentions_copymode": true,
+  "users": [
+   "PairCoulSlaterLongKokkos"
+  ],
+  "nusers": 1,
+  "body": "if (!copymode) {\n    if (allocated) {\n      memory->destroy(setflag);\n      memory->destroy(cutsq);\n\n      memory->destroy(scale);\n    }\n  }"
+ },
+ {
+  "class": "PairPOD",
+  "file": "src/ML-POD/pair_pod.cpp",
+  "line": 107,
+  "mentions_copymode": false,
+  "users": [
+   "PairPODKokkos"
+  ],
+  "nusers": 1,
+  "body": "memory->destroy(rij);\n  memory->destroy(fij);\n  memory->destroy(ei);\n  memory->destroy(typeai);\n  memory->destroy(numij);\n  memory->destroy(idxi);\n  memory->destroy(ai);\n  memory->destroy(aj);\n  memory->destroy(ti);\n  memory->destroy(tj);\n  memory->destroy(Phi);\n  memory->destroy(rbf);\n  memory->destroy(rbfx);\n  memory->destroy(rbfy);\n  memory->destroy(rbfz);\n  memory->destroy(abf);\n  memory->destroy(abfx);\n  memory->destroy(abfy);\n  memory->destroy(abfz);\n  memory->destroy(abftm);\n  memory->destroy(sumU);\n  memory->destroy(forcecoeff);\n  memory->destroy(Centroids);\n  memory->destroy(Proj);\n  memory->destroy(bd);\n  memory->destroy(cb);\n  memory->destroy(bdd);\n  memory->destroy(pd);\n  memory->destroy(pdd);\n  memory->destroy(coefficients);\n  memory->destroy(pn3);\n  memory->destroy(pq3);\n  memory->destroy(pc3);\n  memory->destroy(pa4);\n  memory->destroy(pb4);\n  memory->destroy(pc4);\n  memory->destroy(ind33l);\n  memory->destroy(ind33r);\n  memory->destroy(ind34l);\n  memory->destroy(ind34r);\n  memory->destroy(ind44l);\n  memory->destroy(ind44r);\n  memory->destroy(elemindex);\n\n  delete fastpodptr;\n\n  if (allocated) {\n    memory->destroy(setflag);\n    memory->destroy(cutsq);\n  }"
+ }
+]

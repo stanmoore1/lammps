@@ -1,0 +1,16 @@
+angle_harmonic_kokkos.cpp
+angle_harmonic_kokkos.h
+angle_hybrid_kokkos.cpp
+angle_hybrid_kokkos.h
+angle_mm3_kokkos.cpp
+angle_mm3_kokkos.h
+angle_mwlc_kokkos.cpp
+angle_mwlc_kokkos.h
+angle_quartic_kokkos.cpp
+angle_quartic_kokkos.h
+angle_spica_kokkos.cpp
+angle_spica_kokkos.h
+angle_table_kokkos.cpp
+angle_table_kokkos.h
+atom_vec_spin_kokkos.cpp
+atom_vec_spin_kokkos.h

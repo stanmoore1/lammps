@@ -1,0 +1,8 @@
+npair_copy_kokkos.cpp
+npair_copy_kokkos.h
+npair_halffull_kokkos.cpp
+npair_halffull_kokkos.h
+npair_skip_kokkos.cpp
+npair_skip_kokkos.h
+npair_trim_kokkos.cpp
+npair_trim_kokkos.h

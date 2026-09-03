@@ -1,0 +1,3940 @@
+[
+ {
+  "file": "compute_gaussian_grid_local_kokkos.cpp",
+  "line": 283,
+  "kind": "bare-math",
+  "region": [
+   212,
+   286,
+   "devfunc"
+  ],
+  "code": "d_alocal(igrid, icol) += static_cast<KK_FLOAT>(d_prefacelem(jtype-1) * exp(-rsq * d_argfacelem(jtype-1)));"
+ },
+ {
+  "file": "compute_orientorder_atom_kokkos.cpp",
+  "line": 472,
+  "kind": "bare-math",
+  "region": [
+   461,
+   506,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rxymag = static_cast<KK_FLOAT>(sqrt(expphi.re*expphi.re+expphi.im*expphi.im));"
+ },
+ {
+  "file": "fix_acks2_reaxff_kokkos.cpp",
+  "line": 631,
+  "kind": "bare-math",
+  "region": [
+   587,
+   641,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "fix_acks2_reaxff_kokkos.cpp",
+  "line": 818,
+  "kind": "bare-math",
+  "region": [
+   657,
+   854,
+   "devfunc"
+  ],
+  "code": "s_r(team.team_rank(), idx) = sqrt(rsq);"
+ },
+ {
+  "file": "fix_acks2_reaxff_kokkos.cpp",
+  "line": 874,
+  "kind": "bare-math",
+  "region": [
+   862,
+   877,
+   "devfunc"
+  ],
+  "code": "denom = cbrt(denom);"
+ },
+ {
+  "file": "fix_acks2_reaxff_kokkos.cpp",
+  "line": 939,
+  "kind": "bare-math",
+  "region": [
+   886,
+   954,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "fix_acks2_reaxff_kokkos.cpp",
+  "line": 1134,
+  "kind": "bare-math",
+  "region": [
+   964,
+   1174,
+   "devfunc"
+  ],
+  "code": "s_r(team.team_rank(), idx) = sqrt(rsq);"
+ },
+ {
+  "file": "fix_eos_table_rx_kokkos.cpp",
+  "line": 420,
+  "kind": "std-math",
+  "region": [
+   385,
+   442,
+   "devfunc"
+  ],
+  "code": "if (std::isnan(f1) || std::isnan(f2)) k_error_flag.template view<DeviceType>()() = 2;"
+ },
+ {
+  "file": "fix_eos_table_rx_kokkos.cpp",
+  "line": 436,
+  "kind": "std-math",
+  "region": [
+   385,
+   442,
+   "devfunc"
+  ],
+  "code": "if (std::isnan(f1) || std::isnan(f2) || std::isnan(ui) || std::isnan(thetai) || std::isnan(t1) || std::isnan(t2))"
+ },
+ {
+  "file": "fix_langevin_kokkos.cpp",
+  "line": 579,
+  "kind": "bare-math",
+  "region": [
+   570,
+   607,
+   "devfunc"
+  ],
+  "code": "if (Tp_TSTYLEATOM) tsqrt_t = sqrt(static_cast<double>(d_tforce[i]));"
+ },
+ {
+  "file": "fix_langevin_kokkos.cpp",
+  "line": 589,
+  "kind": "bare-math",
+  "region": [
+   570,
+   607,
+   "devfunc"
+  ],
+  "code": "double gamma2 = sqrt(inertiaone) *"
+ },
+ {
+  "file": "fix_langevin_kokkos.cpp",
+  "line": 590,
+  "kind": "bare-math",
+  "region": [
+   570,
+   607,
+   "devfunc"
+  ],
+  "code": "sqrt(80.0 * static_cast<double>(boltz) / t_period / static_cast<double>(dt) / static_cast<double>(mvv2e)) / static_cast<double>(ftm2v);"
+ },
+ {
+  "file": "fix_langevin_kokkos.cpp",
+  "line": 593,
+  "kind": "bare-math",
+  "region": [
+   570,
+   607,
+   "devfunc"
+  ],
+  "code": "gamma2 *= 1.0 / sqrt(static_cast<double>(d_ratio(type(i)))) * tsqrt_t;"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 562,
+  "kind": "bare-math",
+  "region": [
+   550,
+   565,
+   "devfunc"
+  ],
+  "code": "denom = cbrt(denom);"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 783,
+  "kind": "bare-math",
+  "region": [
+   733,
+   1131,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 843,
+  "kind": "bare-math",
+  "region": [
+   733,
+   1131,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 1057,
+  "kind": "atomKK->",
+  "region": [
+   733,
+   1131,
+   "devfunc"
+  ],
+  "code": "atomKK->modified(execution_space,Q_MASK); // needed for auto_sync"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 1100,
+  "kind": "atomKK->",
+  "region": [
+   733,
+   1131,
+   "devfunc"
+  ],
+  "code": "atomKK->sync(Host,Q_MASK);"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 1101,
+  "kind": "atom->",
+  "region": [
+   733,
+   1131,
+   "devfunc"
+  ],
+  "code": "for (m = 0; m < n; m++) buf[m] = atom->q[list[m]];"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 1475,
+  "kind": "bare-math",
+  "region": [
+   1463,
+   1478,
+   "devfunc"
+  ],
+  "code": "denom = cbrt(denom);"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 1530,
+  "kind": "bare-math",
+  "region": [
+   1486,
+   1540,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "line": 1711,
+  "kind": "bare-math",
+  "region": [
+   1551,
+   1746,
+   "devfunc"
+  ],
+  "code": "s_r(team.team_rank(), idx) = sqrt(rsq);"
+ },
+ {
+  "file": "fix_rigid_small_kokkos.cpp",
+  "line": 903,
+  "kind": "bare-math",
+  "region": [
+   898,
+   935,
+   "lambda"
+  ],
+  "code": "double gamma2 = sqrt(b.mass) * tsqrt * sqrt(24.0*boltz/tp/dt/mvv2e) / ftm2v;"
+ },
+ {
+  "file": "fix_rigid_small_kokkos.cpp",
+  "line": 909,
+  "kind": "bare-math",
+  "region": [
+   898,
+   935,
+   "lambda"
+  ],
+  "code": "gamma2 = tsqrt * sqrt(24.0*boltz/tp/dt/mvv2e) / ftm2v;"
+ },
+ {
+  "file": "fix_rigid_small_kokkos.cpp",
+  "line": 921,
+  "kind": "bare-math",
+  "region": [
+   898,
+   935,
+   "lambda"
+  ],
+  "code": "sqrt(b.inertia[0])*gamma2*(rand_gen.drand()-0.5));"
+ },
+ {
+  "file": "fix_rigid_small_kokkos.cpp",
+  "line": 923,
+  "kind": "bare-math",
+  "region": [
+   898,
+   935,
+   "lambda"
+  ],
+  "code": "sqrt(b.inertia[1])*gamma2*(rand_gen.drand()-0.5));"
+ },
+ {
+  "file": "fix_rigid_small_kokkos.cpp",
+  "line": 925,
+  "kind": "bare-math",
+  "region": [
+   898,
+   935,
+   "lambda"
+  ],
+  "code": "sqrt(b.inertia[2])*gamma2*(rand_gen.drand()-0.5));"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 377,
+  "kind": "bare-math",
+  "region": [
+   285,
+   383,
+   "devfunc"
+  ],
+  "code": "rwk[k] = static_cast<KK_FLOAT>(fabs(r5 - r4));"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 397,
+  "kind": "bare-math",
+  "region": [
+   392,
+   471,
+   "devfunc"
+  ],
+  "code": "double hg = sqrt(hmin*hmax);"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 433,
+  "kind": "bare-math",
+  "region": [
+   392,
+   471,
+   "devfunc"
+  ],
+  "code": "double wterr = ydd / (relTol * fabs( static_cast<double>(y[k]) ) + absTol);"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 437,
+  "kind": "bare-math",
+  "region": [
+   392,
+   471,
+   "devfunc"
+  ],
+  "code": "yddnrm = sqrt( yddnrm / double(neq) );"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 446,
+  "kind": "bare-math",
+  "region": [
+   392,
+   471,
+   "devfunc"
+  ],
+  "code": "hnew = (yddnrm*hmax*hmax > 2.0) ? sqrt(2.0 / yddnrm) : sqrt(hg * hmax);"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 509,
+  "kind": "bare-math",
+  "region": [
+   478,
+   571,
+   "devfunc"
+  ],
+  "code": "while (fabs(t - t_stop) > tround) {"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 520,
+  "kind": "bare-math",
+  "region": [
+   478,
+   571,
+   "devfunc"
+  ],
+  "code": "const double wterr = static_cast<double>(eout[k]) / (relTol * fabs( static_cast<double>(y[k]) ) + absTol);"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 524,
+  "kind": "bare-math",
+  "region": [
+   478,
+   571,
+   "devfunc"
+  ],
+  "code": "double err = fmax( uround, sqrt( err2 / double(nspecies) ));"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 536,
+  "kind": "bare-math",
+  "region": [
+   478,
+   571,
+   "devfunc"
+  ],
+  "code": "double hfac = hsafe * sqrt( sqrt( 1.0 / err ) );"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1040,
+  "kind": "bare-math",
+  "region": [
+   1027,
+   1056,
+   "devfunc"
+  ],
+  "code": "rxnRateLawForward *= pow( concentration, static_cast<double>(d_kineticsData.stoichReactants(jrxn,ispecies)) );"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1086,
+  "kind": "powint",
+  "region": [
+   1065,
+   1143,
+   "devfunc"
+  ],
+  "code": "rxnRateLawForward = static_cast<double>(kFor[i] * powint( conc[ nuk(i,0) ], inu(i,0) ));"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1090,
+  "kind": "powint",
+  "region": [
+   1065,
+   1143,
+   "devfunc"
+  ],
+  "code": "rxnRateLawForward *= static_cast<double>(powint( conc[k], inu(i,kk) ));"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1285,
+  "kind": "bare-math",
+  "region": [
+   1263,
+   1337,
+   "devfunc"
+  ],
+  "code": "pow(theta, static_cast<double>(d_kineticsData.nArr(irxn))) *"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1286,
+  "kind": "bare-math",
+  "region": [
+   1263,
+   1337,
+   "devfunc"
+  ],
+  "code": "exp(-static_cast<double>(d_kineticsData.Ea(irxn)) / boltz / theta));"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1717,
+  "kind": "bare-math",
+  "region": [
+   1682,
+   1741,
+   "devfunc"
+  ],
+  "code": "const double rcut = sqrt( cutsq_ij );"
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "line": 1718,
+  "kind": "bare-math",
+  "region": [
+   1682,
+   1741,
+   "devfunc"
+  ],
+  "code": "double rij = sqrt(rsq);"
+ },
+ {
+  "file": "fix_wall_region_kokkos.cpp",
+  "line": 290,
+  "kind": "powint",
+  "region": [
+   277,
+   292,
+   "devfunc"
+  ],
+  "code": "fwallKK = coeff5_kk * r10inv * rinv - coeff6_kk * r4inv * rinv - coeff7_kk * powint(r + coeff4_kk, -4);"
+ },
+ {
+  "file": "fix_wall_region_kokkos.cpp",
+  "line": 291,
+  "kind": "powint",
+  "region": [
+   277,
+   292,
+   "devfunc"
+  ],
+  "code": "return coeff1_kk * r10inv - coeff2_kk * r4inv - coeff3_kk * powint(r + coeff4_kk, -3) - offset_kk;"
+ },
+ {
+  "file": "fix_wall_region_kokkos.cpp",
+  "line": 342,
+  "kind": "powint",
+  "region": [
+   324,
+   359,
+   "devfunc"
+  ],
+  "code": "(rad8 * rad + static_cast<KK_FLOAT>(27.0) * rad4 * rad2 * rad * r * r + static_cast<KK_FLOAT>(63.0) * rad4 * rad * powint(r, 4) +"
+ },
+ {
+  "file": "fix_wall_region_kokkos.cpp",
+  "line": 343,
+  "kind": "powint",
+  "region": [
+   324,
+   359,
+   "devfunc"
+  ],
+  "code": "static_cast<KK_FLOAT>(21.0) * rad2 * rad * powint(r, 6)) *"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 113,
+  "kind": "bare-math",
+  "region": [
+   109,
+   117,
+   "lambda"
+  ],
+  "code": "pfac[l * pfac_l2 + m] = sqrt((2.0 * l + 1.0) * pfac1) * powsign(m);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 137,
+  "kind": "bare-math",
+  "region": [
+   133,
+   149,
+   "lambda"
+  ],
+  "code": "-sqrt(((l + 1.0) * (l + 1.0) - m * m) / (2.0 * l + 1.0) / (2.0 * l + 3.0)) * l;"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 139,
+  "kind": "bare-math",
+  "region": [
+   133,
+   149,
+   "lambda"
+  ],
+  "code": "sqrt((l * l - m * m) / (2.0 * l - 1.0) / (2.0 * l + 1.0)) * (l + 1.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 141,
+  "kind": "bare-math",
+  "region": [
+   133,
+   149,
+   "lambda"
+  ],
+  "code": "-sqrt((l + m + 1.0) * (l + m + 2.0) / 2.0 / (2.0 * l + 1.0) / (2.0 * l + 3.0)) * l;"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 143,
+  "kind": "bare-math",
+  "region": [
+   133,
+   149,
+   "lambda"
+  ],
+  "code": "sqrt((l - m - 1.0) * (l - m) / 2.0 / (2.0 * l - 1.0) / (2.0 * l + 1.0)) * (l + 1.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 145,
+  "kind": "bare-math",
+  "region": [
+   133,
+   149,
+   "lambda"
+  ],
+  "code": "-sqrt((l - m + 1.0) * (l - m + 2.0) / 2.0 / (2.0 * l + 1.0) / (2.0 * l + 3.0)) * l;"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 147,
+  "kind": "bare-math",
+  "region": [
+   133,
+   149,
+   "lambda"
+  ],
+  "code": "sqrt((l + m - 1.0) * (l + m) / 2.0 / (2.0 * l - 1.0) / (2.0 * l + 1.0)) * (l + 1.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 178,
+  "kind": "bare-math",
+  "region": [
+   176,
+   179,
+   "lambda"
+  ],
+  "code": "rootpq[p * ldim + q] = sqrt(static_cast<double>(p) / q);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 364,
+  "kind": "bare-math",
+  "region": [
+   357,
+   376,
+   "devfunc"
+  ],
+  "code": "norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 409,
+  "kind": "bare-math",
+  "region": [
+   407,
+   410,
+   "devfunc"
+  ],
+  "code": "return 0.5 * (cos(MY_PI * Rij / Rc) + 1.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 419,
+  "kind": "bare-math",
+  "region": [
+   417,
+   420,
+   "devfunc"
+  ],
+  "code": "return -0.5 * MY_PI / Rc * sin(MY_PI * Rij / Rc);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 480,
+  "kind": "bare-math",
+  "region": [
+   470,
+   552,
+   "devfunc"
+  ],
+  "code": "phi = atan2(y, x);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 482,
+  "kind": "bare-math",
+  "region": [
+   470,
+   552,
+   "devfunc"
+  ],
+  "code": "atheta = cos(theta / 2);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 483,
+  "kind": "bare-math",
+  "region": [
+   470,
+   552,
+   "devfunc"
+  ],
+  "code": "btheta = sin(theta / 2);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 485,
+  "kind": "bare-math",
+  "region": [
+   470,
+   552,
+   "devfunc"
+  ],
+  "code": "aphi_r = cos(phi / 2);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 486,
+  "kind": "bare-math",
+  "region": [
+   470,
+   552,
+   "devfunc"
+  ],
+  "code": "aphi_i = sin(phi / 2);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 588,
+  "kind": "bare-math",
+  "region": [
+   580,
+   634,
+   "devfunc"
+  ],
+  "code": "double ri = sqrt(x * x + y * y + z * z);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 603,
+  "kind": "bare-math",
+  "region": [
+   580,
+   634,
+   "devfunc"
+  ],
+  "code": "x = cos((2 * i - 1) * pfac3);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 650,
+  "kind": "bare-math",
+  "region": [
+   641,
+   670,
+   "devfunc"
+  ],
+  "code": "double ri = sqrt(x * x + y * y + z * z);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 653,
+  "kind": "bare-math",
+  "region": [
+   641,
+   670,
+   "devfunc"
+  ],
+  "code": "double expfac = 4 * MY_PI * exp(-t_alpha * ri * ri);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 765,
+  "kind": "bare-math",
+  "region": [
+   746,
+   795,
+   "devfunc"
+  ],
+  "code": "double r = sqrt(x * x + y * y + z * z);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 900,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "double r = sqrt(x * x + y * y + z * z);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 941,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "double r = sqrt(x * x + y * y + z * z);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 962,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "double comj_i = 1.0 / sqrt(2.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 1004,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "if (fabs(m - 1.0) <= l - 1.0) {"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 1009,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "dYlm_r(i, 0) = 1.0 / sqrt(2.0) * (xcovm1_r - xcovpl1_r);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 1013,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "dYlm_i(i, 0) = 1.0 / sqrt(2.0) * (xcovm1_i - xcovpl1_i);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 1063,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "double norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);"
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "line": 1120,
+  "kind": "bare-math",
+  "region": [
+   877,
+   1147,
+   "devfunc"
+  ],
+  "code": "double norm = 2.0 * sqrt(2.0) * MY_PI / sqrt(2.0 * l + 1.0);"
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "line": 1178,
+  "kind": "bare-math",
+  "region": [
+   1175,
+   1228,
+   "devfunc"
+  ],
+  "code": "if (fabs(dx) > xprd_half) {"
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "line": 1184,
+  "kind": "bare-math",
+  "region": [
+   1175,
+   1228,
+   "devfunc"
+  ],
+  "code": "if (fabs(dy) > yprd_half) {"
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "line": 1190,
+  "kind": "bare-math",
+  "region": [
+   1175,
+   1228,
+   "devfunc"
+  ],
+  "code": "if (fabs(dz) > zprd_half) {"
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "line": 1198,
+  "kind": "bare-math",
+  "region": [
+   1175,
+   1228,
+   "devfunc"
+  ],
+  "code": "if (fabs(dz) > zprd_half) {"
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "line": 1211,
+  "kind": "bare-math",
+  "region": [
+   1175,
+   1228,
+   "devfunc"
+  ],
+  "code": "if (fabs(dy) > yprd_half) {"
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "line": 1222,
+  "kind": "bare-math",
+  "region": [
+   1175,
+   1228,
+   "devfunc"
+  ],
+  "code": "if (fabs(dx) > xprd_half) {"
+ },
+ {
+  "file": "npair_halffull_kokkos.cpp",
+  "line": 117,
+  "kind": "bare-math",
+  "region": [
+   88,
+   159,
+   "devfunc"
+  ],
+  "code": "if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {"
+ },
+ {
+  "file": "npair_halffull_kokkos.cpp",
+  "line": 119,
+  "kind": "bare-math",
+  "region": [
+   88,
+   159,
+   "devfunc"
+  ],
+  "code": "} else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {"
+ },
+ {
+  "file": "npair_kokkos.cpp",
+  "line": 538,
+  "kind": "bare-math",
+  "region": [
+   436,
+   594,
+   "devfunc"
+  ],
+  "code": "if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {"
+ },
+ {
+  "file": "npair_kokkos.cpp",
+  "line": 540,
+  "kind": "bare-math",
+  "region": [
+   436,
+   594,
+   "devfunc"
+  ],
+  "code": "} else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {"
+ },
+ {
+  "file": "npair_kokkos.cpp",
+  "line": 1264,
+  "kind": "bare-math",
+  "region": [
+   1150,
+   1331,
+   "devfunc"
+  ],
+  "code": "if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {"
+ },
+ {
+  "file": "npair_kokkos.cpp",
+  "line": 1266,
+  "kind": "bare-math",
+  "region": [
+   1150,
+   1331,
+   "devfunc"
+  ],
+  "code": "} else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {"
+ },
+ {
+  "file": "pair_beck_kokkos.cpp",
+  "line": 155,
+  "kind": "powint",
+  "region": [
+   144,
+   163,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT term2 = powint(term1,-5);"
+ },
+ {
+  "file": "pair_beck_kokkos.cpp",
+  "line": 182,
+  "kind": "powint",
+  "region": [
+   170,
+   186,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT term6 = powint(term1,-3);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 188,
+  "kind": "powint",
+  "region": [
+   144,
+   208,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g0 = powint(K3,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 189,
+  "kind": "powint",
+  "region": [
+   144,
+   208,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g1 = powint(K4,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 190,
+  "kind": "powint",
+  "region": [
+   144,
+   208,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g2 = powint(K5,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 191,
+  "kind": "powint",
+  "region": [
+   144,
+   208,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g3 = powint(K6,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 259,
+  "kind": "powint",
+  "region": [
+   215,
+   272,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g0 = powint(K3,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 260,
+  "kind": "powint",
+  "region": [
+   215,
+   272,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g1 = powint(K4,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 261,
+  "kind": "powint",
+  "region": [
+   215,
+   272,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g2 = powint(K5,-7);"
+ },
+ {
+  "file": "pair_colloid_kokkos.cpp",
+  "line": 262,
+  "kind": "powint",
+  "region": [
+   215,
+   272,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT g3 = powint(K6,-7);"
+ },
+ {
+  "file": "pair_eam_kokkos.cpp",
+  "line": 1005,
+  "kind": "bare-math",
+  "region": [
+   959,
+   1072,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 504,
+  "kind": "bare-math",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "rCut = sqrt(d_cutsq(itype,jtype));"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 581,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 583,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 585,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "forceExp6 = KK_FLOAT(nRep)*aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 588,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "evdwlOldEXP6_12 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 621,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 623,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 625,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "forceExp6 = KK_FLOAT(nRep)*aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 628,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "evdwlOldEXP6_21 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 676,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 678,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 680,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "evdwlEXP6_12 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 708,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 710,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 712,
+  "kind": "powint",
+  "region": [
+   397,
+   753,
+   "devfunc"
+  ],
+  "code": "evdwlEXP6_21 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 957,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 959,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 961,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "forceExp6 = KK_FLOAT(nRep)*aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 964,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "evdwlOldEXP6_12 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 997,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 999,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1001,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "forceExp6 = KK_FLOAT(nRep)*aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1004,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "evdwlOldEXP6_21 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1052,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1054,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1056,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "evdwlEXP6_12 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1084,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "aRep = win1*powint(rin1,nRep)/nRep;"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1086,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "uin1rep = aRep/powint(rin1,nRep);"
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "line": 1088,
+  "kind": "powint",
+  "region": [
+   770,
+   1133,
+   "devfunc"
+  ],
+  "code": "evdwlEXP6_21 = uin1 - uin1rep + aRep/powint(r,nRep);"
+ },
+ {
+  "file": "pair_mliap_kokkos.cpp",
+  "line": 358,
+  "kind": "atom->",
+  "region": [
+   358,
+   360,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,(atom->nlocal+atom->nghost)*vl), KOKKOS_LAMBDA (int i) {"
+ },
+ {
+  "file": "pair_mliap_kokkos.cpp",
+  "line": 384,
+  "kind": "atom->",
+  "region": [
+   384,
+   386,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,(atom->nlocal+atom->nghost)*vl), KOKKOS_LAMBDA (int i) {"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 459,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "x = atomKK->k_x.view<DeviceType>();"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 460,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "type = atomKK->k_type.view<DeviceType>();"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 461,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "rho = atomKK->k_rho.view<DeviceType>();"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 462,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "h_rho = atomKK->k_rho.view_host();"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 463,
+  "kind": "atom->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "nlocal = atom->nlocal;"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 465,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "atomKK->sync(execution_space,X_MASK | TYPE_MASK | DPDRHO_MASK);"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 474,
+  "kind": "atom->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "const bool one_type = (atom->ntypes == 1);"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 478,
+  "kind": "bare-math",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "rcut_type11 = sqrt(cutsq_type11);"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 483,
+  "kind": "atom->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "if (newton_pair) m += atom->nghost;"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 524,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "atomKK->modified(execution_space,DPDRHO_MASK);"
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "line": 532,
+  "kind": "atomKK->",
+  "region": [
+   284,
+   683,
+   "devfunc"
+  ],
+  "code": "atomKK->sync(execution_space,DPDRHO_MASK);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 927,
+  "kind": "bare-math",
+  "region": [
+   871,
+   968,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1339,
+  "kind": "bare-math",
+  "region": [
+   1325,
+   1346,
+   "devfunc"
+  ],
+  "code": "current_gamma = fabs(current_gamma);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1888,
+  "kind": "bare-math",
+  "region": [
+   1879,
+   1891,
+   "devfunc"
+  ],
+  "code": "fc = 0.5 + 7.5 / 2. * (x / 4. - pow(x, 3) / 6. + pow(x, 5) / 20.);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1889,
+  "kind": "bare-math",
+  "region": [
+   1879,
+   1891,
+   "devfunc"
+  ],
+  "code": "dfc = -7.5 / delta_in * (0.25 - x * x / 2.0 + pow(x, 4) / 4.);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1903,
+  "kind": "bare-math",
+  "region": [
+   1899,
+   1923,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT lambda = pow(1.0 / w, m - 1.0);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1907,
+  "kind": "bare-math",
+  "region": [
+   1899,
+   1923,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT am = pow(a, m);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1908,
+  "kind": "bare-math",
+  "region": [
+   1899,
+   1923,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT w3x3 = pow(w * a, 3); //// use cube"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1913,
+  "kind": "bare-math",
+  "region": [
+   1899,
+   1923,
+   "devfunc"
+  ],
+  "code": "g = exp(-w3x3);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1918,
+  "kind": "bare-math",
+  "region": [
+   1899,
+   1923,
+   "devfunc"
+  ],
+  "code": "DF = m * pow(a, m - 1.0) * omg - am * dg + lambda * dg * a + lambda * g;"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1939,
+  "kind": "bare-math",
+  "region": [
+   1931,
+   1947,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT exprho = exp(-a);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1941,
+  "kind": "bare-math",
+  "region": [
+   1931,
+   1947,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT xoff = pow(nx, (nx / (1.0 - nx))) * exprho;"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1942,
+  "kind": "bare-math",
+  "region": [
+   1931,
+   1947,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT yoff = pow(nx, (1 / (1.0 - nx))) * exprho;"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1944,
+  "kind": "bare-math",
+  "region": [
+   1931,
+   1947,
+   "devfunc"
+  ],
+  "code": "F = sign_factor * (pow(xoff + a, mexp) - yoff);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 1945,
+  "kind": "bare-math",
+  "region": [
+   1931,
+   1947,
+   "devfunc"
+  ],
+  "code": "DF = yoff + mexp * (-xoff + 1.0) * pow(xoff + a, mexp - 1.);"
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "line": 2050,
+  "kind": "bare-math",
+  "region": [
+   2046,
+   2073,
+   "devfunc"
+  ],
+  "code": "int nl = static_cast<int>(floor(x));"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 1330,
+  "kind": "bare-math",
+  "region": [
+   1274,
+   1371,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT r = sqrt(rsq);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3085,
+  "kind": "bare-math",
+  "region": [
+   3081,
+   3106,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT lambda = pow(1.0 / w, m - 1.0);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3089,
+  "kind": "bare-math",
+  "region": [
+   3081,
+   3106,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT am = pow(a, m);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3096,
+  "kind": "bare-math",
+  "region": [
+   3081,
+   3106,
+   "devfunc"
+  ],
+  "code": "g = exp(-w3x3);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3101,
+  "kind": "bare-math",
+  "region": [
+   3081,
+   3106,
+   "devfunc"
+  ],
+  "code": "DF = m * pow(a, m - 1.0) * omg - am * dg + lambda * dg * a + lambda * g;"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3122,
+  "kind": "bare-math",
+  "region": [
+   3114,
+   3130,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT exprho = exp(-a);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3124,
+  "kind": "bare-math",
+  "region": [
+   3114,
+   3130,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT xoff = pow(nx, (nx / (1.0 - nx))) * exprho;"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3125,
+  "kind": "bare-math",
+  "region": [
+   3114,
+   3130,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT yoff = pow(nx, (1 / (1.0 - nx))) * exprho;"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3127,
+  "kind": "bare-math",
+  "region": [
+   3114,
+   3130,
+   "devfunc"
+  ],
+  "code": "F = sign_factor * (pow(xoff + a, mexp) - yoff);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3128,
+  "kind": "bare-math",
+  "region": [
+   3114,
+   3130,
+   "devfunc"
+  ],
+  "code": "DF = yoff + mexp * (-xoff + 1.0) * pow(xoff + a, mexp - 1.);"
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "line": 3231,
+  "kind": "bare-math",
+  "region": [
+   3227,
+   3252,
+   "devfunc"
+  ],
+  "code": "int nl = static_cast<int>(floor(x));"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 632,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double dij = sqrt(xij1*xij1 + xij2*xij2 + xij3*xij3);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 643,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double y5 = sqrt(y4);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 644,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double y6 = exp(-1.0/y5);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 645,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double y7 = y4*sqrt(y4);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 648,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double fcut = y6/exp(-1.0);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 651,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double dfcut = ((3.0/(l_rmax*exp(-1.0)))*(y2)*y6*(y*y2 - 1.0))/y7;"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 659,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double t1 = (1.0-exp(-alpha));"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 660,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double t2 = exp(-alpha*r/l_rmax);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 665,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "t1 = (1.0-exp(-alpha));"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 666,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "t2 = exp(-alpha*r/l_rmax);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 671,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "t1 = (1.0-exp(-alpha));"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 672,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "t2 = exp(-alpha*r/l_rmax);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 678,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double b = (sqrt(2.0/(l_rmax))/(i+1));"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 681,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double sinax = sin(a*x0);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 684,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "double drbftdr = b*(df1*sinax - f2*sinax + af1*cos(a*x0)*dx0);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 689,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "sinax = sin(a*x1);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 692,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "drbftdr = b*(df1*sinax - f2*sinax + af1*cos(a*x1)*dx1);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 697,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "sinax = sin(a*x2);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 700,
+  "kind": "bare-math",
+  "region": [
+   627,
+   721,
+   "lambda"
+  ],
+  "code": "drbftdr = b*(df1*sinax - f2*sinax + af1*cos(a*x2)*dx2);"
+ },
+ {
+  "file": "pair_pod_kokkos.cpp",
+  "line": 754,
+  "kind": "bare-math",
+  "region": [
+   742,
+   813,
+   "lambda"
+  ],
+  "code": "double dij = sqrt(xx + yy + zz);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1217,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsq);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1243,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "tmp_var = pow(rij,gp[28]-static_cast<KK_FLOAT>(2.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1245,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "powgi_vdw = pow(static_cast<KK_FLOAT>(1.0)/gamma_w,gp[28]);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1246,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "dfn13 = pow(powr_vdw+powgi_vdw,static_cast<KK_FLOAT>(1.0)/gp[28]-static_cast<KK_FLOAT>(1.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1250,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "exp2 = exp(static_cast<KK_FLOAT>(0.5)*alpha*(static_cast<KK_FLOAT>(1.0)-fn13/r_vdw));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1256,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "exp2 = exp(static_cast<KK_FLOAT>(0.5)*alpha*(static_cast<KK_FLOAT>(1.0)-rij/r_vdw));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1267,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT e_core = ecore*exp(acore*(static_cast<KK_FLOAT>(1.0)-(rij/rcore)));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1288,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT denom3 = cbrt(denom1);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1303,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT bond_softness = gp[34] * pow( d, static_cast<KK_FLOAT>(3.0) )"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1304,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "* pow( static_cast<KK_FLOAT>(1.0) - d, static_cast<KK_FLOAT>(6.0) );"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1318,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "* static_cast<KK_FLOAT>(3.0) / xcut * pow( d, static_cast<KK_FLOAT>(2.0) )"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1319,
+  "kind": "bare-math",
+  "region": [
+   1168,
+   1349,
+   "devfunc"
+  ],
+  "code": "* pow( static_cast<KK_FLOAT>(1.0) - d, static_cast<KK_FLOAT>(5.0) ) * (static_cast<KK_FLOAT>(1.0) - static_cast<KK_FLOAT>(3.0) * d);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1411,
+  "kind": "bare-math",
+  "region": [
+   1366,
+   1503,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsq);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1457,
+  "kind": "bare-math",
+  "region": [
+   1366,
+   1503,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT bond_softness = gp[34] * pow( d, static_cast<KK_FLOAT>(3.0) )"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1458,
+  "kind": "bare-math",
+  "region": [
+   1366,
+   1503,
+   "devfunc"
+  ],
+  "code": "* pow( static_cast<KK_FLOAT>(1.0) - d, static_cast<KK_FLOAT>(6.0) );"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1472,
+  "kind": "bare-math",
+  "region": [
+   1366,
+   1503,
+   "devfunc"
+  ],
+  "code": "* static_cast<KK_FLOAT>(3.0) / xcut * pow( d, static_cast<KK_FLOAT>(2.0) )"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1473,
+  "kind": "bare-math",
+  "region": [
+   1366,
+   1503,
+   "devfunc"
+  ],
+  "code": "* pow( static_cast<KK_FLOAT>(1.0) - d, static_cast<KK_FLOAT>(5.0) ) * (static_cast<KK_FLOAT>(1.0) - static_cast<KK_FLOAT>(3.0) * d);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1677,
+  "kind": "bare-math",
+  "region": [
+   1607,
+   1742,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsq);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1813,
+  "kind": "bare-math",
+  "region": [
+   1750,
+   1830,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsq);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1871,
+  "kind": "bare-math",
+  "region": [
+   1838,
+   1888,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsq);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 1992,
+  "kind": "bare-math",
+  "region": [
+   1968,
+   2034,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsq);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2052,
+  "kind": "bare-math",
+  "region": [
+   2042,
+   2066,
+   "devfunc"
+  ],
+  "code": "C12 = p_bo1 * ((p_bo2 != 0) ? (pow(rij/r_s,p_bo2)) : static_cast<KK_FLOAT>(1.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2053,
+  "kind": "bare-math",
+  "region": [
+   2042,
+   2066,
+   "devfunc"
+  ],
+  "code": "BO_s = (static_cast<KK_FLOAT>(1.0)+bo_cut)*exp(C12);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2057,
+  "kind": "bare-math",
+  "region": [
+   2042,
+   2066,
+   "devfunc"
+  ],
+  "code": "C34 = p_bo3 * ((p_bo4 != 0) ? (pow(rij/r_pi,p_bo4)) : static_cast<KK_FLOAT>(1.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2058,
+  "kind": "bare-math",
+  "region": [
+   2042,
+   2066,
+   "devfunc"
+  ],
+  "code": "BO_pi = exp(C34);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2062,
+  "kind": "bare-math",
+  "region": [
+   2042,
+   2066,
+   "devfunc"
+  ],
+  "code": "C56 = p_bo5 * ((p_bo6 != 0) ? (pow(rij/r_pi2,p_bo6)) : static_cast<KK_FLOAT>(1.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2063,
+  "kind": "bare-math",
+  "region": [
+   2042,
+   2066,
+   "devfunc"
+  ],
+  "code": "BO_pi2 = exp(C56);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2135,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "exp_p1i = exp((double)(-p_boc1 * d_Deltap[i]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2136,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "exp_p2i = exp((double)(-p_boc2 * d_Deltap[i]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2137,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "exp_p1j = exp((double)(-p_boc1 * d_Deltap[j]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2138,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "exp_p2j = exp((double)(-p_boc2 * d_Deltap[j]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2141,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "f3 = -1.0/p_boc2*log(0.5*(exp_p2i+exp_p2j));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2158,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "exp_f4 =exp((double)(-(p_boc4*(d_BO(i,j_index)*d_BO(i,j_index))-d_Deltap_boc[i])*p_boc3+p_boc5));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2159,
+  "kind": "bare-math",
+  "region": [
+   2088,
+   2212,
+   "devfunc"
+  ],
+  "code": "exp_f5 =exp((double)(-(p_boc4*(d_BO(i,j_index)*d_BO(i,j_index))-d_Deltap_boc[j])*p_boc3+p_boc5));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2231,
+  "kind": "bare-math",
+  "region": [
+   2219,
+   2247,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT explp1 = exp(-gp[15] * SQR(2.0 + vlpex));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2315,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const double expvd2 = exp(-75.0 * (double)d_Delta_lp[i]);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2334,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const double exp_ovun1 = p_ovun3 * exp((double)(p_ovun4 * d_sum_ovun(i,2)));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2338,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const double exp_ovun2 = exp((double)(p_ovun2 * Delta_lpcorr));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2357,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const double exp_ovun6 = exp((double)(p_ovun6 * Delta_lpcorr));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2358,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const double exp_ovun8 = p_ovun7 * exp((double)(p_ovun8 * d_sum_ovun(i,2)));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2399,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT vov3 = d_BO(i,j_index) - Di - 0.040*pow(Di,4.0);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2403,
+  "kind": "bare-math",
+  "region": [
+   2287,
+   2423,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT deahu2dsbo = 2.0 * p_lp3 * (vov3 - 3.0) * (-1.0 - 0.16 * pow(Di,3.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2505,
+  "kind": "bare-math",
+  "region": [
+   2488,
+   2544,
+   "devfunc"
+  ],
+  "code": "prod_SBO *= exp(-temp);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2512,
+  "kind": "bare-math",
+  "region": [
+   2488,
+   2544,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT explp1 = exp(-gp[15] * SQR(2.0 + vlpex));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2529,
+  "kind": "bare-math",
+  "region": [
+   2488,
+   2544,
+   "devfunc"
+  ],
+  "code": "SBO2 = pow(SBO, p_val9);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2530,
+  "kind": "bare-math",
+  "region": [
+   2488,
+   2544,
+   "devfunc"
+  ],
+  "code": "CSBO2 = p_val9 * pow(SBO, p_val9 - 1.0);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2532,
+  "kind": "bare-math",
+  "region": [
+   2488,
+   2544,
+   "devfunc"
+  ],
+  "code": "SBO2 = 2.0 - pow(2.0-SBO, p_val9);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2533,
+  "kind": "bare-math",
+  "region": [
+   2488,
+   2544,
+   "devfunc"
+  ],
+  "code": "CSBO2 = p_val9 * pow(2.0 - SBO, p_val9 - 1.0);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2580,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "if (fabs(p_val1) <= 0.001) continue;"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2765,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "expval6 = exp((double)(p_val6 * d_Delta_boc[i]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2775,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "rij = sqrt(rsqij);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2789,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rik = sqrt(rsqik);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2811,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "sin_theta = sin(theta);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2823,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp3ij = exp(-p_val3 * pow(BOA_ij, p_val4));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2825,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "Cf7ij = p_val3 * p_val4 * pow(BOA_ij, p_val4 - 1.0) * exp3ij;"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2826,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp3jk = exp(-p_val3 * pow(BOA_ik, p_val4));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2828,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "Cf7jk = p_val3 * p_val4 * pow(BOA_ik, p_val4 - 1.0) * exp3jk;"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2829,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "expval7 = exp((double)(-p_val7 * d_Delta_boc[i]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2834,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "theta_0 = 180.0 - theta_00 * (1.0 - exp(-p_val10 * (2.0 - SBO2)));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2837,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "expval2theta  = exp(-p_val2 * (theta_0-theta)*(theta_0-theta));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2847,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "Ctheta_0 = p_val10 * theta_00*constPI/180.0 * exp(-p_val10 * (2.0 - SBO2));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2860,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp_pen2ij = exp(-p_pen2 * (BOA_ij - 2.0)*(BOA_ij - 2.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2861,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp_pen2jk = exp(-p_pen2 * (BOA_ik - 2.0)*(BOA_ik - 2.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2862,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp_pen3 = exp((double)(-p_pen3 * d_Delta[i]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2863,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp_pen4 = exp((double)(p_pen4 * d_Delta[i]));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2880,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp_coa2 = exp((double)(p_coa2 * Delta_val));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2882,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp(-p_coa3 * SQR(d_total_bo[j]-BOA_ij)) *"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2883,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp(-p_coa3 * SQR(d_total_bo[k]-BOA_ik)) *"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2884,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp(-p_coa4 * SQR(BOA_ij - 1.5)) *"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 2885,
+  "kind": "bare-math",
+  "region": [
+   2552,
+   2951,
+   "devfunc"
+  ],
+  "code": "exp(-p_coa4 * SQR(BOA_ik - 1.5));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3013,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsqij);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3017,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_tor2_ij = exp(-p_tor2 * BOA_ij);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3018,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_cot2_ij = exp(-p_cot2 * SQR(BOA_ij - 1.5));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3019,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_tor3_DiDj = exp((double)(-p_tor3 * (Delta_i + Delta_j)));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3020,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_tor4_DiDj = exp((double)(p_tor4  * (Delta_i + Delta_j)));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3031,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rik = sqrt(rsqik);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3048,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "sin_ijk = sin(theta_ijk);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3055,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_tor2_ik = exp(-p_tor2 * BOA_ik);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3056,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_cot2_ik = exp(-p_cot2 * SQR(BOA_ik -1.5));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3064,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rjl = sqrt(rsqjl);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3082,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "sin_jil = sin(theta_jil);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3091,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rlk = sqrt(rsqlk);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3121,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "omega = atan2(unnorm_sin_omega, unnorm_cos_omega);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3143,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "cos_omega = cos(omega);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3144,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "cos2omega = cos(2. * omega);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3145,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "cos3omega = cos(3. * omega);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3155,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_tor1 = exp(p_tor1 * SQR(2.0 - d_BO_pi(i,j_index) - f11_DiDj));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3156,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_tor2_jl = exp(-p_tor2 * BOA_jl);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3157,
+  "kind": "bare-math",
+  "region": [
+   2953,
+   3285,
+   "devfunc"
+  ],
+  "code": "exp_cot2_jl = exp(-p_cot2 * SQR(BOA_jl - 1.5));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3355,
+  "kind": "bare-math",
+  "region": [
+   3303,
+   3434,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rik = sqrt(rsqik);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3371,
+  "kind": "bare-math",
+  "region": [
+   3303,
+   3434,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT rij = sqrt(rsqij);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3394,
+  "kind": "bare-math",
+  "region": [
+   3303,
+   3434,
+   "devfunc"
+  ],
+  "code": "sin_theta2 = sin(theta/2.0);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3398,
+  "kind": "bare-math",
+  "region": [
+   3303,
+   3434,
+   "devfunc"
+  ],
+  "code": "exp_hb2 = exp(-p_hb2 * bo_ij);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3399,
+  "kind": "bare-math",
+  "region": [
+   3303,
+   3434,
+   "devfunc"
+  ],
+  "code": "exp_hb3 = exp(-p_hb3 * (r0_hb/rik + rik/r0_hb - 2.0));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3557,
+  "kind": "bare-math",
+  "region": [
+   3508,
+   3606,
+   "devfunc"
+  ],
+  "code": "else pow_BOs_be2 = pow(BO_s_i,p_be2);"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3558,
+  "kind": "bare-math",
+  "region": [
+   3508,
+   3606,
+   "devfunc"
+  ],
+  "code": "exp_be12 = exp(p_be1*(1.0-pow_BOs_be2));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3579,
+  "kind": "bare-math",
+  "region": [
+   3508,
+   3606,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT exphu = exp(-gp[7] * SQR(BO_i - 2.50));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3580,
+  "kind": "bare-math",
+  "region": [
+   3508,
+   3606,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT exphua1 = exp(-gp[3] * (d_total_bo[i]-BO_i));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3581,
+  "kind": "bare-math",
+  "region": [
+   3508,
+   3606,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT exphub1 = exp(-gp[3] * (d_total_bo[j]-BO_i));"
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "line": 3582,
+  "kind": "bare-math",
+  "region": [
+   3508,
+   3606,
+   "devfunc"
+  ],
+  "code": "const KK_FLOAT exphuov = exp(gp[4] * (d_Delta[i] + d_Delta[j]));"
+ },
+ {
+  "file": "pair_tersoff_zbl_kokkos.cpp",
+  "line": 407,
+  "kind": "bare-math",
+  "region": [
+   343,
+   544,
+   "devfunc"
+  ],
+  "code": "static_cast<KK_FLOAT>(pow(d_params(iparam_ij).Z_i,0.23) + pow(d_params(iparam_ij).Z_j,0.23));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1080,
+  "kind": "bare-math",
+  "region": [
+   1069,
+   1121,
+   "devfunc"
+  ],
+  "code": "const double snz = square(sin(0.5*unitkz*mper*zprd_slab/nz_pppm));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1083,
+  "kind": "bare-math",
+  "region": [
+   1069,
+   1121,
+   "devfunc"
+  ],
+  "code": "const double sny = square(sin(0.5*unitky*lper*yprd/ny_pppm));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1086,
+  "kind": "bare-math",
+  "region": [
+   1069,
+   1121,
+   "devfunc"
+  ],
+  "code": "const double snx = square(sin(0.5*unitkx*kper*xprd/nx_pppm));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1097,
+  "kind": "bare-math",
+  "region": [
+   1069,
+   1121,
+   "devfunc"
+  ],
+  "code": "const double sx = exp(-0.25*square(qx/g_ewald));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1103,
+  "kind": "bare-math",
+  "region": [
+   1069,
+   1121,
+   "devfunc"
+  ],
+  "code": "const double sy = exp(-0.25*square(qy/g_ewald));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1109,
+  "kind": "bare-math",
+  "region": [
+   1069,
+   1121,
+   "devfunc"
+  ],
+  "code": "const double sz = exp(-0.25*square(qz/g_ewald));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1166,
+  "kind": "bare-math",
+  "region": [
+   1160,
+   1226,
+   "devfunc"
+  ],
+  "code": "const double snz = square(sin(MY_PI*mper/nz_pppm));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1170,
+  "kind": "bare-math",
+  "region": [
+   1160,
+   1226,
+   "devfunc"
+  ],
+  "code": "const double sny = square(sin(MY_PI*lper/ny_pppm));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1174,
+  "kind": "bare-math",
+  "region": [
+   1160,
+   1226,
+   "devfunc"
+  ],
+  "code": "const double snx = square(sin(MY_PI*kper/nx_pppm));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1208,
+  "kind": "bare-math",
+  "region": [
+   1160,
+   1226,
+   "devfunc"
+  ],
+  "code": "const double sx = exp(-0.25*square(qx / g_ewald));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1211,
+  "kind": "bare-math",
+  "region": [
+   1160,
+   1226,
+   "devfunc"
+  ],
+  "code": "const double sy = exp(-0.25*square(qy / g_ewald));"
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "line": 1214,
+  "kind": "bare-math",
+  "region": [
+   1160,
+   1226,
+   "devfunc"
+  ],
+  "code": "const double sz = exp(-0.25*square(qz / g_ewald));"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 55,
+  "kind": "atom->",
+  "region": [
+   55,
+   57,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_one) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 66,
+  "kind": "atom->",
+  "region": [
+   66,
+   68,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_one) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 103,
+  "kind": "atom->",
+  "region": [
+   103,
+   115,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_cmx, double &l_cmy, double &l_cmz) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 124,
+  "kind": "atom->",
+  "region": [
+   124,
+   136,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_cmx, double &l_cmy, double &l_cmz) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 175,
+  "kind": "atom->",
+  "region": [
+   175,
+   188,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_rg) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 197,
+  "kind": "atom->",
+  "region": [
+   197,
+   210,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_rg) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 307,
+  "kind": "atom->",
+  "region": [
+   307,
+   314,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 323,
+  "kind": "atom->",
+  "region": [
+   323,
+   330,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 371,
+  "kind": "atom->",
+  "region": [
+   371,
+   386,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 395,
+  "kind": "atom->",
+  "region": [
+   395,
+   410,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 446,
+  "kind": "atom->",
+  "region": [
+   446,
+   464,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_i00, double &l_i11, double &l_i22, double &l_i01, "
+ },
+ {
+  "file": "group_kokkos.h",
+  "line": 473,
+  "kind": "atom->",
+  "region": [
+   473,
+   491,
+   "lambda"
+  ],
+  "code": "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_i00, double &l_i11, double &l_i22, double &l_i01, "
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 526,
+  "kind": "bare-math",
+  "region": [
+   525,
+   531,
+   "devfunc"
+  ],
+  "code": "double norm = 1.0 / sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);"
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 722,
+  "kind": "bare-math",
+  "region": [
+   710,
+   744,
+   "devfunc"
+  ],
+  "code": "q[0] = sqrt(q0sq);"
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 727,
+  "kind": "bare-math",
+  "region": [
+   710,
+   744,
+   "devfunc"
+  ],
+  "code": "q[1] = sqrt(q1sq);"
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 732,
+  "kind": "bare-math",
+  "region": [
+   710,
+   744,
+   "devfunc"
+  ],
+  "code": "q[2] = sqrt(q2sq);"
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 737,
+  "kind": "bare-math",
+  "region": [
+   710,
+   744,
+   "devfunc"
+  ],
+  "code": "q[3] = sqrt(q3sq);"
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 824,
+  "kind": "bare-math",
+  "region": [
+   797,
+   838,
+   "devfunc"
+  ],
+  "code": "c_phi = cos(static_cast<double>(dt) * phi);"
+ },
+ {
+  "file": "math_extra_kokkos.h",
+  "line": 825,
+  "kind": "bare-math",
+  "region": [
+   797,
+   838,
+   "devfunc"
+  ],
+  "code": "s_phi = sin(static_cast<double>(dt) * phi);"
+ },
+ {
+  "file": "math_special_kokkos.h",
+  "line": 93,
+  "kind": "bare-math",
+  "region": [
+   77,
+   113,
+   "devfunc"
+  ],
+  "code": "ipart = floor(x+0.5);"
+ },
+ {
+  "file": "math_special_kokkos.h",
+  "line": 111,
+  "kind": "bare-math",
+  "region": [
+   77,
+   113,
+   "devfunc"
+  ],
+  "code": "return pow(2.0, x);"
+ },
+ {
+  "file": "math_special_kokkos.h",
+  "line": 253,
+  "kind": "bare-math",
+  "region": [
+   248,
+   259,
+   "devfunc"
+  ],
+  "code": "ww = sin(x) / x;"
+ },
+ {
+  "file": "meam_funcs_kokkos.h",
+  "line": 144,
+  "kind": "bare-math",
+  "region": [
+   39,
+   304,
+   "devfunc"
+  ],
+  "code": "a = azero / static_cast<KK_FLOAT>(pow(z1, 0.23) + pow(z2, 0.23));"
+ },
+ {
+  "file": "npair_kokkos.h",
+  "line": 421,
+  "kind": "bare-math",
+  "region": [
+   420,
+   425,
+   "devfunc"
+  ],
+  "code": "if (xperiodic && fabs(dx) > xprd_half) return 1;"
+ },
+ {
+  "file": "npair_kokkos.h",
+  "line": 422,
+  "kind": "bare-math",
+  "region": [
+   420,
+   425,
+   "devfunc"
+  ],
+  "code": "if (yperiodic && fabs(dy) > yprd_half) return 1;"
+ },
+ {
+  "file": "npair_kokkos.h",
+  "line": 423,
+  "kind": "bare-math",
+  "region": [
+   420,
+   425,
+   "devfunc"
+  ],
+  "code": "if (zperiodic && fabs(dz) > zprd_half) return 1;"
+ },
+ {
+  "file": "npair_ssa_kokkos.h",
+  "line": 343,
+  "kind": "bare-math",
+  "region": [
+   342,
+   347,
+   "devfunc"
+  ],
+  "code": "if (xperiodic && fabs(dx) > xprd_half) return 1;"
+ },
+ {
+  "file": "npair_ssa_kokkos.h",
+  "line": 344,
+  "kind": "bare-math",
+  "region": [
+   342,
+   347,
+   "devfunc"
+  ],
+  "code": "if (yperiodic && fabs(dy) > yprd_half) return 1;"
+ },
+ {
+  "file": "npair_ssa_kokkos.h",
+  "line": 345,
+  "kind": "bare-math",
+  "region": [
+   342,
+   347,
+   "devfunc"
+  ],
+  "code": "if (zperiodic && fabs(dz) > zprd_half) return 1;"
+ },
+ {
+  "file": "region_block_kokkos.h",
+  "line": 273,
+  "kind": "bare-math",
+  "region": [
+   269,
+   278,
+   "devfunc"
+  ],
+  "code": "contact[n].r = sqrt(delx * delx + dely * dely + delz * delz);"
+ },
+ {
+  "file": "region_block_kokkos.h",
+  "line": 319,
+  "kind": "bare-math",
+  "region": [
+   316,
+   340,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_block_kokkos.h",
+  "line": 320,
+  "kind": "bare-math",
+  "region": [
+   316,
+   340,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "region_cone_kokkos.h",
+  "line": 85,
+  "kind": "bare-math",
+  "region": [
+   79,
+   102,
+   "devfunc"
+  ],
+  "code": "dist = sqrt(del1 * del1 + del2 * del2);"
+ },
+ {
+  "file": "region_cone_kokkos.h",
+  "line": 91,
+  "kind": "bare-math",
+  "region": [
+   79,
+   102,
+   "devfunc"
+  ],
+  "code": "dist = sqrt(del1 * del1 + del2 * del2);"
+ },
+ {
+  "file": "region_cone_kokkos.h",
+  "line": 97,
+  "kind": "bare-math",
+  "region": [
+   79,
+   102,
+   "devfunc"
+  ],
+  "code": "dist = sqrt(del1 * del1 + del2 * del2);"
+ },
+ {
+  "file": "region_cone_kokkos.h",
+  "line": 122,
+  "kind": "bare-math",
+  "region": [
+   119,
+   143,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_cone_kokkos.h",
+  "line": 123,
+  "kind": "bare-math",
+  "region": [
+   119,
+   143,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "region_cylinder_kokkos.h",
+  "line": 85,
+  "kind": "bare-math",
+  "region": [
+   79,
+   99,
+   "devfunc"
+  ],
+  "code": "dist = sqrt(del1 * del1 + del2 * del2);"
+ },
+ {
+  "file": "region_cylinder_kokkos.h",
+  "line": 90,
+  "kind": "bare-math",
+  "region": [
+   79,
+   99,
+   "devfunc"
+  ],
+  "code": "dist = sqrt(del1 * del1 + del2 * del2);"
+ },
+ {
+  "file": "region_cylinder_kokkos.h",
+  "line": 95,
+  "kind": "bare-math",
+  "region": [
+   79,
+   99,
+   "devfunc"
+  ],
+  "code": "dist = sqrt(del1 * del1 + del2 * del2);"
+ },
+ {
+  "file": "region_cylinder_kokkos.h",
+  "line": 119,
+  "kind": "bare-math",
+  "region": [
+   116,
+   140,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_cylinder_kokkos.h",
+  "line": 120,
+  "kind": "bare-math",
+  "region": [
+   116,
+   140,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "region_ellipsoid_kokkos.h",
+  "line": 121,
+  "kind": "bare-math",
+  "region": [
+   118,
+   142,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_ellipsoid_kokkos.h",
+  "line": 122,
+  "kind": "bare-math",
+  "region": [
+   118,
+   142,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "region_plane_kokkos.h",
+  "line": 104,
+  "kind": "bare-math",
+  "region": [
+   101,
+   125,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_plane_kokkos.h",
+  "line": 105,
+  "kind": "bare-math",
+  "region": [
+   101,
+   125,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "region_prism_kokkos.h",
+  "line": 106,
+  "kind": "bare-math",
+  "region": [
+   103,
+   127,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_prism_kokkos.h",
+  "line": 107,
+  "kind": "bare-math",
+  "region": [
+   103,
+   127,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "region_sphere_kokkos.h",
+  "line": 131,
+  "kind": "bare-math",
+  "region": [
+   127,
+   146,
+   "devfunc"
+  ],
+  "code": "double r = sqrt(delx * delx + dely * dely + delz * delz);"
+ },
+ {
+  "file": "region_sphere_kokkos.h",
+  "line": 155,
+  "kind": "bare-math",
+  "region": [
+   151,
+   170,
+   "devfunc"
+  ],
+  "code": "double r = sqrt(delx * delx + dely * dely + delz * delz);"
+ },
+ {
+  "file": "region_sphere_kokkos.h",
+  "line": 179,
+  "kind": "bare-math",
+  "region": [
+   175,
+   184,
+   "devfunc"
+  ],
+  "code": "contact[n].r = sqrt(delx * delx + dely * dely + delz * delz);"
+ },
+ {
+  "file": "region_sphere_kokkos.h",
+  "line": 193,
+  "kind": "bare-math",
+  "region": [
+   189,
+   197,
+   "devfunc"
+  ],
+  "code": "const double r = sqrt(delx * delx + dely * dely + delz * delz);"
+ },
+ {
+  "file": "region_sphere_kokkos.h",
+  "line": 229,
+  "kind": "bare-math",
+  "region": [
+   226,
+   250,
+   "devfunc"
+  ],
+  "code": "double sine = sin(angle);"
+ },
+ {
+  "file": "region_sphere_kokkos.h",
+  "line": 230,
+  "kind": "bare-math",
+  "region": [
+   226,
+   250,
+   "devfunc"
+  ],
+  "code": "double cosine = cos(angle);"
+ },
+ {
+  "file": "sna_kokkos_impl.h",
+  "line": 2265,
+  "kind": "bare-math",
+  "region": [
+   2254,
+   2297,
+   "devfunc"
+  ],
+  "code": "dsfac_outer = -onehalf * sin((r - rmin0) * rcutfac) * rcutfac;"
+ },
+ {
+  "file": "sna_kokkos_impl.h",
+  "line": 2283,
+  "kind": "bare-math",
+  "region": [
+   2254,
+   2297,
+   "devfunc"
+  ],
+  "code": "sfac_outer = onehalf * (cos((r - rmin0) * rcutfac) + one);"
+ },
+ {
+  "file": "sna_kokkos_impl.h",
+  "line": 2290,
+  "kind": "bare-math",
+  "region": [
+   2254,
+   2297,
+   "devfunc"
+  ],
+  "code": "sfac_inner = onehalf * (one - cos(static_cast<real_type>(MY_PI2) + (r - sinner) * rcutfac));"
+ },
+ {
+  "file": "sna_kokkos_impl.h",
+  "line": 2291,
+  "kind": "bare-math",
+  "region": [
+   2254,
+   2297,
+   "devfunc"
+  ],
+  "code": "dsfac_inner = onehalf * rcutfac * sin(static_cast<real_type>(MY_PI2) + (r - sinner) * rcutfac);"
+ }
+]

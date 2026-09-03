@@ -1,0 +1,59 @@
+GROUP 02 (atom_vec styles) - all 24 assigned files read completely line by line.
+
+Reference material used:
+- CPU bases: src/atom_vec.cpp (generic pack/unpack), src/atom_vec_charge.cpp,
+  src/atom_vec_sphere.cpp, src/atom_vec_ellipsoid.cpp (NOT in ASPHERE, it is in src/),
+  src/DIPOLE/atom_vec_dipole.cpp, src/MOLECULE/atom_vec_{bond,angle,molecular,full}.cpp,
+  src/DPD-REACT/atom_vec_dpd.cpp.
+- src/atom_masks.h (EMPTY_MASK == 0), src/KOKKOS/comm_kokkos.cpp (callers of every
+  pack_*/unpack_* entry point), src/KOKKOS/kokkos.cpp (forward/exchange_comm_legacy
+  defaults: legacy=1 on CPU-only builds, legacy=0 when ngpus>0 -> the KK pack/unpack
+  kernels are only exercised on GPU builds / explicit "comm device").
+- src/KOKKOS/atom_kokkos.cpp:322-393 (AtomKokkos::sort forces sort_legacy for any bonus
+  style and for hybrid -> AtomVecEllipsoidKokkos::sort_kokkos is currently dead code).
+
+Key structural facts established (useful for a successor):
+- The per-field pack/unpack logic for ALL atom_vec kk styles lives in ONE place,
+  src/KOKKOS/atom_vec_kokkos.cpp, in the AtomVecKokkos_{Pack,Unpack}* functors, gated on
+  datamask bits, NOT in the per-style files. The per-style .cpp files only contain
+  grow/grow_pointers/sort_kokkos/sync/modified/sync_pinned.
+- Field-name -> mask/size mapping: AtomVecKokkos::field2mask (2859) / field2size (2933) /
+  set_atom_masks (2973) / set_size_exchange (3020).
+- Sizes (src/atom_vec.cpp:2476-2520): size_forward = 3 + fields_comm (+size_forward_bonus),
+  size_border = 6 + fields_border (+size_border_bonus), size_velocity = 3 + fields_comm_vel.
+- Buffer strides: k_buf_send extent(1) = size_border (+size_velocity if ghost_velocity),
+  k_buf_recv extent(1) = size_border ALWAYS (comm_kokkos.cpp:1903-1911) - see open
+  candidate (c) below.
+- ncomm_vel == 0 while nborder_vel > 0 for: charge, bond, angle, molecular, full
+  (dipole/sphere/ellipsoid/dpd all have non-empty fields_comm_vel).
+
+OPEN CANDIDATES not reported (either unsubstantiated or outside this group's files):
+(a) comm_kokkos.cpp:1686 `if (nsend*size_border > maxsend) grow_send_kokkos(nsend*size_border,0)`
+    ignores size_velocity under ghost_velocity - send buffer may be too small for
+    pack_border_vel_kokkos.  Belongs to comm_kokkos.cpp (another group).
+(b) comm_kokkos.cpp:1903-1911 grow_recv_kokkos always allocates extent(1)=size_border even
+    when ghost_velocity, so unpack_border_vel_kokkos re-views a buffer whose total capacity
+    is short by nrecv*size_velocity.  Also comm_kokkos.cpp.
+(c) Follow-on of (b) inside my group: AtomVecEllipsoidKokkos_{Pack,Unpack}BorderBonus index
+    `_buf(i,offset)` on the RAW view (its natural extent(1)) instead of the packing stride;
+    with ghost_velocity the recv buffer's extent(1) is size_border while
+    AtomVecKokkos_UnpackBorderVel re-views it with size_border+size_velocity ->
+    the two disagree.  Reported at low confidence (finding #14).
+(d) AtomVecKokkos_PackBorderVel / AtomVecKokkos_PackCommVel use `_mask(i)` where the CPU
+    uses `mask[i]` too (src/atom_vec.cpp:490 and :951) - this looks like it should be
+    mask[j], but it is a pre-existing CPU quirk faithfully reproduced, so NOT reported.
+(e) Field ORDER inside the KK border/exchange packers differs from the CPU field order for
+    some styles (e.g. full: KK packs molecule before q, CPU packs q before molecule;
+    ellipsoid border_vel: KK packs angmom before rmass, CPU rmass before angmom).  Both KK
+    pack and KK unpack use the same order and CommKokkos never mixes a CPU pack with a KK
+    unpack, so this is self-consistent -> NOT reported, but it is fragile.
+(f) AtomVecDPDKokkos::grow (line 85) and AtomVecSphereKokkos/EllipsoidKokkos::grow call the
+    nextra_grow fixes' grow_arrays() BEFORE grow_pointers(), the other styles call it after.
+    Inconsistent but no observed defect.
+(g) AtomVecEllipsoidKokkos::grow_bonus() never re-assigns the d_bonus/h_bonus members
+    (they are in fact never assigned anywhere); only matters for the dead sort_kokkos path.
+(h) AtomVecHybridKokkos::grow() lets each sub-style advance its OWN nmax by its own DELTA
+    step; they happen to stay in lockstep today because they all start at 0 and use the
+    same formula.  Fragile, not currently a bug.
+(i) unpack_border_kokkos / unpack_border_vel_kokkos use `while (first+n >= nmax) grow(0)`
+    where `first+n > nmax` would suffice (CPU grows when i == nmax).  Harmless over-grow.

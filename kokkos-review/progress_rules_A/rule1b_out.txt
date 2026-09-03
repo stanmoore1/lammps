@@ -1,0 +1,67 @@
+=== HOT (users set copymode=1, style-derived) ===
+AngleCharmm                  src/MOLECULE/angle_charmm.cpp                           47 mentions=True  roots=Angle users=AngleCharmmKokkos
+AngleCosine                  src/MOLECULE/angle_cosine.cpp                           40 mentions=True  roots=Angle users=AngleCosineKokkos
+AngleHarmonic                src/MOLECULE/angle_harmonic.cpp                         43 mentions=True  roots=Angle users=AngleHarmonicKokkos
+AngleSPICA                   src/CG-SPICA/angle_spica.cpp                            56 mentions=True  roots=Angle users=AngleSPICAKokkos
+BondFENE                     src/MOLECULE/bond_fene.cpp                              41 mentions=True  roots=Bond users=BondFENEKokkos,BondFENENMKokkos
+BondFENENM                   src/EXTRA-MOLECULE/bond_fene_nm.cpp                     38 mentions=True  roots=Bond users=BondFENENMKokkos
+BondGaussian                 src/EXTRA-MOLECULE/bond_gaussian.cpp                    43 mentions=True  roots=Bond users=BondGaussianKokkos
+BondGromos                   src/MOLECULE/bond_gromos.cpp                            41 mentions=True  roots=Bond users=BondGromosKokkos
+BondHarmonic                 src/MOLECULE/bond_harmonic.cpp                          36 mentions=True  roots=Bond users=BondHarmonicKokkos
+BondQuarticExp               src/EXTRA-MOLECULE/bond_quartic_exp.cpp                 39 mentions=True  roots=Bond users=BondQuarticExpKokkos
+ComputeTempCOM               src/compute_temp_com.cpp                                45 mentions=True  roots=Compute users=ComputeTempCOMKokkos
+ComputeTemp                  src/compute_temp.cpp                                    42 mentions=True  roots=Compute users=ComputeTempKokkos
+DihedralCharmm               src/MOLECULE/dihedral_charmm.cpp                        52 mentions=True  roots=Dihedral users=DihedralCharmmKokkos
+DihedralCharmmfsw            src/MOLECULE/dihedral_charmmfsw.cpp                     55 mentions=True  roots=Dihedral users=DihedralCharmmfswKokkos
+DihedralHarmonic             src/MOLECULE/dihedral_harmonic.cpp                      44 mentions=True  roots=Dihedral users=DihedralHarmonicKokkos
+DihedralMultiHarmonic        src/MOLECULE/dihedral_multi_harmonic.cpp                46 mentions=True  roots=Dihedral users=DihedralMultiHarmonicKokkos
+DihedralOPLS                 src/MOLECULE/dihedral_opls.cpp                          47 mentions=True  roots=Dihedral users=DihedralOPLSKokkos
+FixShardlow                  src/DPD-REACT/fix_shardlow.cpp                         118 mentions=False roots=Fix users=FixShardlowKokkos
+ImproperHarmonic             src/MOLECULE/improper_harmonic.cpp                      47 mentions=True  roots=Improper users=ImproperHarmonicKokkos
+Pair                         src/pair.cpp                                           138 mentions=True  roots=Pair users=PairADPKokkos,PairBeckKokkos,PairBondValKokkos,PairBondValVecKokkos,PairBornCoulDSFCSKokkos
+PairCoulSlaterLong           src/EXTRA-PAIR/pair_coul_slater_long.cpp                46 mentions=True  roots=Pair users=PairCoulSlaterLongKokkos
+PairTIP4PKokkos              src/KOKKOS/pair_tip4p_kokkos.h                          46 mentions=True  roots= users=PairLJCutTIP4PCutKokkos,PairLJCutTIP4PLongKokkos,PairTIP4PCutKokkos,PairTIP4PLongKokkos
+PairPOD                      src/ML-POD/pair_pod.cpp                                107 mentions=False roots=Pair users=PairPODKokkos
+
+=== COLD (no kk user sets copymode=1) ===
+AngleHybrid                  src/angle_hybrid.cpp                                    42 roots=Angle users=AngleHybridKokkos
+Atom                         src/atom.cpp                                           298 roots= users=AtomKokkos
+AtomVecAngle                 src/MOLECULE/atom_vec_angle.cpp                         59 roots= users=AtomVecAngleKokkos
+AtomVec                      src/atom_vec.cpp                                        81 roots= users=AtomVecAngleKokkos,AtomVecAtomicKokkos,AtomVecBondKokkos,AtomVecChargeKokkos,AtomVecDPDKokkos
+AtomVecBond                  src/MOLECULE/atom_vec_bond.cpp                          52 roots= users=AtomVecBondKokkos
+AtomVecEllipsoid             src/atom_vec_ellipsoid.cpp                              78 roots= users=AtomVecEllipsoidKokkos
+AtomVecFull                  src/MOLECULE/atom_vec_full.cpp                          67 roots= users=AtomVecFullKokkos
+AtomVecHybrid                src/atom_vec_hybrid.cpp                                 50 roots= users=AtomVecHybridKokkos
+AtomVecMolecular             src/MOLECULE/atom_vec_molecular.cpp                     66 roots= users=AtomVecMolecularKokkos
+BondHybrid                   src/bond_hybrid.cpp                                     44 roots=Bond users=BondHybridKokkos
+CommBrick                    src/comm_brick.cpp                                      60 roots= users=CommKokkos
+Comm                         src/comm.cpp                                           120 roots= users=CommKokkos,CommTiledKokkos
+CommTiled                    src/comm_tiled.cpp                                      85 roots= users=CommTiledKokkos
+ComputeCOM                   src/compute_com.cpp                                     36 roots=Compute users=ComputeCOMKokkos
+ComputeGyration              src/compute_gyration.cpp                                40 roots=Compute users=ComputeGyrationKokkos
+ComputeInertia               src/compute_inertia.cpp                                 37 roots=Compute users=ComputeInertiaKokkos
+ComputeReaxFFAtom            src/REAXFF/compute_reaxff_atom.cpp                      87 roots=Compute users=ComputeReaxFFAtomKokkos
+ComputeGridLocal             src/ML-SNAP/compute_grid_local.cpp                      63 roots=Compute users=ComputeSNAGridLocalKokkos,ComputeSNAGridLocalKokkosDevice,ComputeSNAGridLocalKokkosHost
+DihedralHybrid               src/dihedral_hybrid.cpp                                 43 roots=Dihedral users=DihedralHybridKokkos
+DynamicalMatrix              src/PHONON/dynamical_matrix.cpp                         56 roots=Command users=DynamicalMatrixKokkos
+FixColvars                   src/COLVARS/fix_colvars.cpp                            221 roots=Fix users=FixColvarsKokkos
+FixDeform                    src/fix_deform.cpp                                     391 roots=Fix users=FixDeformKokkos
+FixMinimize                  src/fix_minimize.cpp                                    37 roots=Fix users=FixMinimizeKokkos
+FixPropertyAtom              src/fix_property_atom.cpp                              233 roots=Fix users=FixPropertyAtomKokkos
+FixReaxFFBonds               src/REAXFF/fix_reaxff_bonds.cpp                         73 roots=Fix users=FixReaxFFBondsKokkos
+FixReaxFFSpecies             src/REAXFF/fix_reaxff_species.cpp                      335 roots=Fix users=FixReaxFFSpeciesKokkos
+FixRigidNHSmallKokkos        src/KOKKOS/fix_rigid_nh_small_kokkos.cpp               152 roots= users=FixRigidNPHSmallKokkos,FixRigidNPTSmallKokkos,FixRigidNVESmallKokkos,FixRigidNVTSmallKokkos
+FixTempBerendsen             src/fix_temp_berendsen.cpp                              85 roots=Fix users=FixTempBerendsenKokkos
+FixTempRescale               src/fix_temp_rescale.cpp                                84 roots=Fix users=FixTempRescaleKokkos
+Grid3d                       src/grid3d.cpp                                         189 roots= users=Grid3dKokkos
+Group                        src/group.cpp                                           88 roots= users=GroupKokkos
+ImproperHybrid               src/improper_hybrid.cpp                                 43 roots=Improper users=ImproperHybridKokkos
+MinLineSearchKokkos          src/KOKKOS/min_linesearch_kokkos.cpp                    59 roots=Min users=MinCGKokkos,MinSDKokkos
+Min                          src/min.cpp                                             95 roots=Min users=MinCGKokkos,MinFireKokkos,MinKokkos,MinLineSearchKokkos,MinQuickMinKokkos
+MLIAPDescriptorSO3           src/ML-IAP/mliap_descriptor_so3.cpp                     51 roots= users=MLIAPDescriptorSO3Kokkos
+MLIAPDescriptor              src/ML-IAP/mliap_descriptor.cpp                         36 roots= users=MLIAPDescriptorSO3Kokkos,MLIAPDummyDescriptorKokkos
+MLIAPModel                   src/ML-IAP/mliap_model.cpp                              44 roots= users=MLIAPDummyModelKokkos,MLIAPModelLinearKokkos,MLIAPModelPythonKokkos,MLIAPModelPythonKokkosDevice
+Modify                       src/modify.cpp                                         109 roots= users=ModifyKokkos
+PairHybrid                   src/pair_hybrid.cpp                                     49 roots=Pair users=PairHybridKokkos,PairHybridOverlayKokkos,PairHybridScaledKokkos
+ThirdOrder                   src/PHONON/third_order.cpp                              60 roots=Command users=ThirdOrderKokkos
+Variable                     src/variable.cpp                                       253 roots= users=VariableKokkos

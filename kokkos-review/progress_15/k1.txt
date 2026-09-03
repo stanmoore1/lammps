@@ -1,0 +1,107 @@
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void FixShakeKokkos<DeviceType>::shake(int ilist, EV_FLOAT& ev) const
+{
+
+  // The f array is duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  int atomlist[2];
+  KK_FLOAT v[6];
+  KK_FLOAT invmass0,invmass1;
+
+  // local atom IDs and constraint distances
+
+  int m = d_list[ilist];
+  int i0 = d_closest_list(ilist,0);
+  int i1 = d_closest_list(ilist,1);
+  KK_FLOAT bond1 = d_bond_distance[d_shake_type(m,0)];
+
+  // r01 = distance vec between atoms
+
+  KK_FLOAT r01[3];
+  r01[0] = d_x(i0,0) - d_x(i1,0);
+  r01[1] = d_x(i0,1) - d_x(i1,1);
+  r01[2] = d_x(i0,2) - d_x(i1,2);
+
+  // s01 = distance vec after unconstrained update
+
+  KK_FLOAT s01[3];
+  s01[0] = d_xshake(i0,0) - d_xshake(i1,0);
+  s01[1] = d_xshake(i0,1) - d_xshake(i1,1);
+  s01[2] = d_xshake(i0,2) - d_xshake(i1,2);
+
+  // scalar distances between atoms
+
+  KK_FLOAT r01sq = r01[0]*r01[0] + r01[1]*r01[1] + r01[2]*r01[2];
+  KK_FLOAT s01sq = s01[0]*s01[0] + s01[1]*s01[1] + s01[2]*s01[2];
+
+  // a,b,c = coeffs in quadratic equation for lamda
+
+  if (d_rmass.data()) {
+    invmass0 = static_cast<KK_FLOAT>(1.0)/d_rmass[i0];
+    invmass1 = static_cast<KK_FLOAT>(1.0)/d_rmass[i1];
+  } else {
+    invmass0 = static_cast<KK_FLOAT>(1.0)/d_mass[d_type[i0]];
+    invmass1 = static_cast<KK_FLOAT>(1.0)/d_mass[d_type[i1]];
+  }
+
+  KK_FLOAT a = (invmass0+invmass1)*(invmass0+invmass1) * r01sq;
+  KK_FLOAT b = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass1) *
+    (s01[0]*r01[0] + s01[1]*r01[1] + s01[2]*r01[2]);
+  KK_FLOAT c = s01sq - bond1*bond1;
+
+  // error check
+
+  KK_FLOAT determ = b*b - static_cast<KK_FLOAT>(4.0)*a*c;
+  if (determ < 0) {
+    //error->warning(FLERR,"Shake determinant < 0.0",0);
+    d_error_flag() = 2;
+    determ = 0;
+  }
+
+  // exact quadratic solution for lamda
+
+  KK_FLOAT lamda,lamda1,lamda2;
+  lamda1 = (-b+Kokkos::sqrt(determ)) / (static_cast<KK_FLOAT>(2.0)*a);
+  lamda2 = (-b-Kokkos::sqrt(determ)) / (static_cast<KK_FLOAT>(2.0)*a);
+
+  if (Kokkos::fabs(lamda1) <= Kokkos::fabs(lamda2)) lamda = lamda1;
+  else lamda = lamda2;
+
+  // update forces if atom is owned by this processor
+
+  lamda /= dtfsq_kk;
+
+  if (i0 < nlocal) {
+    a_f(i0,0) += static_cast<KK_ACC_FLOAT>(lamda*r01[0]);
+    a_f(i0,1) += static_cast<KK_ACC_FLOAT>(lamda*r01[1]);
+    a_f(i0,2) += static_cast<KK_ACC_FLOAT>(lamda*r01[2]);
+  }
+
+  if (i1 < nlocal) {
+    a_f(i1,0) -= static_cast<KK_ACC_FLOAT>(lamda*r01[0]);
+    a_f(i1,1) -= static_cast<KK_ACC_FLOAT>(lamda*r01[1]);
+    a_f(i1,2) -= static_cast<KK_ACC_FLOAT>(lamda*r01[2]);
+  }
+
+  if (EVFLAG) {
+    int count = 0;
+    if (i0 < nlocal) atomlist[count++] = i0;
+    if (i1 < nlocal) atomlist[count++] = i1;
+
+    v[0] = lamda*r01[0]*r01[0];
+    v[1] = lamda*r01[1]*r01[1];
+    v[2] = lamda*r01[2]*r01[2];
+    v[3] = lamda*r01[0]*r01[1];
+    v[4] = lamda*r01[0]*r01[2];
+    v[5] = lamda*r01[1]*r01[2];
+
+    v_tally<NEIGHFLAG>(ev,count,atomlist,static_cast<KK_FLOAT>(2.0),v);
+  }
+}
+

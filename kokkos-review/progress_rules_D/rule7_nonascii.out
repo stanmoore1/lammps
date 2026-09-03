@@ -1,0 +1,6 @@
+src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:726:    // if atom J has bonus data, reset J’s bonus.ilocal to loc I
+src/KOKKOS/fix_gjf_kokkos.cpp:132:  // vhalf mode: copy lv → v at start of step (all but the first step)
+src/KOKKOS/fix_rigid_small_kokkos.cpp:237:  // Host exchange path: flush device→host so the base-class
+src/KOKKOS/fix_rigid_small_kokkos.cpp:688:    copy_body_device();  // push host body[] → d_body
+src/KOKKOS/fix_rigid_small_kokkos.cpp:692:    // data to the device — just mark the device side as authoritative and
+src/KOKKOS/kokkos.cpp:74:  " pages = {1217–1232},\n"

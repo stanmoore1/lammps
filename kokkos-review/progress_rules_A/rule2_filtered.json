@@ -1,0 +1,932 @@
+[
+ {
+  "kk_class": "ComputeOrientOrderAtomKokkos",
+  "kk_header": "src/KOKKOS/compute_orientorder_atom_kokkos.h",
+  "method": "polar_prefactor",
+  "kk_line": 134,
+  "kk_decl": "KK_FLOAT polar_prefactor(int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "ComputeOrientOrderAtom",
+    "line": 56,
+    "decl": "double polar_prefactor(int, int, double);",
+    "header": "src/compute_orientorder_atom.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ComputeOrientOrderAtomKokkos",
+  "kk_header": "src/KOKKOS/compute_orientorder_atom_kokkos.h",
+  "method": "associated_legendre",
+  "kk_line": 138,
+  "kk_decl": "KK_FLOAT associated_legendre(int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "ComputeOrientOrderAtom",
+    "line": 57,
+    "decl": "double associated_legendre(int, int, double);",
+    "header": "src/compute_orientorder_atom.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DynamicalMatrixKokkos",
+  "kk_header": "src/KOKKOS/dynamical_matrix_kokkos.h",
+  "method": "setup",
+  "kk_line": 35,
+  "kk_decl": "void setup();",
+  "bases": [
+   {
+    "class": "DynamicalMatrix",
+    "line": 23,
+    "decl": "void setup();",
+    "header": "src/PHONON/dynamical_matrix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixACKS2ReaxFFKokkos",
+  "kk_header": "src/KOKKOS/fix_acks2_reaxff_kokkos.h",
+  "method": "get_s",
+  "kk_line": 75,
+  "kk_decl": "DAT::ttransform_kkfloat_1d get_s() {return k_s;}",
+  "bases": [
+   {
+    "class": "FixACKS2ReaxFF",
+    "line": 38,
+    "decl": "double *get_s() { return s; }",
+    "header": "src/REAXFF/fix_acks2_reaxff.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixAddForceKokkos",
+  "kk_header": "src/KOKKOS/fix_addforce_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 75,
+  "kk_decl": "void v_tally(value_type, int, KK_FLOAT*) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixCMAPKokkos",
+  "kk_header": "src/KOKKOS/fix_cmap_kokkos.h",
+  "method": "dihedral_angle_atan2",
+  "kk_line": 117,
+  "kk_decl": "KK_FLOAT dihedral_angle_atan2(KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "FixCMAP",
+    "line": 114,
+    "decl": "double dihedral_angle_atan2(double, double, double, double, double, double, double, double, double, double);",
+    "header": "src/MOLECULE/fix_cmap.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEfieldKokkos",
+  "kk_header": "src/KOKKOS/fix_efield_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 84,
+  "kk_decl": "void v_tally(value_type, int, KK_FLOAT*) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEOStableRXKokkos",
+  "kk_header": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "method": "energy_lookup",
+  "kk_line": 69,
+  "kk_decl": "void energy_lookup(int, KK_FLOAT, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "FixEOStableRX",
+    "line": 37,
+    "decl": "void energy_lookup(int, double, double &);",
+    "header": "src/DPD-REACT/fix_eos_table_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEOStableRXKokkos",
+  "kk_header": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "method": "temperature_lookup",
+  "kk_line": 73,
+  "kk_decl": "void temperature_lookup(int, KK_FLOAT, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "FixEOStableRX",
+    "line": 38,
+    "decl": "void temperature_lookup(int, double, double &);",
+    "header": "src/DPD-REACT/fix_eos_table_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEOStableRXKokkos",
+  "kk_header": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "method": "allocate",
+  "kk_line": 118,
+  "kk_decl": "void allocate();",
+  "bases": [
+   {
+    "class": "FixEOStableRX",
+    "line": 55,
+    "decl": "void allocate();",
+    "header": "src/DPD-REACT/fix_eos_table_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixLangevinKokkos",
+  "kk_header": "src/KOKKOS/fix_langevin_kokkos.h",
+  "method": "compute_target",
+  "kk_line": 156,
+  "kk_decl": "void compute_target();",
+  "bases": [
+   {
+    "class": "FixLangevin",
+    "line": 79,
+    "decl": "void compute_target();",
+    "header": "src/fix_langevin.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixLangevinKokkos",
+  "kk_header": "src/KOKKOS/fix_langevin_kokkos.h",
+  "method": "angmom_thermostat",
+  "kk_line": 163,
+  "kk_decl": "void angmom_thermostat();",
+  "bases": [
+   {
+    "class": "FixLangevin",
+    "line": 78,
+    "decl": "void angmom_thermostat();",
+    "header": "src/fix_langevin.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixMinimizeKokkos",
+  "kk_header": "src/KOKKOS/fix_minimize_kokkos.h",
+  "method": "reset_coords",
+  "kk_line": 47,
+  "kk_decl": "void reset_coords();",
+  "bases": [
+   {
+    "class": "FixMinimize",
+    "line": 45,
+    "decl": "void reset_coords();",
+    "header": "src/fix_minimize.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rhs",
+  "kk_line": 156,
+  "kk_decl": "int rhs (double, const double *, double *, void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 107,
+    "decl": "int rhs(double, const double *, double *, void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rhs_dense",
+  "kk_line": 157,
+  "kk_decl": "int rhs_dense (double, const double *, double *, void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 108,
+    "decl": "int rhs_dense(double, const double *, double *, void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rhs_sparse",
+  "kk_line": 158,
+  "kk_decl": "int rhs_sparse(double, const double *, double *, void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 120,
+    "decl": "int rhs_sparse(double, const double *, double *, void *) const;",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rkf45_step",
+  "kk_line": 182,
+  "kk_decl": "void rkf45_step (const int neq, const double h, double y[], double y_out[], double rwk[], void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 94,
+    "decl": "void rkf45_step(const int neq, const double h, double y[], double y_out[], double rwk[], void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rkf45_h0",
+  "kk_line": 186,
+  "kk_decl": "int rkf45_h0 (const int neq, const double t, const double t_stop, const double hmin, const double hmax, double& h0, double y[], double rwk[], void *v_params) co",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 97,
+    "decl": "int rkf45_h0(const int neq, const double t, const double t_stop, const double hmin, const double hmax, double &h0, double y[], double rwk[], void *v_params);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "odeDiagnostics",
+  "kk_line": 218,
+  "kk_decl": "void odeDiagnostics();",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 156,
+    "decl": "void odeDiagnostics();",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "computeLocalTemperature",
+  "kk_line": 286,
+  "kk_decl": "void computeLocalTemperature();",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 103,
+    "decl": "void computeLocalTemperature();",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShardlowKokkos",
+  "kk_header": "src/KOKKOS/fix_shardlow_kokkos.h",
+  "method": "ssa_update_dpd",
+  "kk_line": 150,
+  "kk_decl": "void ssa_update_dpd(int, int, int) const;",
+  "bases": [
+   {
+    "class": "FixShardlow",
+    "line": 65,
+    "decl": "void ssa_update_dpd(int, int, int);",
+    "header": "src/DPD-REACT/fix_shardlow.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShardlowKokkos",
+  "kk_header": "src/KOKKOS/fix_shardlow_kokkos.h",
+  "method": "ssa_update_dpde",
+  "kk_line": 155,
+  "kk_decl": "void ssa_update_dpde(int, int, int) const;",
+  "bases": [
+   {
+    "class": "FixShardlow",
+    "line": 66,
+    "decl": "void ssa_update_dpde(int, int, int);",
+    "header": "src/DPD-REACT/fix_shardlow.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallHarmonicKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_harmonic_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 65,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallHarmonicOutsideKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_harmonic_outside_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 64,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallLJ1043Kokkos",
+  "kk_header": "src/KOKKOS/fix_wall_lj1043_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 70,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallLJ126Kokkos",
+  "kk_header": "src/KOKKOS/fix_wall_lj126_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 68,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallLJ93Kokkos",
+  "kk_header": "src/KOKKOS/fix_wall_lj93_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 68,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallMorseKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_morse_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 71,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 87,
+  "kk_decl": "void v_tally(value_type, int, KK_FLOAT*) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "Grid3dKokkos",
+  "kk_header": "src/KOKKOS/grid3d_kokkos.h",
+  "method": "forward_comm",
+  "kk_line": 36,
+  "kk_decl": "void forward_comm(int, void *, int, int, int, FFT_DAT::tdual_FFT_SCALAR_1d &, FFT_DAT::tdual_FFT_SCALAR_1d &, MPI_Datatype);",
+  "bases": [
+   {
+    "class": "Grid3d",
+    "line": 49,
+    "decl": "void forward_comm(int, void *, int, int, int, void *, void *, MPI_Datatype);",
+    "header": "src/grid3d.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "Grid3dKokkos",
+  "kk_header": "src/KOKKOS/grid3d_kokkos.h",
+  "method": "reverse_comm",
+  "kk_line": 38,
+  "kk_decl": "void reverse_comm(int, void *, int, int, int, FFT_DAT::tdual_FFT_SCALAR_1d &, FFT_DAT::tdual_FFT_SCALAR_1d &, MPI_Datatype);",
+  "bases": [
+   {
+    "class": "Grid3d",
+    "line": 50,
+    "decl": "void reverse_comm(int, void *, int, int, int, void *, void *, MPI_Datatype);",
+    "header": "src/grid3d.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperFourierKokkos",
+  "kk_header": "src/KOKKOS/improper_fourier_kokkos.h",
+  "method": "addone",
+  "kk_line": 60,
+  "kk_decl": "void addone(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, const int type, const KK_FLOAT vb1x, const KK_FLOAT vb1y, const KK_FLOAT vb1z,",
+  "bases": [
+   {
+    "class": "ImproperFourier",
+    "line": 41,
+    "decl": "void addone(const int &i1, const int &i2, const int &i3, const int &i4, const int &type, const int &evflag, const int &eflag, const double &vb1x, const double &",
+    "header": "src/EXTRA-MOLECULE/improper_fourier.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "MLIAPModelPythonKokkos",
+  "kk_header": "src/KOKKOS/mliap_model_python_kokkos.h",
+  "method": "connect_param_counts",
+  "kk_line": 37,
+  "kk_decl": "void connect_param_counts();",
+  "bases": [
+   {
+    "class": "MLIAPModelPython",
+    "line": 31,
+    "decl": "void connect_param_counts();",
+    "header": "src/ML-IAP/mliap_model_python.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "MLIAPDummyDescriptorKokkos",
+  "kk_header": "src/KOKKOS/mliap_unified_kokkos.h",
+  "method": "set_elements",
+  "kk_line": 35,
+  "kk_decl": "void set_elements(char **, int);",
+  "bases": [
+   {
+    "class": "MLIAPDummyDescriptor",
+    "line": 34,
+    "decl": "void set_elements(char **, int);",
+    "header": "src/ML-IAP/mliap_unified.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "getMixingWeights",
+  "kk_line": 203,
+  "kk_decl": "void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, K",
+  "bases": [
+   {
+    "class": "PairExp6rx",
+    "line": 74,
+    "decl": "void getMixingWeights(int, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, dou",
+    "header": "src/DPD-REACT/pair_exp6_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "exponentScaling",
+  "kk_line": 210,
+  "kk_decl": "void exponentScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "PairExp6rx",
+    "line": 79,
+    "decl": "void exponentScaling(double, double &, double &) const;",
+    "header": "src/DPD-REACT/pair_exp6_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "polynomialScaling",
+  "kk_line": 214,
+  "kk_decl": "void polynomialScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "PairExp6rx",
+    "line": 80,
+    "decl": "void polynomialScaling(double, double &, double &, double &) const;",
+    "header": "src/DPD-REACT/pair_exp6_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMLIAPKokkos",
+  "kk_header": "src/KOKKOS/pair_mliap_kokkos.h",
+  "method": "e_tally",
+  "kk_line": 51,
+  "kk_decl": "void e_tally(MLIAPData* data);",
+  "bases": [
+   {
+    "class": "PairMLIAP",
+    "line": 34,
+    "decl": "void e_tally(class MLIAPData *);",
+    "header": "src/ML-IAP/pair_mliap.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMultiLucyRXKokkos",
+  "kk_header": "src/KOKKOS/pair_multi_lucy_rx_kokkos.h",
+  "method": "computeLocalDensity",
+  "kk_line": 73,
+  "kk_decl": "void computeLocalDensity();",
+  "bases": [
+   {
+    "class": "PairMultiLucyRX",
+    "line": 45,
+    "decl": "void computeLocalDensity();",
+    "header": "src/DPD-REACT/pair_multi_lucy_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMultiLucyRXKokkos",
+  "kk_header": "src/KOKKOS/pair_multi_lucy_rx_kokkos.h",
+  "method": "getMixingWeights",
+  "kk_line": 169,
+  "kk_decl": "void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "PairMultiLucyRX",
+    "line": 84,
+    "decl": "void getMixingWeights(int, double &, double &, double &, double &);",
+    "header": "src/DPD-REACT/pair_multi_lucy_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "divideInterval",
+  "kk_line": 75,
+  "kk_decl": "void divideInterval(int *intervals, int N, int M);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 49,
+    "decl": "void divideInterval(int *intervals, int N, int M);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "calculateNumberOfIntervals",
+  "kk_line": 76,
+  "kk_decl": "int calculateNumberOfIntervals(int N, int intervalSize);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 50,
+    "decl": "int calculateNumberOfIntervals(int N, int intervalSize);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "grow_atoms",
+  "kk_line": 77,
+  "kk_decl": "void grow_atoms(int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 97,
+    "decl": "void grow_atoms(int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "grow_pairs",
+  "kk_line": 78,
+  "kk_decl": "void grow_pairs(int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 98,
+    "decl": "void grow_pairs(int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "crossdesc",
+  "kk_line": 185,
+  "kk_decl": "void crossdesc(t_pod_1d d12, t_pod_1d d1, t_pod_1d d2, t_pod_1i ind1, t_pod_1i ind2, int n12, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 67,
+    "decl": "void crossdesc(double *d12, double *d1, double *d2, int *ind1, int *ind2, int n12, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "crossdesc_reduction",
+  "kk_line": 187,
+  "kk_decl": "void crossdesc_reduction(t_pod_1d cb1, t_pod_1d cb2, t_pod_1d c12, t_pod_1d d1, t_pod_1d d2, t_pod_1i ind1, t_pod_1i ind2, int n12, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 73,
+    "decl": "void crossdesc_reduction(double *cb1, double *cb2, double *c12, double *d1, double *d2, int *ind1, int *ind2, int n12, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_base_descriptors",
+  "kk_line": 189,
+  "kk_decl": "void blockatom_base_descriptors(t_pod_1d bd, int Ni, int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 75,
+    "decl": "void blockatom_base_descriptors(double *bd1, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_base_coefficients",
+  "kk_line": 190,
+  "kk_decl": "void blockatom_base_coefficients(t_pod_1d ei, t_pod_1d cb, t_pod_1d B, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 76,
+    "decl": "void blockatom_base_coefficients(double *ei, double *cb, double *B, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_environment_descriptors",
+  "kk_line": 191,
+  "kk_decl": "void blockatom_environment_descriptors(t_pod_1d ei, t_pod_1d cb, t_pod_1d B, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 77,
+    "decl": "void blockatom_environment_descriptors(double *ei, double *cb, double *B, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_energyforce",
+  "kk_line": 214,
+  "kk_decl": "void blockatom_energyforce(t_pod_1d l_ei, t_pod_1d l_fij, int Ni, int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 78,
+    "decl": "void blockatom_energyforce(double *ei, double *fij, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "tallyenergy",
+  "kk_line": 215,
+  "kk_decl": "void tallyenergy(t_pod_1d l_ei, int istart, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 46,
+    "decl": "void tallyenergy(double *ei, int istart, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_kokkos.h",
+  "method": "twobody",
+  "kk_line": 101,
+  "kk_decl": "void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "PairSW",
+    "line": 63,
+    "decl": "void twobody(Param *, double, double &, int, double &);",
+    "header": "src/MANYBODY/pair_sw.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWMODKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_mod_kokkos.h",
+  "method": "twobody",
+  "kk_line": 101,
+  "kk_decl": "void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "PairSW",
+    "line": 63,
+    "decl": "void twobody(Param *, double, double &, int, double &);",
+    "header": "src/MANYBODY/pair_sw.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairVashishtaKokkos",
+  "kk_header": "src/KOKKOS/pair_vashishta_kokkos.h",
+  "method": "twobody",
+  "kk_line": 125,
+  "kk_decl": "void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "PairVashishta",
+    "line": 60,
+    "decl": "void twobody(const Param *, double, double &, int, double &);",
+    "header": "src/MANYBODY/pair_vashishta.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_zbl_kokkos.h",
+  "method": "e_zbl",
+  "kk_line": 77,
+  "kk_decl": "KK_FLOAT e_zbl(KK_FLOAT, int, int) const;",
+  "bases": [
+   {
+    "class": "PairZBL",
+    "line": 52,
+    "decl": "double e_zbl(double, int, int);",
+    "header": "src/pair_zbl.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_zbl_kokkos.h",
+  "method": "dzbldr",
+  "kk_line": 80,
+  "kk_decl": "KK_FLOAT dzbldr(KK_FLOAT, int, int) const;",
+  "bases": [
+   {
+    "class": "PairZBL",
+    "line": 53,
+    "decl": "double dzbldr(double, int, int);",
+    "header": "src/pair_zbl.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_zbl_kokkos.h",
+  "method": "d2zbldr2",
+  "kk_line": 83,
+  "kk_decl": "KK_FLOAT d2zbldr2(KK_FLOAT, int, int) const;",
+  "bases": [
+   {
+    "class": "PairZBL",
+    "line": 54,
+    "decl": "double d2zbldr2(double, int, int);",
+    "header": "src/pair_zbl.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "compute_rho_coeff",
+  "kk_line": 486,
+  "kk_decl": "void compute_rho_coeff();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 142,
+    "decl": "void compute_rho_coeff();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "setup_triclinic",
+  "kk_line": 498,
+  "kk_decl": "void setup_triclinic();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 157,
+    "decl": "void setup_triclinic();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "compute_gf_ik_triclinic",
+  "kk_line": 499,
+  "kk_decl": "void compute_gf_ik_triclinic();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 158,
+    "decl": "void compute_gf_ik_triclinic();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "poisson_ik_triclinic",
+  "kk_line": 500,
+  "kk_decl": "void poisson_ik_triclinic();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 159,
+    "decl": "void poisson_ik_triclinic();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ThirdOrderKokkos",
+  "kk_header": "src/KOKKOS/third_order_kokkos.h",
+  "method": "setup",
+  "kk_line": 35,
+  "kk_decl": "void setup();",
+  "bases": [
+   {
+    "class": "ThirdOrder",
+    "line": 23,
+    "decl": "void setup();",
+    "header": "src/PHONON/third_order.h"
+   }
+  ]
+ }
+]

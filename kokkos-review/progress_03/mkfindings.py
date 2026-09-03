@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+import json, os
+
+D = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.dirname(D)
+
+F = [
+{
+ "file": "src/KOKKOS/bond_quartic_kokkos.cpp",
+ "line": 176,
+ "severity": "high",
+ "category": "sync-modify",
+ "confidence": "confirmed",
+ "summary": "k_brokenflag is written on the device by the kernel but never marked modified, so k_brokenflag.sync_host() is a no-op on GPU builds and bond quartic/kk never breaks any bond.",
+ "evidence": "src/KOKKOS/bond_quartic_kokkos.cpp:124 'Kokkos::deep_copy(d_brokenflag,0);' (raw device write, no modify flag), :281 'd_brokenflag(n) = 1;' (device kernel write), :176 'k_brokenflag.sync_host();' with NO preceding 'k_brokenflag.template modify<DeviceType>()' / 'modify_device()'. grep confirms the only k_brokenflag lines in the file are 120,121,122,124,176,182,199,281 - no modify anywhere. Kokkos::DualView::sync_host() only deep-copies when modified_flags(device) > modified_flags(host); both are 0 here, so no D2H copy happens. The host loop then reads h_brokenflag (:182,:199) which stays all-zero. Contrast the correct pattern in the sibling style src/KOKKOS/bond_table_kokkos.cpp:204-205 'k_error_flag.template modify<DeviceType>(); k_error_flag.sync_host();'. CPU base src/MOLECULE/bond_quartic.cpp:102-110 breaks the bond inline (bondlist[n][2]=0 and atom->bond_type[..]=0).",
+ "failure_scenario": "GPU (CUDA/HIP/SYCL) build, 'bond_style quartic/kk' polymer scission run (e.g. examples/micelle-style FENE/quartic chain scission): a stretched bond with rsq > rc^2 sets d_brokenflag on the device, h_brokenflag stays 0, so h_bondlist(n,2) is never set to 0 and atom->bond_type is never zeroed. No bond is ever broken; the quartic potential silently behaves as an unbreakable bond and the trajectory is wrong. On a CPU-only Kokkos build host and device views alias, so the bug is invisible.",
+ "suggested_fix": "Add 'k_brokenflag.template modify<DeviceType>();' immediately before the 'k_brokenflag.sync_host();' at line 176 (and mark the deep_copy(d_brokenflag,0) with modify<DeviceType>() as well for consistency)."
+},
+{
+ "file": "src/KOKKOS/bond_hybrid_kokkos.cpp",
+ "line": 118,
+ "severity": "medium",
+ "category": "sync-modify",
+ "confidence": "likely",
+ "summary": "BondHybridKokkos::compute() calls modify_device() on a subview that shares its DualView modified-flags with the parent, which starves a partial_flag sub-style (quartic/kk) of its host-side bond-type-zero writes and then overwrites them.",
+ "evidence": "src/KOKKOS/bond_hybrid_kokkos.cpp:117-119 'auto k_bondlist_m = Kokkos::subview(k_bondlist,m,Kokkos::ALL,Kokkos::ALL); k_bondlist_m.modify_device(); neighborKK->k_bondlist = k_bondlist_m;'. Kokkos DualView subviews share the modified_flags view, so modify_device() sets modified_flags(1) > modified_flags(0) every step. bond quartic/kk marks broken bonds by writing the HOST mirror and calling modify_host: src/KOKKOS/bond_quartic_kokkos.cpp:202 'h_bondlist(n,2) = 0;' and :249 'neighborKK->k_bondlist.modify_host();'. On the following step the hybrid's modify_device() at :118 makes modified_device > modified_host, so quartic's 'neighborKK->k_bondlist.template sync<DeviceType>()' (bond_quartic_kokkos.cpp:112) performs NO H2D copy and its 'sync_host()' (:180) instead copies device->host, wiping the zeros. Standalone quartic/kk does not hit this because nothing calls modify_device on the neighbor bondlist.",
+ "failure_scenario": "'bond_style hybrid/kk quartic/kk harmonic/kk' + chain scission: within one reneighbor interval the bondlist entry of a broken bond is restored to its original type every step, so the 'if (bondlist(n,2) <= 0) return;' skip (bond_quartic_kokkos.cpp:266) never fires; if the two atoms relax back inside rc before the next reneighbor the bond is silently re-formed, whereas the CPU bond_hybrid keeps it broken permanently.",
+ "suggested_fix": "Do not call modify_device() on the shared subview flags; instead give each sub-style bondlist its own DualView (or clear/restore the flags per sub-style) and honour the sub-style's modify_host by syncing the sub-list back to the device before the next step."
+},
+{
+ "file": "src/KOKKOS/bond_hybrid_kokkos.cpp",
+ "line": 143,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "BondHybridKokkos::compute() omits the partial_flag / orig_map write-back that the CPU BondHybrid uses to propagate deleted (type 0) bonds from the sub-style bondlist back into the original neighbor bondlist.",
+ "evidence": "CPU src/bond_hybrid.cpp:85-88 allocates orig_map[m], :99 'if (partial_flag) orig_map[m][n] = i;', and :148-157 'if (partial_flag) { ... if (bondlist[m][i][2] <= 0) { n = orig_map[m][i]; bondlist_orig[n][2] = bondlist[m][i][2]; } }'. The KOKKOS version src/KOKKOS/bond_hybrid_kokkos.cpp:96-103 builds the sub-style lists with no orig_map, and :145-148 restores the original list ('neighbor->nbondlist = nbondlist_orig; neighborKK->k_bondlist = k_bondlist_orig;') without any write-back. partial_flag is set by bond quartic (src/MOLECULE/bond_quartic.cpp:39 'partial_flag = 1;') and bond quartic/kk inherits it, and quartic/kk is a legal hybrid/kk sub-style (bond_hybrid_kokkos.cpp:194-196 only requires kokkosable).",
+ "failure_scenario": "'bond_style hybrid/kk quartic/kk ...': after a bond breaks, neighbor->bondlist still carries the old nonzero bond type until the next reneighbor, so 'compute bond/local' / 'compute bond' report a finite energy and length for a bond that the CPU version reports as deleted.",
+ "suggested_fix": "Port the partial_flag path: keep a per-sub-style orig_map device view filled in the second parallel_for and, when any sub-style has partial_flag, scatter type<=0 entries back into k_bondlist_orig after the sub-style loop."
+},
+{
+ "file": "src/KOKKOS/bond_fene_kokkos.cpp",
+ "line": 200,
+ "severity": "medium",
+ "category": "race",
+ "confidence": "likely",
+ "summary": "Non-atomic writes to the shared scalar d_flag can downgrade a fatal 'Bad FENE bond' (flag 2) to a mere warning (flag 1), so the run continues with a clamped rlogarg instead of aborting.",
+ "evidence": "src/KOKKOS/bond_fene_kokkos.cpp:200-206 'if (rlogarg < 0.1) { if (rlogarg <= -3.0) d_flag() = 2; else d_flag() = 1; rlogarg = 0.1; }' - plain stores to a single scalar from every thread, no Kokkos::atomic_max. src/KOKKOS/bond_fene_kokkos.cpp:140-143 then does 'if (h_flag() == 1) error->warning(...); else if (h_flag() == 2) error->one(FLERR,\"Bad FENE bond\");'. The CPU base src/MOLECULE/bond_fene.cpp:89-94 raises 'error->one(FLERR, \"Bad FENE bond\")' immediately for every bond with rlogarg <= -3.0, so it can never be masked.",
+ "failure_scenario": "One bond has rlogarg <= -3.0 (thread A writes 2) while another has 0.1 > rlogarg > -3.0 (thread B writes 1). If B's store lands last, h_flag()==1 and the run only warns and keeps integrating a catastrophically stretched bond instead of aborting as the CPU style does.",
+ "suggested_fix": "Use 'Kokkos::atomic_max(&d_flag(), 2)' / 'Kokkos::atomic_max(&d_flag(), 1)' (or a per-thread reduction into EV/int) so the most severe condition always wins."
+},
+{
+ "file": "src/KOKKOS/bond_fene_expand_kokkos.cpp",
+ "line": 191,
+ "severity": "medium",
+ "category": "race",
+ "confidence": "likely",
+ "summary": "Same d_flag race as bond_fene_kokkos: plain stores of 2 (fatal) and 1 (warning) to one shared scalar can hide a 'Bad FENE bond' abort.",
+ "evidence": "src/KOKKOS/bond_fene_expand_kokkos.cpp:191-197 'if (rlogarg < 0.1) { if (rlogarg <= -3.0) d_flag() = 2; else d_flag() = 1; rlogarg = 0.1; }' and :135-138 'if (h_flag() == 1) error->warning(...); else if (h_flag() == 2) error->one(FLERR,\"Bad FENE bond\");'. CPU base src/MOLECULE/bond_fene_expand.cpp:87-92 aborts per-bond via 'if (rlogarg <= -3.0) error->one(FLERR, \"Bad FENE bond\");'.",
+ "failure_scenario": "Two bonds in the same kernel launch, one with rlogarg <= -3.0 and one with -3.0 < rlogarg < 0.1: the fatal flag can be overwritten by the warning flag and the run continues with the bond clamped to rlogarg = 0.1.",
+ "suggested_fix": "Replace the plain stores with Kokkos::atomic_max on d_flag() so the severity is monotone."
+},
+{
+ "file": "src/KOKKOS/bond_fene_nm_kokkos.cpp",
+ "line": 174,
+ "severity": "medium",
+ "category": "race",
+ "confidence": "likely",
+ "summary": "Same d_flag race as bond_fene_kokkos: plain stores of 2 (fatal) and 1 (warning) to one shared scalar can hide a 'Bad FENE bond' abort.",
+ "evidence": "src/KOKKOS/bond_fene_nm_kokkos.cpp:174-180 'if (rlogarg < 0.02) { if (rlogarg <= -0.21) d_flag() = 2; else d_flag() = 1; rlogarg = 0.02; }' and :121-124 'if (h_flag() == 1) error->warning(...); else if (h_flag() == 2) error->one(FLERR,\"Bad FENE bond\");'. CPU base src/EXTRA-MOLECULE/bond_fene_nm.cpp:86-91 aborts per-bond with 'if (rlogarg <= -.21) error->one(FLERR, \"Bad FENE bond\");'.",
+ "failure_scenario": "Concurrent bonds with rlogarg <= -0.21 and -0.21 < rlogarg < 0.02: the fatal marker can be lost and the run continues instead of aborting.",
+ "suggested_fix": "Use Kokkos::atomic_max(&d_flag(), ...) instead of plain assignment."
+},
+{
+ "file": "src/KOKKOS/bond_table_kokkos.cpp",
+ "line": 262,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "possible",
+ "summary": "The spline branch of uf_lookup_kk() reads the pad element d_e(tb,tablength)/d_f(tb,tablength)/d_e2/d_f2 which setup_tables() never fills, and the comment's claim that its weight is exactly zero is false for bond lengths in (hi, hi+delta).",
+ "evidence": "src/KOKKOS/bond_table_kokkos.cpp:77-86 allocates the 2-D views with 'tablength+1' columns 'so that the spline branch can read itable+1 at the last bin, where its weight is exactly zero', but :95-103 only fills 'for (int i = 0; i < tablength; i++)', leaving column tablength at 0. :249-265: 'const int itable = static_cast<int>((x_in - lo) * invdelta); if (itable >= tablength) { d_error_flag() = 2; return; } ... b = (x_in - d_r(tb,itable)) * invdelta; ... u = a*d_e(tb,itable) + b*d_e(tb,itable+1) + ...'. With r[i] = lo + i*delta and hi = lo + (tablength-1)*delta, itable == tablength-1 corresponds to x in [hi, hi+delta), so b = (x-hi)/delta is in [0,1) and is only zero when x == hi exactly. The CPU src/MOLECULE/bond_table.cpp:611-614 reads tb->e[itable+1] from an array of length tablength (an out-of-bounds read), so the two implementations disagree for hi < r < hi+delta.",
+ "failure_scenario": "'bond_style table spline N' with a bond stretched just past the table's outer cutoff (hi < r < hi+delta, still accepted by the itable < tablength test): bond/kk returns u and mdu computed with a zero end point, giving a different (and unphysical) energy/force than the plain bond table style.",
+ "suggested_fix": "Fill the pad column with the extrapolated end values (or clamp b to 0 at itable == tablength-1) and fix the misleading comment; better yet make itable == tablength-1 raise error flag 2 like the inner cutoff, matching the intent of the table bounds."
+},
+{
+ "file": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp",
+ "line": 243,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "The device minimum_image() applies at most ONE periodic wrap per dimension (if) where Domain::minimum_image loops (while), and it silently drops the 'atoms have moved too far apart' error.",
+ "evidence": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:245-263 'if (xperiodic) { if (Kokkos::abs(dx) > xprd_half) { if (dx < 0.0) dx += xprd; else dx -= xprd; } }' (and the same single-if for y, z and for all three triclinic branches at :264-295). CPU src/domain.cpp:1219-1248 and 1250-1290 use 'while (fabs(dx) > xprd_half) {...}' plus 'if (fabs(dx) > (MAXIMGCOUNT * xprd)) error->one(file,line,\"Atoms have moved too far apart ({}) for minimum image\");'. The CPU base src/EXTRA-MOLECULE/bond_harmonic_restrain.cpp:78 calls exactly that: 'domain->minimum_image(FLERR, delx, dely, delz);'.",
+ "failure_scenario": "Stored initial positions that are more than 1.5 box lengths apart (box shrunk by fix deform/npt after init_style stored x0, or unwrapped x0 for a stretched molecule) leave a residual image after one wrap, so the reference length r0 - and hence the restraint force - differs from the CPU style; the triclinic branch can also need a second y wrap after the z tilt shift.",
+ "suggested_fix": "Change each 'if (Kokkos::abs(d?) > ?prd_half)' into a 'while' loop, matching Domain::minimum_image, and optionally set an error flag when the displacement exceeds MAXIMGCOUNT box lengths."
+},
+{
+ "file": "src/KOKKOS/bond_class2_kokkos.cpp",
+ "line": 180,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "ebond is left uninitialized when eflag == 0 and is then passed by reference into ev_tally(); the CPU base initializes it to 0.0 before the loop.",
+ "evidence": "src/KOKKOS/bond_class2_kokkos.cpp:180 'KK_FLOAT ebond, fbond, de_bond;' then :186 'if (eflag) ebond = ...;' and :202 'if (EVFLAG) ev_tally(ev,i1,i2,ebond,fbond,delx,dely,delz);'. CPU src/CLASS2/bond_class2.cpp:63 'ebond = 0.0;' before the bond loop. Every other kokkos bond style in this group initializes it (e.g. bond_harmonic_kokkos.cpp:178 'KK_FLOAT ebond = 0;').",
+ "failure_scenario": "A step with vflag set but eflag clear (e.g. 'compute pressure' without thermo energy) runs the EVFLAG=1 kernel with an indeterminate ebond. ev_tally only reads it under eflag_either, so today it is harmless, but any future eflag_atom/eflag_global refactor turns it into garbage energies, and it trips -Wmaybe-uninitialized / static analysis.",
+ "suggested_fix": "Initialize as 'KK_FLOAT ebond = 0.0; KK_FLOAT fbond = 0.0;' at line 180, matching the other bond kokkos styles."
+},
+{
+ "file": "src/KOKKOS/bond_quartic_exp_kokkos.cpp",
+ "line": 243,
+ "severity": "low",
+ "category": "cleanup",
+ "confidence": "confirmed",
+ "summary": "coeff() and read_restart() build the coefficient DualViews as function-local temporaries whose host mirrors die at the end of the function, and they copy r0/k2/k3/k4/A/B for ALL types including ones whose coefficients are still uninitialized.",
+ "evidence": "src/KOKKOS/bond_quartic_exp_kokkos.cpp:243-256 'DAT::tdual_kkfloat_1d k_r0(\"BondQuarticExp::r0\",n+1); ... d_r0 = k_r0.template view<DeviceType>();' - the class (src/KOKKOS/bond_quartic_exp_kokkos.h:85-88) only keeps the d_* device views, no k_* members, and compute() (:84-90) syncs nothing. The same pattern is repeated in read_restart() at :292-304. The fill loop at :257-264 runs 'for (int i = 1; i <= n; i++)' over every type, but BondQuarticExp::allocate() (src/EXTRA-MOLECULE/bond_quartic_exp.cpp:129-134) leaves r0/k2/.../B uninitialized until each type's bond_coeff, unlike every other style in this group which loops only ilo..ihi (cf. bond_class2_kokkos.cpp:252).",
+ "failure_scenario": "'bond_coeff 1 ...' with nbondtypes = 2 reads uninitialized heap doubles for type 2 and static_cast<KK_FLOAT>s them; harmless today because type 2 is unusable, but it is undefined behaviour and can raise FP exceptions under -ffpe-trap. It also makes the style unmaintainable: the host mirrors are gone, so a later k_*.sync/modify cannot be added.",
+ "suggested_fix": "Declare k_r0/k_k2/k_k3/k_k4/k_A/k_B as class members allocated in allocate() (as bond_class2_kokkos does), and restrict the coeff() fill loop to ilo..ihi."
+},
+{
+ "file": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp",
+ "line": 101,
+ "severity": "low",
+ "category": "efficiency",
+ "confidence": "confirmed",
+ "summary": "compute() copies FixStoreAtom's initial positions for every local+ghost atom through a scalar host loop and a full host-to-device transfer on EVERY timestep.",
+ "evidence": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:100-109 'const int n_sync = atom->nlocal + atom->nghost; auto h_x0 = k_x0.view_host(); for (int i = 0; i < n_sync; i++) { h_x0(i,0) = ...; } k_x0.modify_host(); k_x0.template sync<DeviceType>();' - unconditional, executed once per compute() call.",
+ "failure_scenario": "Any GPU run with 'bond_style harmonic/restrain/kk': every MD step pays an O(nlocal+nghost) host loop plus a 3*(nlocal+nghost)*sizeof(KK_FLOAT) H2D transfer, which is the same order as the x/f transfer the KOKKOS package exists to avoid; the /kk variant can easily be slower than the plain CPU style.",
+ "suggested_fix": "Refresh k_x0 only when the atom set changed (neighbor->ago == 0 or a stored update->ntimestep guard), or better, store the initial positions in a device DualView owned by the style and update it in the exchange/border callbacks."
+},
+{
+ "file": "src/KOKKOS/bond_class2_kokkos.cpp",
+ "line": 74,
+ "severity": "low",
+ "category": "efficiency",
+ "confidence": "confirmed",
+ "summary": "k_eatom/k_vatom are destroyed and re-created on every timestep when per-atom energy/virial is requested, instead of the size-guarded reallocation used by the other bond kokkos styles.",
+ "evidence": "src/KOKKOS/bond_class2_kokkos.cpp:74-87 'if (eflag_atom) { //if(k_eatom.extent(0)<maxeatom) { ... memoryKK->destroy_kokkos(k_eatom,eatom); memoryKK->create_kokkos(k_eatom,eatom,maxeatom,\"improper:eatom\"); ... //} }' - the guard is commented out. The same unconditional destroy/create appears in src/KOKKOS/bond_fene_kokkos.cpp:80-89, src/KOKKOS/bond_fene_expand_kokkos.cpp:76-85 and src/KOKKOS/bond_fene_nm_kokkos.cpp:73-82. The corrected pattern is src/KOKKOS/bond_harmonic_kokkos.cpp:74-87 'if ((int)k_eatom.extent(0) < maxeatom) { ... } else Kokkos::deep_copy(d_eatom,0.0);'.",
+ "failure_scenario": "'compute pe/atom' or 'compute stress/atom' with bond class2/kk or fene/kk on a GPU: a device allocation + free per timestep, which serializes with the kernel stream and can dominate the bond time for small systems.",
+ "suggested_fix": "Restore the 'if ((int)k_eatom.extent(0) < maxeatom) {...} else Kokkos::deep_copy(d_eatom,0.0);' guard in class2, fene, fene/expand and fene/nm, as bond_harmonic_kokkos.cpp already does."
+},
+{
+ "file": "src/KOKKOS/Install.sh",
+ "line": 91,
+ "severity": "low",
+ "category": "rule",
+ "confidence": "confirmed",
+ "summary": "Eleven newly added KOKKOS bond styles have no action lines in src/KOKKOS/Install.sh, violating KOKKOS rule 5, so 'make no-kokkos' leaves stale copies of them in src/.",
+ "evidence": "grep '^action bond_' src/KOKKOS/Install.sh returns only class2, fene, table, harmonic, hybrid and quartic_exp (lines 80-91). Missing: bond_fene_expand_kokkos, bond_fene_nm_kokkos, bond_gaussian_kokkos, bond_gromos_kokkos, bond_harmonic_restrain_kokkos, bond_harmonic_shift_kokkos, bond_harmonic_shift_cut_kokkos, bond_mm3_kokkos, bond_morse_kokkos, bond_nonlinear_kokkos, bond_quartic_kokkos (.cpp and .h each). .github/instructions/kokkos.instructions.md rule 5 requires 'Register new files in src/KOKKOS/Install.sh with action lines', passing both filenames when the base class lives in an optional package (e.g. bond_gaussian.cpp is in EXTRA-MOLECULE, bond_mm3.cpp in YAFF).",
+ "failure_scenario": "A tree that once had the KOKKOS package installed under the legacy make build, then 'make no-kokkos': the 22 unregistered files stay behind in src/ and are compiled into the next non-KOKKOS build, producing undefined KOKKOS symbols. (Impact is limited because src/KOKKOS/Install.sh:757 now aborts install mode - the package is CMake-only - so action() is used only for removal.)",
+ "suggested_fix": "Add the missing 'action bond_<name>_kokkos.cpp bond_<name>.cpp' / '.h' pairs next to the existing bond entries at lines 80-91."
+},
+{
+ "file": "src/KOKKOS/bond_table_kokkos.cpp",
+ "line": 241,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "possible",
+ "summary": "uf_lookup_kk() omits the CPU's non-finite bond-length guard, so a NaN/Inf separation produces an undefined int conversion instead of a clean error.",
+ "evidence": "src/KOKKOS/bond_table_kokkos.cpp:241-252 starts straight at 'const int tb = d_tabindex[type]; ... const int itable = static_cast<int>((x_in - lo) * invdelta); if (itable < 0) { d_error_flag() = 1; return; }'. CPU src/MOLECULE/bond_table.cpp:592 begins with 'if (!std::isfinite(x)) { error->one(FLERR, \"Illegal bond in bond style table\"); }'.",
+ "failure_scenario": "A blown-up trajectory gives r = NaN: static_cast<int>(NaN) is undefined; on x86 it yields INT_MIN so the code happens to report 'Bond length < table inner cutoff', but on other targets it can produce an in-range itable and silently index the table with garbage instead of aborting.",
+ "suggested_fix": "Add 'if (!Kokkos::isfinite(x_in)) { d_error_flag() = 1; return; }' (or a third flag value with its own message) at the top of uf_lookup_kk()."
+},
+{
+ "file": "src/KOKKOS/bond_gaussian_kokkos.cpp",
+ "line": 154,
+ "severity": "low",
+ "category": "rule",
+ "confidence": "possible",
+ "summary": "A std:: facility (std::numeric_limits<>::min()) is used inside a KOKKOS_INLINE_FUNCTION device kernel, which the KOKKOS package rules forbid and which only compiles with --expt-relaxed-constexpr.",
+ "evidence": "src/KOKKOS/bond_gaussian_kokkos.cpp:154 'static constexpr KK_ACC_FLOAT SMALL_KK = std::numeric_limits<KK_ACC_FLOAT>::min();' inside 'void BondGaussianKokkos<DeviceType>::operator()(TagBondGaussianCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const' (:149). .github/instructions/kokkos.instructions.md rule 4: 'Use Kokkos:: math functions in device kernels ..., never std::'. Kokkos provides Kokkos::Experimental::norm_min_v / finite_min_v for this.",
+ "failure_scenario": "Any nvcc/hipcc build without --expt-relaxed-constexpr (or a future toolchain that tightens constexpr host-function use in device code) fails to compile bond_gaussian_kokkos.cpp; today Kokkos enables the flag so it builds.",
+ "suggested_fix": "Replace with a Kokkos-provided constant (Kokkos::Experimental::norm_min_v<KK_ACC_FLOAT>) or a literal guarded by an if constexpr on sizeof(KK_ACC_FLOAT)."
+},
+{
+ "file": "src/KOKKOS/bond_harmonic_kokkos.cpp",
+ "line": 264,
+ "severity": "low",
+ "category": "cleanup",
+ "confidence": "confirmed",
+ "summary": "Leftover developer 'FIX:' comment plus redundant re-creation of the coefficient dual views in read_restart(), and per-atom memory tags mislabelled 'improper:' in bond styles.",
+ "evidence": "src/KOKKOS/bond_harmonic_kokkos.cpp:264-267 '// FIX: Removed \"DAT::tdual_kkfloat_1d\" to use the class members / // instead of creating local shadowed variables. / k_k = DAT::tdual_kkfloat_1d(\"BondHarmonic::k\", n+1);' - BondHarmonic::read_restart (src/MOLECULE/bond_harmonic.cpp:169) already calls the virtual allocate(), i.e. BondHarmonicKokkos::allocate() (:213-228), which has just created these very views, so lines 266-270 leak/replace them for nothing (same shape in src/KOKKOS/bond_class2_kokkos.cpp:279-287). Separately, bond_harmonic_kokkos.cpp:77,84, bond_class2_kokkos.cpp:77,84 and bond_quartic_exp_kokkos.cpp:72,79 pass \"improper:eatom\"/\"improper:vatom\" as the memory tag inside a BOND style.",
+ "failure_scenario": "No wrong numbers; the stray 'FIX:' note reads as leftover scratch commentary in a stable release, and the 'improper:' tags make 'info memory' / memory-leak reports attribute bond per-atom arrays to improper styles.",
+ "suggested_fix": "Delete the 'FIX:' comment and the redundant dual-view (re)construction in read_restart(), and change the memory tags to \"bond:eatom\"/\"bond:vatom\" as the other bond kokkos styles already do."
+},
+]
+
+with open(os.path.join(D, "findings.jsonl"), "w") as fh:
+    for f in F:
+        fh.write(json.dumps(f) + "\n")
+
+order = {"high": 0, "medium": 1, "low": 2}
+conf = {"confirmed": 0, "likely": 1, "possible": 2}
+F.sort(key=lambda f: (order[f["severity"]], conf[f["confidence"]]))
+with open(os.path.join(OUT, "findings_03.json"), "w") as fh:
+    fh.write(json.dumps(F, indent=1))
+    fh.write("\n\nCOVERAGE: all files read completely\n")
+print("findings:", len(F))

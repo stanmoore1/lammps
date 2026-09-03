@@ -1,0 +1,12 @@
+Parsed style names w/o suffixes from C++ tree in ../src:
+   Angle styles:      29    Atom styles:       30
+   Body styles:        3    Bond styles:       31
+   Command styles:    55    Compute styles:   179
+   Dihedral styles:   19    Dump styles:       35
+   Fix styles:       311    Improper styles:   14
+   Integrate styles:   5    Kspace styles:     26
+   Minimize styles:    9    Pair styles:      328
+   Reader styles:      4    Region styles:      9
+----------------------------------------------------
+Total number of styles (including suffixes): 2651
+Total number of style index entries: 1708

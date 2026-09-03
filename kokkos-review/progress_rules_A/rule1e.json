@@ -1,0 +1,1162 @@
+[
+ {
+  "class": "AngleCharmm",
+  "file": "src/MOLECULE/angle_charmm.cpp",
+  "line": 47,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCharmmKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n    memory->destroy(k_ub);\n    memory->destroy(r_ub);\n  }"
+ },
+ {
+  "class": "AngleCharmmKokkos",
+  "file": "src/KOKKOS/angle_charmm_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCharmmKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleClass2Kokkos",
+  "file": "src/KOKKOS/angle_class2_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleClass2Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleClass2P6Kokkos",
+  "file": "src/KOKKOS/angle_class2_p6_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleClass2P6Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleClass2xeKokkos",
+  "file": "src/KOKKOS/angle_class2xe_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleClass2xeKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosine",
+  "file": "src/MOLECULE/angle_cosine.cpp",
+  "line": 40,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n  }"
+ },
+ {
+  "class": "AngleCosineDeltaKokkos",
+  "file": "src/KOKKOS/angle_cosine_delta_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineDeltaKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosineKokkos",
+  "file": "src/KOKKOS/angle_cosine_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosinePeriodicKokkos",
+  "file": "src/KOKKOS/angle_cosine_periodic_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosinePeriodicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosineShiftExpKokkos",
+  "file": "src/KOKKOS/angle_cosine_shift_exp_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineShiftExpKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosineShiftKokkos",
+  "file": "src/KOKKOS/angle_cosine_shift_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineShiftKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosineSquaredKokkos",
+  "file": "src/KOKKOS/angle_cosine_squared_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineSquaredKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCosineSquaredRestrictedKokkos",
+  "file": "src/KOKKOS/angle_cosine_squared_restricted_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCosineSquaredRestrictedKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleCrossKokkos",
+  "file": "src/KOKKOS/angle_cross_kokkos.cpp",
+  "line": 50,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleCrossKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleDipoleKokkos",
+  "file": "src/KOKKOS/angle_dipole_kokkos.cpp",
+  "line": 51,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleDipoleKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleFourierKokkos",
+  "file": "src/KOKKOS/angle_fourier_kokkos.cpp",
+  "line": 48,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleFourierKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleFourierSimpleKokkos",
+  "file": "src/KOKKOS/angle_fourier_simple_kokkos.cpp",
+  "line": 50,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleFourierSimpleKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleGaussianKokkos",
+  "file": "src/KOKKOS/angle_gaussian_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleGaussianKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleHarmonic",
+  "file": "src/MOLECULE/angle_harmonic.cpp",
+  "line": 43,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleHarmonicKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n  }"
+ },
+ {
+  "class": "AngleHarmonicKokkos",
+  "file": "src/KOKKOS/angle_harmonic_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleMM3Kokkos",
+  "file": "src/KOKKOS/angle_mm3_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleMM3Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleMWLCKokkos",
+  "file": "src/KOKKOS/angle_mwlc_kokkos.cpp",
+  "line": 48,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleMWLCKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleQuarticKokkos",
+  "file": "src/KOKKOS/angle_quartic_kokkos.cpp",
+  "line": 50,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleQuarticKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleSPICA",
+  "file": "src/CG-SPICA/angle_spica.cpp",
+  "line": 56,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleSPICAKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n    memory->destroy(repscale);\n\n    allocated = 0;\n  }"
+ },
+ {
+  "class": "AngleSPICAKokkos",
+  "file": "src/KOKKOS/angle_spica_kokkos.cpp",
+  "line": 59,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleSPICAKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "AngleTableKokkos",
+  "file": "src/KOKKOS/angle_table_kokkos.cpp",
+  "line": 55,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "AngleTableKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondClass2Kokkos",
+  "file": "src/KOKKOS/bond_class2_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondClass2Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n\n    delete tuner;\n  }"
+ },
+ {
+  "class": "BondFENE",
+  "file": "src/MOLECULE/bond_fene.cpp",
+  "line": 41,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 2,
+  "users": [
+   "BondFENEKokkos",
+   "BondFENENMKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n    memory->destroy(epsilon);\n    memory->destroy(sigma);\n  }"
+ },
+ {
+  "class": "BondFENEExpandKokkos",
+  "file": "src/KOKKOS/bond_fene_expand_kokkos.cpp",
+  "line": 56,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondFENEExpandKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondFENEKokkos",
+  "file": "src/KOKKOS/bond_fene_kokkos.cpp",
+  "line": 58,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondFENEKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n\n    delete tuner;\n  }"
+ },
+ {
+  "class": "BondFENENM",
+  "file": "src/EXTRA-MOLECULE/bond_fene_nm.cpp",
+  "line": 38,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondFENENMKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(nn);\n    memory->destroy(mm);\n  }"
+ },
+ {
+  "class": "BondFENENMKokkos",
+  "file": "src/KOKKOS/bond_fene_nm_kokkos.cpp",
+  "line": 53,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondFENENMKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondGaussian",
+  "file": "src/EXTRA-MOLECULE/bond_gaussian.cpp",
+  "line": 43,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondGaussianKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(nterms);\n    memory->destroy(bond_temperature);\n    for (int i = 1; i <= atom->nbondtypes; i++) {\n      delete[] alpha[i];\n      delete[] width[i];\n      delete[] r0[i];\n    }\n    delete[] alpha;\n    delete[] width;\n    delete[] r0;\n  }"
+ },
+ {
+  "class": "BondGaussianKokkos",
+  "file": "src/KOKKOS/bond_gaussian_kokkos.cpp",
+  "line": 53,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondGaussianKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondGromos",
+  "file": "src/MOLECULE/bond_gromos.cpp",
+  "line": 41,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondGromosKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n  }"
+ },
+ {
+  "class": "BondGromosKokkos",
+  "file": "src/KOKKOS/bond_gromos_kokkos.cpp",
+  "line": 46,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondGromosKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondHarmonic",
+  "file": "src/MOLECULE/bond_harmonic.cpp",
+  "line": 36,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondHarmonicKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n  }"
+ },
+ {
+  "class": "BondHarmonicKokkos",
+  "file": "src/KOKKOS/bond_harmonic_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n\n    delete tuner;\n  }"
+ },
+ {
+  "class": "BondHarmonicRestrainKokkos",
+  "file": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp",
+  "line": 51,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondHarmonicRestrainKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondHarmonicShiftCutKokkos",
+  "file": "src/KOKKOS/bond_harmonic_shift_cut_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondHarmonicShiftCutKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondHarmonicShiftKokkos",
+  "file": "src/KOKKOS/bond_harmonic_shift_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondHarmonicShiftKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondMM3Kokkos",
+  "file": "src/KOKKOS/bond_mm3_kokkos.cpp",
+  "line": 48,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondMM3Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondMorseKokkos",
+  "file": "src/KOKKOS/bond_morse_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondMorseKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondNonlinearKokkos",
+  "file": "src/KOKKOS/bond_nonlinear_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondNonlinearKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondQuarticExp",
+  "file": "src/EXTRA-MOLECULE/bond_quartic_exp.cpp",
+  "line": 39,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondQuarticExpKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(r0);\n    memory->destroy(k2);\n    memory->destroy(k3);\n    memory->destroy(k4);\n    memory->destroy(A);\n    memory->destroy(B);\n  }"
+ },
+ {
+  "class": "BondQuarticExpKokkos",
+  "file": "src/KOKKOS/bond_quartic_exp_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondQuarticExpKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "BondQuarticKokkos",
+  "file": "src/KOKKOS/bond_quartic_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "BondQuarticKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ComputeGridLocal",
+  "file": "src/ML-SNAP/compute_grid_local.cpp",
+  "line": 63,
+  "mentions": false,
+  "wrapped_guard": false,
+  "nusers": 3,
+  "users": [
+   "ComputeSNAGridLocalKokkos",
+   "ComputeSNAGridLocalKokkosDevice",
+   "ComputeSNAGridLocalKokkosHost"
+  ],
+  "body": "deallocate();"
+ },
+ {
+  "class": "ComputeTemp",
+  "file": "src/compute_temp.cpp",
+  "line": 42,
+  "mentions": true,
+  "wrapped_guard": false,
+  "nusers": 1,
+  "users": [
+   "ComputeTempKokkos"
+  ],
+  "body": "if (!copymode) delete[] vector;"
+ },
+ {
+  "class": "ComputeTempCOM",
+  "file": "src/compute_temp_com.cpp",
+  "line": 45,
+  "mentions": true,
+  "wrapped_guard": false,
+  "nusers": 1,
+  "users": [
+   "ComputeTempCOMKokkos"
+  ],
+  "body": "if (!copymode)\n    delete [] vector;"
+ },
+ {
+  "class": "DihedralCharmm",
+  "file": "src/MOLECULE/dihedral_charmm.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralCharmmKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(multiplicity);\n    memory->destroy(shift);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n    memory->destroy(weight);\n  }"
+ },
+ {
+  "class": "DihedralCharmmKokkos",
+  "file": "src/KOKKOS/dihedral_charmm_kokkos.cpp",
+  "line": 60,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralCharmmKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralCharmmfsw",
+  "file": "src/MOLECULE/dihedral_charmmfsw.cpp",
+  "line": 55,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralCharmmfswKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(multiplicity);\n    memory->destroy(shift);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n    memory->destroy(weight);\n  }"
+ },
+ {
+  "class": "DihedralCharmmfswKokkos",
+  "file": "src/KOKKOS/dihedral_charmmfsw_kokkos.cpp",
+  "line": 67,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralCharmmfswKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralClass2Kokkos",
+  "file": "src/KOKKOS/dihedral_class2_kokkos.cpp",
+  "line": 58,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralClass2Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralClass2xeKokkos",
+  "file": "src/KOKKOS/dihedral_class2xe_kokkos.cpp",
+  "line": 59,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralClass2xeKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralCosineShiftExpKokkos",
+  "file": "src/KOKKOS/dihedral_cosine_shift_exp_kokkos.cpp",
+  "line": 59,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralCosineShiftExpKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralCosineSquaredRestrictedKokkos",
+  "file": "src/KOKKOS/dihedral_cosine_squared_restricted_kokkos.cpp",
+  "line": 61,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralCosineSquaredRestrictedKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralFourierKokkos",
+  "file": "src/KOKKOS/dihedral_fourier_kokkos.cpp",
+  "line": 61,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralFourierKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralHarmonic",
+  "file": "src/MOLECULE/dihedral_harmonic.cpp",
+  "line": 44,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralHarmonicKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(sign);\n    memory->destroy(multiplicity);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n  }"
+ },
+ {
+  "class": "DihedralHarmonicKokkos",
+  "file": "src/KOKKOS/dihedral_harmonic_kokkos.cpp",
+  "line": 57,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralHelixKokkos",
+  "file": "src/KOKKOS/dihedral_helix_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralHelixKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralMultiHarmonic",
+  "file": "src/MOLECULE/dihedral_multi_harmonic.cpp",
+  "line": 46,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralMultiHarmonicKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(a1);\n    memory->destroy(a2);\n    memory->destroy(a3);\n    memory->destroy(a4);\n    memory->destroy(a5);\n  }"
+ },
+ {
+  "class": "DihedralMultiHarmonicKokkos",
+  "file": "src/KOKKOS/dihedral_multi_harmonic_kokkos.cpp",
+  "line": 58,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralMultiHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralNHarmonicKokkos",
+  "file": "src/KOKKOS/dihedral_nharmonic_kokkos.cpp",
+  "line": 61,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralNHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralOPLS",
+  "file": "src/MOLECULE/dihedral_opls.cpp",
+  "line": 47,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralOPLSKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k1);\n    memory->destroy(k2);\n    memory->destroy(k3);\n    memory->destroy(k4);\n  }"
+ },
+ {
+  "class": "DihedralOPLSKokkos",
+  "file": "src/KOKKOS/dihedral_opls_kokkos.cpp",
+  "line": 59,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralOPLSKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralQuadraticKokkos",
+  "file": "src/KOKKOS/dihedral_quadratic_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralQuadraticKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralSphericalKokkos",
+  "file": "src/KOKKOS/dihedral_spherical_kokkos.cpp",
+  "line": 60,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralSphericalKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralTableCutKokkos",
+  "file": "src/KOKKOS/dihedral_table_cut_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralTableCutKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "DihedralTableKokkos",
+  "file": "src/KOKKOS/dihedral_table_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "DihedralTableKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "FixShardlow",
+  "file": "src/DPD-REACT/fix_shardlow.cpp",
+  "line": 118,
+  "mentions": false,
+  "wrapped_guard": false,
+  "nusers": 1,
+  "users": [
+   "FixShardlowKokkos"
+  ],
+  "body": "memory->destroy(rand_state);\n  maxRNG = 0;"
+ },
+ {
+  "class": "ImproperClass2Kokkos",
+  "file": "src/KOKKOS/improper_class2_kokkos.cpp",
+  "line": 54,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperClass2Kokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperCossqKokkos",
+  "file": "src/KOKKOS/improper_cossq_kokkos.cpp",
+  "line": 56,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperCossqKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperCvffKokkos",
+  "file": "src/KOKKOS/improper_cvff_kokkos.cpp",
+  "line": 56,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperCvffKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperDistHarmKokkos",
+  "file": "src/KOKKOS/improper_distharm_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperDistHarmKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperDistanceKokkos",
+  "file": "src/KOKKOS/improper_distance_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperDistanceKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperFourierKokkos",
+  "file": "src/KOKKOS/improper_fourier_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperFourierKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperHarmonic",
+  "file": "src/MOLECULE/improper_harmonic.cpp",
+  "line": 47,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperHarmonicKokkos"
+  ],
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(chi);\n  }"
+ },
+ {
+  "class": "ImproperHarmonicKokkos",
+  "file": "src/KOKKOS/improper_harmonic_kokkos.cpp",
+  "line": 56,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperInversionHarmonicKokkos",
+  "file": "src/KOKKOS/improper_inversion_harmonic_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperInversionHarmonicKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperRingKokkos",
+  "file": "src/KOKKOS/improper_ring_kokkos.cpp",
+  "line": 51,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperRingKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperSQDistHarmKokkos",
+  "file": "src/KOKKOS/improper_sqdistharm_kokkos.cpp",
+  "line": 49,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperSQDistHarmKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "ImproperUmbrellaKokkos",
+  "file": "src/KOKKOS/improper_umbrella_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "ImproperUmbrellaKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "NeighborKokkos",
+  "file": "src/KOKKOS/neighbor_kokkos.cpp",
+  "line": 52,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "NeighborKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_cutneighsq,cutneighsq);\n    cutneighsq = nullptr;\n\n    memoryKK->destroy_kokkos(k_cutneighghostsq,cutneighghostsq);\n    cutneighghostsq = nullptr;\n\n    memoryKK->destroy_kokkos(k_ex_type,ex_type);\n    memoryKK->destroy_kokkos(k_ex1_type,ex1_type);\n    memoryKK->destroy_kokkos(k_ex2_type,ex2_type);\n    memoryKK->destroy_kokkos(k_ex_mol_group,ex_mol_group);\n    memoryKK->destroy_kokkos(k_ex1_bit,ex1_bit);\n    memoryKK->destroy_kokkos(k_ex2_bit,ex2_bit);\n    memoryKK->destroy_kokkos(k_ex_mol_bit,ex_mol_bit);\n    memoryKK->destroy_kokkos(k_ex_mol_intra,ex_mol_intra);\n  }"
+ },
+ {
+  "class": "Pair",
+  "file": "src/pair.cpp",
+  "line": 138,
+  "mentions": true,
+  "wrapped_guard": false,
+  "nusers": 35,
+  "users": [
+   "PairADPKokkos",
+   "PairBondValKokkos",
+   "PairBondValVecKokkos",
+   "PairBrownianKokkos",
+   "PairCoulDSFKokkos",
+   "PairCoulWolfCSKokkos"
+  ],
+  "body": "num_tally_compute = 0;\n  memory->sfree((void *) list_tally_compute);\n  list_tally_compute = nullptr;\n\n  if (copymode) return;\n\n  if (elements)\n    for (int i = 0; i < nelements; i++) delete[] elements[i];\n  delete[] elements;\n\n  delete[] map;\n  memory->destroy(eatom);\n  memory->destroy(vatom);\n  memory->destroy(cvatom);"
+ },
+ {
+  "class": "PairCoulDSFKokkos",
+  "file": "src/KOKKOS/pair_coul_dsf_kokkos.cpp",
+  "line": 55,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairCoulDSFKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "PairCoulWolfCSKokkos",
+  "file": "src/KOKKOS/pair_coul_wolf_cs_kokkos.cpp",
+  "line": 58,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairCoulWolfCSKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "PairCoulWolfKokkos",
+  "file": "src/KOKKOS/pair_coul_wolf_kokkos.cpp",
+  "line": 53,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairCoulWolfKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "PairSWKokkos",
+  "file": "src/KOKKOS/pair_sw_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairSWKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n    eatom = nullptr;\n    vatom = nullptr;\n\n    delete tuner;\n  }"
+ },
+ {
+  "class": "PairSWMODKokkos",
+  "file": "src/KOKKOS/pair_sw_mod_kokkos.cpp",
+  "line": 62,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairSWMODKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n    eatom = nullptr;\n    vatom = nullptr;\n\n    delete tuner;\n  }"
+ },
+ {
+  "class": "PairTersoffKokkos",
+  "file": "src/KOKKOS/pair_tersoff_kokkos.cpp",
+  "line": 82,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairTersoffKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n\n    delete tuner;\n  }"
+ },
+ {
+  "class": "PairTersoffMODCKokkos",
+  "file": "src/KOKKOS/pair_tersoff_mod_c_kokkos.cpp",
+  "line": 70,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairTersoffMODCKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "PairTersoffMODKokkos",
+  "file": "src/KOKKOS/pair_tersoff_mod_kokkos.cpp",
+  "line": 70,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairTersoffMODKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "PairTersoffZBLKokkos",
+  "file": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp",
+  "line": 83,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairTersoffZBLKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n  }"
+ },
+ {
+  "class": "PairVashishtaKokkos",
+  "file": "src/KOKKOS/pair_vashishta_kokkos.cpp",
+  "line": 58,
+  "mentions": true,
+  "wrapped_guard": true,
+  "nusers": 1,
+  "users": [
+   "PairVashishtaKokkos"
+  ],
+  "body": "if (!copymode) {\n    memoryKK->destroy_kokkos(k_eatom,eatom);\n    memoryKK->destroy_kokkos(k_vatom,vatom);\n    eatom = nullptr;\n    vatom = nullptr;\n  }"
+ }
+]

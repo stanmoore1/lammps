@@ -1,0 +1,157 @@
+[
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "line": 84,
+  "severity": "high",
+  "category": "memory",
+  "confidence": "confirmed",
+  "summary": "~FixPropertyAtomKokkos() calls atomKK->update_property_atom() while the dying fix is still in Modify's fix list, so AtomKokkos::fix_prop_atom[] is rebuilt containing a pointer to the object being destroyed (use-after-free on every later atomKK->sync()/modified()).",
+  "evidence": "src/KOKKOS/fix_property_atom_kokkos.cpp:63-85: 'FixPropertyAtomKokkos::~FixPropertyAtomKokkos() { ... atomKK->update_property_atom(); }'. src/KOKKOS/atom_kokkos.cpp:162-180: 'void AtomKokkos::update_property_atom() { nprop_atom = 0; ... for (auto &ifix : modify->get_fix_by_style(\"^property/atom\")) { ... ++nprop_atom; prop_atom_fixes.push_back(ifix); } ... fix_prop_atom[n++] = dynamic_cast<FixPropertyAtomKokkos *>(ifix); }'. src/modify.cpp Modify::delete_fix(int ifix): 'delete fix[ifix]; atom->update_callback(ifix); for (int i = ifix + 1; i < nfix; i++) fix[i - 1] = fix[i]; ... nfix--;' -- the entry is removed from fix[] only AFTER the destructor has run, and src/modify.cpp Modify::get_fix_by_style() iterates 'for (int ifix = 0; ifix < nfix; ifix++) if (fix[ifix] && utils::strmatch(fix[ifix]->style, style))', so the fix currently being destroyed still matches. AtomKokkos::sync()/modified() then dereference it: src/KOKKOS/atom_kokkos.cpp 'for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->sync(space, mask);'.",
+  "failure_scenario": "fix p all property/atom d_foo ; run 100 ; unfix p ; run 100  -> the first atomKK->sync() in the second run calls sync()/modified() on the freed FixPropertyAtomKokkos object (heap use-after-free: crash, or silent corruption of the DualView modify flags).",
+  "suggested_fix": "Do not rebuild the list from inside the destructor; instead have AtomKokkos::update_property_atom() skip the fix being destroyed (pass 'this' to exclude), or trigger the rebuild from Modify::delete_fix()/Atom::update_callback() after the fix has been removed from modify->fix[]."
+ },
+ {
+  "file": "src/KOKKOS/fix_reaxff_bonds_kokkos.cpp",
+  "line": 118,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "FixReaxFFBondsKokkos::Output_ReaxFF_Bonds() drops the base class's 'if (filename == \"NULL\") return;' early exit, so 'fix ... reaxff/bonds/kk N NULL' creates and writes a file literally named NULL instead of suppressing file output.",
+  "evidence": "src/REAXFF/fix_reaxff_bonds.cpp:149-159: 'numbonds = FindBond();\\n\\n  // no file output with NULL file name.\\n  if (filename == \"NULL\") return;\\n\\n  // allocate a temporary buffer for the snapshot info\\n  MPI_Allreduce(&numbonds,&numbonds_max,...)'. src/KOKKOS/fix_reaxff_bonds_kokkos.cpp:113-134 has no such check: 'numbonds = 0;\\n  if (reaxff->execution_space == Device) ...FindBond_kokkos(numbonds);\\n  ...\\n  MPI_Allreduce(&numbonds,&numbonds_max,1,MPI_INT,MPI_MAX,world);\\n  ...\\n  RecvBuffer(buf, nbuf, nbuf_local, nlocal_tot, numbonds_max);' and RecvBuffer (src/REAXFF/fix_reaxff_bonds.cpp:260-275) does 'fp = fopen(myfile.c_str(), \"w\")' with myfile == \"NULL\".",
+  "failure_scenario": "fix 1 all reaxff/bonds/kk 10 NULL  (the documented way to enable dump-image bond rendering without a bonds file) -> rank 0 creates a file named 'NULL' in the working directory and writes a full bond table into it every 10 steps.",
+  "suggested_fix": "Add 'if (filename == \"NULL\") return;' right after the FindBond_kokkos() call, matching FixReaxFFBonds::Output_ReaxFF_Bonds()."
+ },
+ {
+  "file": "src/KOKKOS/fix_reaxff_bonds_kokkos.cpp",
+  "line": 102,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "fix reaxff/bonds/kk never fills numobjs/numneigh/neighid, so the inherited FixReaxFFBonds::image() always returns 0 and dump image silently renders no ReaxFF bonds.",
+  "evidence": "src/REAXFF/fix_reaxff_bonds.cpp:377-383: 'int FixReaxFFBonds::image(int *&objs, double **&parms) { ... if (!numobjs) return 0;' and the body reads 'numneigh[i]' / 'neighid[i][jj]'. numobjs is set only in FixReaxFFBonds::FindBond() (src/REAXFF/fix_reaxff_bonds.cpp:187 'numobjs = 0;' and :206 'numobjs += nj;'). FixReaxFFBondsKokkos::Output_ReaxFF_Bonds() (src/KOKKOS/fix_reaxff_bonds_kokkos.cpp:102-137) calls PairReaxFFKokkos::FindBond_kokkos() instead, which fills only device views in the pair style and never touches numobjs/numneigh/neighid; FixReaxFFBondsKokkos does not override image().",
+  "failure_scenario": "fix 1 all reaxff/bonds/kk 10 NULL  +  dump  d all image ... bonds fix 1 ...  -> the images contain the atoms but no bonds, with no error message; the same input with the non-kk fix draws them.",
+  "suggested_fix": "Either override image() in FixReaxFFBondsKokkos to build the object list from the pair style's device bond data (syncing it to the host first), or make init() refuse the combination with a clear error when the fix is used as a dump image bond source."
+ },
+ {
+  "file": "src/KOKKOS/fix_reaxff_species_kokkos.cpp",
+  "line": 161,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "Wrong logical operator in the tmpid skip guard: '(j == 0) && (j < i)' instead of the base class's '(j == 0) || (j < i)', so empty bond slots are no longer skipped and lower-index partners would be processed a second time.",
+  "evidence": "src/KOKKOS/fix_reaxff_species_kokkos.cpp:158-162:\n        for (jj = 0; jj < MAXSPECBOND; jj++) {\n          j = reaxff->tmpid[i][jj];\n\n          if ((j == 0) && (j < i)) continue;\nvs src/REAXFF/fix_reaxff_species.cpp (FixReaxFFSpecies::FindMolecule, the line 42 of that function):\n          if ((j == 0) || (j < i)) continue;\nEverything else in the two loops is identical.",
+  "failure_scenario": "For the local atom with index i == 0 the sentinel value j == 0 that marks an unused tmpid slot is no longer skipped, so up to MAXSPECBOND(=24) spurious self-pair iterations run per outer pass (currently caught by the following clusterID/x0 equality test, so no wrong numbers today). The guard is also the only protection against double-processing a bond if PairReaxFFKokkos::FindBondSpecies ever stored both directions -- it currently stores only j > i (src/KOKKOS/pair_reaxff_kokkos.cpp, TagPairReaxFindBondSpecies: 'if (j < i) continue;'), which is what masks the defect.",
+  "suggested_fix": "Change '&&' to '||' so the guard matches FixReaxFFSpecies::FindMolecule()."
+ },
+ {
+  "file": "src/KOKKOS/fix_recenter_kokkos.cpp",
+  "line": 100,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The firstgroup loop-truncation is keyed on igroup but the shift kernel selects atoms with group2bit, so with 'atom_modify first <group>' plus the 'shift <other-group>' keyword the atoms of the shift group beyond nfirst are never displaced.",
+  "evidence": "src/KOKKOS/fix_recenter_kokkos.cpp:99-100: 'int nlocal = atomKK->nlocal;\\n  if (igroup == atomKK->firstgroup) nlocal = atomKK->nfirst;' and :156-163: 'Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,nlocal), KOKKOS_LAMBDA(const int i) { if (d_mask[i] & l_group2bit) { d_x(i,0) += l_shiftx; ... } });'. The CPU base has no such truncation -- src/fix_recenter.cpp FixRecenter::initial_integrate(): 'int nlocal = atom->nlocal;\\n  for (int i = 0; i < nlocal; i++)\\n    if (mask[i] & group2bit) { x[i][0] += shift[0]; ... }'. group2bit is a different group from groupbit whenever the 'shift' keyword is used: src/fix_recenter.cpp:71 'group2bit = groupbit;' and :77 'group2bit = group->get_bitmask_by_id(FLERR, arg[iarg+1], \"fix recenter\");'.",
+  "failure_scenario": "atom_modify first mobile ; group mobile ... ; group shiftme ... ; fix 1 mobile recenter INIT INIT INIT shift shiftme  -> only the shiftme atoms that happen to sit in the first nfirst slots of the local atom list are recentered; the rest drift, and the /kk result differs from the non-kk result.",
+  "suggested_fix": "Drop the firstgroup truncation (loop over atom->nlocal), or make it conditional on group2bit == groupbit."
+ },
+ {
+  "file": "src/KOKKOS/fix_reaxff_species_kokkos.cpp",
+  "line": 94,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "likely",
+  "summary": "datamask_read/datamask_modify are narrowed from the Fix defaults (ALL_MASK/ALL_MASK) although the inherited post_integrate() can delete atoms via FixReaxFFSpecies::DeleteSpecies(), which rewrites every per-atom array on the host; only DVECTOR_MASK is marked modified, leaving the device copies of x/v/tag/type/image stale.",
+  "evidence": "src/KOKKOS/fix_reaxff_species_kokkos.cpp:94-95: 'datamask_read = X_MASK | V_MASK | Q_MASK | MASK_MASK | DVECTOR_MASK | TYPE_MASK | RMASS_MASK | TAG_MASK; datamask_modify = DVECTOR_MASK;' (src/fix.cpp:110-111 defaults are 'datamask_read = ALL_MASK; datamask_modify = ALL_MASK;'). src/KOKKOS/modify_kokkos.cpp:266-278 ModifyKokkos::post_integrate() does only 'atomKK->sync(fix->execution_space, fix->datamask_read); ... fix->post_integrate(); ... atomKK->modified(fix->execution_space, fix->datamask_modify);'. FixReaxFFSpecies::post_integrate() -> Output_ReaxFF_Bonds() -> 'if (delflag != NONE && nvalid != -1) DeleteSpecies(Nmole, Nspec);' and DeleteSpecies does 'avec->copy(atom->nlocal - 1, i, 1); atom->nlocal--; ... atom->natoms -= ndel; ... atom->nghost = 0; atom->map_init(); atom->map_set();' (src/REAXFF/fix_reaxff_species.cpp). AtomVecKokkos does not override AtomVec::copy() (src/atom_vec.cpp:269), so the compaction is a pure host-side rewrite of every registered per-atom field.",
+  "failure_scenario": "fix 1 all reaxff/species/kk 1 1 100 species.out delete del.out masslimit 0 50  under -k on -sf kk: after the first deletion step the device still holds the pre-compaction x/v/tag/type/image (and the old nlocal worth of data), so the next device kernel integrates the wrong atoms -- silently wrong trajectories or a crash.",
+  "suggested_fix": "Leave datamask_read/datamask_modify at ALL_MASK for this (deliberately kokkosable = 0) fix, or at least add every mask that AtomVec::copy() touches and set datamask_modify = ALL_MASK whenever delflag != NONE."
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "line": 28,
+  "severity": "medium",
+  "category": "memory",
+  "confidence": "likely",
+  "summary": "Nothing forces 'fix property/atom' to the /kk variant under KOKKOS, yet AtomKokkos::add_custom() always allocates the custom arrays as Kokkos views; the non-kk FixPropertyAtom::grow_arrays() then calls memory->grow()/realloc() on a pointer that aliases into a Kokkos allocation.",
+  "evidence": "src/KOKKOS/atom_kokkos.cpp:466-477 (AtomKokkos::add_custom, flag==1 && cols==0): 'dvector = (double **) memory->srealloc(...); this->sync(Device, DVECTOR_MASK); memoryKK->grow_kokkos(k_dvector, dvector, ndvector, nmax, \"atom:dvector\"); ...' and src/KOKKOS/memory_kokkos.h grow_kokkos() sets 'array[i] = &data.view_host()(i,0)'. src/fix_property_atom.cpp FixPropertyAtom::grow_arrays() then does 'memory->grow(atom->dvector[index[nv]], nmax, \"atom:dvector\"); memset(&atom->dvector[index[nv]][nmax_old], 0, nbytes);' -- Memory::grow() calls srealloc()/realloc() on that Kokkos-owned pointer. The only guard, src/KOKKOS/atom_kokkos.cpp:162-170 AtomKokkos::update_property_atom() ('if (!ifix->kokkosable) error->all(FLERR, \"KOKKOS package requires a Kokkos-enabled version of fix property/atom\")'), is reached only from FixPropertyAtomKokkos's own constructor/destructor, so it never runs when every property/atom fix in the run is non-kk. src/lammps.cpp:465 shows suffix_enable is set only by -sf/-suffix, and src/modify.h:108 add_fix() applies the suffix only when suffix_enable is set.",
+  "failure_scenario": "lmp -k on t 4 -in in.reaxff (no -sf kk) with 'pair_style reaxff/kk' and 'fix 1 all reaxff/species/kk ...': FixReaxFFSpecies::setup() runs modify->add_fix(\"clusterID_... all property/atom d_... ghost yes\"), which resolves to the plain FixPropertyAtom; its post_constructor()->grow_arrays(atom->nmax) reallocs a Kokkos pointer -> glibc 'realloc(): invalid pointer' abort or silent heap corruption. A bare 'fix p all property/atom d_foo' under -k on without -sf kk hits the same path.",
+  "suggested_fix": "Call AtomKokkos::update_property_atom() (or an equivalent kokkosable check) from AtomKokkos::add_custom(), or have ModifyKokkos force the /kk variant for property/atom regardless of suffix_enable."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 1314,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "likely",
+  "summary": "pack_exchange_kokkos()/unpack_exchange_kokkos() ignore the ExecutionSpace argument and never mark/sync the exchange buffer (k_buf.modify<DeviceType>() + sync to the requested space), so with 'package kokkos comm/exchange host' on a GPU build the s_hist/t_hist of migrating atoms are packed into the device copy of the buffer while MPI sends the host copy.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:1313-1343 'pack_exchange_kokkos(const int &nsend, DAT::tdual_double_2d_lr &k_buf, ..., ExecutionSpace /*space*/) { k_buf.sync<DeviceType>(); ... Kokkos::parallel_for(...TagQEqPackExchange...); ... k_s_hist.template modify<DeviceType>(); ... return nsend*nprev*2; }' -- no 'k_buf.modify<DeviceType>()' and no sync of k_buf; same in unpack_exchange_kokkos (:1362-1387). Every other KOKKOS fix does it, e.g. src/KOKKOS/fix_cmap_kokkos.cpp (pack_exchange_kokkos) 'k_buf.template modify<DeviceType>(); if (space == HostKK) k_buf.sync_host(); else k_buf.sync_device();', src/KOKKOS/fix_shake_kokkos.cpp and src/KOKKOS/fix_rigid_small_kokkos.cpp likewise. The caller src/KOKKOS/comm_kokkos.cpp:1373-1375 packs with 'kkbase->pack_exchange_kokkos(count,k_buf_send,...,ExecutionSpaceFromDevice<DeviceType>::space)' and then sends from 'MPI_Send(k_buf_send.view<DeviceType>().data(),nextrasend,...)' (:1404) where DeviceType is CommKokkos::exchange_device's template parameter -- LMPHostType when exchange_comm_on_host is set (src/KOKKOS/kokkos.cpp:589-591, 'package kokkos comm/exchange host'), while the fix's DeviceType is LMPDeviceType.",
+  "failure_scenario": "GPU build with GPU-aware MPI, 'package kokkos comm/exchange host', pair_style reaxff/kk + fix qeq/reaxff/kk on >1 MPI rank: on every reneighboring step the charge-history (s_hist/t_hist) of every migrating atom is filled from whatever the host side of comm's send buffer last held, so the CG initial guess for those atoms is garbage (extra iterations, or non-convergence/NaN if the stale bytes are large).",
+  "suggested_fix": "Add 'k_buf.template modify<DeviceType>(); if (space == HostKK) k_buf.sync_host(); else k_buf.sync_device();' at the end of pack_exchange_kokkos and sync k_buf from the space the data arrived in at the start of unpack_exchange_kokkos, as fix_cmap_kokkos.cpp / fix_shake_kokkos.cpp do."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 510,
+  "severity": "low",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "cg_solve() prints the non-convergence warning unconditionally, ignoring the documented 'nowarn' keyword (maxwarn) that the CPU style honors.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:510-514: 'if (loop >= imax && comm->me == 0) error->warning(FLERR,fmt::format(\"Fix qeq/reaxff/kk cg_solve convergence failed after {} iterations at step {}: ...\"));' vs src/REAXFF/fix_qeq_reaxff.cpp:812-814: 'if ((i >= imax) && maxwarn && (comm->me == 0)) error->warning(FLERR, \"Fix qeq/reaxff CG convergence failed after {} iterations at step {}\", i,update->ntimestep);'. maxwarn is set by the 'nowarn' keyword (src/REAXFF/fix_qeq_reaxff.cpp:77 'maxwarn = 1;' and :101 'else if (strcmp(arg[iarg],\"nowarn\") == 0) maxwarn = 0;') and is documented in doc/src/fix_qeq_reaxff.rst:87-92.",
+  "failure_scenario": "fix 1 all qeq/reaxff/kk 1 0.0 10.0 1e-14 reaxff maxiter 20 nowarn -- the documented use case of forcing a fixed iteration count floods the log with one warning per QEq step instead of being silent.",
+  "suggested_fix": "Add '&& maxwarn' to the condition, matching FixQEqReaxFF::CG()."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 516,
+  "severity": "low",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "cg_solve() returns the fused loop count, so the global scalar of fix qeq/reaxff/kk is half of the value the CPU and OPENMP styles report for the same solve.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:516 'return loop;' feeding :287 'matvecs = cg_solve();', with the inherited src/REAXFF/fix_qeq_reaxff.cpp:475-478 'double FixQEqReaxFF::compute_scalar() { return matvecs/2.0; }'. The CPU style counts both solves: src/REAXFF/fix_qeq_reaxff.cpp:626-628 'matvecs_s = CG(b_s, s); matvecs_t = CG(b_t, t); matvecs = matvecs_s + matvecs_t;', and the OPENMP fused solver does the same, src/OPENMP/fix_qeq_reaxff_omp.cpp:779-802 'matvecs_s = matvecs_t = i; ... return matvecs_s + matvecs_t;'.",
+  "failure_scenario": "thermo_style custom step f_1 with fix qeq/reaxff vs fix qeq/reaxff/kk on the same input prints ~N and ~N/2 iterations respectively for an identical solve.",
+  "suggested_fix": "Return 2*loop from cg_solve() (or set matvecs = 2*cg_solve()) so the reported scalar matches the CPU/OPENMP convention."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 362,
+  "severity": "low",
+  "category": "efficiency",
+  "confidence": "confirmed",
+  "summary": "get_chi_field() is called twice per QEq step (once from allocate_array(), once from pre_force()), and each call forces a device->host sync of x/mask/image plus a full host-side loop over all atoms.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:219 'allocate_array();' inside pre_force(), and allocate_array() ends with :360-364 '// init_storage\\n  if (efield) get_chi_field();\\n  Kokkos::parallel_for(...TagQEqZero...);'. pre_force() then repeats it at :265-267 '// init_matvec\\n  if (efield) get_chi_field();'. Each call is src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:1430-1436 'atomKK->sync(Host,X_MASK|MASK_MASK|IMAGE_MASK); FixQEqReaxFF::get_chi_field(); k_chi_field.modify_host(); k_chi_field.sync_device();'. The CPU style calls it once per pre_force (src/REAXFF/fix_qeq_reaxff.cpp:622) plus once in init_storage(), which runs only from setup_pre_force().",
+  "failure_scenario": "fix qeq/reaxff/kk together with fix efield on a GPU: every QEq step performs two full x/mask/image device->host copies and two O(nlocal) host loops instead of one.",
+  "suggested_fix": "Drop the 'if (efield) get_chi_field();' from allocate_array() (the following TagQEqZero kernel only needs d_chi_field, which pre_force() refills right afterwards), or drop the duplicate call in pre_force()."
+ },
+ {
+  "file": "src/KOKKOS/fix_reaxff_bonds_kokkos.cpp",
+  "line": 141,
+  "severity": "low",
+  "category": "memory",
+  "confidence": "likely",
+  "summary": "fix reaxff/bonds/kk inherits FixReaxFFBonds::allocate(), so numneigh/neighid/abo (nmax x MAXREAXBOND) are allocated and grown but never used by the KOKKOS path, and memory_usage() no longer reports them.",
+  "evidence": "src/REAXFF/fix_reaxff_bonds.cpp:68 'allocate();' in the base constructor allocates 'numneigh' (nmax), 'neighid' (nmax x MAXREAXBOND, tagint) and 'abo' (nmax x MAXREAXBOND, double); allocate() is not virtual (src/REAXFF/fix_reaxff_bonds.h:49 'void allocate();') and FixReaxFFBondsKokkos does not override it. src/KOKKOS/fix_reaxff_bonds_kokkos.cpp:141-152: 'double FixReaxFFBondsKokkos::memory_usage() { bytes = nbuf*sizeof(double); // These are accounted for in PairReaxFFKokkos: //bytes += nmax*sizeof(int); ...' -- the commented-out terms are exactly the arrays the base fix (not the pair style) still owns.",
+  "failure_scenario": "A 1M-atom reaxff/kk run with fix reaxff/bonds/kk wastes ~1M*MAXREAXBOND*(sizeof(tagint)+sizeof(double)) bytes of host memory that no code reads, and 'info memory' under-reports the fix's footprint.",
+  "suggested_fix": "Make FixReaxFFBonds::allocate()/destroy() virtual and override them in the KOKKOS class to be no-ops (or keep them and restore the memory_usage terms)."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 102,
+  "severity": "low",
+  "category": "sync-modify",
+  "confidence": "likely",
+  "summary": "FixQEqReaxFFKokkos::init() syncs q to execution_space (Device) before FixQEqReaxFF::init() reads atom->q and atom->mask on the host, i.e. the sync is in the wrong direction and MASK_MASK is missing.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:100-104: 'void FixQEqReaxFFKokkos<DeviceType>::init() { atomKK->sync(execution_space,Q_MASK); FixQEqReaxFF::init(); ...'. The only per-atom data the base init() touches is on the host: src/REAXFF/fix_qeq_reaxff.cpp:422-427 'double qsum_local = 0.0, qsum = 0.0; for (int i = 0; i < atom->nlocal; i++) { if (atom->mask[i] & groupbit) qsum_local += atom->q[i]; } MPI_Allreduce(...)'. With execution_space == Device, atomKK->sync(Device,Q_MASK) copies host->device (a no-op when the device copy is the fresh one) and leaves the host copy stale.",
+  "failure_scenario": "Two consecutive run commands with fix qeq/reaxff/kk on a GPU: the first run leaves q modified on the device (fix_qeq_reaxff_kokkos.cpp:537 'atomKK->modified(execution_space,Q_MASK)'); the second run's init() then computes qsum from the pre-run host charges and prints (or fails to print) the 'group is not charge neutral' warning based on stale data.",
+  "suggested_fix": "Change the call to 'atomKK->sync(Host, Q_MASK|MASK_MASK);' since the base init() reads those arrays on the host."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 1455,
+  "severity": "low",
+  "category": "overflow",
+  "confidence": "possible",
+  "summary": "The H-matrix capacity reduction sums d_numneigh[ii] over the list index ii instead of d_numneigh[d_ilist[ii]], while every consumer of that capacity indexes by d_ilist[ii]; the two agree only because the Kokkos neighbor build happens to set d_ilist(i)==i.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:1453-1456: 'void FixQEqReaxFFKokkosNeighborFunctor<DeviceType>::operator()(TagQEqNeighborNumNeigh, const int& ii, bigint& totneigh) const { totneigh += static_cast<bigint>(d_numneigh[ii]); }' -- the result is m_cap_big (:230-231) and sizes d_jlist/d_val (:326-327). Both consumers dereference the ilist first: the CPU scan at :1487-1497 'const int i = d_ilist[ii]; ... const int jnum = d_numneigh[i];' and the GPU team version at :1592-1600 'const int i = d_ilist[ii]; int jnum = d_numneigh[i]; ... totalnbrs += jnum;' whose per-team total is reserved with 'Kokkos::atomic_fetch_add(&d_mfill_offset(), totalnbrs)' (:1618). The CPU base sums the same way as the consumers: src/REAXFF/fix_qeq_reaxff.cpp:374-378 'm = 0; for (ii = 0; ii < nn; ii++) { i = ilist[ii]; m += numneigh[i]; }'. Today src/KOKKOS/npair_kokkos.cpp:593,838,970,1132,1330,1575 all set 'neigh_list.d_ilist(i) = i;', so the two sums are equal and no overrun occurs.",
+  "failure_scenario": "Latent: if any Kokkos neighbor build ever produces a non-identity or subset d_ilist (e.g. a reordered or partial ilist), the GPU team compute_H reserves more slots than m_cap_big and writes past the end of d_jlist/d_val (out-of-bounds device write, silent corruption).",
+  "suggested_fix": "Change the functor to 'totneigh += static_cast<bigint>(d_numneigh[d_ilist[ii]]);' so the capacity estimate matches the consumers and the CPU base."
+ }
+]
+COVERAGE: all files read completely

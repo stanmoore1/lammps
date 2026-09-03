@@ -1,0 +1,81 @@
+[
+  {
+    "file": "src/KOKKOS/improper_hybrid_kokkos.cpp",
+    "line": 204,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "improper hybrid/kk keeps the base-class default centroidstressflag = CENTROID_AVAIL although every KOKKOS improper sub-style sets CENTROID_NOTAVAIL, so the cvflag_atom accumulation loop dereferences a null sub-style cvatom pointer.",
+    "evidence": "ImproperHybridKokkos::ImproperHybridKokkos (src/KOKKOS/improper_hybrid_kokkos.cpp:91-102) never touches centroidstressflag, so it inherits `centroidstressflag = CENTROID_AVAIL;` from Improper::Improper (src/improper.cpp:46). Every KOKKOS improper sub-style does the opposite, e.g. src/KOKKOS/improper_harmonic_kokkos.cpp:50 `centroidstressflag = CENTROID_NOTAVAIL;` (same line in improper_class2_kokkos.cpp:48, improper_cossq_kokkos.cpp:50, improper_cvff_kokkos.cpp:50, improper_distance_kokkos.cpp:43, improper_distharm_kokkos.cpp:43, improper_fourier_kokkos.cpp:46, improper_inversion_harmonic_kokkos.cpp:43, improper_ring_kokkos.cpp:45, improper_sqdistharm_kokkos.cpp:43, improper_umbrella_kokkos.cpp:46). Improper::ev_setup (src/improper.cpp:125-127) therefore sets cvflag_atom=1 (and allocates cvatom) for the hybrid but cvflag_atom=0 / vflag_atom=1 for each sub-style, leaving styles[m]->cvatom == nullptr (src/improper.cpp:44). The hybrid then runs `double **cvatom_substyle = styles[m]->cvatom;` and `cvatom[i][j] += cvatom_substyle[i][j];` (src/KOKKOS/improper_hybrid_kokkos.cpp:207-209). The guard in ComputeCentroidStressAtom (src/compute_centroid_stress_atom.cpp:189-191) only inspects force->improper->centroidstressflag, i.e. the hybrid's AVAIL value, so it does not catch this.",
+    "failure_scenario": "improper_style hybrid/kk harmonic cvff + `compute centroid/stress/atom` (or `compute pressure ... virial` with VIRIAL_CENTROID, e.g. used by fix bocs / compute stress/mop-style consumers): the centroid check passes, cvflag_atom is set for the hybrid, and the first iteration of the accumulation loop segfaults on a null cvatom_substyle.",
+    "suggested_fix": "Set `centroidstressflag = CENTROID_NOTAVAIL;` in the ImproperHybridKokkos constructor (matching the sub-styles), or compute it in init_style() as the max over sub-styles' flags."
+  },
+  {
+    "file": "src/KOKKOS/improper_cvff_kokkos.cpp",
+    "line": 278,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The improper cvff/kk device kernel reads the host-only raw pointer `sign[type]` instead of the device view `d_sign[type]`, so on a GPU build it dereferences a host address inside the kernel.",
+    "evidence": "src/KOKKOS/improper_cvff_kokkos.cpp:278 (inside operator()(TagImproperCvffCompute...) which is KOKKOS_INLINE_FUNCTION): `if (sign[type] == -1) {` / `p = static_cast<KK_FLOAT>(2.0) - p;` / `pd = -pd;`. `sign` is the base class member `int *sign, *multiplicity;` (src/MOLECULE/improper_cvff.h:40) allocated with memory->create in ImproperCvff::allocate. The Kokkos mirror exists and is kept in sync but is never used: `DAT::tdual_int_1d k_sign,k_multiplicity;` / `typename AT::t_int_1d d_sign,d_multiplicity;` (src/KOKKOS/improper_cvff_kokkos.h:88,91), filled in coeff()/read_restart() (improper_cvff_kokkos.cpp:388,393,409,414), allocated in allocate() (:366,370) and synced at :92 `k_sign.template sync<DeviceType>();`. Two lines above, the sibling array IS read correctly through its device view: `const int m = d_multiplicity[type];` (:247).",
+    "failure_scenario": "Any GPU (CUDA/HIP/SYCL, non-UVM) run with `improper_style cvff/kk`: the kernel dereferences a host pointer -> illegal memory access / crash, or silently garbage `sign` values and therefore wrong improper energies and forces for `sign = -1` types. CPU-only Kokkos builds are unaffected, which is why it can pass CI.",
+    "suggested_fix": "Replace `sign[type]` with `d_sign[type]` in the kernel (matching the `d_multiplicity[type]` usage on line 247)."
+  },
+  {
+    "file": "src/KOKKOS/improper_distance_kokkos.cpp",
+    "line": 149,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "improper distance/kk drops the five domain->minimum_image() calls that the CPU ImproperDistance::compute applies to every bond vector, so the /kk style computes a different plane normal and different forces whenever a bond vector is longer than half the box.",
+    "evidence": "CPU src/EXTRA-MOLECULE/improper_distance.cpp:98-125 computes each of the five vectors and immediately folds it: `xab = x[i2][0] - x[i1][0]; ... domain->minimum_image(FLERR, xab,yab,zab);` (also for xac/yac/zac :107, xad/yad/zad :113, xbc/ybc/zbc :119, xbd/ybd/zbd :125). The KOKKOS kernel src/KOKKOS/improper_distance_kokkos.cpp:149-167 computes exactly the same five differences and never folds any of them: `const KK_FLOAT xab = x(i2,0) - x(i1,0); ... const KK_FLOAT zbd = x(i4,2) - x(i2,2);` -- there is no minimum-image code anywhere in the file (`grep -n minimum_image src/KOKKOS/improper_distance_kokkos.cpp` is empty) and domain.h is not even included. The KOKKOS package already has a device-side implementation of this that could be reused: BondHarmonicRestrainKokkos copies domain->xprd/xprd_half/triclinic in compute() (src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:111-121) and calls its own KOKKOS_INLINE_FUNCTION minimum_image() (:191, defined :243-295).",
+    "failure_scenario": "A periodic cell whose shortest edge is less than twice an improper bond length (small unit cells, or an improper spanning a periodic image), run with improper_style distance vs distance/kk: the CPU style folds e.g. xbd back into the box before forming the plane normal, the /kk style does not, so the normal, the projection da, the energy k*da^2+chi*da^4 and all four forces differ.",
+    "suggested_fix": "Copy domain->triclinic/xprd/yprd/zprd/*_half into the functor in compute() and add a KOKKOS_INLINE_FUNCTION minimum_image() applied to the five difference vectors, mirroring src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:243-295."
+  },
+  {
+    "file": "src/KOKKOS/improper_distharm_kokkos.cpp",
+    "line": 149,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "improper distharm/kk drops the six domain->minimum_image() calls the CPU ImproperDistHarm::compute applies to its bond vectors, so plane normal, projection and forces differ from the base style when a bond vector exceeds half the box.",
+    "evidence": "CPU src/YAFF/improper_distharm.cpp:98-131 folds every difference vector: `xab = x[i2][0] - x[i1][0]; ... domain->minimum_image(FLERR, xab,yab,zab);` and likewise for xac (:107), xad (:113), xbc (:119), xbd (:125) and xcd (:131). The KOKKOS kernel src/KOKKOS/improper_distharm_kokkos.cpp:149-167 forms the same differences (`const KK_FLOAT xab = x(i2,0) - x(i1,0); ... const KK_FLOAT zcd = x(i4,2) - x(i3,2);`) with no folding; `grep -n minimum_image src/KOKKOS/improper_distharm_kokkos.cpp` is empty and domain.h is not included. Everything else in the kernel (xna/yna/zna, rna, da = -(xna*xad+...), domega, a, f1..f4 at :188-208) matches CPU :133-169 term for term. src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:111-121 and :243-295 show the device-side minimum_image pattern already used in this package.",
+    "failure_scenario": "improper_style distharm vs distharm/kk in a periodic cell whose shortest edge is under twice an improper bond length (or an improper wrapped across a boundary): the CPU folds xbc/xcd/xad before building the plane normal and the projection da, the /kk style does not, giving different energy k*(da-chi)^2 and different forces on all four atoms.",
+    "suggested_fix": "Copy domain->triclinic/xprd/yprd/zprd/*_half into the functor in compute() and apply a KOKKOS_INLINE_FUNCTION minimum_image() to the difference vectors, as in src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:243-295."
+  },
+  {
+    "file": "src/KOKKOS/improper_sqdistharm_kokkos.cpp",
+    "line": 149,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "improper sqdistharm/kk drops the six domain->minimum_image() calls the CPU ImproperSQDistHarm::compute applies to its bond vectors, diverging from the base style when a bond vector exceeds half the box.",
+    "evidence": "CPU src/YAFF/improper_sqdistharm.cpp:98-131 folds every difference vector (`xab = x[i2][0] - x[i1][0]; ... domain->minimum_image(FLERR, xab,yab,zab);` and the same for xac, xad, xbc, xbd, xcd). The KOKKOS kernel src/KOKKOS/improper_sqdistharm_kokkos.cpp:149-167 forms the identical differences with no folding; `grep -n minimum_image src/KOKKOS/improper_sqdistharm_kokkos.cpp` is empty and domain.h is not included. The rest of the kernel (:169-207: xna/yna/zna, rna, da, da2, eimproper = k*(da2-chi)^2, a = 4*da*k*(da2-chi), f1..f4) matches CPU :133-169 exactly, and a diff of improper_sqdistharm_kokkos.cpp against improper_distharm_kokkos.cpp differs only in those three energy/force lines, so the whole family shares the omission.",
+    "failure_scenario": "improper_style sqdistharm vs sqdistharm/kk in a periodic cell whose shortest edge is under twice an improper bond length: CPU folds the vectors before building the plane normal and projection, /kk does not, so energies and all four forces differ.",
+    "suggested_fix": "Add the device-side minimum_image used by src/KOKKOS/bond_harmonic_restrain_kokkos.cpp:243-295 (with domain->triclinic/xprd/*_half copied into the functor in compute()) and apply it to the six difference vectors."
+  },
+  {
+    "file": "src/KOKKOS/improper_umbrella_kokkos.cpp",
+    "line": 98,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "improper umbrella/kk allocates a brand-new Kokkos DualView for the warning flag on every timestep inside compute() instead of once in the constructor.",
+    "evidence": "src/KOKKOS/improper_umbrella_kokkos.cpp:97-103 inside compute(): `// zero warning flag` / `k_warning_flag = DAT::tdual_int_scalar(\"ImproperUmbrella::warning_flag\");` / `d_warning_flag = k_warning_flag.template view<DeviceType>();` ... Every other KOKKOS bonded style creates it once in the constructor, e.g. src/KOKKOS/improper_harmonic_kokkos.cpp:46-48 (in the ctor) and then only does `h_warning_flag() = 0; k_warning_flag.modify_host(); k_warning_flag.sync<DeviceType>();` per step (improper_harmonic_kokkos.cpp:102-104). improper_fourier_kokkos.cpp:99-101 has the same per-step allocation.",
+    "failure_scenario": "Every MD step with improper_style umbrella/kk performs a device allocation+free (cudaMalloc/cudaFree class of call), which serializes the GPU stream; measurable overhead in improper-dominated runs. No wrong numbers.",
+    "suggested_fix": "Move the `k_warning_flag = DAT::tdual_int_scalar(...)` / `d_warning_flag` / `h_warning_flag` initialization into the constructor as improper_harmonic_kokkos does, keeping only the zeroing in compute()."
+  },
+  {
+    "file": "src/KOKKOS/improper_fourier_kokkos.cpp",
+    "line": 100,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "improper fourier/kk allocates a brand-new Kokkos DualView for the warning flag on every timestep inside compute() instead of once in the constructor.",
+    "evidence": "src/KOKKOS/improper_fourier_kokkos.cpp:99-105 inside compute(): `// zero warning flag` / `k_warning_flag = DAT::tdual_int_scalar(\"ImproperFourier::warning_flag\");` / `d_warning_flag = k_warning_flag.template view<DeviceType>();` / `h_warning_flag = k_warning_flag.view_host();` / `h_warning_flag() = 0; ...`. The constructor (:36-47) does not create it, unlike every other KOKKOS bonded style: improper_harmonic_kokkos.cpp:46-48 and improper_class2_kokkos.cpp:44-46 create it once in the ctor and only zero it per step. improper_umbrella_kokkos.cpp:97-103 has the same defect.",
+    "failure_scenario": "Every MD step with improper_style fourier/kk performs a device allocation and free (cudaMalloc/cudaFree class of call) that serializes the GPU stream; overhead only, no wrong numbers.",
+    "suggested_fix": "Move the k_warning_flag / d_warning_flag / h_warning_flag initialization into the ImproperFourierKokkos constructor and keep only the zero+modify_host+sync in compute()."
+  }
+]
+
+COVERAGE: all files read completely

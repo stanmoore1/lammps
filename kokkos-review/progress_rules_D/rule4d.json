@@ -1,0 +1,376 @@
+[
+ {
+  "macro": "NPairStyle",
+  "kk_style": "half/bin/newtoff/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_kokkos.h"
+  ],
+  "base": "half/bin/newtoff/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "half/bin/newtoff/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_kokkos.h"
+  ],
+  "base": "half/bin/newtoff/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "half/bin/newtoff/size/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_kokkos.h",
+   "KOKKOS/npair_kokkos.h"
+  ],
+  "base": "half/bin/newtoff/size",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "half/bin/newtoff/size/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_kokkos.h",
+   "KOKKOS/npair_kokkos.h"
+  ],
+  "base": "half/bin/newtoff/size",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "half/bin/newton/size/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_kokkos.h",
+   "KOKKOS/npair_kokkos.h"
+  ],
+  "base": "half/bin/newton/size",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "half/bin/newton/size/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_kokkos.h",
+   "KOKKOS/npair_kokkos.h"
+  ],
+  "base": "half/bin/newton/size",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/skip/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/skip/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/skip/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newtoff/trim/skip/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newtoff/trim/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/skip/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/skip/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/skip/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/skip/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/skip/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/skip/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h",
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/skip/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/skip/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/skip/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/tri/trim/skip/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/tri/trim/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/skip/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/skip/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim/skip/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/skip/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "halffull/newton/trim/skip/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_halffull_kokkos.h"
+  ],
+  "base": "halffull/newton/trim/skip",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "skip/trim/ghost/kk/device",
+  "kk_headers": [
+   "KOKKOS/npair_skip_kokkos.h"
+  ],
+  "base": "skip/trim/ghost",
+  "base_found_anywhere": []
+ },
+ {
+  "macro": "NPairStyle",
+  "kk_style": "skip/trim/ghost/kk/host",
+  "kk_headers": [
+   "KOKKOS/npair_skip_kokkos.h"
+  ],
+  "base": "skip/trim/ghost",
+  "base_found_anywhere": []
+ }
+]

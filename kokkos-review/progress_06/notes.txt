@@ -1,0 +1,57 @@
+atom_kokkos.cpp/h reviewed. Base: src/atom.cpp.
+- candidate (low): AtomKokkos::extract() mask map (line ~199) omits "rho" -> DPDRHO_MASK
+  (base Atom::extract returns rho); also omits uCond/uMech/uChem but those are not in base extract.
+- sort_device(): dynamic_cast<KokkosBase*> unchecked but all fixes setting sort_device=1 are KokkosBase. not a bug.
+atom_map_kokkos.cpp reviewed vs src/atom_map.cpp. Known bug (map_one modify_host vs map_clear modify_device abort) NOT re-reported per instructions.
+Found: sametag realloc ordering bug in map_set_device (reported).
+Non-issues checked: map/sametag semantics on device sort match reverse-order CPU loop; map_delete leak on style change exists in base too; map_clear does not reset sametag[i]=-1 (base does) but map_set always overwrites.
+comm_kokkos.cpp/h reviewed vs src/comm_brick.cpp + src/comm.cpp.
+Unresolved candidate (NOT reported, needs TransformView expertise): forward_comm_device() comm_x_only branch
+MPI_Irecv's directly into k_x.view<DeviceType>().data() and never calls atomKK->modified(space,X_MASK);
+pack_comm_kokkos only sync()s. In pure-device runs the integrator's standing modified(Device,X_MASK) covers it,
+but in "package kokkos comm host" mode pack_comm_kokkos does sync(HostKK,...) (clearing modified_device) and the
+MPI-written ghost x on the host mirror is then never published to the device. Same shape in reverse_comm_device
+comm_f_only branch. Would need a GPU run to confirm; TransformView flag semantics are involved.
+Checked OK: size_forward_recv/size_reverse_* formulas match CommBrick::borders; Comm::size_border already
+includes size_velocity; grow_recv_kokkos capacity >= maxrecv; copy_swap_info subviews alias parent DualView so
+parent modify_host()+sync covers them; k_count while-loop resize logic; exchange backfill copylist logic.
+comm_tiled_kokkos.cpp/h reviewed vs src/comm_tiled.cpp. Found missing self unpack in forward_comm_device (reported).
+Checked OK: reverse_comm_device self case has pack+unpack; forward/reverse_comm_device(Pair*) self cases have both;
+buffer row-offset arithmetic (forward_recv_offset*extent(1)) is self-consistent with buffer_view reshaping;
+grow_swap_send recreates the whole k_sendlist but is only called from allocate_swap/setup before lists are filled;
+~CommTiledKokkos nulls sendlist/maxsendlist before ~CommTiled's deallocate_swap so no double free.
+CommTiledKokkos::exchange()/borders() are host-only and go through CommTiled which does call atom->map_clear(),
+so the map-clear finding is specific to comm_kokkos (brick).
+domain_kokkos.cpp/h reviewed vs src/domain.cpp. remap/pbc/x2lamda/lamda2x/image_flip/reset_box formulas all match base.
+remap_all correctly defers deform_vremap to host. detached_atom_x() guard is present in pbc/x2lamda/lamda2x.
+dynamical_matrix_kokkos reviewed vs src/PHONON/dynamical_matrix.{h,cpp}. update_force()/force_clear() ARE virtual in the
+base and are correctly overridden; only setup() is non-virtual (reported). third_order_kokkos.cpp has the same shape.
+fft3d_kokkos.cpp/h reviewed vs src/KSPACE/fft3d.cpp/h. Plan creation (remap targets, sizes, MKL/FFTW/cuFFT/hipFFT/KISS setup) matches base 1:1.
+Found: norm_functor int truncation (reported, dormant since pppm_kokkos passes scaled=0), per-call KISS tmp alloc (reported, efficiency).
+Checked OK: -flag sign for cuFFT/hipFFT in both fft_3d_kokkos and fft_3d_1d_only_kokkos (recent commit 2d8f50eac fixed the latter);
+kiss_fft_kokkos is out-of-place (d_fin->d_fout) so the d_data=d_tmp swap is correct; destroy_plan deletes remapKK/kissfftKK once;
+copy_size/scratch_size/pre_target/mid1_target/mid2_target logic identical to base; bifactor identical.
+Minor non-issues: create_plan leaks remapKK if a remap sub-plan returns nullptr, but that path calls error->one() right after; fft_3d_1d_only_kokkos KISS
+stages all read d_data and write d_tmp (never chained) but it is a timing routine on an array of zeros, base is in-place on zeros too.
+fftdata_kokkos.h reviewed. Only finding: missing NVPL undef in CUDA/SYCL fallback blocks (reported, low; CMake already fatal-errors on that combo).
+Checked OK: FFT_KOKKOS_DATA typedefs per library; FFT_KOKKOS_DATA_POINTER=FFT_SCALAR* for FFTW3/NVPL is correct because Kokkos::View<fftw_complex*> has pointer_type double*;
+FFTArrayTypes<LMPHostType> deliberately uses LMPDeviceType dual views and takes t_host.
+grid3d_kokkos.cpp/h reviewed vs src/grid3d.cpp/h. setup_comm_brick and setup_comm_tiled are line-for-line identical to the base except
+that indices() writes into row 'index' of a shared tdual_int_2d_lr instead of a per-swap int*; forward/reverse brick+tiled loops match
+Grid3d::forward_comm_brick/tiled and reverse_comm_brick/tiled (incl. the nper*offset without nbyte, which is right for FFT_SCALAR* buffers).
+Reported: comm->layout vs layout_grid dispatch.
+Checked OK: ~Grid3dKokkos nulls swap/send/recv/copy packlist pointers so ~Grid3d's memory->destroy() calls are no-ops (the Kokkos code never
+memory->create()s them); setup_comm_brick/tiled/grow_swap are declared virtual in grid3d.h; DualView resize() in indices() preserves rows;
+pack_*_grid_kokkos in pppm_kokkos does not set modify flags, so the modify/sync pairs in the comm routines cannot conflict;
+MPI_Waitall-before-one-sync in the tiled paths is deliberate (comment) and correct.
+OUT-OF-SCOPE (pppm_kokkos, likely another group's file, reported anyway): PPPMKokkos shadows PPPM::gc/fft1/fft2/remap ("same name but
+different than base class", pppm_kokkos.cpp:105-108) and does NOT override PPPM::reset_grid(); no KOKKOS file defines reset_grid at all.
+PPPM::reset_grid (KSPACE/pppm.cpp:637-668) then calls the non-virtual PPPM::compute_rho_coeff(), which writes PPPM::rho_coeff -- nullptr in a
+KOKKOS run because PPPMKokkos::allocate() only creates k_rho_coeff (pppm_kokkos.cpp:865) -- and dereferences the null base gc.
+group_kokkos.h reviewed vs src/group.cpp (mass/xcm/gyration/vcm/angmom/inertia) and src/compute_gyration.cpp (gyration_tensor).
+Reported: angmom_kk missing deform_vremap velocity unwrap; vcm_kk KK_FLOAT product precision.
+Checked OK: all loops use atom->nlocal and bitmask[igroup] like the base; DomainKokkos::unmap matches Domain::unmap(x,image,y) exactly
+(incl. triclinic h[] terms); gyration_tensor_kk component order (dx*dy,dx*dz,dy*dz) matches ComputeGyration::compute_vector;
+inertia_kk sign convention and the symmetric fill-in match Group::inertia; views captured before atomKK->sync() are safe because
+sync() deep-copies into the existing allocations; the unconditional d_rmass/d_mass views in gyration_tensor_kk are only indexed under
+the use_rmass guard; atomKK is the Pointers reference to LAMMPS::atomKK, so the ctor assignment is redundant but harmless.

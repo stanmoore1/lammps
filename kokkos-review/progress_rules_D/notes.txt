@@ -1,0 +1,100 @@
+=== rules_D progress ===
+[DONE] Rule 1 (Install.sh). Script rule1.py -> rule1.json.
+  KEY: src/KOKKOS/Install.sh action() only implements mode=0 (rm -f ../$1); the copy branch
+  was deleted in commit abcadade3 (2025-12-11 "remove KOKKOS package from legacy build system"),
+  and lines 751-753 make `make yes-kokkos` print "no longer supports the legacy build system"
+  and exit 1.  So action lines are UNINSTALL-ONLY cleanup, and the 2nd (dependency) argument
+  is IGNORED entirely.  GPU/Install.sh has the same truncated action().
+  => 90 files (45 styles) have no action line; severity LOW (all were added after 2025-12-11
+     so they could never have been copied into src/).  0 action lines name a nonexistent file
+     (the `[12,'()','{']` hit is my regex matching the `action () {` definition line).
+     0 wrong/missing dependency args.
+[DONE] Rule 2 (.gitignore + Purge.list).  All 8 non-_kokkos files in src/KOKKOS
+  (fix_wall_gran_old.{cpp,h}, kokkos.{cpp,h}, kokkos_base.h, kokkos_base_fft.h,
+  kokkos_few.h, kokkos_type.h) ARE in src/.gitignore; git check-ignore confirms.
+  Purge.list: since 2024-01-01 only 3 removals/renames in src/KOKKOS
+  (math_extra_kokkos.cpp D 2026-06-28; bond_quarticexp_kokkos.{cpp,h} R 2026-06-10;
+  pair_lj_smooth_linear_kokkos.{cpp,h} D 2026-05-14 but RE-ADDED 2026-08-28).
+  `git ls-tree abcadade3` shows NONE of them existed at the last legacy-install-capable
+  commit -> no stale src/ copies possible -> Purge.list entries genuinely unnecessary. CLEAN.
+  Minor: src/.gitignore:1409-1410 /pair_eam_he_kokkos.{cpp,h} are redundant with the
+  /*_kokkos.{cpp,h} wildcard at lines 20-22 (cosmetic, not reported).
+[DONE] Rule 3 (CMake).  cmake/Modules/Packages/KOKKOS.cmake: every explicitly named
+  source (~35 paths incl. fix_wall_gran_old.cpp, fix_rigid_nh_small_kokkos.cpp,
+  mliap_*_kokkos.cpp, dynamical_matrix/third_order, npair_ssa) exists in src/KOKKOS.
+  Registered-style headers nbin_kokkos.h / npair_kokkos.h / npair_halffull_kokkos.h /
+  npair_ssa_kokkos.h all exist.  cmake/CMakeLists.txt has no per-file KOKKOS refs. CLEAN.
+[DONE] Rule 4 part 1 (npair name/class/mask consistency).  scripts rule4.py/rule4b.py/rule4c.py.
+  2 findings recorded (npair_halffull_kokkos.h:221 HIGH wrong class, :262 LOW dup name).
+  The other rule4b "name-tri vs NP_TRI" hits are the LAMMPS convention (newtoff entries
+  carry NP_TRI in the mask without /tri in the name) -- same in CPU src/npair_halffull.h.
+  The compute_sna_grid/pair_pace/pair_snap "duplicates" are #ifdef LMP_KOKKOS_GPU guarded.
+[DONE] Rule 4 part 2 (base-style existence, duplicates, device/host template arg).
+  scripts rule4d.py -> rule4d.json, rule4e.py -> rule4e.json.
+  (a) kk_base_missing for Pair/Fix/Compute/Bond/... macros = 0 (rule4.py + rule4d.py).
+      The 40 rule4d.json hits are ALL NPairStyle: KOKKOS orders the name tokens
+      differently from the CPU npair headers (KOKKOS half/bin/newtoff/size vs CPU
+      half/size/bin/newtoff; KOKKOS halffull/newton/trim/... vs CPU halffull/trim/newton/...;
+      KOKKOS half/bin/newtoff/ghost vs CPU half/bin/ghost/newtoff; KOKKOS skip/trim/ghost
+      vs CPU skip/ghost/trim).  NPair styles are internal, selected by bitmask
+      (src/neighbor.cpp choose_pair), names only appear in the "pair build:" info line ->
+      ONE low/cleanup finding recorded.
+  (b) cross-header duplicates: none.  The 13 rule4.json dup hits are
+      (i) pace/snap/sna-grid /kk/host, guarded by #ifdef LMP_KOKKOS_GPU (verified), and
+      (ii) npair_kokkos.h half/bin/new{ton,toff}[/size]/kk/{host,device} registered TWICE
+      with identical names but different masks (NP_ORTHO vs NP_TRI) -- deliberate KOKKOS
+      convention (no /tri token in the name), consistent for all 8 pairs, not reported.
+      (iii) halffull/newton/tri/trim/ghost/kk/device -> already reported (line 262).
+  (c) /kk/device -> LMPDeviceType, /kk/host -> LMPHostType: only 1 hit,
+      pair_pace_kokkos.h:21 PairStyle(pace/kk/host,PairPACEKokkos<LMPDeviceType>) inside the
+      #else of #ifdef LMP_KOKKOS_GPU, where LMPHostType==LMPDeviceType -> NOT a bug
+      (pair_snap_kokkos.h:26 writes <LMPHostType> in the same spot; cosmetic only).
+      All other /kk styles use non-device-templated classes.
+[DONE] Rule 5 (docs).  scripts rule5.py (superseded) and rule5b.py -> rule5b.json;
+  doc/utils/check-styles.py run output in check-styles2.out.
+  - `cd doc && python3 utils/check-styles.py -s ../src -d src` exits 0 with NO complaints:
+    the (k) accelerator letters in Commands_*.rst, the `.. index:: <type> <style>/kk`
+    entries and the `.. include:: accel_styles.rst` requirement are all satisfied.
+  - rule5b.py (index-entry based, matches both "Accelerator Variant:" and
+    "Accelerator Variants:"): all 324 indexed /kk styles (138 pair, 87 fix, 27 compute,
+    24 angle, 17 bond, 17 dihedral, 12 improper, 2 kspace) have their doc page and are
+    listed in that page's Accelerator Variant(s) line, and every such page has the
+    accel_styles.rst include.  kk_not_in_variants = 0.
+  - 6 "no_index_page" hits (angle sdk, pair lj/sdk, lj/sdk/coul/long, lj/sf,
+    fix acks2/reax, qeq/reax) are deprecated ALIASES that also exist on the CPU side and
+    are in check-styles.py's own skip lists (doc/utils/check-styles.py:308-311,339-346)
+    -> not reported.  fix colvars/kk is an explicit exception there too (line 175/97).
+  - kspace_style.rst has no Accelerator Variant line (multi-style page) but does have the
+    include and names *pppm/kk*; only the unterminated emphasis on line 53 is reported.
+  - Non-indexed kinds checked BY HAND: region.rst:6 lists all 7 region /kk styles OK;
+    min_style.rst has all 4 (cg/sd/quickmin/fire) OK; dynamical_matrix.rst:7 and
+    third_order.rst:7 present but un-italicized; atom_style.rst:33 INCOMPLETE (5 of 12
+    missing) -> finding; run_style.rst has NOTHING for verlet/kk -> finding.
+  Rule 1 consolidated finding (90 files / 45 styles missing action lines) RECORDED, severity low.
+  Rule 4 npair-name-order finding RECORDED (src/KOKKOS/npair_halffull_kokkos.h:182), severity low.
+  Rule 5 findings RECORDED: atom_style.rst:33, run_style.rst:13, kspace_style.rst:53,
+  dynamical_matrix.rst:7 (+third_order.rst:7).
+[DONE] Rule 6 (includes + guards).  scripts rule6.py -> rule6_includes.json,
+  rule6b.py -> rule6_guards.json.
+  - Missing-include scan with FULL transitive quoted-include resolution over src/:
+    only real hit is src/KOKKOS/pair_kokkos.h (uses fpair->atom->... and
+    fpair->lmp->force->pair_style but atom.h/force.h are not in its closure) -> FINDING.
+    False positives verified and dismissed: npair_{copy,halffull,skip,trim}_kokkos.h use
+    only `class NeighList *` forward declarations; pair_hybrid_kokkos.h has only
+    `friend class Respa`; math_extra_kokkos.h / memory_kokkos.h matched their own namespace.
+  - Include guards: 12 headers have NO guard, 4 use non-LMP_ prefixes -> one FINDING.
+    compute_reaxff_atom_kokkos.h:26 guard names the renamed-away *bonds* style and
+    pair_reaxff_kokkos.h:23 still says REAXC -> separate FINDING.
+    Tree-wide scan of every .h in src/ for duplicate guard macros: ZERO duplicates,
+    so no header is currently being silently skipped.
+[DONE] Rule 7 (whitespace/permissions/ASCII).
+  - `cd /home/user/lammps/src && make check-whitespace check-permissions` -> CLEAN, exit 0
+    (output in rule7_make.out).
+  - `LC_ALL=C grep -n '[^ -~\t]' src/KOKKOS/*` -> 6 hits (rule7_nonascii.out):
+    kokkos.cpp:74 U+2013 inside the citation string emitted to log.cite (separate FINDING,
+    it reaches user output), plus 5 comment-only hits in fix_rigid_small_kokkos.cpp:237,688,692
+    (U+2192,U+2192,U+2014), fix_gjf_kokkos.cpp:132 (U+2192) and
+    atom_vec_ellipsoid_kokkos.cpp:726 (U+2019, the already-known one) -> one consolidated FINDING.
+  - NOTE: src/Makefile:435 `make check` has NO ASCII/unicode target and doc/Makefile's
+    char_check only scans doc/src, so none of these are caught by CI.
+ALL RULES 1-7 COMPLETE.

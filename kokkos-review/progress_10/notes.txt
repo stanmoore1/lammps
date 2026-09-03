@@ -1,0 +1,43 @@
+Group 10 notes.
+- VerletKokkos (verlet_kokkos.cpp:172-175, 262-265, 480-486) does atomKK->sync/modified around
+  bond/angle/dihedral compute, so missing atomKK->sync inside a dihedral kokkos style is NOT a bug.
+- base classes: dihedral_nharmonic -> src/EXTRA-MOLECULE/dihedral_nharmonic.cpp
+- DualView::resize semantics verified in lib/kokkos/containers/src/Kokkos_DualView.hpp:936-1065
+  (resize_on_device recreates a zero host mirror -> host data loss). Same pattern also exists in
+  dihedral_fourier_kokkos.cpp:357-361 (NOT in my group; mention to owner of that group).
+- dihedral_opls_kokkos: math verified identical to src/MOLECULE/dihedral_opls.cpp:112-243. allocate()
+  is virtual in base (dihedral_opls.h:42), read_restart calls allocate() so d_k* are reassigned. No findings.
+  (minor: compute() destroys/recreates k_eatom/k_vatom every step instead of the extent()-guarded pattern; perf only)
+- dihedral_quadratic_kokkos: verified against src/EXTRA-MOLECULE/dihedral_quadratic.cpp:93-243. ev_tally body
+  byte-identical to opls version. base has virtual allocate() and copymode-guarded dtor. No findings.
+- dihedral_spherical_kokkos: math/CalcGeneralizedForcesKK verified identical to
+  src/EXTRA-MOLECULE/dihedral_spherical.cpp:250-487 and 537-605. Base has virtual allocate() (h:53)
+  and copymode-guarded dtor. TWO findings recorded (resize data loss; missing minimum_image).
+  TODO: check whether dihedral_table_kokkos also drops the minimum_image that dihedral_table.cpp Phi() does.
+- dihedral_table_kokkos: uf_lookup_kk matches MOLECULE/dihedral_table.h:83-115 exactly (LINEAR_STYLE=0 == enum LINEAR).
+  Phi/gradient math matches dihedral_table.cpp:377-626. ev_tally body byte-identical to opls. Device minimum_image
+  uses single `if` instead of Domain's `while` loop, but that is the established KOKKOS convention
+  (neigh_bond_kokkos.cpp, fix_drag_kokkos.cpp) -> NOT reported.
+  This style DOES implement minimum_image, which reinforces the dihedral_spherical_kokkos omission finding.
+- dihedral_table_cut_kokkos: full kernel verified line-by-line against EXTRA-MOLECULE/dihedral_table_cut.cpp:188-426
+  (identical incl. SMALL=1e-7, sinphi sign flip, gt/gtt/gpt/gptt, fabcd loop, ev_tally args).
+  uf_lookup_kk identical to dihedral_table.h:83-115. ev_tally body byte-identical to opls.
+  Base dtor has copymode guard. One low finding (uninitialized de/df/f copy) recorded.
+- pair_zbl_kokkos: e_zbl/dzbldr/d2zbldr2 and the switching terms verified identical to src/pair_zbl.cpp:73-150
+  and set_coeff. init_style order (PairZBL::init_style sets cut_globalsq, then deep_copy d_cutsq, then Pair::init
+  calls init_one which fills m_cutsq) is correct. base pair_zbl.h:51 has `virtual void allocate();` and the dtor
+  has `if (copymode) return;`. d_z and d2zbldr2 are dead in the KK style (cleanup only, not reported).
+  ONE finding: special_lj applied by pair_kokkos.h but not by the CPU/omp/gpu base.
+- region_block_kokkos + region_remap_kokkos: verified against region_block.cpp (surface_interior/exterior/
+  find_closest_point/inside_face/point_on_line_segment identical) and region.cpp Region::match/surface/prematch,
+  domain.cpp Domain::remap/x2lamda/lamda2x (RegionRemapKokkos formulas match). Region::~Region and
+  RegBlock::~RegBlock both start with `if (copymode) return;`. NOT reported: KOKKOS uses MAXDOUBLEINT (2^53)
+  as the "infinite distance" sentinel where the CPU uses BIG=1.0e200 -- only differs for distances > ~9.5e7,
+  and the `mindist == sentinel -> return 0` logic is preserved.
+- region cone/cylinder/ellipsoid/plane/prism/sphere kokkos: k_inside() verified identical to the CPU
+  RegXxx::inside(); inverse_transform/rotate identical to Region::inverse_transform/rotate (region.cpp);
+  RegSphere surface_interior/exterior identical to region_sphere.cpp. All CPU dtors have `if (copymode) return;`.
+  RegEllipsoidKokkos caches domain->dimension in init() (needed; the other regions' inside() do not use domain).
+  fix_wall_region_kokkos.cpp:68-70 guards that only block/kk and sphere/kk provide surface_kokkos.
+  callers allocate k_match fresh (zero-initialized) so leaving non-group entries untouched is fine.
+- TWO extra findings recorded: Install.sh missing entries (rule 5), unqualified sqrt/sin/cos in region headers (rule 4).

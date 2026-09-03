@@ -1,0 +1,187 @@
+filtered: 62
+ComputeOrientOrderAtomKokkos         polar_prefactor            src/KOKKOS/compute_orientorder_atom_kokkos.h:134
+      kk : KK_FLOAT polar_prefactor(int, int, KK_FLOAT) const;
+      base: ComputeOrientOrderAtom src/compute_orientorder_atom.h:56  double polar_prefactor(int, int, double);
+ComputeOrientOrderAtomKokkos         associated_legendre        src/KOKKOS/compute_orientorder_atom_kokkos.h:138
+      kk : KK_FLOAT associated_legendre(int, int, KK_FLOAT) const;
+      base: ComputeOrientOrderAtom src/compute_orientorder_atom.h:57  double associated_legendre(int, int, double);
+DynamicalMatrixKokkos                setup                      src/KOKKOS/dynamical_matrix_kokkos.h:35
+      kk : void setup();
+      base: DynamicalMatrix src/PHONON/dynamical_matrix.h:23  void setup();
+FixACKS2ReaxFFKokkos                 get_s                      src/KOKKOS/fix_acks2_reaxff_kokkos.h:75
+      kk : DAT::ttransform_kkfloat_1d get_s() {return k_s;}
+      base: FixACKS2ReaxFF src/REAXFF/fix_acks2_reaxff.h:38  double *get_s() { return s; }
+FixAddForceKokkos                    v_tally                    src/KOKKOS/fix_addforce_kokkos.h:75
+      kk : void v_tally(value_type, int, KK_FLOAT*) const;
+      base: Fix src/fix.h:317  void v_tally(int, int, double);
+FixCMAPKokkos                        dihedral_angle_atan2       src/KOKKOS/fix_cmap_kokkos.h:117
+      kk : KK_FLOAT dihedral_angle_atan2(KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT) const;
+      base: FixCMAP src/MOLECULE/fix_cmap.h:114  double dihedral_angle_atan2(double, double, double, double, double, double, double, double, double, double);
+FixEfieldKokkos                      v_tally                    src/KOKKOS/fix_efield_kokkos.h:84
+      kk : void v_tally(value_type, int, KK_FLOAT*) const;
+      base: Fix src/fix.h:317  void v_tally(int, int, double);
+FixEOStableRXKokkos                  energy_lookup              src/KOKKOS/fix_eos_table_rx_kokkos.h:69
+      kk : void energy_lookup(int, KK_FLOAT, KK_FLOAT &) const;
+      base: FixEOStableRX src/DPD-REACT/fix_eos_table_rx.h:37  void energy_lookup(int, double, double &);
+FixEOStableRXKokkos                  temperature_lookup         src/KOKKOS/fix_eos_table_rx_kokkos.h:73
+      kk : void temperature_lookup(int, KK_FLOAT, KK_FLOAT &) const;
+      base: FixEOStableRX src/DPD-REACT/fix_eos_table_rx.h:38  void temperature_lookup(int, double, double &);
+FixEOStableRXKokkos                  allocate                   src/KOKKOS/fix_eos_table_rx_kokkos.h:118
+      kk : void allocate();
+      base: FixEOStableRX src/DPD-REACT/fix_eos_table_rx.h:55  void allocate();
+FixLangevinKokkos                    compute_target             src/KOKKOS/fix_langevin_kokkos.h:156
+      kk : void compute_target();
+      base: FixLangevin src/fix_langevin.h:79  void compute_target();
+FixLangevinKokkos                    angmom_thermostat          src/KOKKOS/fix_langevin_kokkos.h:163
+      kk : void angmom_thermostat();
+      base: FixLangevin src/fix_langevin.h:78  void angmom_thermostat();
+FixMinimizeKokkos                    reset_coords               src/KOKKOS/fix_minimize_kokkos.h:47
+      kk : void reset_coords();
+      base: FixMinimize src/fix_minimize.h:45  void reset_coords();
+FixRxKokkos                          rhs                        src/KOKKOS/fix_rx_kokkos.h:156
+      kk : int rhs (double, const double *, double *, void *) const;
+      base: FixRX src/DPD-REACT/fix_rx.h:107  int rhs(double, const double *, double *, void *);
+FixRxKokkos                          rhs_dense                  src/KOKKOS/fix_rx_kokkos.h:157
+      kk : int rhs_dense (double, const double *, double *, void *) const;
+      base: FixRX src/DPD-REACT/fix_rx.h:108  int rhs_dense(double, const double *, double *, void *);
+FixRxKokkos                          rhs_sparse                 src/KOKKOS/fix_rx_kokkos.h:158
+      kk : int rhs_sparse(double, const double *, double *, void *) const;
+      base: FixRX src/DPD-REACT/fix_rx.h:120  int rhs_sparse(double, const double *, double *, void *) const;
+FixRxKokkos                          rkf45_step                 src/KOKKOS/fix_rx_kokkos.h:182
+      kk : void rkf45_step (const int neq, const double h, double y[], double y_out[], double rwk[], void *) const;
+      base: FixRX src/DPD-REACT/fix_rx.h:94  void rkf45_step(const int neq, const double h, double y[], double y_out[], double rwk[], void *);
+FixRxKokkos                          rkf45_h0                   src/KOKKOS/fix_rx_kokkos.h:186
+      kk : int rkf45_h0 (const int neq, const double t, const double t_stop, const double hmin, const double hmax, double& h0, double y[], double rwk[], void *v_params) co
+      base: FixRX src/DPD-REACT/fix_rx.h:97  int rkf45_h0(const int neq, const double t, const double t_stop, const double hmin, const double hmax, double &h0, double y[], double rwk[], void *v_params);
+FixRxKokkos                          odeDiagnostics             src/KOKKOS/fix_rx_kokkos.h:218
+      kk : void odeDiagnostics();
+      base: FixRX src/DPD-REACT/fix_rx.h:156  void odeDiagnostics();
+FixRxKokkos                          computeLocalTemperature    src/KOKKOS/fix_rx_kokkos.h:286
+      kk : void computeLocalTemperature();
+      base: FixRX src/DPD-REACT/fix_rx.h:103  void computeLocalTemperature();
+FixShardlowKokkos                    ssa_update_dpd             src/KOKKOS/fix_shardlow_kokkos.h:150
+      kk : void ssa_update_dpd(int, int, int) const;
+      base: FixShardlow src/DPD-REACT/fix_shardlow.h:65  void ssa_update_dpd(int, int, int);
+FixShardlowKokkos                    ssa_update_dpde            src/KOKKOS/fix_shardlow_kokkos.h:155
+      kk : void ssa_update_dpde(int, int, int) const;
+      base: FixShardlow src/DPD-REACT/fix_shardlow.h:66  void ssa_update_dpde(int, int, int);
+FixWallHarmonicKokkos                v_tally                    src/KOKKOS/fix_wall_harmonic_kokkos.h:65
+      kk : void v_tally(value_type, int, int, KK_FLOAT) const;
+      base: Fix src/fix.h:313  void v_tally(int, int *, double, double *);
+FixWallHarmonicOutsideKokkos         v_tally                    src/KOKKOS/fix_wall_harmonic_outside_kokkos.h:64
+      kk : void v_tally(value_type, int, int, KK_FLOAT) const;
+      base: Fix src/fix.h:313  void v_tally(int, int *, double, double *);
+FixWallLJ1043Kokkos                  v_tally                    src/KOKKOS/fix_wall_lj1043_kokkos.h:70
+      kk : void v_tally(value_type, int, int, KK_FLOAT) const;
+      base: Fix src/fix.h:313  void v_tally(int, int *, double, double *);
+FixWallLJ126Kokkos                   v_tally                    src/KOKKOS/fix_wall_lj126_kokkos.h:68
+      kk : void v_tally(value_type, int, int, KK_FLOAT) const;
+      base: Fix src/fix.h:313  void v_tally(int, int *, double, double *);
+FixWallLJ93Kokkos                    v_tally                    src/KOKKOS/fix_wall_lj93_kokkos.h:68
+      kk : void v_tally(value_type, int, int, KK_FLOAT) const;
+      base: Fix src/fix.h:313  void v_tally(int, int *, double, double *);
+FixWallMorseKokkos                   v_tally                    src/KOKKOS/fix_wall_morse_kokkos.h:71
+      kk : void v_tally(value_type, int, int, KK_FLOAT) const;
+      base: Fix src/fix.h:313  void v_tally(int, int *, double, double *);
+FixWallRegionKokkos                  v_tally                    src/KOKKOS/fix_wall_region_kokkos.h:87
+      kk : void v_tally(value_type, int, KK_FLOAT*) const;
+      base: Fix src/fix.h:317  void v_tally(int, int, double);
+Grid3dKokkos                         forward_comm               src/KOKKOS/grid3d_kokkos.h:36
+      kk : void forward_comm(int, void *, int, int, int, FFT_DAT::tdual_FFT_SCALAR_1d &, FFT_DAT::tdual_FFT_SCALAR_1d &, MPI_Datatype);
+      base: Grid3d src/grid3d.h:49  void forward_comm(int, void *, int, int, int, void *, void *, MPI_Datatype);
+Grid3dKokkos                         reverse_comm               src/KOKKOS/grid3d_kokkos.h:38
+      kk : void reverse_comm(int, void *, int, int, int, FFT_DAT::tdual_FFT_SCALAR_1d &, FFT_DAT::tdual_FFT_SCALAR_1d &, MPI_Datatype);
+      base: Grid3d src/grid3d.h:50  void reverse_comm(int, void *, int, int, int, void *, void *, MPI_Datatype);
+ImproperFourierKokkos                addone                     src/KOKKOS/improper_fourier_kokkos.h:60
+      kk : void addone(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, const int type, const KK_FLOAT vb1x, const KK_FLOAT vb1y, const KK_FLOAT vb1z,
+      base: ImproperFourier src/EXTRA-MOLECULE/improper_fourier.h:41  void addone(const int &i1, const int &i2, const int &i3, const int &i4, const int &type, const int &evflag, const int &eflag, const double &vb1x, const double &
+MLIAPModelPythonKokkos               connect_param_counts       src/KOKKOS/mliap_model_python_kokkos.h:37
+      kk : void connect_param_counts();
+      base: MLIAPModelPython src/ML-IAP/mliap_model_python.h:31  void connect_param_counts();
+MLIAPDummyDescriptorKokkos           set_elements               src/KOKKOS/mliap_unified_kokkos.h:35
+      kk : void set_elements(char **, int);
+      base: MLIAPDummyDescriptor src/ML-IAP/mliap_unified.h:34  void set_elements(char **, int);
+PairExp6rxKokkos                     getMixingWeights           src/KOKKOS/pair_exp6_rx_kokkos.h:203
+      kk : void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, K
+      base: PairExp6rx src/DPD-REACT/pair_exp6_rx.h:74  void getMixingWeights(int, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, dou
+PairExp6rxKokkos                     exponentScaling            src/KOKKOS/pair_exp6_rx_kokkos.h:210
+      kk : void exponentScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &) const;
+      base: PairExp6rx src/DPD-REACT/pair_exp6_rx.h:79  void exponentScaling(double, double &, double &) const;
+PairExp6rxKokkos                     polynomialScaling          src/KOKKOS/pair_exp6_rx_kokkos.h:214
+      kk : void polynomialScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
+      base: PairExp6rx src/DPD-REACT/pair_exp6_rx.h:80  void polynomialScaling(double, double &, double &, double &) const;
+PairMLIAPKokkos                      e_tally                    src/KOKKOS/pair_mliap_kokkos.h:51
+      kk : void e_tally(MLIAPData* data);
+      base: PairMLIAP src/ML-IAP/pair_mliap.h:34  void e_tally(class MLIAPData *);
+PairMultiLucyRXKokkos                computeLocalDensity        src/KOKKOS/pair_multi_lucy_rx_kokkos.h:73
+      kk : void computeLocalDensity();
+      base: PairMultiLucyRX src/DPD-REACT/pair_multi_lucy_rx.h:45  void computeLocalDensity();
+PairMultiLucyRXKokkos                getMixingWeights           src/KOKKOS/pair_multi_lucy_rx_kokkos.h:169
+      kk : void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;
+      base: PairMultiLucyRX src/DPD-REACT/pair_multi_lucy_rx.h:84  void getMixingWeights(int, double &, double &, double &, double &);
+PairPODKokkos                        divideInterval             src/KOKKOS/pair_pod_kokkos.h:75
+      kk : void divideInterval(int *intervals, int N, int M);
+      base: PairPOD src/ML-POD/pair_pod.h:49  void divideInterval(int *intervals, int N, int M);
+PairPODKokkos                        calculateNumberOfIntervals src/KOKKOS/pair_pod_kokkos.h:76
+      kk : int calculateNumberOfIntervals(int N, int intervalSize);
+      base: PairPOD src/ML-POD/pair_pod.h:50  int calculateNumberOfIntervals(int N, int intervalSize);
+PairPODKokkos                        grow_atoms                 src/KOKKOS/pair_pod_kokkos.h:77
+      kk : void grow_atoms(int Ni);
+      base: PairPOD src/ML-POD/pair_pod.h:97  void grow_atoms(int Ni);
+PairPODKokkos                        grow_pairs                 src/KOKKOS/pair_pod_kokkos.h:78
+      kk : void grow_pairs(int Nij);
+      base: PairPOD src/ML-POD/pair_pod.h:98  void grow_pairs(int Nij);
+PairPODKokkos                        crossdesc                  src/KOKKOS/pair_pod_kokkos.h:185
+      kk : void crossdesc(t_pod_1d d12, t_pod_1d d1, t_pod_1d d2, t_pod_1i ind1, t_pod_1i ind2, int n12, int Ni);
+      base: PairPOD src/ML-POD/pair_pod.h:67  void crossdesc(double *d12, double *d1, double *d2, int *ind1, int *ind2, int n12, int Ni);
+PairPODKokkos                        crossdesc_reduction        src/KOKKOS/pair_pod_kokkos.h:187
+      kk : void crossdesc_reduction(t_pod_1d cb1, t_pod_1d cb2, t_pod_1d c12, t_pod_1d d1, t_pod_1d d2, t_pod_1i ind1, t_pod_1i ind2, int n12, int Ni);
+      base: PairPOD src/ML-POD/pair_pod.h:73  void crossdesc_reduction(double *cb1, double *cb2, double *c12, double *d1, double *d2, int *ind1, int *ind2, int n12, int Ni);
+PairPODKokkos                        blockatom_base_descriptors src/KOKKOS/pair_pod_kokkos.h:189
+      kk : void blockatom_base_descriptors(t_pod_1d bd, int Ni, int Nij);
+      base: PairPOD src/ML-POD/pair_pod.h:75  void blockatom_base_descriptors(double *bd1, int Ni, int Nij);
+PairPODKokkos                        blockatom_base_coefficients src/KOKKOS/pair_pod_kokkos.h:190
+      kk : void blockatom_base_coefficients(t_pod_1d ei, t_pod_1d cb, t_pod_1d B, int Ni);
+      base: PairPOD src/ML-POD/pair_pod.h:76  void blockatom_base_coefficients(double *ei, double *cb, double *B, int Ni);
+PairPODKokkos                        blockatom_environment_descriptors src/KOKKOS/pair_pod_kokkos.h:191
+      kk : void blockatom_environment_descriptors(t_pod_1d ei, t_pod_1d cb, t_pod_1d B, int Ni);
+      base: PairPOD src/ML-POD/pair_pod.h:77  void blockatom_environment_descriptors(double *ei, double *cb, double *B, int Ni);
+PairPODKokkos                        blockatom_energyforce      src/KOKKOS/pair_pod_kokkos.h:214
+      kk : void blockatom_energyforce(t_pod_1d l_ei, t_pod_1d l_fij, int Ni, int Nij);
+      base: PairPOD src/ML-POD/pair_pod.h:78  void blockatom_energyforce(double *ei, double *fij, int Ni, int Nij);
+PairPODKokkos                        tallyenergy                src/KOKKOS/pair_pod_kokkos.h:215
+      kk : void tallyenergy(t_pod_1d l_ei, int istart, int Ni);
+      base: PairPOD src/ML-POD/pair_pod.h:46  void tallyenergy(double *ei, int istart, int Ni);
+PairSWKokkos                         twobody                    src/KOKKOS/pair_sw_kokkos.h:101
+      kk : void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;
+      base: PairSW src/MANYBODY/pair_sw.h:63  void twobody(Param *, double, double &, int, double &);
+PairSWMODKokkos                      twobody                    src/KOKKOS/pair_sw_mod_kokkos.h:101
+      kk : void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;
+      base: PairSW src/MANYBODY/pair_sw.h:63  void twobody(Param *, double, double &, int, double &);
+PairVashishtaKokkos                  twobody                    src/KOKKOS/pair_vashishta_kokkos.h:125
+      kk : void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;
+      base: PairVashishta src/MANYBODY/pair_vashishta.h:60  void twobody(const Param *, double, double &, int, double &);
+PairZBLKokkos                        e_zbl                      src/KOKKOS/pair_zbl_kokkos.h:77
+      kk : KK_FLOAT e_zbl(KK_FLOAT, int, int) const;
+      base: PairZBL src/pair_zbl.h:52  double e_zbl(double, int, int);
+PairZBLKokkos                        dzbldr                     src/KOKKOS/pair_zbl_kokkos.h:80
+      kk : KK_FLOAT dzbldr(KK_FLOAT, int, int) const;
+      base: PairZBL src/pair_zbl.h:53  double dzbldr(double, int, int);
+PairZBLKokkos                        d2zbldr2                   src/KOKKOS/pair_zbl_kokkos.h:83
+      kk : KK_FLOAT d2zbldr2(KK_FLOAT, int, int) const;
+      base: PairZBL src/pair_zbl.h:54  double d2zbldr2(double, int, int);
+PPPMKokkos                           compute_rho_coeff          src/KOKKOS/pppm_kokkos.h:486
+      kk : void compute_rho_coeff();
+      base: PPPM src/KSPACE/pppm.h:142  void compute_rho_coeff();
+PPPMKokkos                           setup_triclinic            src/KOKKOS/pppm_kokkos.h:498
+      kk : void setup_triclinic();
+      base: PPPM src/KSPACE/pppm.h:157  void setup_triclinic();
+PPPMKokkos                           compute_gf_ik_triclinic    src/KOKKOS/pppm_kokkos.h:499
+      kk : void compute_gf_ik_triclinic();
+      base: PPPM src/KSPACE/pppm.h:158  void compute_gf_ik_triclinic();
+PPPMKokkos                           poisson_ik_triclinic       src/KOKKOS/pppm_kokkos.h:500
+      kk : void poisson_ik_triclinic();
+      base: PPPM src/KSPACE/pppm.h:159  void poisson_ik_triclinic();
+ThirdOrderKokkos                     setup                      src/KOKKOS/third_order_kokkos.h:35
+      kk : void setup();
+      base: ThirdOrder src/PHONON/third_order.h:23  void setup();

@@ -1,0 +1,224 @@
+[
+ [
+  "bond_gaussian_kokkos.cpp",
+  154,
+  "std::",
+  "static constexpr KK_ACC_FLOAT SMALL_KK = std::numeric_limits<KK_ACC_FLOAT>::min();"
+ ],
+ [
+  "fix_eos_table_rx_kokkos.cpp",
+  420,
+  "std::",
+  "if (std::isnan(f1) || std::isnan(f2)) k_error_flag.template view<DeviceType>()() = 2;"
+ ],
+ [
+  "fix_eos_table_rx_kokkos.cpp",
+  436,
+  "std::",
+  "if (std::isnan(f1) || std::isnan(f2) || std::isnan(ui) || std::isnan(thetai) || std::isnan(t1) || std::isnan(t2))"
+ ],
+ [
+  "fix_wall_region_kokkos.cpp",
+  171,
+  "std::",
+  "Region::Contact contact[std::remove_pointer_t<T>::MAXCONTACT];"
+ ],
+ [
+  "npair_ssa_kokkos.cpp",
+  621,
+  "stdio",
+  "fprintf(stdout, \"Leng%03d workphase (%2d,%3d,%3d): len  = %4d, but ssa_itemLen = %4d%s\\n\""
+ ],
+ [
+  "npair_ssa_kokkos.cpp",
+  642,
+  "stdio",
+  "fprintf(stdout, \"Phas%03d phase %3d used %6d inums, workItems = %3d, skipped = %3d, inums/workItems = %g\\n\""
+ ],
+ [
+  "pair_mliap_kokkos.cpp",
+  358,
+  "atom->",
+  "Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,(atom->nlocal+atom->nghost)*vl), KOKKOS_LAMBDA (int i) {"
+ ],
+ [
+  "pair_mliap_kokkos.cpp",
+  384,
+  "atom->",
+  "Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,(atom->nlocal+atom->nghost)*vl), KOKKOS_LAMBDA (int i) {"
+ ],
+ [
+  "pair_pace_kokkos.cpp",
+  2025,
+  "std::",
+  "static_assert(std::is_same_v<typename t_ace_4c::array_layout, Kokkos::LayoutRight>,"
+ ],
+ [
+  "atom_kokkos.h",
+  242,
+  "std::",
+  "void operator()(const std::enable_if_t<ViewType::rank==1, int>& i) {"
+ ],
+ [
+  "group_kokkos.h",
+  55,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_one) {"
+ ],
+ [
+  "group_kokkos.h",
+  66,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_one) {"
+ ],
+ [
+  "group_kokkos.h",
+  103,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_cmx, double &l_cmy, double &l_cmz) {"
+ ],
+ [
+  "group_kokkos.h",
+  124,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_cmx, double &l_cmy, double &l_cmz) {"
+ ],
+ [
+  "group_kokkos.h",
+  175,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_rg) {"
+ ],
+ [
+  "group_kokkos.h",
+  197,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_rg) {"
+ ],
+ [
+  "group_kokkos.h",
+  307,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ ],
+ [
+  "group_kokkos.h",
+  323,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ ],
+ [
+  "group_kokkos.h",
+  371,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ ],
+ [
+  "group_kokkos.h",
+  395,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {"
+ ],
+ [
+  "group_kokkos.h",
+  446,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_i00, double &l_i11, double &l_i22, doubl"
+ ],
+ [
+  "group_kokkos.h",
+  473,
+  "atom->",
+  "Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_i00, double &l_i11, double &l_i22, doubl"
+ ],
+ [
+  "kokkos_few.h",
+  21,
+  "std::",
+  "for (std::size_t i = 0; i < n; ++i) new (data() + i) T(a[i]);"
+ ],
+ [
+  "kokkos_few.h",
+  21,
+  "new",
+  "for (std::size_t i = 0; i < n; ++i) new (data() + i) T(a[i]);"
+ ],
+ [
+  "kokkos_few.h",
+  25,
+  "std::",
+  "for (std::size_t i = 0; i < n; ++i) new (data() + i) T();"
+ ],
+ [
+  "kokkos_few.h",
+  25,
+  "new",
+  "for (std::size_t i = 0; i < n; ++i) new (data() + i) T();"
+ ],
+ [
+  "kokkos_few.h",
+  29,
+  "std::",
+  "for (std::size_t i = 0; i < n; ++i) (data()[i]).~T();"
+ ],
+ [
+  "kokkos_few.h",
+  33,
+  "std::",
+  "for (std::size_t i = 0; i < n; ++i) new (data() + i) T(rhs[i]);"
+ ],
+ [
+  "kokkos_few.h",
+  33,
+  "new",
+  "for (std::size_t i = 0; i < n; ++i) new (data() + i) T(rhs[i]);"
+ ],
+ [
+  "kokkos_few.h",
+  37,
+  "std::",
+  "for (std::size_t i = 0; i < n; ++i) data()[i] = rhs[i];"
+ ],
+ [
+  "kokkos_few.h",
+  48,
+  "std::",
+  "KOKKOS_INLINE_FUNCTION T& operator[](std::size_t i) {"
+ ],
+ [
+  "kokkos_few.h",
+  52,
+  "std::",
+  "KOKKOS_INLINE_FUNCTION T const& operator[](std::size_t i) const {"
+ ],
+ [
+  "kokkos_type.h",
+  643,
+  "std::",
+  "std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::acces"
+ ],
+ [
+  "kokkos_type.h",
+  648,
+  "std::",
+  "std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostType::memory_space>::acce"
+ ],
+ [
+  "kokkos_type.h",
+  1107,
+  "std::",
+  "KOKKOS_INLINE_FUNCTION std::enable_if_t<(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostTyp"
+ ],
+ [
+  "kokkos_type.h",
+  1111,
+  "std::",
+  "KOKKOS_INLINE_FUNCTION std::enable_if_t<!(std::is_same_v<DeviceType,LMPDeviceType> || Kokkos::SpaceAccessibility<LMPDeviceType::memory_space,LMPHostTy"
+ ],
+ [
+  "sna_kokkos_impl.h",
+  1128,
+  "std::",
+  "if constexpr (std::is_same_v<real_type, accum_type>) {"
+ ]
+]

@@ -1,0 +1,281 @@
+[
+ {
+  "header": "atom_kokkos.h",
+  "member": "d_tag_min",
+  "decl_line": 122,
+  "decl": "  DAT::t_tagint_scalar d_tag_min,d_tag_max;",
+  "file": "atom_kokkos.cpp",
+  "line": 45,
+  "code": "d_tag_min = Kokkos::subview(d_tag_min_max,0);"
+ },
+ {
+  "header": "atom_kokkos.h",
+  "member": "d_tag_max",
+  "decl_line": 122,
+  "decl": "  DAT::t_tagint_scalar d_tag_min,d_tag_max;",
+  "file": "atom_kokkos.cpp",
+  "line": 46,
+  "code": "d_tag_max = Kokkos::subview(d_tag_min_max,1);"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_tag",
+  "decl_line": 126,
+  "decl": "  DAT::t_tagint_1d d_tag;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 116,
+  "code": "d_tag = atomKK->k_tag.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_type",
+  "decl_line": 130,
+  "decl": "  DAT::t_int_1d d_type, d_mask;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 120,
+  "code": "d_type = atomKK->k_type.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_mask",
+  "decl_line": 130,
+  "decl": "  DAT::t_int_1d d_type, d_mask;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 123,
+  "code": "d_mask = atomKK->k_mask.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_image",
+  "decl_line": 128,
+  "decl": "  DAT::t_imageint_1d d_image;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 126,
+  "code": "d_image = atomKK->k_image.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_x",
+  "decl_line": 133,
+  "decl": "  DAT::t_kkfloat_1d_3_lr d_x;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 130,
+  "code": "d_x = atomKK->k_x.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_v",
+  "decl_line": 134,
+  "decl": "  DAT::t_kkfloat_1d_3 d_v;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 133,
+  "code": "d_v = atomKK->k_v.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_f",
+  "decl_line": 135,
+  "decl": "  DAT::t_kkacc_1d_3 d_f;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 136,
+  "code": "d_f = atomKK->k_f.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_rmass",
+  "decl_line": 137,
+  "decl": "  DAT::t_kkfloat_1d d_rmass;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 140,
+  "code": "d_rmass = atomKK->k_rmass.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_angmom",
+  "decl_line": 139,
+  "decl": "  DAT::t_kkfloat_1d_3 d_angmom;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 143,
+  "code": "d_angmom = atomKK->k_angmom.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_torque",
+  "decl_line": 141,
+  "decl": "  DAT::t_kkacc_1d_3 d_torque;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 146,
+  "code": "d_torque = atomKK->k_torque.view_device();"
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "member": "d_ellipsoid",
+  "decl_line": 143,
+  "decl": "  DAT::t_int_1d d_ellipsoid;",
+  "file": "atom_vec_ellipsoid_kokkos.cpp",
+  "line": 149,
+  "code": "d_ellipsoid= atomKK->k_ellipsoid.view_device();"
+ },
+ {
+  "header": "dynamical_matrix_kokkos.h",
+  "member": "f_merge_copy",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy, f;",
+  "file": "dynamical_matrix_kokkos.cpp",
+  "line": 152,
+  "code": "f_merge_copy = DAT::t_kkacc_1d_3(\"DynamicalMatrixKokkos::f_merge_copy\",atomKK->k_f.extent(0));"
+ },
+ {
+  "header": "dynamical_matrix_kokkos.h",
+  "member": "f_merge_copy",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy, f;",
+  "file": "dynamical_matrix_kokkos.cpp",
+  "line": 284,
+  "code": "f_merge_copy = DAT::t_kkacc_1d_3(\"DynamicalMatrixKokkos::f_merge_copy\",atomKK->k_f.extent(0));"
+ },
+ {
+  "header": "dynamical_matrix_kokkos.h",
+  "member": "f",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy, f;",
+  "file": "dynamical_matrix_kokkos.cpp",
+  "line": 286,
+  "code": "f = atomKK->k_f.view_device();"
+ },
+ {
+  "header": "fix_minimize_kokkos.h",
+  "member": "d_vectors",
+  "decl_line": 50,
+  "decl": "  DAT::t_kkfloat_2d_lr d_vectors;",
+  "file": "fix_minimize_kokkos.cpp",
+  "line": 67,
+  "code": "d_vectors = k_vectors.view_device();"
+ },
+ {
+  "header": "fix_minimize_kokkos.h",
+  "member": "d_vectors",
+  "decl_line": 50,
+  "decl": "  DAT::t_kkfloat_2d_lr d_vectors;",
+  "file": "fix_minimize_kokkos.cpp",
+  "line": 204,
+  "code": "d_vectors = k_vectors.view_device();"
+ },
+ {
+  "header": "min_linesearch_kokkos.h",
+  "member": "x0",
+  "decl_line": 52,
+  "decl": "  DAT::t_kkfloat_1d x0;   // coords at start of linesearch",
+  "file": "min_linesearch_kokkos.cpp",
+  "line": 110,
+  "code": "x0 = fix_minimize_kk->request_vector_kokkos(0);"
+ },
+ {
+  "header": "min_linesearch_kokkos.h",
+  "member": "g",
+  "decl_line": 53,
+  "decl": "  DAT::t_kkfloat_1d g;    // old gradient vector",
+  "file": "min_linesearch_kokkos.cpp",
+  "line": 111,
+  "code": "g = fix_minimize_kk->request_vector_kokkos(1);"
+ },
+ {
+  "header": "min_linesearch_kokkos.h",
+  "member": "h",
+  "decl_line": 54,
+  "decl": "  DAT::t_kkfloat_1d h;    // search direction vector",
+  "file": "min_linesearch_kokkos.cpp",
+  "line": 112,
+  "code": "h = fix_minimize_kk->request_vector_kokkos(2);"
+ },
+ {
+  "header": "pair_hybrid_kokkos.h",
+  "member": "x",
+  "decl_line": 46,
+  "decl": "  DAT::t_kkfloat_1d_3_lr_randomread x;",
+  "file": "pair_hybrid_kokkos.cpp",
+  "line": 174,
+  "code": "x = atomKK->k_x.view_device();"
+ },
+ {
+  "header": "pair_hybrid_kokkos.h",
+  "member": "f",
+  "decl_line": 47,
+  "decl": "  DAT::t_kkacc_1d_3 f;",
+  "file": "pair_hybrid_kokkos.cpp",
+  "line": 175,
+  "code": "f = atomKK->k_f.view_device();"
+ },
+ {
+  "header": "pair_hybrid_scaled_kokkos.h",
+  "member": "x",
+  "decl_line": 82,
+  "decl": "  DAT::t_kkfloat_1d_3_lr_randomread x;",
+  "file": "pair_hybrid_scaled_kokkos.cpp",
+  "line": 449,
+  "code": "this->x = atomKK->k_x.view_device();"
+ },
+ {
+  "header": "pair_hybrid_scaled_kokkos.h",
+  "member": "f",
+  "decl_line": 83,
+  "decl": "  DAT::t_kkacc_1d_3 f;",
+  "file": "pair_hybrid_scaled_kokkos.cpp",
+  "line": 450,
+  "code": "this->f = atomKK->k_f.view_device();"
+ },
+ {
+  "header": "third_order_kokkos.h",
+  "member": "f_merge_copy",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy, f;",
+  "file": "third_order_kokkos.cpp",
+  "line": 153,
+  "code": "f_merge_copy = DAT::t_kkacc_1d_3(\"ThirdOrderKokkos::f_merge_copy\",atomKK->k_f.extent(0));"
+ },
+ {
+  "header": "third_order_kokkos.h",
+  "member": "f_merge_copy",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy, f;",
+  "file": "third_order_kokkos.cpp",
+  "line": 284,
+  "code": "f_merge_copy = DAT::t_kkacc_1d_3(\"ThirdOrderKokkos::f_merge_copy\",atomKK->k_f.extent(0));"
+ },
+ {
+  "header": "third_order_kokkos.h",
+  "member": "f",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy, f;",
+  "file": "third_order_kokkos.cpp",
+  "line": 286,
+  "code": "f = atomKK->k_f.view_device();"
+ },
+ {
+  "header": "verlet_kokkos.h",
+  "member": "f_merge_copy",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy,f;",
+  "file": "verlet_kokkos.cpp",
+  "line": 319,
+  "code": "f_merge_copy = DAT::t_kkacc_1d_3(\"VerletKokkos::f_merge_copy\",atomKK->k_f.extent(0));"
+ },
+ {
+  "header": "verlet_kokkos.h",
+  "member": "f_merge_copy",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy,f;",
+  "file": "verlet_kokkos.cpp",
+  "line": 511,
+  "code": "f_merge_copy = DAT::t_kkacc_1d_3(\"VerletKokkos::f_merge_copy\",atomKK->k_f.extent(0));"
+ },
+ {
+  "header": "verlet_kokkos.h",
+  "member": "f",
+  "decl_line": 49,
+  "decl": "  DAT::t_kkacc_1d_3 f_merge_copy,f;",
+  "file": "verlet_kokkos.cpp",
+  "line": 512,
+  "code": "f = atomKK->k_f.view_device();"
+ }
+]

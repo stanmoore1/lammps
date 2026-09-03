@@ -1,0 +1,45 @@
+{
+ "comm_kokkos.cpp": [
+  [
+   "CommKokkos::exchange_device",
+   [
+    [
+     "k_count",
+     1156
+    ]
+   ]
+  ],
+  [
+   "CommKokkos::copy_swap_info",
+   [
+    [
+     "k_sendnum_scan",
+     1792
+    ],
+    [
+     "k_firstrecv",
+     1793
+    ],
+    [
+     "k_pbc_flag",
+     1813
+    ],
+    [
+     "k_g2l",
+     1820
+    ]
+   ]
+  ]
+ ],
+ "npair_kokkos.cpp": [
+  [
+   "NPairKokkos::copy_neighbor_info",
+   [
+    [
+     "k_mycutneighsq",
+     73
+    ]
+   ]
+  ]
+ ]
+}

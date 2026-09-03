@@ -1,0 +1,714 @@
+[
+ [
+  "angle_hybrid_kokkos.h",
+  16,
+  "hybrid/kk",
+  "AngleHybridKokkos",
+  "AngleHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "angle_hybrid_kokkos.h",
+  17,
+  "hybrid/kk/device",
+  "AngleHybridKokkos",
+  "AngleHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "angle_hybrid_kokkos.h",
+  18,
+  "hybrid/kk/host",
+  "AngleHybridKokkos",
+  "AngleHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_angle_kokkos.h",
+  16,
+  "angle/kk",
+  "AtomVecAngleKokkos",
+  "AtomVecAngleKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_angle_kokkos.h",
+  17,
+  "angle/kk/device",
+  "AtomVecAngleKokkos",
+  "AtomVecAngleKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_angle_kokkos.h",
+  18,
+  "angle/kk/host",
+  "AtomVecAngleKokkos",
+  "AtomVecAngleKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_atomic_kokkos.h",
+  16,
+  "atomic/kk",
+  "AtomVecAtomicKokkos",
+  "AtomVecAtomicKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_atomic_kokkos.h",
+  17,
+  "atomic/kk/device",
+  "AtomVecAtomicKokkos",
+  "AtomVecAtomicKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_atomic_kokkos.h",
+  18,
+  "atomic/kk/host",
+  "AtomVecAtomicKokkos",
+  "AtomVecAtomicKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_bond_kokkos.h",
+  16,
+  "bond/kk",
+  "AtomVecBondKokkos",
+  "AtomVecBondKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_bond_kokkos.h",
+  17,
+  "bond/kk/device",
+  "AtomVecBondKokkos",
+  "AtomVecBondKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_bond_kokkos.h",
+  18,
+  "bond/kk/host",
+  "AtomVecBondKokkos",
+  "AtomVecBondKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_charge_kokkos.h",
+  16,
+  "charge/kk",
+  "AtomVecChargeKokkos",
+  "AtomVecChargeKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_charge_kokkos.h",
+  17,
+  "charge/kk/device",
+  "AtomVecChargeKokkos",
+  "AtomVecChargeKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_charge_kokkos.h",
+  18,
+  "charge/kk/host",
+  "AtomVecChargeKokkos",
+  "AtomVecChargeKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_dipole_kokkos.h",
+  16,
+  "dipole/kk",
+  "AtomVecDipoleKokkos",
+  "AtomVecDipoleKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_dipole_kokkos.h",
+  17,
+  "dipole/kk/device",
+  "AtomVecDipoleKokkos",
+  "AtomVecDipoleKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_dipole_kokkos.h",
+  18,
+  "dipole/kk/host",
+  "AtomVecDipoleKokkos",
+  "AtomVecDipoleKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_dpd_kokkos.h",
+  16,
+  "dpd/kk",
+  "AtomVecDPDKokkos",
+  "AtomVecDPDKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_dpd_kokkos.h",
+  17,
+  "dpd/kk/device",
+  "AtomVecDPDKokkos",
+  "AtomVecDPDKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_dpd_kokkos.h",
+  18,
+  "dpd/kk/host",
+  "AtomVecDPDKokkos",
+  "AtomVecDPDKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_ellipsoid_kokkos.h",
+  16,
+  "ellipsoid/kk",
+  "AtomVecEllipsoidKokkos",
+  "AtomVecEllipsoidKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_ellipsoid_kokkos.h",
+  17,
+  "ellipsoid/kk/device",
+  "AtomVecEllipsoidKokkos",
+  "AtomVecEllipsoidKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_ellipsoid_kokkos.h",
+  18,
+  "ellipsoid/kk/host",
+  "AtomVecEllipsoidKokkos",
+  "AtomVecEllipsoidKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_full_kokkos.h",
+  16,
+  "full/kk",
+  "AtomVecFullKokkos",
+  "AtomVecFullKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_full_kokkos.h",
+  17,
+  "full/kk/device",
+  "AtomVecFullKokkos",
+  "AtomVecFullKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_full_kokkos.h",
+  18,
+  "full/kk/host",
+  "AtomVecFullKokkos",
+  "AtomVecFullKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_hybrid_kokkos.h",
+  16,
+  "hybrid/kk",
+  "AtomVecHybridKokkos",
+  "AtomVecHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_hybrid_kokkos.h",
+  17,
+  "hybrid/kk/device",
+  "AtomVecHybridKokkos",
+  "AtomVecHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_hybrid_kokkos.h",
+  18,
+  "hybrid/kk/host",
+  "AtomVecHybridKokkos",
+  "AtomVecHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_molecular_kokkos.h",
+  16,
+  "molecular/kk",
+  "AtomVecMolecularKokkos",
+  "AtomVecMolecularKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_molecular_kokkos.h",
+  17,
+  "molecular/kk/device",
+  "AtomVecMolecularKokkos",
+  "AtomVecMolecularKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_molecular_kokkos.h",
+  18,
+  "molecular/kk/host",
+  "AtomVecMolecularKokkos",
+  "AtomVecMolecularKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_sphere_kokkos.h",
+  16,
+  "sphere/kk",
+  "AtomVecSphereKokkos",
+  "AtomVecSphereKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_sphere_kokkos.h",
+  17,
+  "sphere/kk/device",
+  "AtomVecSphereKokkos",
+  "AtomVecSphereKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_sphere_kokkos.h",
+  18,
+  "sphere/kk/host",
+  "AtomVecSphereKokkos",
+  "AtomVecSphereKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_spin_kokkos.h",
+  16,
+  "spin/kk",
+  "AtomVecSpinKokkos",
+  "AtomVecSpinKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_spin_kokkos.h",
+  17,
+  "spin/kk/device",
+  "AtomVecSpinKokkos",
+  "AtomVecSpinKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "atom_vec_spin_kokkos.h",
+  18,
+  "spin/kk/host",
+  "AtomVecSpinKokkos",
+  "AtomVecSpinKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "bond_hybrid_kokkos.h",
+  16,
+  "hybrid/kk",
+  "BondHybridKokkos",
+  "BondHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "bond_hybrid_kokkos.h",
+  17,
+  "hybrid/kk/device",
+  "BondHybridKokkos",
+  "BondHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "bond_hybrid_kokkos.h",
+  18,
+  "hybrid/kk/host",
+  "BondHybridKokkos",
+  "BondHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "dihedral_hybrid_kokkos.h",
+  16,
+  "hybrid/kk",
+  "DihedralHybridKokkos",
+  "DihedralHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "dihedral_hybrid_kokkos.h",
+  17,
+  "hybrid/kk/device",
+  "DihedralHybridKokkos",
+  "DihedralHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "dihedral_hybrid_kokkos.h",
+  18,
+  "hybrid/kk/host",
+  "DihedralHybridKokkos",
+  "DihedralHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "dynamical_matrix_kokkos.h",
+  16,
+  "dynamical_matrix/kk",
+  "DynamicalMatrixKokkos",
+  "DynamicalMatrixKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "dynamical_matrix_kokkos.h",
+  17,
+  "dynamical_matrix/kk/device",
+  "DynamicalMatrixKokkos",
+  "DynamicalMatrixKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "dynamical_matrix_kokkos.h",
+  18,
+  "dynamical_matrix/kk/host",
+  "DynamicalMatrixKokkos",
+  "DynamicalMatrixKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_colvars_kokkos.h",
+  16,
+  "colvars/kk",
+  "FixColvarsKokkos",
+  "FixColvarsKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_colvars_kokkos.h",
+  17,
+  "colvars/kk/device",
+  "FixColvarsKokkos",
+  "FixColvarsKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_colvars_kokkos.h",
+  18,
+  "colvars/kk/host",
+  "FixColvarsKokkos",
+  "FixColvarsKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_deform_kokkos.h",
+  16,
+  "deform/kk",
+  "FixDeformKokkos",
+  "FixDeformKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_deform_kokkos.h",
+  17,
+  "deform/kk/device",
+  "FixDeformKokkos",
+  "FixDeformKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_deform_kokkos.h",
+  18,
+  "deform/kk/host",
+  "FixDeformKokkos",
+  "FixDeformKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_minimize_kokkos.h",
+  16,
+  "MINIMIZE/kk",
+  "FixMinimizeKokkos",
+  "FixMinimizeKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_minimize_kokkos.h",
+  17,
+  "MINIMIZE/kk/device",
+  "FixMinimizeKokkos",
+  "FixMinimizeKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_minimize_kokkos.h",
+  18,
+  "MINIMIZE/kk/host",
+  "FixMinimizeKokkos",
+  "FixMinimizeKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_property_atom_kokkos.h",
+  16,
+  "property/atom/kk",
+  "FixPropertyAtomKokkos",
+  "FixPropertyAtomKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_reaxff_bonds_kokkos.h",
+  16,
+  "reaxff/bonds/kk",
+  "FixReaxFFBondsKokkos",
+  "FixReaxFFBondsKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_reaxff_bonds_kokkos.h",
+  17,
+  "reaxff/bonds/kk/device",
+  "FixReaxFFBondsKokkos",
+  "FixReaxFFBondsKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_reaxff_bonds_kokkos.h",
+  18,
+  "reaxff/bonds/kk/host",
+  "FixReaxFFBondsKokkos",
+  "FixReaxFFBondsKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_reaxff_species_kokkos.h",
+  16,
+  "reaxff/species/kk",
+  "FixReaxFFSpeciesKokkos",
+  "FixReaxFFSpeciesKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_reaxff_species_kokkos.h",
+  17,
+  "reaxff/species/kk/device",
+  "FixReaxFFSpeciesKokkos",
+  "FixReaxFFSpeciesKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "fix_reaxff_species_kokkos.h",
+  18,
+  "reaxff/species/kk/host",
+  "FixReaxFFSpeciesKokkos",
+  "FixReaxFFSpeciesKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "improper_hybrid_kokkos.h",
+  16,
+  "hybrid/kk",
+  "ImproperHybridKokkos",
+  "ImproperHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "improper_hybrid_kokkos.h",
+  17,
+  "hybrid/kk/device",
+  "ImproperHybridKokkos",
+  "ImproperHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "improper_hybrid_kokkos.h",
+  18,
+  "hybrid/kk/host",
+  "ImproperHybridKokkos",
+  "ImproperHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_cg_kokkos.h",
+  16,
+  "cg/kk",
+  "MinCGKokkos",
+  "MinCGKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_cg_kokkos.h",
+  17,
+  "cg/kk/device",
+  "MinCGKokkos",
+  "MinCGKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_cg_kokkos.h",
+  18,
+  "cg/kk/host",
+  "MinCGKokkos",
+  "MinCGKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_fire_kokkos.h",
+  16,
+  "fire/kk",
+  "MinFireKokkos",
+  "MinFireKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_fire_kokkos.h",
+  17,
+  "fire/kk/device",
+  "MinFireKokkos",
+  "MinFireKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_fire_kokkos.h",
+  18,
+  "fire/kk/host",
+  "MinFireKokkos",
+  "MinFireKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_quickmin_kokkos.h",
+  16,
+  "quickmin/kk",
+  "MinQuickMinKokkos",
+  "MinQuickMinKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_quickmin_kokkos.h",
+  17,
+  "quickmin/kk/device",
+  "MinQuickMinKokkos",
+  "MinQuickMinKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_quickmin_kokkos.h",
+  18,
+  "quickmin/kk/host",
+  "MinQuickMinKokkos",
+  "MinQuickMinKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_sd_kokkos.h",
+  16,
+  "sd/kk",
+  "MinSDKokkos",
+  "MinSDKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_sd_kokkos.h",
+  17,
+  "sd/kk/device",
+  "MinSDKokkos",
+  "MinSDKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "min_sd_kokkos.h",
+  18,
+  "sd/kk/host",
+  "MinSDKokkos",
+  "MinSDKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "pair_hybrid_kokkos.h",
+  16,
+  "hybrid/kk",
+  "PairHybridKokkos",
+  "PairHybridKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "pair_hybrid_overlay_kokkos.h",
+  16,
+  "hybrid/overlay/kk",
+  "PairHybridOverlayKokkos",
+  "PairHybridOverlayKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "pair_hybrid_scaled_kokkos.h",
+  16,
+  "hybrid/scaled/kk",
+  "PairHybridScaledKokkos",
+  "PairHybridScaledKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "pair_pace_kokkos.h",
+  21,
+  "pace/kk/host",
+  "PairPACEKokkos<LMPDeviceType>",
+  "PairPACEKokkos<LMPDeviceType>",
+  "expected LMPHostType got LMPDeviceType"
+ ],
+ [
+  "third_order_kokkos.h",
+  16,
+  "third_order/kk",
+  "ThirdOrderKokkos",
+  "ThirdOrderKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "third_order_kokkos.h",
+  17,
+  "third_order/kk/device",
+  "ThirdOrderKokkos",
+  "ThirdOrderKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "third_order_kokkos.h",
+  18,
+  "third_order/kk/host",
+  "ThirdOrderKokkos",
+  "ThirdOrderKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "verlet_kokkos.h",
+  16,
+  "verlet/kk",
+  "VerletKokkos",
+  "VerletKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "verlet_kokkos.h",
+  17,
+  "verlet/kk/device",
+  "VerletKokkos",
+  "VerletKokkos",
+  "no LMP*Type found"
+ ],
+ [
+  "verlet_kokkos.h",
+  18,
+  "verlet/kk/host",
+  "VerletKokkos",
+  "VerletKokkos",
+  "no LMP*Type found"
+ ]
+]

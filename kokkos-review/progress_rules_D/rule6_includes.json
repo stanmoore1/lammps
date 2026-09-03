@@ -1,0 +1,51 @@
+[
+ {
+  "file": "src/KOKKOS/math_extra_kokkos.h",
+  "missing": [
+   "math_extra_kokkos.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/memory_kokkos.h",
+  "missing": [
+   "memory_kokkos.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/npair_copy_kokkos.h",
+  "missing": [
+   "neigh_list.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/npair_halffull_kokkos.h",
+  "missing": [
+   "neigh_list.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/npair_skip_kokkos.h",
+  "missing": [
+   "neigh_list.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/npair_trim_kokkos.h",
+  "missing": [
+   "neigh_list.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_hybrid_kokkos.h",
+  "missing": [
+   "respa.h"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_kokkos.h",
+  "missing": [
+   "atom.h",
+   "force.h"
+  ]
+ }
+]

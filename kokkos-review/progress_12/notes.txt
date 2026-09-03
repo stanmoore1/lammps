@@ -1,0 +1,129 @@
+fix_freeze: clean. base src/GRANULAR/fix_freeze.cpp. no dtor in base (nothing allocated).
+fix_gjf: base src/EXTRA-FIX/fix_gjf.cpp. Math 24a-f matches exactly. exchange kokkos code is a
+faithful clone of fix_spring_self_kokkos (reference). copy_arrays/pack_exchange/unpack_restart do
+sync_host/modify_host correctly. dtor copymode guard present in base. No finding.
+Minor (not reported, base-class issue): FixGJF ctor add_callback(Atom::RESTART) but dtor only
+delete_callback(GROW).
+Reference facts for later styles: TransformView (kokkos_type.h:698) => view_host()/sync_host()/
+modify_host() operate on the LEGACY double host mirror; view<DeviceType>()/sync<DeviceType>()/
+modify<DeviceType>() operate on device (or HostKK). AtomKokkos::sort() legacy path calls
+KokkosBase::sync_host_for_sort()/modified_host_for_sort() (only fix_rigid_small_kokkos overrides);
+fixes whose copy_arrays() itself does sync_host/modify_host are OK.
+fix_gravity: FOUND missing 'if (disable) return;'. Rest matches (nlocal/firstgroup narrowing is a
+valid standard optimization; modified() called before kernel but after sync -> harmless).
+fix_halt: clean. enum in kk .cpp matches src/fix_halt.cpp:34. bondmax matches. base dtor has copymode guard, bondmax() is virtual.
+fix_heat: real port (device kernels), matches src/fix_heat.cpp for CONSTANT/EQUAL; ATOM hstyle and non-kk region rejected in init(). ke/vcm/mass reduction matches Group::ke/vcm/mass. No finding.
+fix_langevin: 5 findings recorded. Also noted but NOT reported: flangevin_allocated never set by the
+KK post_force (base memory_usage under-reports); grow_arrays/copy_arrays/pack_exchange are dead code
+(fix_langevin.cpp has no atom->add_callback at all, osflag is permanently 0 since gjf was removed);
+FixLangevinKokkosPostForceFunctor sets copymode in its DESTRUCTOR while all sibling functors set it in
+the ctor - inconsistent but safe.
+fix_lineforce/fix_planeforce: clean, match src/fix_lineforce.cpp / src/fix_planeforce.cpp exactly; respa rejected in init(); min_post_force/setup inherited and dispatch to the virtual post_force.
+fix_minimize: base src/fix_minimize.cpp. add_vector_kokkos relies on Kokkos::resize zero-filling new
+rows (base add_vector explicitly zeroes) - OK. subviews returned by request_vector_kokkos are
+re-requested from MinLineSearchKokkos::reset_vectors() after migration, so no stale-subview bug.
+reset_coords() inlines minimum_image with single 'if' instead of Domain's 'while' loop and drops the
+"moved too far apart" error - same convention as fix_drag_kokkos.cpp:140, NOT reported.
+Only finding: missing copymode guards (low/rule).
+fix_momentum: matches src/fix_momentum.cpp otherwise (order of ekin_old/linear/angular/rescale, vcm/xcm/angmom/inertia/omega). Only finding: missing k_mass sync.
+fix_neigh_history: 3 findings. Not reported: pair->nondefault_history_transfer / transfer_history()
+not implemented in the kk pre_exchange kernel (only pair granular / surf granular set it and neither
+has a /kk variant); surface_global/otherlist not handled in post_neighbor (guarded by the onesided
+error in pre_exchange); set_arrays() not overridden (host npartner write without modify_host, but
+pre_exchange's deep_copy(d_npartner,0) covers it); maxexchange = (dnum+1)*maxpartner+2 vs CPU +1 is
+correct for the kk buffer layout (extra index word).
+NEIGHMASK=0x1FFFFFFF (lmptype.h:83) also clears the HISTBITS=29 bit, so not stripping it from
+d_neighbors does not by itself break sbmask/j&NEIGHMASK in the pair styles.
+fix_nh: base src/fix_nh.cpp. dtor copymode guard present (fix_nh.cpp:675). init() syncs k_mass
+(lines 77-78) so nve_v device mass read is OK. respa: FixNHKokkos does NOT override
+initial_integrate_respa/final_integrate_respa but the base versions only call the virtual
+nve_v/nve_x/nh_v_press/remap, which ARE overridden -> OK, not reported.
+setup() computes temperature->compute_scalar() twice (extra cost only). remap() BIAS handling uses
+remove_bias_all (compute group) vs CPU per-atom remove_bias (fix group) - standard KK pattern,
+not reported. 2 findings: isochoric missing in remap (HIGH), restore_bias_all vs _kk (efficiency).
+fix_nh_sphere: FixNHSphereKokkos derives from FixNHKokkos (NOT FixNHSphere) and re-implements
+nve_v/nve_x/nh_v_temp; compared line-by-line with src/fix_nh_sphere.cpp - math identical
+(inertia, dtirotate, dipole cross product + renormalisation, factor_eta on omega). dlm_flag
+rejected with error->all inside nve_x (late but harmless, all ranks). dipole loop nlocal
+firstgroup narrowing differs from CPU but is equivalent. No finding.
+fix_nph/nph_sphere/npt/npt_sphere/nvt/nvt_sphere _kokkos: thin ctor-only wrappers over
+FixNHKokkos / FixNHSphereKokkos.  Compared with src/fix_nph.cpp, fix_npt.cpp, fix_nvt.cpp,
+fix_nph_sphere.cpp, fix_npt_sphere.cpp, fix_nvt_sphere.cpp: same tstat/pstat guards, same
+compute groups (all for the *p* variants, group->names[igroup] for nvt), helper computes
+hardcoded to temp/kk resp. temp/sphere/kk (both styles exist).  pressure has no /kk variant
+(expected).  Install.sh has action lines for all.  No findings.
+Not reported (project-wide convention, applies to CPU too): id_temp/id_press assigned with
+utils::strdup without a preceding delete[]; "/kk" (device) helper created even by the
+*/kk/host instantiations - every KOKKOS style in the tree does this.
+fix_nve: matches src/fix_nve.cpp exactly (initial/final, rmass vs mass/type, firstgroup
+narrowing). init() syncs k_mass (the reference pattern). fused_integrate uses 2*dtf which is
+the correct fusion of final+initial. respa: base initial_integrate_respa/final_integrate_respa
+dispatch to the virtual initial_integrate/final_integrate -> KK. cleanup_copy() legacy pattern
+(nulls id/style/vatom, does NOT set copymode) - safe here because Fix::~Fix only frees
+id/style/eatom/vatom/cvatom and fix nve allocates none of them. No finding.
+fix_nve_sphere: base src/fix_nve_sphere.cpp. Translational/rotational math matches; fused
+kernel uses 2*dtf and 2*dtfrotate (correct). 2 findings (dlm ignored HIGH, init host read of
+radius/mask MEDIUM). Not reported: local functor variable named 'f' shadows the member force
+view in initial_integrate/final_integrate/fused_integrate (legal, member assigned before the
+declaration) - cleanup only.
+Key fact for the remaining files: AtomVecSphereKokkos::sort_kokkos (atom_vec_sphere_kokkos.cpp:
+136-151) ends with atomKK->modified(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK), so ALL host
+mirrors go stale after a device sort -> any init()/setup() that reads atom->foo host pointers
+needs an explicit atomKK->sync(Host,...).
+fix_nve_asphere: base src/ASPHERE/fix_nve_asphere.cpp. Translational + angmom + richardson math
+matches (fused: v gets 2*dtf, angmom gets dtf twice = 2*dtf total, correct). 2 findings
+(superellipsoid guard missing HIGH, init host read MEDIUM). Not reported: initial_integrate
+over-claims ELLIPSOID_MASK as modified (kernel never writes it) - efficiency only; local
+functor variable 'f' shadows the member force view (same as nve/sphere).
+Note: AtomVecEllipsoidKokkos::sort_kokkos sorts d_bonus by ATOM index (atom_vec_ellipsoid_
+kokkos.cpp:187) which looks wrong (bonus is indexed by ellipsoid[i]) - NOT in group 12, flag
+for whoever owns atom_vec_ellipsoid_kokkos.cpp.
+RETRACTED (do NOT re-report): the "init() reads stale host radius/ellipsoid/mask" findings for
+fix_nve_sphere_kokkos.cpp:52 and fix_nve_asphere_kokkos.cpp:53.  VerletKokkos::run() ends with
+"atomKK->sync(Host,ALL_MASK); lmp->kokkos->auto_sync = 1;" (verlet_kokkos.cpp:556-557) and
+MinKokkos::run does the same (min_kokkos.cpp:393-394), so every host mirror is current again
+before the next Modify::init().  The explicit sync in fix_nh_sphere_kokkos.cpp:62 is defensive,
+not a bug fix.  Scenario could not be substantiated -> dropped.
+fix_nve_asphere_noforce: same shape as fix_nve_asphere but it DOES have the superellipsoid and
+respa guards (fix_nve_asphere_noforce_kokkos.cpp:63-68). math matches src/ASPHERE/
+fix_nve_asphere_noforce.cpp (INERTIA 0.2 == /5.0); angmom correctly NOT written back
+(MathExtra::richardson does not modify m). No finding.
+fix_nve_limit: math matches src/fix_nve_limit.cpp exactly (kick, vsq limit + scale, x update,
+ncount reduction). respa handled by base dispatch to virtuals. 1 finding: k_mass never synced
+to device (HIGH). Not reported: unused d_type in the rmass branch (line 66); l_groupbit declared
+twice (line 56 and line 95, inner shadows outer) - cleanup only.
+fix_nve_noforce: clean, matches src/fix_nve_noforce.cpp; respa rejected in init(); dtor copymode guard present. No finding.
+fix_nvk: base src/EXTRA-FIX/fix_nvk.cpp. a/b reduction in double, s/sdot formulas identical, k_mass explicitly synced (line 69), copymode set around reduce and for, respa rejected. Clean, no finding.
+fix_nvt_sllod: base src/fix_nvt_sllod.cpp. Compared the REVERSIBLE nve_x kernel term by term
+(first-half sllod, vfac, xlo/xmid shear+elongation, nve, second half with propagated
+xlo[3]/xlo[4], second-half velocity) - identical to fix_nvt_sllod.cpp:204-253.  LEGACY
+nh_v_temp split into temp1 (vdelu) / temp2 (scale) kernels with remove_bias_all_kk placed
+before temp1 (non-psllod) or between temp1 and temp2 (psllod) - matches the CPU per-atom
+ordering.  restart/pack_restart_data/size_restart_global/modify_param match. Uses
+restore_bias_all_kk() correctly (unlike fix_nh_kokkos). No finding.
+Not reported: (a) the class re-declares atomKK/domainKK, shadowing Pointers::atomKK (a
+reference to lmp->atomKK) and FixNHKokkos::domainKK; both are initialized in the ctor
+(lines 45,47) so it is only confusing, not wrong; (b) it also shadows x/v/f/rmass/mass/type/
+mask from FixNHKokkos - each user assigns its own copy first; (c) init() drops the CPU's
+'if (f2)' null guard around dynamic_cast<ComputeTempDeform*>(temperature)
+(fix_nvt_sllod.cpp:143-144 vs fix_nvt_sllod_kokkos.cpp:148) - reachable only via
+compute temp/deform/eff, which matches "^temp/deform" but does NOT derive from
+ComputeTempDeform; the CPU has the same unguarded cast at fix_nvt_sllod.cpp:187/258, so it is
+not a KOKKOS regression.
+fix_oneway: matches src/EXTRA-FIX/fix_oneway.cpp; direction bit decoding identical; k_match
+zero-initialised by the DualView ctor so the "not in group" rows read 0 (RegBlockKokkos::
+match_all_kokkos only writes rows in the group); region KokkosBase support checked in init();
+dtor copymode guard present in base. Not reported: member view x is assigned in end_of_step but
+never used by the kernel (cleanup); a fresh tdual_int_1d is allocated every nevery steps
+(same as compute_temp_region_kokkos); an unrecognised arg[5] leaves direction = NONE = -1 so
+idx = -1&3 = 3 and v(i,3) is out of bounds - but the CPU base has the identical defect
+(fix_oneway.cpp:37,94), so it is not a KOKKOS regression.
+fix_press_berendsen: end_of_step and remap match src/fix_press_berendsen.cpp exactly; per-atom
+work is done on device by DomainKokkos::x2lamda/lamda2x(n,groupbit) (domain_kokkos.cpp:625,689
+- both sync/modify X themselves), so this is NOT a fake port despite press/berendsen being named
+in the "removed fake ports" list.  Helper temp compute recreated as temp/kk resp. temp/kk/host
+(more careful than the nh family). init() adds warn_nonkokkos_compute. pressure compute uses the
+global virial only, so no per-atom sync is needed before pressure->compute_*.  No finding.
+Not reported: FixPressBerendsenKokkos does not reject rfix (FixNHKokkos does) - Fix*::deform()
+only touches the fixes' own COM arrays, not atom->x, so no stale-view issue.
+Added one extra finding on fix_nh_kokkos.cpp:374 (host dilate-group remap loop, efficiency).

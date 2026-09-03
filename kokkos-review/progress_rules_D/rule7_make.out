@@ -1,0 +1,2 @@
+/usr/local/bin/python3 ../tools/coding_standard/whitespace.py ..
+/usr/local/bin/python3 ../tools/coding_standard/permissions.py ..

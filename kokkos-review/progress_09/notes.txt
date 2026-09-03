@@ -1,0 +1,28 @@
+[charmm] base = src/MOLECULE/dihedral_charmm.cpp/.h. Base dtor has "if (allocated && !copymode)" guard OK; base has virtual allocate() OK.
+Verlet/VerletKokkos does atomKK->sync/modified around dihedral->compute, so styles need not sync themselves.
+ev_init(eflag,vflag,0) => alloc=0 so base does not allocate eatom/vatom but DOES update maxeatom/maxvatom. Good pattern.
+charmm: math matches CPU line-by-line; ev_tally quarter/half factors match src/dihedral.cpp + pair ev_tally. No findings.
+[charmmfsw] base = src/MOLECULE/dihedral_charmmfsw.cpp/.h. Math (fsw coul/lj switch terms) matches CPU lines 249-305. Base dtor guard + virtual allocate OK.
+Minor: charmmfsw compute() error text says "Dihedral_style charmm/kk requires half neighbor list" (should say charmmfsw/kk) - cosmetic, line 84. Not reported.
+Note: multiplicity/shift stored as tdual_kkfloat_1d in charmmfsw (int in charmm) - values are small ints, exactly representable; not a bug.
+[class2] base src/CLASS2/dihedral_class2.cpp; dtor line 58 has "if (copymode) return;" OK; header line 51 virtual allocate OK.
+class2 coeff()/read_restart() only modify_host() (no sync) but compute() syncs all 38 dual views at lines 90-127 -> OK.
+class2 datamask_read includes Q_MASK but style never reads q (charge) -> harmless extra sync. LOW.
+LEAD: src/EXTRA-MOLECULE/dihedral_fourier.h:43 declares "void allocate();" NOT virtual -> check dihedral_fourier_kokkos.h override.
+LEAD: src/dihedral_hybrid.cpp ~DihedralHybrid has NO copymode guard -> check whether DihedralHybridKokkos copies *this into a kernel.
+[class2xe] base src/CLASS2/dihedral_class2xe.cpp (dtor line 72 copymode guard OK, header line 51 virtual allocate OK).
+Morse mbt/ebt/bb13t terms match CPU exactly. compute() syncs all 42 dual views. Uses reuse+deep_copy(0.0) pattern for k_eatom/k_vatom (correct).
+class2xe datamask_read has Q_MASK unused (same low note as class2).
+[cosine_shift_exp] base src/EXTRA-MOLECULE/dihedral_cosine_shift_exp.cpp; dtor copymode guard line 48 OK; virtual allocate OK (hdr:44).
+Base read_restart() calls allocate() (virtual -> KK allocate) so KK read_restart's lack of view re-creation is fine.
+Math (doExpansion / exp branches) matches CPU exactly. coeff/read_restart modify_host only; compute() syncs all 6 views. No findings.
+Q_MASK unused in datamask_read (same low note).
+[cosine_squared_restricted] base src/EXTRA-MOLECULE/dihedral_cosine_squared_restricted.cpp; copymode guard line 47 OK; virtual allocate hdr:42 OK; base read_restart calls allocate(). Math matches CPU (cs/s12a renaming of CPU in-place c/s12). No findings.
+[fourier] base src/EXTRA-MOLECULE/dihedral_fourier.{cpp,h}. NOTE: base header line 43 declares non-virtual "void allocate();" -- KK style correctly avoids overriding it and uses its own allocate_kokkos() instead, so rule 2 is not violated in practice. Kernel math matches CPU exactly.
+FINDING recorded: allocate_kokkos() resize() host-mirror-zeroing on GPU builds (dihedral_fourier_kokkos.cpp:357).
+[harmonic] base src/MOLECULE/dihedral_harmonic.cpp (dtor "if (allocated && !copymode)" line 46 OK; virtual allocate hdr:41 OK; read_restart calls allocate()). Kernel matches CPU exactly; ev_tally body byte-identical to cosine_shift_exp KK version. No findings.
+[helix] base src/EXTRA-MOLECULE/dihedral_helix.cpp (copymode guard line 53, virtual allocate hdr:42, read_restart calls allocate()). Kernel matches CPU exactly (ca/s12a renaming of CPU in-place c/s12). ev_tally identical to harmonic KK. No findings.
+[hybrid] base src/dihedral_hybrid.cpp. KK dtor calls deallocate() so the base's non-virtual DihedralHybrid::deallocate() early-returns (allocated=0) -> no double free / no delete[] of the never-allocated ndihedrallist/maxdihedral/dihedrallist. OK.
+Sub-style list rebuild pattern is byte-identical to angle_hybrid_kokkos.cpp -> consistent, reviewed pattern.
+Minor efficiency (not reported): lines 114-115 do modify_device()+sync_host() on k_ndihedrallist every step even on non-reneighbor steps (redundant device->host copy of nstyles ints).
+FINDING recorded: centroidstressflag / cvatom nullptr deref (dihedral_hybrid_kokkos.cpp:148). Same shape in angle_hybrid_kokkos.cpp:144 and improper_hybrid_kokkos.cpp:146 (other groups).

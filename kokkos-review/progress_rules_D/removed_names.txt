@@ -1,0 +1,5 @@
+bond_quartic_exp_kokkos.cpp
+bond_quartic_exp_kokkos.h
+math_extra_kokkos.cpp
+pair_lj_smooth_linear_kokkos.cpp
+pair_lj_smooth_linear_kokkos.h

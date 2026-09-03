@@ -1,0 +1,1382 @@
+{
+ "angle_class2_kokkos.cpp": {
+  "k_setflag_a": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    404,
+    483
+   ],
+   "sd": [
+    101
+   ],
+   "hostread": [
+    387,
+    466
+   ],
+   "hostwrite": [],
+   "devview": [
+    357,
+    448
+   ]
+  },
+  "k_setflag_bb": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    405,
+    484
+   ],
+   "sd": [
+    102
+   ],
+   "hostread": [
+    388,
+    467
+   ],
+   "hostwrite": [],
+   "devview": [
+    358,
+    449
+   ]
+  },
+  "k_setflag": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    403,
+    482
+   ],
+   "sd": [
+    100
+   ],
+   "hostread": [
+    386,
+    465
+   ],
+   "hostwrite": [],
+   "devview": [
+    356,
+    447
+   ]
+  },
+  "k_setflag_ba": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    406,
+    485
+   ],
+   "sd": [
+    103
+   ],
+   "hostread": [
+    389,
+    468
+   ],
+   "hostwrite": [],
+   "devview": [
+    359,
+    450
+   ]
+  }
+ },
+ "angle_spica_kokkos.cpp": {
+  "k_setflag": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    423,
+    446
+   ],
+   "sd": [],
+   "hostread": [
+    417,
+    440
+   ],
+   "hostwrite": [],
+   "devview": [
+    340
+   ]
+  }
+ },
+ "atom_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [],
+   "sh": [],
+   "mh": [],
+   "sd": [],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": []
+  }
+ },
+ "atom_map_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [],
+   "sh": [],
+   "mh": [],
+   "sd": [],
+   "hostread": [
+    260
+   ],
+   "hostwrite": [],
+   "devview": []
+  }
+ },
+ "bond_quartic_kokkos.cpp": {
+  "k_brokenflag": {
+   "md": [],
+   "sh": [
+    176
+   ],
+   "mh": [],
+   "sd": [],
+   "hostread": [
+    182
+   ],
+   "hostwrite": [],
+   "devview": [
+    122
+   ]
+  }
+ },
+ "bond_table_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [
+    204
+   ],
+   "sh": [
+    205
+   ],
+   "mh": [
+    181
+   ],
+   "sd": [
+    182
+   ],
+   "hostread": [
+    47
+   ],
+   "hostwrite": [],
+   "devview": [
+    46
+   ]
+  }
+ },
+ "comm_kokkos.cpp": {
+  "k_pbc_flag": {
+   "md": [],
+   "sh": [],
+   "mh": [],
+   "sd": [],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": []
+  },
+  "k_bonus_flags": {
+   "md": [],
+   "sh": [],
+   "mh": [],
+   "sd": [],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": []
+  }
+ },
+ "dihedral_charmm_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    144
+   ],
+   "sh": [
+    145
+   ],
+   "mh": [
+    119
+   ],
+   "sd": [
+    120
+   ],
+   "hostread": [
+    52
+   ],
+   "hostwrite": [],
+   "devview": [
+    51
+   ]
+  }
+ },
+ "dihedral_charmmfsw_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    151
+   ],
+   "sh": [
+    152
+   ],
+   "mh": [
+    126
+   ],
+   "sd": [
+    127
+   ],
+   "hostread": [
+    59
+   ],
+   "hostwrite": [],
+   "devview": [
+    58
+   ]
+  }
+ },
+ "dihedral_class2_kokkos.cpp": {
+  "k_setflag_at": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    830,
+    1000
+   ],
+   "sd": [
+    125
+   ],
+   "hostread": [
+    790,
+    960
+   ],
+   "hostwrite": [],
+   "devview": [
+    737,
+    920
+   ]
+  },
+  "k_setflag_mbt": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    828,
+    998
+   ],
+   "sd": [
+    123
+   ],
+   "hostread": [
+    788,
+    958
+   ],
+   "hostwrite": [],
+   "devview": [
+    735,
+    918
+   ]
+  },
+  "k_warning_flag": {
+   "md": [
+    166
+   ],
+   "sh": [
+    167
+   ],
+   "mh": [
+    141
+   ],
+   "sd": [
+    142
+   ],
+   "hostread": [
+    50
+   ],
+   "hostwrite": [],
+   "devview": [
+    49
+   ]
+  },
+  "k_setflag_d": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    827,
+    997
+   ],
+   "sd": [
+    122
+   ],
+   "hostread": [
+    787,
+    957
+   ],
+   "hostwrite": [],
+   "devview": [
+    734,
+    917
+   ]
+  },
+  "k_setflag_aat": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    831,
+    1001
+   ],
+   "sd": [
+    126
+   ],
+   "hostread": [
+    791,
+    961
+   ],
+   "hostwrite": [],
+   "devview": [
+    738,
+    921
+   ]
+  },
+  "k_setflag_bb13t": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    832,
+    1002
+   ],
+   "sd": [
+    127
+   ],
+   "hostread": [
+    792,
+    962
+   ],
+   "hostwrite": [],
+   "devview": [
+    739,
+    922
+   ]
+  },
+  "k_setflag_ebt": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    829,
+    999
+   ],
+   "sd": [
+    124
+   ],
+   "hostread": [
+    789,
+    959
+   ],
+   "hostwrite": [],
+   "devview": [
+    736,
+    919
+   ]
+  }
+ },
+ "dihedral_class2xe_kokkos.cpp": {
+  "k_setflag_at": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    860,
+    1045
+   ],
+   "sd": [
+    133
+   ],
+   "hostread": [
+    816,
+    1001
+   ],
+   "hostwrite": [],
+   "devview": [
+    759,
+    957
+   ]
+  },
+  "k_setflag_mbt": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    858,
+    1043
+   ],
+   "sd": [
+    131
+   ],
+   "hostread": [
+    814,
+    999
+   ],
+   "hostwrite": [],
+   "devview": [
+    757,
+    955
+   ]
+  },
+  "k_warning_flag": {
+   "md": [
+    171
+   ],
+   "sh": [
+    172
+   ],
+   "mh": [
+    146
+   ],
+   "sd": [
+    147
+   ],
+   "hostread": [
+    51
+   ],
+   "hostwrite": [],
+   "devview": [
+    50
+   ]
+  },
+  "k_setflag_d": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    857,
+    1042
+   ],
+   "sd": [
+    130
+   ],
+   "hostread": [
+    813,
+    998
+   ],
+   "hostwrite": [],
+   "devview": [
+    756,
+    954
+   ]
+  },
+  "k_setflag_aat": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    861,
+    1046
+   ],
+   "sd": [
+    134
+   ],
+   "hostread": [
+    817,
+    1002
+   ],
+   "hostwrite": [],
+   "devview": [
+    760,
+    958
+   ]
+  },
+  "k_setflag_bb13t": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    862,
+    1047
+   ],
+   "sd": [
+    135
+   ],
+   "hostread": [
+    818,
+    1003
+   ],
+   "hostwrite": [],
+   "devview": [
+    761,
+    959
+   ]
+  },
+  "k_setflag_ebt": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    859,
+    1044
+   ],
+   "sd": [
+    132
+   ],
+   "hostread": [
+    815,
+    1000
+   ],
+   "hostwrite": [],
+   "devview": [
+    758,
+    956
+   ]
+  }
+ },
+ "dihedral_cosine_shift_exp_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    135
+   ],
+   "sh": [
+    136
+   ],
+   "mh": [
+    110
+   ],
+   "sd": [
+    111
+   ],
+   "hostread": [
+    51
+   ],
+   "hostwrite": [],
+   "devview": [
+    50
+   ]
+  }
+ },
+ "dihedral_cosine_squared_restricted_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    133
+   ],
+   "sh": [
+    134
+   ],
+   "mh": [
+    108
+   ],
+   "sd": [
+    109
+   ],
+   "hostread": [
+    53
+   ],
+   "hostwrite": [],
+   "devview": [
+    52
+   ]
+  }
+ },
+ "dihedral_fourier_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    136
+   ],
+   "sh": [
+    137
+   ],
+   "mh": [
+    111
+   ],
+   "sd": [
+    112
+   ],
+   "hostread": [
+    51
+   ],
+   "hostwrite": [],
+   "devview": [
+    50
+   ]
+  }
+ },
+ "dihedral_harmonic_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    132
+   ],
+   "sh": [
+    133
+   ],
+   "mh": [
+    107
+   ],
+   "sd": [
+    108
+   ],
+   "hostread": [
+    49
+   ],
+   "hostwrite": [],
+   "devview": [
+    48
+   ]
+  }
+ },
+ "dihedral_helix_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    135
+   ],
+   "sh": [
+    136
+   ],
+   "mh": [
+    110
+   ],
+   "sd": [
+    111
+   ],
+   "hostread": [
+    54
+   ],
+   "hostwrite": [],
+   "devview": [
+    53
+   ]
+  }
+ },
+ "dihedral_multi_harmonic_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    133
+   ],
+   "sh": [
+    134
+   ],
+   "mh": [
+    108
+   ],
+   "sd": [
+    109
+   ],
+   "hostread": [
+    50
+   ],
+   "hostwrite": [],
+   "devview": [
+    49
+   ]
+  }
+ },
+ "dihedral_nharmonic_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    133
+   ],
+   "sh": [
+    134
+   ],
+   "mh": [
+    108
+   ],
+   "sd": [
+    109
+   ],
+   "hostread": [
+    51
+   ],
+   "hostwrite": [],
+   "devview": [
+    50
+   ]
+  }
+ },
+ "dihedral_opls_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    129
+   ],
+   "sh": [
+    130
+   ],
+   "mh": [
+    104
+   ],
+   "sd": [
+    105
+   ],
+   "hostread": [
+    51
+   ],
+   "hostwrite": [],
+   "devview": [
+    50
+   ]
+  }
+ },
+ "dihedral_quadratic_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    134
+   ],
+   "sh": [
+    135
+   ],
+   "mh": [
+    109
+   ],
+   "sd": [
+    110
+   ],
+   "hostread": [
+    54
+   ],
+   "hostwrite": [],
+   "devview": [
+    53
+   ]
+  }
+ },
+ "dihedral_spherical_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    141
+   ],
+   "sh": [
+    142
+   ],
+   "mh": [
+    116
+   ],
+   "sd": [
+    117
+   ],
+   "hostread": [
+    50
+   ],
+   "hostwrite": [],
+   "devview": [
+    49
+   ]
+  }
+ },
+ "dihedral_table_cut_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    132
+   ],
+   "sh": [
+    133
+   ],
+   "mh": [
+    107
+   ],
+   "sd": [
+    108
+   ],
+   "hostread": [
+    53
+   ],
+   "hostwrite": [],
+   "devview": [
+    52
+   ]
+  }
+ },
+ "fix_eos_table_rx_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [
+    524
+   ],
+   "sh": [
+    525
+   ],
+   "mh": [],
+   "sd": [],
+   "hostread": [
+    526,
+    528,
+    530
+   ],
+   "hostwrite": [],
+   "devview": [
+    211,
+    259,
+    420,
+    437,
+    439
+   ]
+  },
+  "k_warning_flag": {
+   "md": [
+    533
+   ],
+   "sh": [
+    534
+   ],
+   "mh": [
+    538
+   ],
+   "sd": [
+    539
+   ],
+   "hostread": [
+    535
+   ],
+   "hostwrite": [],
+   "devview": [
+    424
+   ]
+  }
+ },
+ "fix_neigh_history_kokkos.cpp": {
+  "k_firstflag": {
+   "md": [
+    237
+   ],
+   "sh": [],
+   "mh": [],
+   "sd": [
+    110,
+    198
+   ],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": [
+    226
+   ]
+  }
+ },
+ "fix_rigid_small_kokkos.cpp": {
+  "k_eflags": {
+   "md": [
+    717,
+    1995,
+    2147,
+    2770
+   ],
+   "sh": [
+    250,
+    350,
+    1197,
+    1705,
+    1771,
+    2680,
+    2797
+   ],
+   "mh": [
+    416,
+    529,
+    675,
+    1794,
+    2698,
+    2734
+   ],
+   "sd": [
+    530,
+    676,
+    1795,
+    1853,
+    2041,
+    2768
+   ],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": [
+    531,
+    1013,
+    1313,
+    1593,
+    1674,
+    1856,
+    2044,
+    2769
+   ]
+  }
+ },
+ "fix_rx_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [
+    1462
+   ],
+   "sh": [
+    1463
+   ],
+   "mh": [
+    1443
+   ],
+   "sd": [
+    1444
+   ],
+   "hostread": [
+    1464
+   ],
+   "hostwrite": [],
+   "devview": [
+    1323
+   ]
+  }
+ },
+ "fix_shake_kokkos.cpp": {
+  "k_shake_flag": {
+   "md": [
+    1795,
+    1976,
+    2058
+   ],
+   "sh": [
+    122,
+    167,
+    1719,
+    1739,
+    1767,
+    1807,
+    1822,
+    1844,
+    2070,
+    2090
+   ],
+   "mh": [
+    86,
+    1773,
+    1811,
+    1827,
+    1850,
+    2076,
+    2096
+   ],
+   "sd": [
+    227,
+    387,
+    656,
+    819,
+    873,
+    1787,
+    1958,
+    2048
+   ],
+   "hostread": [
+    76
+   ],
+   "hostwrite": [],
+   "devview": [
+    1749
+   ]
+  }
+ },
+ "improper_class2_kokkos.cpp": {
+  "k_setflag_aa": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    920,
+    981
+   ],
+   "sd": [
+    95
+   ],
+   "hostread": [
+    907,
+    968
+   ],
+   "hostwrite": [],
+   "devview": [
+    879,
+    955
+   ]
+  },
+  "k_warning_flag": {
+   "md": [
+    144
+   ],
+   "sh": [
+    145
+   ],
+   "mh": [
+    107
+   ],
+   "sd": [
+    108
+   ],
+   "hostread": [
+    46
+   ],
+   "hostwrite": [],
+   "devview": [
+    45
+   ]
+  },
+  "k_setflag_i": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    919,
+    980
+   ],
+   "sd": [
+    94
+   ],
+   "hostread": [
+    906,
+    967
+   ],
+   "hostwrite": [],
+   "devview": [
+    878,
+    954
+   ]
+  },
+  "k_setflag": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    918,
+    979
+   ],
+   "sd": [
+    93
+   ],
+   "hostread": [
+    905,
+    966
+   ],
+   "hostwrite": [],
+   "devview": [
+    877,
+    953
+   ]
+  }
+ },
+ "improper_cossq_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    122
+   ],
+   "sh": [
+    123
+   ],
+   "mh": [
+    101
+   ],
+   "sd": [
+    102
+   ],
+   "hostread": [
+    48
+   ],
+   "hostwrite": [],
+   "devview": [
+    47
+   ]
+  }
+ },
+ "improper_cvff_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    129
+   ],
+   "sh": [
+    130
+   ],
+   "mh": [
+    104
+   ],
+   "sd": [
+    105
+   ],
+   "hostread": [
+    48
+   ],
+   "hostwrite": [],
+   "devview": [
+    47
+   ]
+  }
+ },
+ "improper_fourier_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    125
+   ],
+   "sh": [
+    126
+   ],
+   "mh": [
+    104
+   ],
+   "sd": [
+    105
+   ],
+   "hostread": [
+    102
+   ],
+   "hostwrite": [],
+   "devview": [
+    101
+   ]
+  }
+ },
+ "improper_harmonic_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    128
+   ],
+   "sh": [
+    129
+   ],
+   "mh": [
+    103
+   ],
+   "sd": [
+    104
+   ],
+   "hostread": [
+    48
+   ],
+   "hostwrite": [],
+   "devview": [
+    47
+   ]
+  }
+ },
+ "improper_umbrella_kokkos.cpp": {
+  "k_warning_flag": {
+   "md": [
+    123
+   ],
+   "sh": [
+    124
+   ],
+   "mh": [
+    102
+   ],
+   "sd": [
+    103
+   ],
+   "hostread": [
+    100
+   ],
+   "hostwrite": [],
+   "devview": [
+    99
+   ]
+  }
+ },
+ "pair_exp6_rx_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [
+    232,
+    319
+   ],
+   "sh": [
+    233,
+    320
+   ],
+   "mh": [],
+   "sd": [],
+   "hostread": [
+    234,
+    236,
+    321
+   ],
+   "hostwrite": [],
+   "devview": [
+    556,
+    650,
+    932,
+    1026,
+    1581,
+    1790,
+    1951,
+    1958,
+    1965,
+    1972
+   ]
+  }
+ },
+ "pair_gran_hertz_history_kokkos.cpp": {
+  "k_firstflag": {
+   "md": [],
+   "sh": [],
+   "mh": [],
+   "sd": [
+    166
+   ],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": [
+    169
+   ]
+  }
+ },
+ "pair_gran_hooke_history_kokkos.cpp": {
+  "k_firstflag": {
+   "md": [],
+   "sh": [],
+   "mh": [],
+   "sd": [
+    166
+   ],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": [
+    169
+   ]
+  }
+ },
+ "pair_mliap_kokkos.cpp": {
+  "k_setflag": {
+   "md": [],
+   "sh": [],
+   "mh": [
+    279
+   ],
+   "sd": [
+    280
+   ],
+   "hostread": [],
+   "hostwrite": [],
+   "devview": []
+  }
+ },
+ "pair_multi_lucy_rx_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [
+    241
+   ],
+   "sh": [
+    242
+   ],
+   "mh": [],
+   "sd": [],
+   "hostread": [
+    243,
+    245,
+    247
+   ],
+   "hostwrite": [],
+   "devview": [
+    339,
+    348,
+    366,
+    391,
+    422,
+    429
+   ]
+  }
+ },
+ "pair_reaxff_kokkos.cpp": {
+  "k_error_flag": {
+   "md": [
+    4368
+   ],
+   "sh": [
+    4372
+   ],
+   "mh": [],
+   "sd": [],
+   "hostread": [
+    4374
+   ],
+   "hostwrite": [],
+   "devview": [
+    4406
+   ]
+  },
+  "k_resize_bo": {
+   "md": [
+    876
+   ],
+   "sh": [
+    877
+   ],
+   "mh": [
+    847
+   ],
+   "sd": [
+    848
+   ],
+   "hostread": [
+    878
+   ],
+   "hostwrite": [],
+   "devview": [
+    70
+   ]
+  },
+  "k_resize_hb": {
+   "md": [
+    881
+   ],
+   "sh": [
+    882
+   ],
+   "mh": [
+    851
+   ],
+   "sd": [
+    852
+   ],
+   "hostread": [
+    883
+   ],
+   "hostwrite": [],
+   "devview": [
+    73
+   ]
+  }
+ },
+ "pppm_kokkos.cpp": {
+  "k_flag": {
+   "md": [
+    1259
+   ],
+   "sh": [
+    1260
+   ],
+   "mh": [
+    1249
+   ],
+   "sd": [
+    1250
+   ],
+   "hostread": [
+    1261
+   ],
+   "hostwrite": [],
+   "devview": [
+    1287
+   ]
+  }
+ },
+ "pppm_tip4p_kokkos.cpp": {
+  "k_tip4p_flag": {
+   "md": [
+    101
+   ],
+   "sh": [
+    102
+   ],
+   "mh": [
+    93
+   ],
+   "sd": [
+    94
+   ],
+   "hostread": [
+    103
+   ],
+   "hostwrite": [],
+   "devview": [
+    116
+   ]
+  },
+  "k_flag": {
+   "md": [
+    164
+   ],
+   "sh": [
+    165
+   ],
+   "mh": [
+    157
+   ],
+   "sd": [
+    158
+   ],
+   "hostread": [
+    166
+   ],
+   "hostwrite": [],
+   "devview": [
+    186
+   ]
+  }
+ }
+}

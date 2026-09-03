@@ -1,0 +1,488 @@
+[
+ {
+  "header": "atom_kokkos.h",
+  "templated": true,
+  "members": [
+   {
+    "name": "d_tag_min",
+    "type": "t_tagint_scalar",
+    "line": 122,
+    "decl": "DAT::t_tagint_scalar d_tag_min,d_tag_max;"
+   },
+   {
+    "name": "d_tag_max",
+    "type": "t_tagint_scalar",
+    "line": 122,
+    "decl": "DAT::t_tagint_scalar d_tag_min,d_tag_max;"
+   }
+  ]
+ },
+ {
+  "header": "atom_vec_ellipsoid_kokkos.h",
+  "templated": true,
+  "members": [
+   {
+    "name": "d_tag",
+    "type": "t_tagint_1d",
+    "line": 126,
+    "decl": "DAT::t_tagint_1d d_tag;"
+   },
+   {
+    "name": "d_image",
+    "type": "t_imageint_1d",
+    "line": 128,
+    "decl": "DAT::t_imageint_1d d_image;"
+   },
+   {
+    "name": "d_type",
+    "type": "t_int_1d",
+    "line": 130,
+    "decl": "DAT::t_int_1d d_type, d_mask;"
+   },
+   {
+    "name": "d_mask",
+    "type": "t_int_1d",
+    "line": 130,
+    "decl": "DAT::t_int_1d d_type, d_mask;"
+   },
+   {
+    "name": "d_x",
+    "type": "t_kkfloat_1d_3_lr",
+    "line": 133,
+    "decl": "DAT::t_kkfloat_1d_3_lr d_x;"
+   },
+   {
+    "name": "d_v",
+    "type": "t_kkfloat_1d_3",
+    "line": 134,
+    "decl": "DAT::t_kkfloat_1d_3 d_v;"
+   },
+   {
+    "name": "d_f",
+    "type": "t_kkacc_1d_3",
+    "line": 135,
+    "decl": "DAT::t_kkacc_1d_3 d_f;"
+   },
+   {
+    "name": "d_rmass",
+    "type": "t_kkfloat_1d",
+    "line": 137,
+    "decl": "DAT::t_kkfloat_1d d_rmass;"
+   },
+   {
+    "name": "d_angmom",
+    "type": "t_kkfloat_1d_3",
+    "line": 139,
+    "decl": "DAT::t_kkfloat_1d_3 d_angmom;"
+   },
+   {
+    "name": "d_torque",
+    "type": "t_kkacc_1d_3",
+    "line": 141,
+    "decl": "DAT::t_kkacc_1d_3 d_torque;"
+   },
+   {
+    "name": "d_ellipsoid",
+    "type": "t_int_1d",
+    "line": 143,
+    "decl": "DAT::t_int_1d d_ellipsoid;"
+   }
+  ]
+ },
+ {
+  "header": "atom_vec_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "d_tag",
+    "type": "t_tagint_1d",
+    "line": 158,
+    "decl": "DAT::t_tagint_1d d_tag;"
+   },
+   {
+    "name": "d_type",
+    "type": "t_int_1d",
+    "line": 159,
+    "decl": "DAT::t_int_1d d_type, d_mask;"
+   },
+   {
+    "name": "d_mask",
+    "type": "t_int_1d",
+    "line": 159,
+    "decl": "DAT::t_int_1d d_type, d_mask;"
+   },
+   {
+    "name": "d_image",
+    "type": "t_imageint_1d",
+    "line": 163,
+    "decl": "DAT::t_imageint_1d d_image;"
+   },
+   {
+    "name": "d_x",
+    "type": "t_kkfloat_1d_3_lr",
+    "line": 166,
+    "decl": "DAT::t_kkfloat_1d_3_lr d_x;"
+   },
+   {
+    "name": "d_v",
+    "type": "t_kkfloat_1d_3",
+    "line": 167,
+    "decl": "DAT::t_kkfloat_1d_3 d_v;"
+   },
+   {
+    "name": "d_f",
+    "type": "t_kkacc_1d_3",
+    "line": 168,
+    "decl": "DAT::t_kkacc_1d_3 d_f;"
+   },
+   {
+    "name": "d_omega",
+    "type": "t_kkfloat_1d_3",
+    "line": 173,
+    "decl": "DAT::t_kkfloat_1d_3 d_omega, d_angmom;"
+   },
+   {
+    "name": "d_angmom",
+    "type": "t_kkfloat_1d_3",
+    "line": 173,
+    "decl": "DAT::t_kkfloat_1d_3 d_omega, d_angmom;"
+   },
+   {
+    "name": "d_ellipsoid",
+    "type": "t_int_1d",
+    "line": 176,
+    "decl": "DAT::t_int_1d d_ellipsoid;"
+   },
+   {
+    "name": "d_q",
+    "type": "t_kkfloat_1d",
+    "line": 181,
+    "decl": "DAT::t_kkfloat_1d d_q;"
+   },
+   {
+    "name": "d_molecule",
+    "type": "t_tagint_1d",
+    "line": 184,
+    "decl": "DAT::t_tagint_1d d_molecule;"
+   },
+   {
+    "name": "d_nspecial",
+    "type": "t_int_2d",
+    "line": 185,
+    "decl": "DAT::t_int_2d d_nspecial;"
+   },
+   {
+    "name": "d_special",
+    "type": "t_tagint_2d",
+    "line": 186,
+    "decl": "DAT::t_tagint_2d d_special;"
+   },
+   {
+    "name": "d_num_bond",
+    "type": "t_int_1d",
+    "line": 187,
+    "decl": "DAT::t_int_1d d_num_bond;"
+   },
+   {
+    "name": "d_bond_type",
+    "type": "t_int_2d",
+    "line": 188,
+    "decl": "DAT::t_int_2d d_bond_type;"
+   },
+   {
+    "name": "d_bond_atom",
+    "type": "t_tagint_2d",
+    "line": 189,
+    "decl": "DAT::t_tagint_2d d_bond_atom;"
+   },
+   {
+    "name": "d_num_angle",
+    "type": "t_int_1d",
+    "line": 198,
+    "decl": "DAT::t_int_1d d_num_angle;"
+   },
+   {
+    "name": "d_angle_type",
+    "type": "t_int_2d",
+    "line": 199,
+    "decl": "DAT::t_int_2d d_angle_type;"
+   },
+   {
+    "name": "d_angle_atom1",
+    "type": "t_tagint_2d",
+    "line": 200,
+    "decl": "DAT::t_tagint_2d d_angle_atom1,d_angle_atom2,d_angle_atom3;"
+   },
+   {
+    "name": "d_angle_atom2",
+    "type": "t_tagint_2d",
+    "line": 200,
+    "decl": "DAT::t_tagint_2d d_angle_atom1,d_angle_atom2,d_angle_atom3;"
+   },
+   {
+    "name": "d_angle_atom3",
+    "type": "t_tagint_2d",
+    "line": 200,
+    "decl": "DAT::t_tagint_2d d_angle_atom1,d_angle_atom2,d_angle_atom3;"
+   },
+   {
+    "name": "d_num_dihedral",
+    "type": "t_int_1d",
+    "line": 206,
+    "decl": "DAT::t_int_1d d_num_dihedral;"
+   },
+   {
+    "name": "d_dihedral_type",
+    "type": "t_int_2d",
+    "line": 207,
+    "decl": "DAT::t_int_2d d_dihedral_type;"
+   },
+   {
+    "name": "d_num_improper",
+    "type": "t_int_1d",
+    "line": 210,
+    "decl": "DAT::t_int_1d d_num_improper;"
+   },
+   {
+    "name": "d_improper_type",
+    "type": "t_int_2d",
+    "line": 211,
+    "decl": "DAT::t_int_2d d_improper_type;"
+   },
+   {
+    "name": "d_mu",
+    "type": "t_kkfloat_1d_4",
+    "line": 224,
+    "decl": "DAT::t_kkfloat_1d_4 d_mu;"
+   },
+   {
+    "name": "d_sp",
+    "type": "t_kkfloat_1d_4",
+    "line": 227,
+    "decl": "DAT::t_kkfloat_1d_4 d_sp;"
+   },
+   {
+    "name": "d_fm",
+    "type": "t_kkacc_1d_3",
+    "line": 228,
+    "decl": "DAT::t_kkacc_1d_3 d_fm;"
+   },
+   {
+    "name": "d_fm_long",
+    "type": "t_kkacc_1d_3",
+    "line": 229,
+    "decl": "DAT::t_kkacc_1d_3 d_fm_long;"
+   },
+   {
+    "name": "d_radius",
+    "type": "t_kkfloat_1d",
+    "line": 234,
+    "decl": "DAT::t_kkfloat_1d d_radius;"
+   },
+   {
+    "name": "d_rmass",
+    "type": "t_kkfloat_1d",
+    "line": 236,
+    "decl": "DAT::t_kkfloat_1d d_rmass;"
+   },
+   {
+    "name": "d_torque",
+    "type": "t_kkacc_1d_3",
+    "line": 238,
+    "decl": "DAT::t_kkacc_1d_3 d_torque;"
+   },
+   {
+    "name": "d_uCond",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_uMech",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_uChem",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_uCG",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_uCGnew",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_rho",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_dpdTheta",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   },
+   {
+    "name": "d_duChem",
+    "type": "t_kkfloat_1d",
+    "line": 241,
+    "decl": "DAT::t_kkfloat_1d d_uCond, d_uMech, d_uChem, d_uCG, d_uCGnew,d_rho,d_dpdTheta,d_duChem;"
+   }
+  ]
+ },
+ {
+  "header": "dynamical_matrix_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "f_merge_copy",
+    "type": "t_kkacc_1d_3",
+    "line": 49,
+    "decl": "DAT::t_kkacc_1d_3 f_merge_copy, f;"
+   },
+   {
+    "name": "f",
+    "type": "t_kkacc_1d_3",
+    "line": 49,
+    "decl": "DAT::t_kkacc_1d_3 f_merge_copy, f;"
+   }
+  ]
+ },
+ {
+  "header": "fix_minimize_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "d_vectors",
+    "type": "t_kkfloat_2d_lr",
+    "line": 50,
+    "decl": "DAT::t_kkfloat_2d_lr d_vectors;"
+   }
+  ]
+ },
+ {
+  "header": "min_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "xvec",
+    "type": "t_kkfloat_1d",
+    "line": 49,
+    "decl": "DAT::t_kkfloat_1d xvec;            // variables for atomic dof, as 1d vector"
+   },
+   {
+    "name": "fvec",
+    "type": "t_kkacc_1d",
+    "line": 50,
+    "decl": "DAT::t_kkacc_1d fvec;            // force vector for atomic dof, as 1d vector"
+   }
+  ]
+ },
+ {
+  "header": "min_linesearch_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "x0",
+    "type": "t_kkfloat_1d",
+    "line": 52,
+    "decl": "DAT::t_kkfloat_1d x0;   // coords at start of linesearch"
+   },
+   {
+    "name": "g",
+    "type": "t_kkfloat_1d",
+    "line": 53,
+    "decl": "DAT::t_kkfloat_1d g;    // old gradient vector"
+   },
+   {
+    "name": "h",
+    "type": "t_kkfloat_1d",
+    "line": 54,
+    "decl": "DAT::t_kkfloat_1d h;    // search direction vector"
+   }
+  ]
+ },
+ {
+  "header": "pair_hybrid_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "x",
+    "type": "t_kkfloat_1d_3_lr_randomread",
+    "line": 46,
+    "decl": "DAT::t_kkfloat_1d_3_lr_randomread x;"
+   },
+   {
+    "name": "f",
+    "type": "t_kkacc_1d_3",
+    "line": 47,
+    "decl": "DAT::t_kkacc_1d_3 f;"
+   }
+  ]
+ },
+ {
+  "header": "pair_hybrid_scaled_kokkos.h",
+  "templated": true,
+  "members": [
+   {
+    "name": "x",
+    "type": "t_kkfloat_1d_3_lr_randomread",
+    "line": 82,
+    "decl": "DAT::t_kkfloat_1d_3_lr_randomread x;"
+   },
+   {
+    "name": "f",
+    "type": "t_kkacc_1d_3",
+    "line": 83,
+    "decl": "DAT::t_kkacc_1d_3 f;"
+   }
+  ]
+ },
+ {
+  "header": "third_order_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "f_merge_copy",
+    "type": "t_kkacc_1d_3",
+    "line": 49,
+    "decl": "DAT::t_kkacc_1d_3 f_merge_copy, f;"
+   },
+   {
+    "name": "f",
+    "type": "t_kkacc_1d_3",
+    "line": 49,
+    "decl": "DAT::t_kkacc_1d_3 f_merge_copy, f;"
+   }
+  ]
+ },
+ {
+  "header": "verlet_kokkos.h",
+  "templated": false,
+  "members": [
+   {
+    "name": "f_merge_copy",
+    "type": "t_kkacc_1d_3",
+    "line": 49,
+    "decl": "DAT::t_kkacc_1d_3 f_merge_copy,f;"
+   },
+   {
+    "name": "f",
+    "type": "t_kkacc_1d_3",
+    "line": 49,
+    "decl": "DAT::t_kkacc_1d_3 f_merge_copy,f;"
+   }
+  ]
+ }
+]

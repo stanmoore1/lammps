@@ -1,0 +1,36 @@
+[hybrid] base class = src/improper_hybrid.cpp / .h (core src, not MOLECULE). Base declares virtual allocate()/deallocate() - OK. Base dtor calls ImproperHybrid::deallocate() explicitly; KK dtor calls virtual deallocate() first and sets allocated=0, so no double free. No copymode needed (no functor copies of hybrid).
+[hybrid] maximproper_all growth loop (lines 144-147) looks odd but invariant maximproper_all >= max(h_nimproperlist) holds -> safe.
+[hybrid] lines 173-174 modify_device()+sync_host() every step even when nothing changed -> minor efficiency only.
+[hybrid] TODO verify sub-styles sync k_eatom/k_vatom to host at end of compute (hybrid reads styles[m]->eatom host pointer at lines 194-202).
+[general] Bonded KK styles do NOT call atomKK->sync/modified themselves; VerletKokkos does it around force->improper->compute. Not a bug.
+[general] Layouts: DAT and HAT both use LMPDeviceLayout, so `DAT::t_kkacc_1d_3::array_layout` in f decl is fine.
+[general] All 11 CPU improper base classes have copymode guard in dtor and virtual allocate() -> rules 1&2 OK. improper_harmonic uses `if (allocated && !copymode)` variant, fine.
+[harmonic] compared kernel + ev_tally line by line vs src/MOLECULE/improper_harmonic.cpp and src/improper.cpp ev_tally: MATCHES. No findings.
+[harmonic] substyle syncs k_eatom/k_vatom to host at end of compute -> hybrid host read is OK.
+[umbrella] kernel math + force-atom mapping (i2<-f3, i3<-f2) + virial vb recomputation all match src/MOLECULE/improper_umbrella.cpp:85-239. ev_tally matches src/improper.cpp:200-311.
+[umbrella] warning message text "Improper problem: see log" is misleading (no per-improper details printed unlike CPU Improper::problem) - cosmetic, not reported.
+[cvff] rest of kernel + ev_tally match src/MOLECULE/improper_cvff.cpp:95-260 exactly. multiplicity is validated 0..6 in ImproperCvff::coeff so p/pd always assigned.
+[TODO] grep all improper kk kernels for base-class raw host pointers used inside KOKKOS_INLINE_FUNCTION.
+[class2] base = src/CLASS2/improper_class2.cpp/.h. virtual allocate() present, copymode guard in dtor present.
+[class2] normalized diff (scratchpad/norm.py, cpu_c2.txt vs kk_c2.txt) of main chi/force block CPU 193-437 vs KK 318-578: IDENTICAL except inlined cross()/dot() and line wrapping. AngleAngle kernel matches CPU angleangle() 621-812 exactly. ev_tally matches src/improper.cpp:200-311.
+[class2] d_setflag/d_setflag_i/d_setflag_aa dual views are allocated, filled, synced but NEVER used in any kernel (dead code, cleanup only). Also stored as kkfloat although they are ints.
+[class2] read_restart re-creates dual views after base read_restart already called virtual allocate() -> redundant alloc, harmless.
+[class2] EV_FLOAT ev reused for both parallel_reduce calls - Kokkos overwrites the result, so no double counting. OK.
+[class2] NO FINDINGS.
+[cossq] base = src/EXTRA-MOLECULE/improper_cossq.cpp/.h. virtual allocate(), copymode guard OK. read_restart calls allocate() -> KK allocate recreates dual views + d_ views, so KK read_restart not reallocating is safe.
+[cossq] kernel math (cosphi, angfac, cfact1/2/3, f1..f4, ev_tally args -vb1,vb2,vb3) matches CPU improper_cossq.cpp:90-231 exactly.
+[cossq] uses grow-only eatom/vatom pattern (extent<maxeatom ? recreate : deep_copy 0) unlike class2/harmonic which destroy+create every step. Both correct.
+[cossq] ev_tally stores v[] pre-multiplied by 0.25 and multiplies by 4.0 for newton_bond -> exact in binary FP. OK.
+[cossq] NO FINDINGS.
+[distance] base = src/EXTRA-MOLECULE/improper_distance.cpp/.h. virtual allocate(), copymode dtor OK. read_restart calls allocate() -> KK views recreated. Force expressions f1..f4 and ev_tally args (f2,f3,f4, xab..,xac..,xad-xac..) match CPU exactly.
+[distance] FINDING: minimum_image dropped in KK kernel. NOTE: CPU improper_distharm.cpp and improper_sqdistharm.cpp (YAFF) ALSO call minimum_image -> check their KK ports for the same omission.
+[distharm] base = src/YAFF/improper_distharm.cpp/.h. virtual allocate(), copymode dtor OK, read_restart calls allocate(). Kernel math identical to CPU except minimum_image omission. ev_tally byte-identical to improper_distance_kokkos ev_tally (verified with diff).
+[sqdistharm] base = src/YAFF/improper_sqdistharm.cpp/.h. virtual allocate(), copymode dtor, read_restart->allocate() all OK.
+[sqdistharm] `diff improper_distharm_kokkos.cpp improper_sqdistharm_kokkos.cpp` (after name substitution) differs ONLY in the comment line and the 3 lines for da2/eimproper/a -> all other infrastructure identical and already verified under distharm.
+[fourier] base = src/EXTRA-MOLECULE/improper_fourier.cpp/.h. virtual allocate(), copymode dtor, read_restart->allocate() OK. addone() math, the i2<-f3 / i3<-f2 swap, the all[type] triple-call ordering (i1,i4,i2,i3 / i1,i3,i4,i2) and ev_tally args (f1,f2,f4, -vb1, vb2-vb1, vb3-vb2) all match CPU improper_fourier.cpp:77-241 exactly. ev_tally body identical to distance/distharm KK ev_tally.
+[inversion_harmonic] base = src/MOFFF/improper_inversion_harmonic.cpp/.h. virtual allocate(), copymode dtor, read_restart->allocate() OK. invang() math + the three invang call permutations + ev_tally args (f2,f3,f4, vb3, vb2, vb1-vb2) match CPU :78-257 exactly. ev_tally body byte-identical to improper_distance_kokkos ev_tally. NO FINDINGS.
+[ring] base = src/EXTRA-MOLECULE/improper_ring.cpp/.h. virtual allocate(), copymode dtor, read_restart->allocate() OK. at1/at2/at3 combos, bend_angle SMALL clamping, angle_summer, eimproper=(1/6)k*as^6 (powint expanded, correct per KOKKOS rule), angfac=k*as^5, cfact1/2/3, fix/fjx/fkx scaling and the f1/f3/f4 + global f accumulation all match CPU improper_ring.cpp:117-255 exactly. ev_tally byte-identical to improper_distance_kokkos. NO FINDINGS.
+[TODO-DONE] scripted scan of all 12 improper KK .cpp for base-class raw host arrays used inside KOKKOS_INLINE_FUNCTION bodies: ONLY hit is improper_cvff_kokkos.cpp:278 sign[type] (already reported). Script inline in transcript.
+[TODO-DONE] no improper KK file uses resize() on a DualView (grep resize improper_*_kokkos.cpp is empty) -> the resize/zeroed-host-mirror pattern does not occur here.
+[TODO-DONE] all 11 improper KK sub-styles do k_eatom.modify<Device>()+sync_host() and k_vatom likewise at end of compute -> improper_hybrid_kokkos host reads of styles[m]->eatom/vatom are safe.
+[all] every templated improper KK .cpp has both explicit instantiations (LMPDeviceType + LMPHostType under LMP_KOKKOS_GPU); ImproperHybridKokkos is not a template so it needs none.

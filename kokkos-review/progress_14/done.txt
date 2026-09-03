@@ -1,0 +1,6 @@
+fix_setforce_kokkos.cpp
+fix_setforce_kokkos.h
+fix_settorque_atom_kokkos.cpp
+fix_settorque_atom_kokkos.h
+fix_rx_kokkos.cpp
+fix_rx_kokkos.h

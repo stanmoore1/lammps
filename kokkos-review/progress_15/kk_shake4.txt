@@ -1,0 +1,252 @@
+template<class DeviceType>
+template<int NEIGHFLAG, int EVFLAG>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+void FixShakeKokkos<DeviceType>::shake4(int ilist, EV_FLOAT& ev) const
+{
+
+  // The f array is duplicated for OpenMP, atomic for GPU, and neither for Serial
+
+  auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
+  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+
+  int atomlist[4];
+  KK_FLOAT v[6];
+  KK_FLOAT invmass0,invmass1,invmass2,invmass3;
+
+  // local atom IDs and constraint distances
+
+  int m = d_list[ilist];
+  int i0 = d_closest_list(ilist,0);
+  int i1 = d_closest_list(ilist,1);
+  int i2 = d_closest_list(ilist,2);
+  int i3 = d_closest_list(ilist,3);
+  KK_FLOAT bond1 = d_bond_distance[d_shake_type(m,0)];
+  KK_FLOAT bond2 = d_bond_distance[d_shake_type(m,1)];
+  KK_FLOAT bond3 = d_bond_distance[d_shake_type(m,2)];
+
+  // r01,r02,r03 = distance vec between atoms
+
+  KK_FLOAT r01[3];
+  r01[0] = d_x(i0,0) - d_x(i1,0);
+  r01[1] = d_x(i0,1) - d_x(i1,1);
+  r01[2] = d_x(i0,2) - d_x(i1,2);
+
+  KK_FLOAT r02[3];
+  r02[0] = d_x(i0,0) - d_x(i2,0);
+  r02[1] = d_x(i0,1) - d_x(i2,1);
+  r02[2] = d_x(i0,2) - d_x(i2,2);
+
+  KK_FLOAT r03[3];
+  r03[0] = d_x(i0,0) - d_x(i3,0);
+  r03[1] = d_x(i0,1) - d_x(i3,1);
+  r03[2] = d_x(i0,2) - d_x(i3,2);
+
+  // s01,s02,s03 = distance vec after unconstrained update
+
+  KK_FLOAT s01[3];
+  s01[0] = d_xshake(i0,0) - d_xshake(i1,0);
+  s01[1] = d_xshake(i0,1) - d_xshake(i1,1);
+  s01[2] = d_xshake(i0,2) - d_xshake(i1,2);
+
+  KK_FLOAT s02[3];
+  s02[0] = d_xshake(i0,0) - d_xshake(i2,0);
+  s02[1] = d_xshake(i0,1) - d_xshake(i2,1);
+  s02[2] = d_xshake(i0,2) - d_xshake(i2,2);
+
+  KK_FLOAT s03[3];
+  s03[0] = d_xshake(i0,0) - d_xshake(i3,0);
+  s03[1] = d_xshake(i0,1) - d_xshake(i3,1);
+  s03[2] = d_xshake(i0,2) - d_xshake(i3,2);
+
+  // scalar distances between atoms
+
+  KK_FLOAT r01sq = r01[0]*r01[0] + r01[1]*r01[1] + r01[2]*r01[2];
+  KK_FLOAT r02sq = r02[0]*r02[0] + r02[1]*r02[1] + r02[2]*r02[2];
+  KK_FLOAT r03sq = r03[0]*r03[0] + r03[1]*r03[1] + r03[2]*r03[2];
+  KK_FLOAT s01sq = s01[0]*s01[0] + s01[1]*s01[1] + s01[2]*s01[2];
+  KK_FLOAT s02sq = s02[0]*s02[0] + s02[1]*s02[1] + s02[2]*s02[2];
+  KK_FLOAT s03sq = s03[0]*s03[0] + s03[1]*s03[1] + s03[2]*s03[2];
+
+  // matrix coeffs and rhs for lamda equations
+
+  if (d_rmass.data()) {
+    invmass0 = static_cast<KK_FLOAT>(1.0)/d_rmass[i0];
+    invmass1 = static_cast<KK_FLOAT>(1.0)/d_rmass[i1];
+    invmass2 = static_cast<KK_FLOAT>(1.0)/d_rmass[i2];
+    invmass3 = static_cast<KK_FLOAT>(1.0)/d_rmass[i3];
+  } else {
+    invmass0 = static_cast<KK_FLOAT>(1.0)/d_mass[d_type[i0]];
+    invmass1 = static_cast<KK_FLOAT>(1.0)/d_mass[d_type[i1]];
+    invmass2 = static_cast<KK_FLOAT>(1.0)/d_mass[d_type[i2]];
+    invmass3 = static_cast<KK_FLOAT>(1.0)/d_mass[d_type[i3]];
+  }
+
+  KK_FLOAT a11 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass1) *
+    (s01[0]*r01[0] + s01[1]*r01[1] + s01[2]*r01[2]);
+  KK_FLOAT a12 = static_cast<KK_FLOAT>(2.0) * invmass0 *
+    (s01[0]*r02[0] + s01[1]*r02[1] + s01[2]*r02[2]);
+  KK_FLOAT a13 = static_cast<KK_FLOAT>(2.0) * invmass0 *
+    (s01[0]*r03[0] + s01[1]*r03[1] + s01[2]*r03[2]);
+  KK_FLOAT a21 = static_cast<KK_FLOAT>(2.0) * invmass0 *
+    (s02[0]*r01[0] + s02[1]*r01[1] + s02[2]*r01[2]);
+  KK_FLOAT a22 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass2) *
+    (s02[0]*r02[0] + s02[1]*r02[1] + s02[2]*r02[2]);
+  KK_FLOAT a23 = static_cast<KK_FLOAT>(2.0) * invmass0 *
+    (s02[0]*r03[0] + s02[1]*r03[1] + s02[2]*r03[2]);
+  KK_FLOAT a31 = static_cast<KK_FLOAT>(2.0) * invmass0 *
+    (s03[0]*r01[0] + s03[1]*r01[1] + s03[2]*r01[2]);
+  KK_FLOAT a32 = static_cast<KK_FLOAT>(2.0) * invmass0 *
+    (s03[0]*r02[0] + s03[1]*r02[1] + s03[2]*r02[2]);
+  KK_FLOAT a33 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass3) *
+    (s03[0]*r03[0] + s03[1]*r03[1] + s03[2]*r03[2]);
+
+  // inverse of matrix;
+
+  KK_FLOAT determ = a11*a22*a33 + a12*a23*a31 + a13*a21*a32 -
+    a11*a23*a32 - a12*a21*a33 - a13*a22*a31;
+  if (determ == static_cast<KK_FLOAT>(0.0)) d_error_flag() = 3;
+  //error->one(FLERR,"Shake determinant = 0.0");
+  KK_FLOAT determinv = static_cast<KK_FLOAT>(1.0)/determ;
+
+  KK_FLOAT a11inv = determinv * (a22*a33 - a23*a32);
+  KK_FLOAT a12inv = -determinv * (a12*a33 - a13*a32);
+  KK_FLOAT a13inv = determinv * (a12*a23 - a13*a22);
+  KK_FLOAT a21inv = -determinv * (a21*a33 - a23*a31);
+  KK_FLOAT a22inv = determinv * (a11*a33 - a13*a31);
+  KK_FLOAT a23inv = -determinv * (a11*a23 - a13*a21);
+  KK_FLOAT a31inv = determinv * (a21*a32 - a22*a31);
+  KK_FLOAT a32inv = -determinv * (a11*a32 - a12*a31);
+  KK_FLOAT a33inv = determinv * (a11*a22 - a12*a21);
+
+  // quadratic correction coeffs
+
+  KK_FLOAT r0102 = (r01[0]*r02[0] + r01[1]*r02[1] + r01[2]*r02[2]);
+  KK_FLOAT r0103 = (r01[0]*r03[0] + r01[1]*r03[1] + r01[2]*r03[2]);
+  KK_FLOAT r0203 = (r02[0]*r03[0] + r02[1]*r03[1] + r02[2]*r03[2]);
+
+  KK_FLOAT quad1_0101 = (invmass0+invmass1)*(invmass0+invmass1) * r01sq;
+  KK_FLOAT quad1_0202 = invmass0*invmass0 * r02sq;
+  KK_FLOAT quad1_0303 = invmass0*invmass0 * r03sq;
+  KK_FLOAT quad1_0102 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass1)*invmass0 * r0102;
+  KK_FLOAT quad1_0103 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass1)*invmass0 * r0103;
+  KK_FLOAT quad1_0203 = static_cast<KK_FLOAT>(2.0) * invmass0*invmass0 * r0203;
+
+  KK_FLOAT quad2_0101 = invmass0*invmass0 * r01sq;
+  KK_FLOAT quad2_0202 = (invmass0+invmass2)*(invmass0+invmass2) * r02sq;
+  KK_FLOAT quad2_0303 = invmass0*invmass0 * r03sq;
+  KK_FLOAT quad2_0102 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass2)*invmass0 * r0102;
+  KK_FLOAT quad2_0103 = static_cast<KK_FLOAT>(2.0) * invmass0*invmass0 * r0103;
+  KK_FLOAT quad2_0203 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass2)*invmass0 * r0203;
+
+  KK_FLOAT quad3_0101 = invmass0*invmass0 * r01sq;
+  KK_FLOAT quad3_0202 = invmass0*invmass0 * r02sq;
+  KK_FLOAT quad3_0303 = (invmass0+invmass3)*(invmass0+invmass3) * r03sq;
+  KK_FLOAT quad3_0102 = static_cast<KK_FLOAT>(2.0) * invmass0*invmass0 * r0102;
+  KK_FLOAT quad3_0103 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass3)*invmass0 * r0103;
+  KK_FLOAT quad3_0203 = static_cast<KK_FLOAT>(2.0) * (invmass0+invmass3)*invmass0 * r0203;
+
+  // iterate until converged
+
+  KK_FLOAT lamda01 = 0;
+  KK_FLOAT lamda02 = 0;
+  KK_FLOAT lamda03 = 0;
+  int niter = 0;
+  int done = 0;
+
+  KK_FLOAT quad1,quad2,quad3,b1,b2,b3,lamda01_new,lamda02_new,lamda03_new;
+
+  while (!done && niter < max_iter) {
+    quad1 = quad1_0101 * lamda01*lamda01 +
+      quad1_0202 * lamda02*lamda02 +
+      quad1_0303 * lamda03*lamda03 +
+      quad1_0102 * lamda01*lamda02 +
+      quad1_0103 * lamda01*lamda03 +
+      quad1_0203 * lamda02*lamda03;
+
+    quad2 = quad2_0101 * lamda01*lamda01 +
+      quad2_0202 * lamda02*lamda02 +
+      quad2_0303 * lamda03*lamda03 +
+      quad2_0102 * lamda01*lamda02 +
+      quad2_0103 * lamda01*lamda03 +
+      quad2_0203 * lamda02*lamda03;
+
+    quad3 = quad3_0101 * lamda01*lamda01 +
+      quad3_0202 * lamda02*lamda02 +
+      quad3_0303 * lamda03*lamda03 +
+      quad3_0102 * lamda01*lamda02 +
+      quad3_0103 * lamda01*lamda03 +
+      quad3_0203 * lamda02*lamda03;
+
+    b1 = bond1*bond1 - s01sq - quad1;
+    b2 = bond2*bond2 - s02sq - quad2;
+    b3 = bond3*bond3 - s03sq - quad3;
+
+    lamda01_new = a11inv*b1 + a12inv*b2 + a13inv*b3;
+    lamda02_new = a21inv*b1 + a22inv*b2 + a23inv*b3;
+    lamda03_new = a31inv*b1 + a32inv*b2 + a33inv*b3;
+
+    done = 1;
+    if (Kokkos::fabs(lamda01_new-lamda01) > tolerance_kk) done = 0;
+    if (Kokkos::fabs(lamda02_new-lamda02) > tolerance_kk) done = 0;
+    if (Kokkos::fabs(lamda03_new-lamda03) > tolerance_kk) done = 0;
+
+    lamda01 = lamda01_new;
+    lamda02 = lamda02_new;
+    lamda03 = lamda03_new;
+
+    // stop iterations before we have a floating point overflow
+    if (Kokkos::fabs(lamda01) > overflow_kk || Kokkos::fabs(lamda02) > overflow_kk || Kokkos::fabs(lamda03) > overflow_kk) done = 1;
+
+    niter++;
+  }
+
+  // update forces if atom is owned by this processor
+
+  lamda01 = lamda01/dtfsq_kk;
+  lamda02 = lamda02/dtfsq_kk;
+  lamda03 = lamda03/dtfsq_kk;
+
+  if (i0 < nlocal) {
+    a_f(i0,0) += static_cast<KK_ACC_FLOAT>(lamda01*r01[0] + lamda02*r02[0] + lamda03*r03[0]);
+    a_f(i0,1) += static_cast<KK_ACC_FLOAT>(lamda01*r01[1] + lamda02*r02[1] + lamda03*r03[1]);
+    a_f(i0,2) += static_cast<KK_ACC_FLOAT>(lamda01*r01[2] + lamda02*r02[2] + lamda03*r03[2]);
+  }
+
+  if (i1 < nlocal) {
+    a_f(i1,0) -= static_cast<KK_ACC_FLOAT>(lamda01*r01[0]);
+    a_f(i1,1) -= static_cast<KK_ACC_FLOAT>(lamda01*r01[1]);
+    a_f(i1,2) -= static_cast<KK_ACC_FLOAT>(lamda01*r01[2]);
+  }
+
+  if (i2 < nlocal) {
+    a_f(i2,0) -= static_cast<KK_ACC_FLOAT>(lamda02*r02[0]);
+    a_f(i2,1) -= static_cast<KK_ACC_FLOAT>(lamda02*r02[1]);
+    a_f(i2,2) -= static_cast<KK_ACC_FLOAT>(lamda02*r02[2]);
+  }
+
+  if (i3 < nlocal) {
+    a_f(i3,0) -= static_cast<KK_ACC_FLOAT>(lamda03*r03[0]);
+    a_f(i3,1) -= static_cast<KK_ACC_FLOAT>(lamda03*r03[1]);
+    a_f(i3,2) -= static_cast<KK_ACC_FLOAT>(lamda03*r03[2]);
+  }
+
+  if (EVFLAG) {
+    int count = 0;
+    if (i0 < nlocal) atomlist[count++] = i0;
+    if (i1 < nlocal) atomlist[count++] = i1;
+    if (i2 < nlocal) atomlist[count++] = i2;
+    if (i3 < nlocal) atomlist[count++] = i3;
+
+    v[0] = lamda01*r01[0]*r01[0]+lamda02*r02[0]*r02[0]+lamda03*r03[0]*r03[0];
+    v[1] = lamda01*r01[1]*r01[1]+lamda02*r02[1]*r02[1]+lamda03*r03[1]*r03[1];
+    v[2] = lamda01*r01[2]*r01[2]+lamda02*r02[2]*r02[2]+lamda03*r03[2]*r03[2];
+    v[3] = lamda01*r01[0]*r01[1]+lamda02*r02[0]*r02[1]+lamda03*r03[0]*r03[1];
+    v[4] = lamda01*r01[0]*r01[2]+lamda02*r02[0]*r02[2]+lamda03*r03[0]*r03[2];
+    v[5] = lamda01*r01[1]*r01[2]+lamda02*r02[1]*r02[2]+lamda03*r03[1]*r03[2];
+
+    v_tally<NEIGHFLAG>(ev,count,atomlist,static_cast<KK_FLOAT>(4.0),v);
+  }
+}
+
+/* ----------------------------------------------------------------------

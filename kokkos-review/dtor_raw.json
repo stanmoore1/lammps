@@ -1,0 +1,722 @@
+[
+ {
+  "class": "AngleCharmm",
+  "file": "/home/user/lammps/src/MOLECULE/angle_charmm.cpp",
+  "line": 47,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 7
+ },
+ {
+  "class": "AngleCosine",
+  "file": "/home/user/lammps/src/MOLECULE/angle_cosine.cpp",
+  "line": 40,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 4
+ },
+ {
+  "class": "AngleHarmonic",
+  "file": "/home/user/lammps/src/MOLECULE/angle_harmonic.cpp",
+  "line": 43,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "AngleHybridKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/angle_hybrid_kokkos.cpp",
+  "line": 48,
+  "frees": false,
+  "first": "deallocate();",
+  "is_kokkos": true,
+  "body_len": 1
+ },
+ {
+  "class": "AngleHybrid",
+  "file": "/home/user/lammps/src/angle_hybrid.cpp",
+  "line": 42,
+  "frees": true,
+  "first": "if (nstyles) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "AngleSPICA",
+  "file": "/home/user/lammps/src/CG-SPICA/angle_spica.cpp",
+  "line": 56,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "AtomKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/atom_kokkos.cpp",
+  "line": 58,
+  "frees": true,
+  "first": "memoryKK->destroy_kokkos(k_tag, tag);",
+  "is_kokkos": true,
+  "body_len": 89
+ },
+ {
+  "class": "Atom",
+  "file": "/home/user/lammps/src/atom.cpp",
+  "line": 298,
+  "frees": true,
+  "first": "delete[] atom_style;",
+  "is_kokkos": false,
+  "body_len": 76
+ },
+ {
+  "class": "AtomVecKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/atom_vec_kokkos.cpp",
+  "line": 48,
+  "frees": false,
+  "first": "ngrow = 0;",
+  "is_kokkos": true,
+  "body_len": 1
+ },
+ {
+  "class": "AtomVecAngle",
+  "file": "/home/user/lammps/src/MOLECULE/atom_vec_angle.cpp",
+  "line": 59,
+  "frees": true,
+  "first": "delete[] bond_negative;",
+  "is_kokkos": false,
+  "body_len": 2
+ },
+ {
+  "class": "AtomVec",
+  "file": "/home/user/lammps/src/atom_vec.cpp",
+  "line": 81,
+  "frees": true,
+  "first": "int datatype, cols;",
+  "is_kokkos": false,
+  "body_len": 38
+ },
+ {
+  "class": "AtomVecBond",
+  "file": "/home/user/lammps/src/MOLECULE/atom_vec_bond.cpp",
+  "line": 52,
+  "frees": true,
+  "first": "delete[] bond_negative;",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "AtomVecEllipsoidKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "line": 52,
+  "frees": true,
+  "first": "if (bonus_flag) {",
+  "is_kokkos": true,
+  "body_len": 3
+ },
+ {
+  "class": "AtomVecEllipsoid",
+  "file": "/home/user/lammps/src/atom_vec_ellipsoid.cpp",
+  "line": 78,
+  "frees": true,
+  "first": "if (atom->superellipsoid_flag)",
+  "is_kokkos": false,
+  "body_len": 4
+ },
+ {
+  "class": "AtomVecFull",
+  "file": "/home/user/lammps/src/MOLECULE/atom_vec_full.cpp",
+  "line": 67,
+  "frees": true,
+  "first": "delete[] bond_negative;",
+  "is_kokkos": false,
+  "body_len": 4
+ },
+ {
+  "class": "AtomVecHybridKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/atom_vec_hybrid_kokkos.cpp",
+  "line": 34,
+  "frees": true,
+  "first": "delete[] stylesKK;",
+  "is_kokkos": true,
+  "body_len": 1
+ },
+ {
+  "class": "AtomVecHybrid",
+  "file": "/home/user/lammps/src/atom_vec_hybrid.cpp",
+  "line": 50,
+  "frees": true,
+  "first": "for (int k = 0; k < nstyles; k++) delete styles[k];",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "AtomVecMolecular",
+  "file": "/home/user/lammps/src/MOLECULE/atom_vec_molecular.cpp",
+  "line": 66,
+  "frees": true,
+  "first": "delete[] bond_negative;",
+  "is_kokkos": false,
+  "body_len": 4
+ },
+ {
+  "class": "BondFENE",
+  "file": "/home/user/lammps/src/MOLECULE/bond_fene.cpp",
+  "line": 41,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 7
+ },
+ {
+  "class": "BondFENENM",
+  "file": "/home/user/lammps/src/EXTRA-MOLECULE/bond_fene_nm.cpp",
+  "line": 38,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 4
+ },
+ {
+  "class": "BondGaussian",
+  "file": "/home/user/lammps/src/EXTRA-MOLECULE/bond_gaussian.cpp",
+  "line": 43,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 13
+ },
+ {
+  "class": "BondGromos",
+  "file": "/home/user/lammps/src/MOLECULE/bond_gromos.cpp",
+  "line": 41,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "BondHarmonic",
+  "file": "/home/user/lammps/src/MOLECULE/bond_harmonic.cpp",
+  "line": 36,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "BondHybridKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/bond_hybrid_kokkos.cpp",
+  "line": 48,
+  "frees": false,
+  "first": "deallocate();",
+  "is_kokkos": true,
+  "body_len": 1
+ },
+ {
+  "class": "BondHybrid",
+  "file": "/home/user/lammps/src/bond_hybrid.cpp",
+  "line": 44,
+  "frees": true,
+  "first": "if (nstyles) {",
+  "is_kokkos": false,
+  "body_len": 10
+ },
+ {
+  "class": "BondQuarticExp",
+  "file": "/home/user/lammps/src/EXTRA-MOLECULE/bond_quartic_exp.cpp",
+  "line": 39,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 9
+ },
+ {
+  "class": "CommKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/comm_kokkos.cpp",
+  "line": 98,
+  "frees": true,
+  "first": "memoryKK->destroy_kokkos(k_sendlist,sendlist);",
+  "is_kokkos": true,
+  "body_len": 6
+ },
+ {
+  "class": "CommBrick",
+  "file": "/home/user/lammps/src/comm_brick.cpp",
+  "line": 60,
+  "frees": true,
+  "first": "CommBrick::free_swap();",
+  "is_kokkos": false,
+  "body_len": 13
+ },
+ {
+  "class": "Comm",
+  "file": "/home/user/lammps/src/comm.cpp",
+  "line": 120,
+  "frees": true,
+  "first": "memory->destroy(grid2proc);",
+  "is_kokkos": false,
+  "body_len": 7
+ },
+ {
+  "class": "CommTiledKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/comm_tiled_kokkos.cpp",
+  "line": 63,
+  "frees": true,
+  "first": "memoryKK->destroy_kokkos(k_sendlist,sendlist);",
+  "is_kokkos": true,
+  "body_len": 6
+ },
+ {
+  "class": "CommTiled",
+  "file": "/home/user/lammps/src/comm_tiled.cpp",
+  "line": 85,
+  "frees": true,
+  "first": "memory->destroy(buf_send);",
+  "is_kokkos": false,
+  "body_len": 6
+ },
+ {
+  "class": "ComputeCOM",
+  "file": "/home/user/lammps/src/compute_com.cpp",
+  "line": 36,
+  "frees": true,
+  "first": "delete[] vector;",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "ComputeGyration",
+  "file": "/home/user/lammps/src/compute_gyration.cpp",
+  "line": 40,
+  "frees": true,
+  "first": "delete[] vector;",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "ComputeInertia",
+  "file": "/home/user/lammps/src/compute_inertia.cpp",
+  "line": 37,
+  "frees": true,
+  "first": "delete[] vector;",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "ComputeReaxFFAtom",
+  "file": "/home/user/lammps/src/REAXFF/compute_reaxff_atom.cpp",
+  "line": 87,
+  "frees": true,
+  "first": "memory->destroy(array_local);",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "ComputeGridLocal",
+  "file": "/home/user/lammps/src/ML-SNAP/compute_grid_local.cpp",
+  "line": 63,
+  "frees": false,
+  "first": "deallocate();",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "ComputeTempCOM",
+  "file": "/home/user/lammps/src/compute_temp_com.cpp",
+  "line": 45,
+  "frees": true,
+  "first": "if (!copymode)",
+  "is_kokkos": false,
+  "body_len": 2
+ },
+ {
+  "class": "ComputeTemp",
+  "file": "/home/user/lammps/src/compute_temp.cpp",
+  "line": 42,
+  "frees": true,
+  "first": "if (!copymode) delete[] vector;",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "DihedralCharmm",
+  "file": "/home/user/lammps/src/MOLECULE/dihedral_charmm.cpp",
+  "line": 52,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 9
+ },
+ {
+  "class": "DihedralCharmmfsw",
+  "file": "/home/user/lammps/src/MOLECULE/dihedral_charmmfsw.cpp",
+  "line": 55,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 9
+ },
+ {
+  "class": "DihedralHarmonic",
+  "file": "/home/user/lammps/src/MOLECULE/dihedral_harmonic.cpp",
+  "line": 44,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "DihedralHybridKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/dihedral_hybrid_kokkos.cpp",
+  "line": 48,
+  "frees": false,
+  "first": "deallocate();",
+  "is_kokkos": true,
+  "body_len": 1
+ },
+ {
+  "class": "DihedralHybrid",
+  "file": "/home/user/lammps/src/dihedral_hybrid.cpp",
+  "line": 43,
+  "frees": true,
+  "first": "if (nstyles) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "DihedralMultiHarmonic",
+  "file": "/home/user/lammps/src/MOLECULE/dihedral_multi_harmonic.cpp",
+  "line": 46,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "DihedralOPLS",
+  "file": "/home/user/lammps/src/MOLECULE/dihedral_opls.cpp",
+  "line": 47,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 7
+ },
+ {
+  "class": "DynamicalMatrix",
+  "file": "/home/user/lammps/src/PHONON/dynamical_matrix.cpp",
+  "line": 56,
+  "frees": true,
+  "first": "if (fp && comm->me == 0) {",
+  "is_kokkos": false,
+  "body_len": 6
+ },
+ {
+  "class": "FixColvars",
+  "file": "/home/user/lammps/src/COLVARS/fix_colvars.cpp",
+  "line": 221,
+  "frees": true,
+  "first": "delete[] conf_file;",
+  "is_kokkos": false,
+  "body_len": 11
+ },
+ {
+  "class": "FixDeform",
+  "file": "/home/user/lammps/src/fix_deform.cpp",
+  "line": 391,
+  "frees": true,
+  "first": "if (set) {",
+  "is_kokkos": false,
+  "body_len": 18
+ },
+ {
+  "class": "FixMinimizeKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/fix_minimize_kokkos.cpp",
+  "line": 44,
+  "frees": true,
+  "first": "memoryKK->destroy_kokkos(k_vectors,vectors);",
+  "is_kokkos": true,
+  "body_len": 2
+ },
+ {
+  "class": "FixMinimize",
+  "file": "/home/user/lammps/src/fix_minimize.cpp",
+  "line": 37,
+  "frees": true,
+  "first": "atom->delete_callback(id,Atom::GROW);",
+  "is_kokkos": false,
+  "body_len": 9
+ },
+ {
+  "class": "FixPropertyAtomKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "line": 63,
+  "frees": true,
+  "first": "for (int nv = 0; nv < nvalue; nv++) {",
+  "is_kokkos": true,
+  "body_len": 17
+ },
+ {
+  "class": "FixPropertyAtom",
+  "file": "/home/user/lammps/src/fix_property_atom.cpp",
+  "line": 233,
+  "frees": true,
+  "first": "atom->delete_callback(id, Atom::GROW);",
+  "is_kokkos": false,
+  "body_len": 43
+ },
+ {
+  "class": "FixReaxFFBonds",
+  "file": "/home/user/lammps/src/REAXFF/fix_reaxff_bonds.cpp",
+  "line": 73,
+  "frees": true,
+  "first": "destroy();",
+  "is_kokkos": false,
+  "body_len": 7
+ },
+ {
+  "class": "FixReaxFFSpecies",
+  "file": "/home/user/lammps/src/REAXFF/fix_reaxff_species.cpp",
+  "line": 335,
+  "frees": true,
+  "first": "memory->destroy(BOCut);",
+  "is_kokkos": false,
+  "body_len": 20
+ },
+ {
+  "class": "FixShardlow",
+  "file": "/home/user/lammps/src/DPD-REACT/fix_shardlow.cpp",
+  "line": 118,
+  "frees": true,
+  "first": "memory->destroy(rand_state);",
+  "is_kokkos": false,
+  "body_len": 2
+ },
+ {
+  "class": "FixTempBerendsen",
+  "file": "/home/user/lammps/src/fix_temp_berendsen.cpp",
+  "line": 85,
+  "frees": true,
+  "first": "delete[] tstr;",
+  "is_kokkos": false,
+  "body_len": 6
+ },
+ {
+  "class": "FixTempRescale",
+  "file": "/home/user/lammps/src/fix_temp_rescale.cpp",
+  "line": 84,
+  "frees": true,
+  "first": "delete[] tstr;",
+  "is_kokkos": false,
+  "body_len": 6
+ },
+ {
+  "class": "Grid3d",
+  "file": "/home/user/lammps/src/grid3d.cpp",
+  "line": 189,
+  "frees": true,
+  "first": "for (int i = 0; i < nswap; i++) {",
+  "is_kokkos": false,
+  "body_len": 35
+ },
+ {
+  "class": "Group",
+  "file": "/home/user/lammps/src/group.cpp",
+  "line": 88,
+  "frees": true,
+  "first": "for (int i = 0; i < MAX_GROUP; i++) delete[] names[i];",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "ImproperHarmonic",
+  "file": "/home/user/lammps/src/MOLECULE/improper_harmonic.cpp",
+  "line": 47,
+  "frees": true,
+  "first": "if (allocated && !copymode) {",
+  "is_kokkos": false,
+  "body_len": 5
+ },
+ {
+  "class": "ImproperHybridKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/improper_hybrid_kokkos.cpp",
+  "line": 48,
+  "frees": false,
+  "first": "deallocate();",
+  "is_kokkos": true,
+  "body_len": 1
+ },
+ {
+  "class": "ImproperHybrid",
+  "file": "/home/user/lammps/src/improper_hybrid.cpp",
+  "line": 43,
+  "frees": true,
+  "first": "if (nstyles) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "MinLineSearchKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/min_linesearch_kokkos.cpp",
+  "line": 59,
+  "frees": true,
+  "first": "delete[] gextra;",
+  "is_kokkos": true,
+  "body_len": 2
+ },
+ {
+  "class": "Min",
+  "file": "/home/user/lammps/src/min.cpp",
+  "line": 95,
+  "frees": true,
+  "first": "delete[] fextra;",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "MLIAPDescriptorSO3",
+  "file": "/home/user/lammps/src/ML-IAP/mliap_descriptor_so3.cpp",
+  "line": 51,
+  "frees": true,
+  "first": "memory->destroy(radelem);",
+  "is_kokkos": false,
+  "body_len": 3
+ },
+ {
+  "class": "MLIAPDescriptor",
+  "file": "/home/user/lammps/src/ML-IAP/mliap_descriptor.cpp",
+  "line": 36,
+  "frees": true,
+  "first": "if (allocated_elements)",
+  "is_kokkos": false,
+  "body_len": 6
+ },
+ {
+  "class": "MLIAPModel",
+  "file": "/home/user/lammps/src/ML-IAP/mliap_model.cpp",
+  "line": 44,
+  "frees": true,
+  "first": "memory->destroy(coeffelem);",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "MLIAPModelPython",
+  "file": "/home/user/lammps/src/ML-IAP/mliap_model_python.cpp",
+  "line": 80,
+  "frees": false,
+  "first": "if (model_loaded!=0)",
+  "is_kokkos": false,
+  "body_len": 3
+ },
+ {
+  "class": "MLIAPDummyDescriptor",
+  "file": "/home/user/lammps/src/ML-IAP/mliap_unified.cpp",
+  "line": 36,
+  "frees": false,
+  "first": "Py_DECREF(unified_interface);",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "MLIAPDummyModel",
+  "file": "/home/user/lammps/src/ML-IAP/mliap_unified.cpp",
+  "line": 123,
+  "frees": false,
+  "first": "Py_DECREF(unified_interface);",
+  "is_kokkos": false,
+  "body_len": 1
+ },
+ {
+  "class": "Modify",
+  "file": "/home/user/lammps/src/modify.cpp",
+  "line": 109,
+  "frees": true,
+  "first": "while (nfix) delete_fix(0);",
+  "is_kokkos": false,
+  "body_len": 41
+ },
+ {
+  "class": "NeighborKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/neighbor_kokkos.cpp",
+  "line": 52,
+  "frees": true,
+  "first": "if (!copymode) {",
+  "is_kokkos": true,
+  "body_len": 16
+ },
+ {
+  "class": "Pair",
+  "file": "/home/user/lammps/src/pair.cpp",
+  "line": 138,
+  "frees": true,
+  "first": "num_tally_compute = 0;",
+  "is_kokkos": false,
+  "body_len": 14
+ },
+ {
+  "class": "PairCoulSlaterLong",
+  "file": "/home/user/lammps/src/EXTRA-PAIR/pair_coul_slater_long.cpp",
+  "line": 46,
+  "frees": true,
+  "first": "if (!copymode) {",
+  "is_kokkos": false,
+  "body_len": 8
+ },
+ {
+  "class": "PairHybrid",
+  "file": "/home/user/lammps/src/pair_hybrid.cpp",
+  "line": 49,
+  "frees": true,
+  "first": "if (nstyles > 0) {",
+  "is_kokkos": false,
+  "body_len": 26
+ },
+ {
+  "class": "PairHybridScaledKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "line": 50,
+  "frees": true,
+  "first": "delete[] scaleval;",
+  "is_kokkos": true,
+  "body_len": 4
+ },
+ {
+  "class": "PairPOD",
+  "file": "/home/user/lammps/src/ML-POD/pair_pod.cpp",
+  "line": 107,
+  "frees": true,
+  "first": "memory->destroy(rij);",
+  "is_kokkos": false,
+  "body_len": 50
+ },
+ {
+  "class": "ThirdOrder",
+  "file": "/home/user/lammps/src/PHONON/third_order.cpp",
+  "line": 60,
+  "frees": true,
+  "first": "if (fp && me == 0) {",
+  "is_kokkos": false,
+  "body_len": 6
+ },
+ {
+  "class": "TuneKokkos",
+  "file": "/home/user/lammps/src/KOKKOS/tune_kokkos.cpp",
+  "line": 111,
+  "frees": true,
+  "first": "memory->destroy(performance);",
+  "is_kokkos": true,
+  "body_len": 6
+ },
+ {
+  "class": "Variable",
+  "file": "/home/user/lammps/src/variable.cpp",
+  "line": 253,
+  "frees": true,
+  "first": "delete randomequal;",
+  "is_kokkos": false,
+  "body_len": 2
+ }
+]

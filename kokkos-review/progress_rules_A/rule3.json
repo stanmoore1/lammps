@@ -1,0 +1,230 @@
+[
+ {
+  "file": "src/KOKKOS/bond_fene_expand_kokkos.cpp",
+  "func": "void BondFENEExpandKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 67,
+  "copymode1_line": 103,
+  "copymode0_line": 160,
+  "problems": [
+   "error->all/one at line 138: error->one(FLERR,\"Bad FENE bond\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/bond_fene_kokkos.cpp",
+  "func": "void BondFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 71,
+  "copymode1_line": 106,
+  "copymode0_line": 165,
+  "problems": [
+   "error->all/one at line 143: error->one(FLERR,\"Bad FENE bond\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/bond_fene_nm_kokkos.cpp",
+  "func": "void BondFENENMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 64,
+  "copymode1_line": 101,
+  "copymode0_line": 146,
+  "problems": [
+   "error->all/one at line 124: error->one(FLERR,\"Bad FENE bond\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/bond_table_kokkos.cpp",
+  "func": "void BondTableKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 144,
+  "copymode1_line": 184,
+  "copymode0_line": 231,
+  "problems": [
+   "error->all/one at line 207: error->one(FLERR,\"Bond length < table inner cutoff\");",
+   "error->all/one at line 209: error->one(FLERR,\"Bond length > table outer cutoff\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/compute_orientorder_atom_kokkos.cpp",
+  "func": "void ComputeOrientOrderAtomKokkos<DeviceType>::init()",
+  "func_line": 90,
+  "copymode1_line": 117,
+  "copymode0_line": null,
+  "problems": [
+   "no copymode=0 in this function"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/fix_electron_stopping_kokkos.cpp",
+  "func": "template <class DeviceType> void FixElectronStoppingKokkos<DeviceType>::post_force(int /*vflag*/)",
+  "func_line": 68,
+  "copymode1_line": 106,
+  "copymode0_line": 124,
+  "problems": [
+   "error->all/one at line 120: error->one(FLERR, \"Fix electron/stopping/kk: kinetic energy too high for atom {}: {} vs {}"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/fix_enforce2d_kokkos.cpp",
+  "func": "void FixEnforce2DKokkos<DeviceType>::post_force(int /*vflag*/)",
+  "func_line": 47,
+  "copymode1_line": 73,
+  "copymode0_line": 118,
+  "problems": [
+   "error->all/one at line 116: error->all(FLERR, \"Flag in fix_enforce2d_kokkos outside of what it should be\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/fix_heat_kokkos.cpp",
+  "func": "void FixHeatKokkos<DeviceType>::end_of_step()",
+  "func_line": 71,
+  "copymode1_line": 113,
+  "copymode0_line": 148,
+  "problems": [
+   "error->all/one at line 120: if (masstotal == 0.0) error->all(FLERR, \"Fix heat group has no atoms\");",
+   "error->all/one at line 138: if (escale < 0.0) error->all(FLERR, \"Fix heat kinetic energy went negative\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/fix_rx_kokkos.cpp",
+  "func": "void FixRxKokkos<DeviceType>::solve_reactions(const int /*vflag*/, const bool isPreForce)",
+  "func_line": 1342,
+  "copymode1_line": 1344,
+  "copymode0_line": 1499,
+  "problems": [
+   "error->all/one at line 1465: error->one(FLERR,\"Computed concentration in RK solver is < -1.0e-10\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/fix_shardlow_kokkos.cpp",
+  "func": "void FixShardlowKokkos<DeviceType>::initial_integrate(int /*vflag*/)",
+  "func_line": 553,
+  "copymode1_line": 559,
+  "copymode0_line": 684,
+  "problems": [
+   "error->all/one at line 564: if (!np_ssa) error->one(FLERR, \"NPair wasn't a NPairSSAKokkos object\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_gran_kokkos.cpp",
+  "func": "void FixWallGranKokkos<DeviceType>::post_force(int /*vflag*/)",
+  "func_line": 71,
+  "copymode1_line": 105,
+  "copymode0_line": 123,
+  "problems": [
+   "error->all/one at line 108: error->all(FLERR, \"Fix wall/gran/kk doesn't yet support hooke style\");",
+   "error->all/one at line 119: error->all(FLERR, \"Fix wall/gran/kk doesn't yet support hertz/history style\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_exp6_rx_kokkos.cpp",
+  "func": "void PairExp6rxKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 108,
+  "copymode1_line": 110,
+  "copymode0_line": 346,
+  "problems": [
+   "error->all/one at line 226: error->all(FLERR,\"The number of molecules in CG particle is less than 10*DBL_EPSILON.\");",
+   "error->all/one at line 228: error->all(FLERR,\"Computed fraction less than -10*DBL_EPSILON\");",
+   "error->all/one at line 235: error->all(FLERR,\"The number of molecules in CG particle is less than 10*DBL_EPSILON.\");",
+   "error->all/one at line 237: error->all(FLERR,\"Computed fraction less than -10*DBL_EPSILON\");",
+   "error->all/one at line 322: error->all(FLERR,\"alpha_ij is 6.0 in pair exp6\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_meam_kokkos.cpp",
+  "func": "void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 73,
+  "copymode1_line": 109,
+  "copymode0_line": 284,
+  "problems": [
+   "error->all/one at line 201: error->one(FLERR,\"MEAM library error {}\",errorflag);"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_pace_extrapolation_kokkos.cpp",
+  "func": "void PairPACEExtrapolationKokkos<DeviceType>::allocate()",
+  "func_line": 565,
+  "copymode1_line": 588,
+  "copymode0_line": null,
+  "problems": [
+   "no copymode=0 in this function"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_pace_extrapolation_kokkos.cpp",
+  "func": "void PairPACEExtrapolationKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 602,
+  "copymode1_line": 647,
+  "copymode0_line": 856,
+  "problems": [
+   "error->all/one at line 649: error->all(FLERR,\"PairPACEExtrapolationKokkos requires 'newton on'\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_pace_kokkos.cpp",
+  "func": "void PairPACEKokkos<DeviceType>::allocate()",
+  "func_line": 977,
+  "copymode1_line": 1000,
+  "copymode0_line": null,
+  "problems": [
+   "no copymode=0 in this function"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_pace_kokkos.cpp",
+  "func": "void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 1014,
+  "copymode1_line": 1050,
+  "copymode0_line": 1259,
+  "problems": [
+   "error->all/one at line 1052: error->all(FLERR,\"PairPACEKokkos requires 'newton on'\");",
+   "error->all/one at line 1055: error->all(FLERR,\"Must use 'product' algorithm with pair pace/kk\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_pod_kokkos.cpp",
+  "func": "void PairPODKokkos<DeviceType>::allocate()",
+  "func_line": 161,
+  "copymode1_line": 173,
+  "copymode0_line": null,
+  "problems": [
+   "no copymode=0 in this function"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_pod_kokkos.cpp",
+  "func": "void PairPODKokkos<DeviceType>::compute(int eflag_in, int vflag_in)",
+  "func_line": 187,
+  "copymode1_line": 208,
+  "copymode0_line": 324,
+  "problems": [
+   "error->all/one at line 211: error->all(FLERR,\"PairPODKokkos requires 'newton on'\");"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pppm_kokkos.cpp",
+  "func": "void PPPMKokkos<DeviceType>::poisson_ik()",
+  "func_line": 1485,
+  "copymode1_line": 1489,
+  "copymode0_line": 1590,
+  "problems": [
+   "return at line 1534: return;"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_snap_kokkos_impl.h",
+  "func": "void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::init_style()",
+  "func_line": 70,
+  "copymode1_line": 96,
+  "copymode0_line": null,
+  "problems": [
+   "no copymode=0 in this function"
+  ]
+ },
+ {
+  "file": "src/KOKKOS/pair_snap_kokkos_impl.h",
+  "func": "void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::compute(int eflag_in, int vflag_in)",
+  "func_line": 112,
+  "copymode1_line": 134,
+  "copymode0_line": 421,
+  "problems": [
+   "error->all/one at line 137: error->all(FLERR,\"PairSNAPKokkos requires 'newton on'\");"
+  ]
+ }
+]

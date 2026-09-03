@@ -1,0 +1,178 @@
+[
+ {
+  "file": "src/KOKKOS/fix_wall_flow_kokkos.cpp",
+  "line": 38,
+  "severity": "high",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix wall/flow/kk lists V_MASK only in datamask_modify, never in datamask_read, so the device copy of v is never synced before the kernel partially overwrites it.",
+  "evidence": "src/KOKKOS/fix_wall_flow_kokkos.cpp:38-39 `datamask_read = X_MASK | RMASS_MASK | TYPE_MASK | MASK_MASK;` / `datamask_modify = V_MASK;`.  end_of_step() at line 81 does only `atomKK->sync(execution_space, datamask_read);` (no V_MASK), then line 85 `d_v = atomKK->k_v.template view<DeviceType>();` and the kernel writes it in generate_velocity_kk() lines 156-160 (`d_v(atom_i, flowax) = ...`, `d_v(atom_i,(flowax+1)%3) = ...`, `d_v(atom_i,(flowax+2)%3) = ...`) for the subset of atoms that crossed a wall, and finally line 101 `atomKK->modified(execution_space, datamask_modify);` marks the whole device v newer than host.",
+  "failure_scenario": "GPU run where v was last written on the host (a non-KOKKOS fix/compute, `velocity` command, or a host-side exchange/borders which does atomKK->modified(Host, datamask_exchange) including V_MASK in comm_kokkos.cpp:1043/1483): end_of_step syncs only x/rmass/type/mask to the device, the kernel rewrites v only for wall-crossing atoms in the stale device buffer, then modified(Device,V_MASK) makes that stale buffer authoritative -- every other atom's velocity silently reverts to an older value.",
+  "suggested_fix": "Add V_MASK to datamask_read in the constructor (line 38), i.e. `datamask_read = X_MASK | V_MASK | RMASS_MASK | TYPE_MASK | MASK_MASK;`."
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_region_kokkos.cpp",
+  "line": 98,
+  "severity": "high",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix wall/region/kk reads atom radius on the device for the colloid wall style but RADIUS_MASK is not in datamask_read, so the device radius array is never synced.",
+  "evidence": "src/KOKKOS/fix_wall_region_kokkos.cpp:47 `datamask_read = X_MASK | V_MASK | F_MASK | MASK_MASK;`.  post_force() line 78 syncs only `datamask_read`, then line 98 `if (style == COLLOID) d_radius = atomKK->k_radius.template view<DeviceType>();`.  The kernel reads it at line 164 `tooclose = d_radius(i);` and line 195 `else if (style == COLLOID) engKK = colloid(r,d_radius(i),fwallKK);`.  No other sync in this file covers RADIUS_MASK (only sync call is line 78).  Compare the base FixWallRegion::post_force in src/fix_wall_region.cpp which uses the host `atom->radius` directly.",
+  "failure_scenario": "`fix wall/region ... colloid ... /kk` on a GPU: radius is filled on the host by read_data/`set diameter`/a non-kk fix and is only copied to the device by an explicit RADIUS_MASK sync.  Without it d_radius contains zeros (or stale values), so `tooclose` is 0 and the colloid wall energy/force uses a wrong particle radius -- wrong forces, and the 'Particle outside surface of region used in fix wall/region' check no longer fires.",
+  "suggested_fix": "Add RADIUS_MASK to datamask_read (at least when style == COLLOID), e.g. in the constructor after parsing style, or sync it explicitly in post_force before assigning d_radius."
+ },
+ {
+  "file": "src/KOKKOS/fix_nve_limit_kokkos.cpp",
+  "line": 93,
+  "severity": "high",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix nve/limit/kk uses atomKK->k_mass on the device without ever syncing the DualView, so per-type masses are read from an uninitialised (zero) device buffer.",
+  "evidence": "src/KOKKOS/fix_nve_limit_kokkos.cpp:93-101 `auto d_mass = atomKK->k_mass.template view<DeviceType>();` ... `const KK_FLOAT dtfm = l_dtf / d_mass[d_type[i]];` and the same in final_integrate() at lines 167-175.  `grep -n 'k_mass' fix_nve_limit_kokkos.cpp` shows NO `k_mass.sync<DeviceType>()`/`sync_device()` anywhere in the file, and the class overrides only initial_integrate()/final_integrate() (fix_nve_limit_kokkos.h:34-36), so no init() runs a sync either.  atom->mass lives in a DualView that is only ever written on the host: AtomKokkos::allocate_type_arrays (src/KOKKOS/atom_kokkos.cpp:313-316) and every AtomKokkos::set_mass overload (atom_kokkos.cpp:287,293,299,305) call `k_mass.modify_host()` and nothing else.  There is no MASS_MASK in src/atom_masks.h, so `atomKK->sync(execution_space, ...)` can never carry it.  The correct idiom is FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46: `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();`.",
+  "failure_scenario": "GPU build, `fix nve/limit/kk` as the only integrator (no fix nve/kk, fix nvt/kk, ... in the input) and per-type masses (no per-atom rmass): the device half of k_mass is the Kokkos default zero-initialised allocation, so `dtfm = dtf/0` is +inf and all velocities/positions become inf/NaN on the first timestep.",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/pair_dpd_kokkos.cpp",
+  "line": 179,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "pair_style dpd/kk reads the per-atom tag inside the kernel (SARU RNG seed) but never syncs TAG_MASK to the execution space.",
+  "evidence": "src/KOKKOS/pair_dpd_kokkos.cpp:97-98 `datamask_read = EMPTY_MASK; datamask_modify = EMPTY_MASK;` so VerletKokkos syncs nothing for this style.  compute() line 173 does `atomKK->sync(execution_space,X_MASK | V_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK);` -- TAG_MASK is absent -- and line 179 assigns `tag = atomKK->k_tag.view<DeviceType>();`.  The kernel reads it: line 426 `const tagint itag = tag(i);` and line 447 `const tagint jtag = tag(j);`, feeding line 467 `saru(tag1, tag2, timestep, seed, randnum);`.  Every other array the kernel touches (x, v, f, type) is in the line 173 sync list.",
+  "failure_scenario": "Any host-side write of atom->tag during a GPU run (`reset_atoms id`, a non-KOKKOS fix, `create_atoms` mid-run) leaves the device tag array stale until the next border comm (atom_vec_kokkos.cpp:1560 syncs datamask_border).  The SARU seed is then built from stale tag pairs, so the dissipative/random DPD forces are wrong and pairwise momentum conservation (which relies on i and j drawing the same random number) is broken.",
+  "suggested_fix": "Add TAG_MASK to the sync list in PairDPDKokkos::compute() (line 173), matching the other arrays the kernel reads."
+ },
+ {
+  "file": "src/KOKKOS/fix_shake_kokkos.cpp",
+  "line": 639,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix shake/kk reads per-type masses from atomKK->k_mass on the device but never syncs that DualView to the device.",
+  "evidence": "src/KOKKOS/fix_shake_kokkos.cpp:638-639 and 864-865 `d_rmass = atomKK->k_rmass.view<DeviceType>(); d_mass = atomKK->k_mass.view<DeviceType>();`, used in the kernels at lines 908 (`dtfsq_kk / mass[type[i]]`), 972-973, 1098-1100, 1292-1295, 1545-1546 (`1.0/d_mass[d_type[i0]]`).  The file syncs many of its own DualViews (lines 192-193, 227-228, 255, 387-393) but `grep -n 'k_mass' fix_shake_kokkos.cpp` shows no `k_mass.sync<DeviceType>()`.  k_mass is host-only-written (src/KOKKOS/atom_kokkos.cpp:287-316, `modify_host()` only) and is not covered by any bit in src/atom_masks.h, so `atomKK->sync(execution_space,...)` cannot bring it over; cf. the required idiom in src/KOKKOS/fix_nve_kokkos.cpp:45-46.",
+  "failure_scenario": "GPU run whose only k_mass sync came from another style: it works by accident.  Remove/replace that style (e.g. integrate with a non-KOKKOS-synced integrator, or run `fix shake` inside a minimisation) and d_mass is all zeros, so every SHAKE inverse mass is 1/0 = inf and constrained bond lengths blow up.  Any `mass` command issued between two runs also invalidates the device copy (modify_host) and nothing re-syncs it here.",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/fix_gravity_kokkos.cpp",
+  "line": 69,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix gravity/kk reads per-type mass on the device without syncing atomKK->k_mass.",
+  "evidence": "src/KOKKOS/fix_gravity_kokkos.cpp:66-69 `if (atomKK->rmass) rmass = ...; else mass = atomKK->k_mass.view<DeviceType>();` and the kernel at line 113 `KK_FLOAT massone = mass[type[i]];`.  The only sync in the whole file is `atomKK->sync(execution_space,datamask_read)` at line 61, and no mask bit exists for mass (src/atom_masks.h has no MASS_MASK); `grep -n 'k_mass' fix_gravity_kokkos.cpp` shows no `sync<DeviceType>()`.  Compare src/KOKKOS/fix_nve_kokkos.cpp:45-46, which does `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` in init().",
+  "failure_scenario": "GPU run with per-type masses where no other KOKKOS style has synced k_mass (or where a `mass` command after the last sync re-marked the host copy newer): d_mass is zero/stale, so the gravitational force `massone*xacc` is zero (or wrong) and the reported gravitational potential energy is wrong.",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/fix_momentum_kokkos.cpp",
+  "line": 72,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix momentum/kk computes the group mass on the device from atomKK->k_mass without syncing the DualView.",
+  "evidence": "src/KOKKOS/fix_momentum_kokkos.cpp:70-77 `atomKK->sync(execution_space, TYPE_MASK); ... typename AT::t_kkfloat_1d_randomread mass = atomKK->k_mass.view<DeviceType>(); ... update += static_cast<double>(mass(type(i)) * ...)`.  TYPE_MASK is synced but there is no mask bit for mass and no `atomKK->k_mass.sync<DeviceType>()` anywhere in the file (all four sync calls are lines 60,70,88,143).  k_mass is written host-side only, with `modify_host()` (src/KOKKOS/atom_kokkos.cpp:287-316).",
+  "failure_scenario": "GPU run with per-type masses and no other style having synced k_mass: the group mass sums to zero, so `fix momentum` divides by zero when forming the centre-of-mass velocity (vcm = p/masstotal), producing NaN velocities for the whole group.",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/fix_dt_reset_kokkos.cpp",
+  "line": 71,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix dt/reset/kk divides by a per-type mass read from an unsynced atomKK->k_mass device view.",
+  "evidence": "src/KOKKOS/fix_dt_reset_kokkos.cpp:62 syncs only `V_MASK | F_MASK | MASK_MASK | TYPE_MASK | RMASS_MASK`, then line 68-71 `if (atomKK->rmass) rmass = ...; else mass = atomKK->k_mass.view<DeviceType>();`, and the kernel does `massinv = 1.0 / mass[type[i]];` (operator()(TagFixDtResetMass), fix_dt_reset_kokkos.cpp:123).  init() (line 49-55) only calls FixDtReset::init() and the respa check; there is no `k_mass.sync<DeviceType>()` in the file.  No MASS_MASK exists in src/atom_masks.h.",
+  "failure_scenario": "GPU run with per-type masses where k_mass was never synced by another style: massinv = 1/0 = inf, so the computed stable timestep is 0/NaN and `fix dt/reset` resets update->dt to garbage, corrupting the whole trajectory.",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/fix_electron_stopping_kokkos.cpp",
+  "line": 84,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix electron/stopping/kk reads per-type mass on the device without syncing atomKK->k_mass.",
+  "evidence": "src/KOKKOS/fix_electron_stopping_kokkos.cpp:84-85 `d_mass = atomKK->k_mass.view<DeviceType>(); d_rmass = atomKK->k_rmass.view<DeviceType>();` and line 143 `double massone = (d_rmass.data()) ? ... : static_cast<double>(d_mass(itype));`.  The file carefully syncs its own DualViews (k_elstop_ranges line 51, k_match line 102) and the per-atom masks (line 72 `atomKK->sync(execution_space, datamask_read)`), but never `k_mass.sync<DeviceType>()`; mass has no mask bit (src/atom_masks.h) and is host-modified only (src/KOKKOS/atom_kokkos.cpp:287-316).",
+  "failure_scenario": "GPU run with per-type masses and no other style syncing k_mass: massone is 0, so the kinetic energy `0.5*mv^2` used to look up the electronic stopping table is 0 and no stopping force is ever applied (silently wrong physics rather than a crash).",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/fix_shardlow_kokkos.cpp",
+  "line": 219,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix shardlow/kk binds its `masses` device view to atomKK->k_mass without syncing the DualView to the device.",
+  "evidence": "src/KOKKOS/fix_shardlow_kokkos.cpp:214-219 `if (atomKK->rmass) { massPerI = true; masses = atomKK->k_rmass.view<DeviceType>(); } else { ... masses = atomKK->k_mass.view<DeviceType>(); }`, used at lines 270, 314, 415, 465 (`const double mass_i = masses(massPerI ? i : itype);`).  The file syncs many other DualViews (k_pairDPDE->k_cutsq line 139, np_ssa->k_ssa_* lines 574-580, k_params line 616) and the per-atom masks (lines 619, 658), but never `atomKK->k_mass.sync<DeviceType>()`; there is no MASS_MASK in src/atom_masks.h.",
+  "failure_scenario": "GPU DPD-E run with per-type masses where no other KOKKOS style synced k_mass: mass_i/mass_j are 0, so the SSA momentum/energy exchange divides by zero and produces NaN velocities and internal energies.",
+  "suggested_fix": "Add `atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();` (the idiom used by FixNVEKokkos::init(), src/KOKKOS/fix_nve_kokkos.cpp:45-46) before the device view is used."
+ },
+ {
+  "file": "src/KOKKOS/pair_multi_lucy_rx_kokkos.cpp",
+  "line": 969,
+  "severity": "medium",
+  "category": "sync-modify",
+  "confidence": "likely",
+  "summary": "pair multi/lucy/rx/kk marks k_cutsq host-modified only once, inside allocate(), so a later Pair::init() that recomputes cutsq (after a new pair_coeff) never reaches the device.",
+  "evidence": "src/KOKKOS/pair_multi_lucy_rx_kokkos.cpp:967-969 (allocate()): `memoryKK->create_kokkos(k_cutsq,cutsq,nt,nt,\"pair:cutsq\"); d_cutsq = k_cutsq.template view<DeviceType>(); k_cutsq.modify_host();`.  That is the ONLY `k_cutsq.modify*` in the file (`grep -n 'k_cutsq' pair_multi_lucy_rx_kokkos.cpp`), and the style does not override init_one (only PairMultiLucyRX::init_one, src/DPD-REACT/pair_multi_lucy_rx.cpp:469-478, exists).  The device copy is read every step: compute_style() line 182 `k_cutsq.template sync<DeviceType>();` and the kernels use `d_cutsq(itype,jtype)` at lines 328, 355, 387, 431, 586-587.  Pair::init() fills the host `cutsq[i][j]` (which aliases k_cutsq's host view) from init_one on every run setup, but only allocate() -- called once, from coeff() when !allocated -- ever sets the host-modified flag.  Contrast the standard KOKKOS idiom, e.g. src/KOKKOS/pair_lj_cut_kokkos.cpp:262, where `k_cutsq.modify_host()` sits in init_one() and therefore re-fires on every Pair::init().",
+  "failure_scenario": "`pair_coeff 1 1 tab.txt ENTRY_A` / run / `pair_coeff 1 1 tab.txt ENTRY_B` where ENTRY_B has a different tabulated cutoff, then run again on a GPU: Pair::init() writes the new cutsq on the host, but the host-modified flag was consumed by the first compute's sync, so `k_cutsq.sync<DeviceType>()` is a no-op and the kernel keeps using ENTRY_A's cutoff -- silently wrong forces and energies in the second run.",
+  "suggested_fix": "Override init_one() in PairMultiLucyRXKokkos to call the base version and then `k_cutsq.modify_host()` (or add the modify_host() to a per-run hook such as init_style()), instead of relying on the one-time flag set in allocate()."
+ },
+ {
+  "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+  "line": 766,
+  "severity": "low",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "FixLangevinKokkos::end_of_step claims device writes (atomKK->modified(V_MASK) and k_lv.modify<DeviceType>()) that the launched kernel never performs.",
+  "evidence": "src/KOKKOS/fix_langevin_kokkos.cpp:757-766: `atomKK->sync(execution_space,V_MASK | MASK_MASK); k_flangevin.template sync<DeviceType>(); if (tallyflag) { FixLangevinKokkosTallyEnergyFunctor<DeviceType> tally_functor(this); Kokkos::parallel_reduce(nlocal,tally_functor,energy_onestep); } atomKK->modified(execution_space,V_MASK); k_lv.template modify<DeviceType>();`.  The only kernel launched is TallyEnergyFunctor, whose body is compute_energy_item() (line 728), a pure reduction that writes nothing.  end_of_step_item()/end_of_step_rmass_item() (lines 774, 794), the only functions that write `v` and `d_lv`, are reached solely through FixLangevinKokkosEndOfStepFunctor (fix_langevin_kokkos.h:260-275) which is never instantiated anywhere in the .cpp.  The CPU base FixLangevin::end_of_step (src/fix_langevin.cpp) likewise only accumulates `energy_onestep`.",
+  "failure_scenario": "The bogus `k_lv.modify<DeviceType>()` makes the never-written device buffer authoritative; the next FixLangevinKokkos::copy_arrays (line 820) starts with `k_lv.sync_host()`, which then overwrites the host `lv` array with that untouched device buffer.  The redundant `atomKK->modified(execution_space,V_MASK)` additionally forces a full velocity copy back every step.",
+  "suggested_fix": "Drop both claims from end_of_step(), or instantiate FixLangevinKokkosEndOfStepFunctor if the half-step-velocity swap is actually meant to run; also remove the dead end_of_step_item()/end_of_step_rmass_item()/functor if it is not."
+ },
+ {
+  "file": "src/KOKKOS/fix_rx_kokkos.cpp",
+  "line": 1583,
+  "severity": "low",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "FixRxKokkos::odeDiagnostics reads the host mirror of atom->mask without syncing MASK_MASK to the host.",
+  "evidence": "src/KOKKOS/fix_rx_kokkos.cpp:1583 `HAT::t_int_1d h_mask = atomKK->k_mask.view_host();` and line 1592 `if (h_mask(j) & groupbit) {`, with no `atomKK->sync(Host,MASK_MASK)` anywhere in odeDiagnostics (the function spans lines 1505-1662).  FixRxKokkos declares `datamask_read = EMPTY_MASK` so ModifyKokkos does not sync anything for it either; every other host-side read in this file is preceded by an explicit sync.",
+  "failure_scenario": "GPU run where the group mask was last written on the device (e.g. `group ... dynamic` handled by a KOKKOS fix, or a device-side border/exchange): the ODE diagnostics loop selects the wrong atoms, so the reported per-group ODE step/function-call statistics are wrong.  Diagnostics only, no effect on the trajectory.",
+  "suggested_fix": "Add `atomKK->sync(Host,MASK_MASK);` before line 1583."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 65,
+  "severity": "low",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "fix qeq/reaxff/kk declares X_MASK in datamask_modify although it never writes atom positions, and omits the Q_MASK it does write.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp:64-65 `datamask_read = X_MASK | V_MASK | F_MASK | Q_MASK | MASK_MASK | TYPE_MASK | TAG_MASK; datamask_modify = X_MASK;`, and line 307 `atomKK->modified(execution_space,datamask_modify);`.  The style only reads x (`x(i,0)` etc. at lines 742-744 and in the neighbor kernels); the array it actually writes is q (line 1002 `q(i) = ...`), which is claimed separately at line 537 `atomKK->modified(execution_space,Q_MASK);`.  Compare the sibling src/KOKKOS/fix_acks2_reaxff_kokkos.cpp:60 `datamask_modify = Q_MASK | X_MASK;` -- the same spurious X_MASK, but there Q_MASK is at least declared.",
+  "failure_scenario": "No wrong numbers: marking the device x newer right after the same hook synced it only costs a redundant device-to-host copy of x on the next host access.  It is a datamask/actual-access mismatch, the exact thing the KOKKOS rules require to agree, and it hides the fact that Q_MASK is missing from the declaration.",
+  "suggested_fix": "Set `datamask_modify = Q_MASK;` (dropping X_MASK), which also makes the explicit modified(Q_MASK) at line 537 redundant rather than load-bearing."
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_lj93_kokkos.cpp",
+  "line": 41,
+  "severity": "low",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "The KOKKOS fix wall/* styles list V_MASK in datamask_read although none of them reads or writes velocities.",
+  "evidence": "src/KOKKOS/fix_wall_lj93_kokkos.cpp declares `datamask_read = X_MASK | F_MASK | MASK_MASK | V_MASK;` while FixWallLJ93Kokkos::wall_particle (lines 145-178) binds only `d_x = atomKK->k_x...` (151), `d_f = atomKK->k_f...` (152) and `d_mask = atomKK->k_mask...` (153) and the kernel touches nothing else.  The identical unused V_MASK appears in src/KOKKOS/fix_wall_lj126_kokkos.cpp (kernel at 138-171), fix_wall_lj1043_kokkos.cpp (159-192), fix_wall_morse_kokkos.cpp (140-173), fix_wall_harmonic_kokkos.cpp (95-128), fix_wall_harmonic_outside_kokkos.cpp (89-122) and fix_wall_region_kokkos.cpp:47.",
+  "failure_scenario": "No incorrect results: VerletKokkos/ModifyKokkos simply copies the whole velocity array to the execution space before every post_force of these fixes, which is pure overhead on a GPU (and it masks genuine mask errors such as the missing RADIUS_MASK in fix_wall_region_kokkos reported separately).",
+  "suggested_fix": "Remove V_MASK from datamask_read in these seven wall fixes."
+ },
+ {
+  "file": "src/KOKKOS/pair_exp6_rx_kokkos.cpp",
+  "line": 1658,
+  "severity": "low",
+  "category": "sync-modify",
+  "confidence": "likely",
+  "summary": "pair exp6/rx/kk sets the k_cutsq host-modified flag only in allocate(), so cutsq changes made by a later Pair::init() are never pushed to the device.",
+  "evidence": "src/KOKKOS/pair_exp6_rx_kokkos.cpp:1656-1658 (allocate()): `memoryKK->create_kokkos(k_cutsq,cutsq,ntypes+1,ntypes+1,\"pair:cutsq\"); d_cutsq = k_cutsq.template view<DeviceType>(); k_cutsq.modify_host();` -- the only `modify` on k_cutsq in the file.  The device copy is consumed every step: compute() line 153 `k_cutsq.template sync<DeviceType>();` and kernels at lines 497, 502, 504, 873, 878, 880, 1206, 1256.  There is no init_one() override (`grep -n '::init_one' pair_exp6_rx_kokkos.cpp` is empty), so nothing re-claims the host write that Pair::init() performs on `cutsq[i][j]` at every run setup.  The robust idiom is the one used by the other pair styles, e.g. src/KOKKOS/pair_lj_cut_kokkos.cpp:262, where modify_host() is called from init_one().",
+  "failure_scenario": "Any command sequence that changes the pair cutoff between runs without re-running allocate() (a new pair_coeff / pair_modify that alters init_one's return value) leaves d_cutsq at the old value on a GPU, so the interaction range used on the device no longer matches the host bookkeeping.",
+  "suggested_fix": "Add an init_one() override that calls PairExp6rx::init_one() and then `k_cutsq.modify_host()`, so the host write done by Pair::init() is claimed on every run setup."
+ }
+]

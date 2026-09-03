@@ -1,0 +1,190 @@
+[
+  {
+    "file": "src/KOKKOS/fix_gravity_kokkos.cpp",
+    "line": 125,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixGravityKokkos::post_force() ignores the 'disable' keyword and applies the gravitational force even when the user asked for it to be disabled.",
+    "evidence": "src/fix_gravity.cpp:274-276 has\n  // just exit if application of force is disabled\n  if (disable) return;\nimmediately after the variable evaluation block and before the force loop.  The KOKKOS override src/KOKKOS/fix_gravity_kokkos.cpp:107-155 reproduces the variable block (lines 111-123) but goes straight on to 'atomKK->sync(...)' at line 125 and launches the reduce at lines 148-153 with no 'disable' test.  'disable' is a real user keyword: src/fix_gravity.cpp:127-134 parses it and src/fix_gravity.h:43 declares it.",
+    "failure_scenario": "'fix g all gravity/kk 1.0 vector 0 0 -1 disable' (used together with granular pair styles that only extract gvec) applies a full gravitational force on every atom every step instead of none; total energy/trajectory is wrong versus the non-kk run.",
+    "suggested_fix": "Add 'if (disable) return;' after the varflag block (before the atomKK->sync call) in FixGravityKokkos::post_force(), matching src/fix_gravity.cpp:276."
+  },
+  {
+    "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+    "line": 73,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixLangevinKokkos's constructor re-allocates ratio[] and resets every entry to 1.0 after the base constructor already stored the user's 'scale' keyword values, so 'fix langevin/kk ... scale <type> <value>' is silently ignored.",
+    "evidence": "src/fix_langevin.cpp:84-86 allocates ratio and :90 sets ratio[i]=1.0, then the option loop at :111-118 stores 'ratio[itype] = scale'.  The KOKKOS constructor runs afterwards, src/KOKKOS/fix_langevin_kokkos.cpp:58-73:\n  delete[] gfactor1;\n  delete[] gfactor2;\n  delete[] ratio;\n  memoryKK->create_kokkos(k_ratio,ratio,ntypes+1,\"langevin:ratio\");\n  ...\n  // optional args\n  for (int i = 1; i <= ntypes; i++) ratio[i] = 1.0;\n  k_ratio.modify_host();\nThe parsed values live in the deleted new[] array and are replaced by 1.0.  ratio[] is what scales the prefactors: src/fix_langevin.cpp:252-253 'gfactor1[i] *= 1.0/ratio[i]; gfactor2[i] *= 1.0/sqrt(ratio[i]);' and the kernels use d_ratio (fix_langevin_kokkos.cpp:424-426, 596-597, 663-664).",
+    "failure_scenario": "'fix f all langevin/kk 300 300 100 12345 scale 2 10.0' damps type-2 atoms with ratio 1.0 instead of 10.0; the /kk run gives a different (wrong) trajectory and temperature from the non-kk run.",
+    "suggested_fix": "Copy the base-class ratio values into the new dual view instead of overwriting them: save the old ratio pointer before 'delete[] ratio', copy old_ratio[i] into the new array for i=1..ntypes, then modify_host()."
+  },
+  {
+    "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+    "line": 400,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixLangevinKokkos::post_force() calls the non-virtual host-only FixLangevin::omega_thermostat() instead of the device version, with no sync/modified bookkeeping, so 'fix langevin/kk ... omega yes' updates only a stale host torque array while the device kernel omega_thermostat_kokkos() is dead code.",
+    "evidence": "src/KOKKOS/fix_langevin_kokkos.cpp:400-401:\n  if (oflag) omega_thermostat();\n  if (ascale != 0.0) angmom_thermostat();\nFixLangevinKokkos declares 'void angmom_thermostat();' (fix_langevin_kokkos.h:163) so the second call resolves to the KOKKOS override, but it declares only 'void omega_thermostat_kokkos();' (fix_langevin_kokkos.h:107) -- there is no FixLangevinKokkos::omega_thermostat.  src/fix_langevin.h:77 declares 'void omega_thermostat();' NON-virtual, so line 400 binds to FixLangevin::omega_thermostat (src/fix_langevin.cpp:549-590) which reads atom->torque/omega/radius/rmass/mask host pointers and writes atom->torque on the host.  No atomKK->sync(Host,...) precedes it and no atomKK->modified(Host,TORQUE_MASK) follows it.  grep shows omega_thermostat_kokkos (fix_langevin_kokkos.cpp:535) has no caller anywhere in the tree.",
+    "failure_scenario": "GPU run with granular particles: 'fix 1 all langevin/kk 300 300 100 4321 omega yes'.  Pair style leaves torque device-current; the host loop reads a stale host torque/omega and writes the host copy, which is never claimed, so the device integrator (fix nve/sphere/kk) never sees the rotational drag or random torque -- the rotational thermostat is silently a no-op (and the host arrays it read are garbage).",
+    "suggested_fix": "Rename FixLangevinKokkos::omega_thermostat_kokkos() to omega_thermostat() (and declare FixLangevin::omega_thermostat() virtual), so the KOKKOS device kernel is the one invoked from post_force()."
+  },
+  {
+    "file": "src/KOKKOS/fix_neigh_history_kokkos.cpp",
+    "line": 137,
+    "severity": "high",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "The maxpartner-overflow retry loop in pre_exchange_no_newton() re-allocates k_partner/k_valuepartner but never re-assigns d_partner/d_valuepartner, so the retry kernel writes past the end of the old (smaller) device views and all collected history is written into a buffer that is then thrown away.",
+    "evidence": "src/KOKKOS/fix_neigh_history_kokkos.cpp:128-142:\n  while (h_resize() > 0) {\n    Kokkos::deep_copy(d_npartner,0);\n    Kokkos::deep_copy(d_resize, 0);\n    Kokkos::parallel_for(RangePolicy<DeviceType,TagFixNeighHistoryPreExchange>(0,inum),*this);\n    Kokkos::deep_copy(h_resize, d_resize);\n    if (h_resize()) {\n      maxpartner += 8;\n      memoryKK->grow_kokkos(k_partner,partner,atom->nmax,maxpartner,\"neighbor_history:partner\");\n      memoryKK->grow_kokkos(k_valuepartner,valuepartner,atom->nmax,dnum*maxpartner,\"neighbor_history:valuepartner\");\n    }\n  }\n'd_partner = k_partner.template view<DeviceType>();' appears only at lines 305-307 (grow_arrays) and 493-495 (unpack_exchange_kokkos) -- never inside this loop.  The kernel (lines 160-188) guards with 'if (m < maxpartner) d_partner(i,m) = tag[j];' using the NEW maxpartner while d_partner still has the OLD extent(1), and lines 145-147 then do k_partner.modify<DeviceType>() on the new, unwritten allocation.",
+    "failure_scenario": "Granular run (pair gran/hooke/history/kk) in which any atom accumulates more than 8 contact partners: the second pass of the loop writes d_partner(i,m)/d_valuepartner(i,...) beyond the old row stride -- corrupting neighbouring rows and running off the end of the allocation for the last atom -- and the freshly grown k_partner is marked device-modified while containing only the truncated first-pass data, so contact history is silently lost across the atom exchange.",
+    "suggested_fix": "After both grow_kokkos() calls inside the loop, re-assign d_partner = k_partner.template view<DeviceType>(); and d_valuepartner = k_valuepartner.template view<DeviceType>(); (or simply call grow_arrays(atom->nmax), which already does this)."
+  },
+  {
+    "file": "src/KOKKOS/fix_neigh_history_kokkos.cpp",
+    "line": 45,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "FixNeighHistoryKokkos does not override pack_restart/size_restart/unpack_restart, so restart files are written from stale host mirrors of npartner/partner/valuepartner and restart data is unpacked into page-allocator chunks that no longer alias the dual views.",
+    "evidence": "FixNeighHistory sets restart_peratom = 1 / restart_global = 1 and registers Atom::RESTART (src/fix_neigh_history.cpp:41-42, :79-80).  src/fix_neigh_history.cpp:900-907 'void FixNeighHistory::write_restart(FILE *fp) { pre_exchange(); ... }' -- the KOKKOS pre_exchange runs on the device and ends with k_npartner/k_partner/k_valuepartner .modify<DeviceType>() (fix_neigh_history_kokkos.cpp:144-147).  FixNeighHistory::pack_restart (src/fix_neigh_history.cpp:916-927) and size_restart (:979-982) then read npartner[i]/partner[i][n]/valuepartner[i][...] -- the host mirrors -- with no k_*.sync_host().  The KOKKOS class (fix_neigh_history_kokkos.h:44-80) declares no pack_restart/unpack_restart, unlike e.g. FixGJFKokkos which overrides both with sync_host()/modify_host() (src/KOKKOS/fix_gjf_kokkos.cpp:495-511).  Worse, FixNeighHistory::unpack_restart (:934-960) does 'partner[nlocal] = ipage_atom->get(npartner[nlocal]);' -- in the KOKKOS build 'partner' is the row-pointer array that memoryKK->grow_kokkos aliases to k_partner's host mirror (fix_neigh_history_kokkos.cpp:298-300), so this repoints a row away from the dual view and the data is dropped at the next grow_arrays().",
+    "failure_scenario": "'write_restart' during a granular run with fix neigh/history/kk: the per-atom contact history written to the file is whatever was last on the host (typically the state from the previous host-side exchange, or zeros), and reading that restart back re-creates contacts with wrong or missing shear history, so the restarted run does not reproduce the original trajectory.",
+    "suggested_fix": "Override pack_restart/size_restart in FixNeighHistoryKokkos with k_npartner/k_partner/k_valuepartner .sync_host() before delegating, and override unpack_restart to write directly into the dual views' host mirrors (then modify_host()) instead of into ipage_atom/dpage_atom chunks."
+  },
+  {
+    "file": "src/KOKKOS/fix_nh_kokkos.cpp",
+    "line": 442,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixNHKokkos::remap() drops the entire 'isochoric' branch of FixNH::remap(), so 'fix npt/kk ... isochoric <dims>' silently runs as an ordinary NPT and does not conserve the reference volume.",
+    "evidence": "src/fix_nh.cpp:1236-1298 (inside FixNH::remap) computes\n  if (isochoric) isofac = vol_start;\n  ... if (isochoric) isofac /= domain->boxhi[0] - domain->boxlo[0];   (and the same for y and z)\n  if (isochoric) { for (int i=0;i<3;i++) if (p_isoch[i] || !p_flag[i]) isofac /= (domain->boxhi[i]-domain->boxlo[i]);\n                   int iso_sum = p_isoch[0]+p_isoch[1]+p_isoch[2]; if (iso_sum == 2) isofac = sqrt(isofac);\n                   if (p_isoch[0]) { ... boxlo[0] = (oldlo-fixedpoint[0])*isofac + fixedpoint[0]; ... } ... }\nThe KOKKOS override src/KOKKOS/fix_nh_kokkos.cpp:442-467 reproduces only the p_flag[0..2] diagonal scaling and jumps straight to the 'off-diagonal components, second half' block at line 471 -- no isofac, no p_isoch rescaling.  'isochoric' is a documented user keyword (parsed at src/fix_nh.cpp:369-386, declared src/fix_nh.h:124-126, documented doc/src/fix_nh.rst:43,74,378) and FixNHKokkos neither implements nor rejects it.",
+    "failure_scenario": "'fix 1 all npt/kk temp 300 300 100 x 0 0 1000 isochoric yz' -- the y and z box lengths are never rescaled to keep the volume at vol_start, so the /kk run has a monotonically drifting volume and a completely different trajectory/pressure from the identical non-kk run, with no warning.",
+    "suggested_fix": "Port the isochoric block from src/fix_nh.cpp:1236-1298 into FixNHKokkos::remap(), or (minimally) add 'if (isochoric) error->all(FLERR,\"Cannot (yet) use isochoric with fix npt/kk\");' in FixNHKokkos::init()."
+  },
+  {
+    "file": "src/KOKKOS/fix_nve_sphere_kokkos.cpp",
+    "line": 115,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixNVESphereKokkos ignores the 'update dipole/dlm' option: it always applies the simple cross-product dipole integrator, so 'fix nve/sphere/kk ... update dipole/dlm' silently uses a different (non-symplectic) integrator than the CPU style and never updates omega.",
+    "evidence": "src/fix_nve_sphere.cpp:141-271 branches on the dlm flag:\n  if (extra == DIPOLE) {\n    if (dlm == NODLM) { ...cross product + renormalise... }\n    else { ...Dullweber-Leimkuhler-Maclachlan rotation-matrix scheme, which also writes omega[i][0..2] (lines 260-262) and mu from Q_temp (265-267)... }\nThe KOKKOS kernel src/KOKKOS/fix_nve_sphere_kokkos.cpp:115-124 (and the identical fused copy at :234-243) tests only 'if (extra == DIPOLE)' and always runs the NODLM formula.  'grep -n dlm src/KOKKOS/fix_nve_sphere_kokkos.{cpp,h}' returns nothing: the flag is neither used nor rejected.  'dipole/dlm' is a documented option (doc/src/fix_nve_sphere.rst:24-26,37,60) parsed at src/fix_nve_sphere.cpp:54-57, and 'nve/sphere/kk' is listed as an accelerator variant of that same command (doc/src/fix_nve_sphere.rst:8).",
+    "failure_scenario": "'fix 1 all nve/sphere/kk update dipole/dlm' on a dipolar sphere system: the run silently uses the plain cross-product update (and never rotates omega), giving a different, less stable trajectory than the identical non-kk run; users following the doc's own example (line 37) get wrong results with no warning.",
+    "suggested_fix": "Port the DLM branch into the kernel, or add 'if (dlm == DLM) error->all(FLERR,\"Fix nve/sphere/kk does not (yet) support update dipole/dlm\");' in FixNVESphereKokkos's constructor."
+  },
+  {
+    "file": "src/KOKKOS/fix_nve_asphere_kokkos.cpp",
+    "line": 117,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "FixNVEAsphereKokkos has no superellipsoid guard: it always reads AtomVecEllipsoid's 'bonus' array and derives the inertia from 'shape', but for superellipsoid particles the CPU style uses 'bonus_super[j].inertia' and 'bonus' is never allocated.",
+    "evidence": "src/ASPHERE/fix_nve_asphere.cpp:134-137 dispatches on the flag:\n  if (atom->superellipsoid_flag) initial_integrate_templated<true>(); else initial_integrate_templated<false>();\nand :108-119 then uses 'inertia = bonus_super[j].inertia; quat = bonus_super[j].quat;' instead of the shape formula.\nsrc/atom_vec_ellipsoid.cpp:103-113 (grow_bonus) allocates ONE of the two arrays:\n  if (atom->superellipsoid_flag) bonus_super = (BonusSuper *) memory->srealloc(bonus_super, ...); else bonus = (Bonus *) memory->srealloc(bonus, ...);\nso with 'atom_style ellipsoid superellipsoid' (src/atom_vec_ellipsoid.cpp:1095-1096) 'bonus' stays null.  src/KOKKOS/fix_nve_asphere_kokkos.cpp:117-125 unconditionally does 'quat = bonus(ellipsoid(i)).quat; shape = bonus(ellipsoid(i)).shape;' and computes inertia from shape (same in the fused kernel at :244-252).  src/KOKKOS/atom_vec_ellipsoid_kokkos.h:41 wraps only 'AtomVecEllipsoid::Bonus' -- there is no device bonus_super.  The sibling style already has the guard: src/KOKKOS/fix_nve_asphere_noforce_kokkos.cpp:60-65 'if (atom->superellipsoid_flag) error->all(FLERR,\"Cannot (yet) use superellipsoid particles with fix nve/asphere/noforce/kk\");'.",
+    "failure_scenario": "'atom_style ellipsoid superellipsoid' + 'fix 1 all nve/asphere/kk': the kernel indexes an unallocated/zero-extent k_bonus view -- out-of-bounds device read (illegal memory access on GPU) or, where the view happens to exist, integration with the wrong (shape-derived instead of stored) principal moments of inertia.",
+    "suggested_fix": "Add the same guard as fix_nve_asphere_noforce_kokkos.cpp:63-65 to FixNVEAsphereKokkos::init(), or port the bonus_super branch."
+  },
+  {
+    "file": "src/KOKKOS/fix_nve_limit_kokkos.cpp",
+    "line": 93,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "FixNVELimitKokkos reads the per-type mass dual view on the device without ever syncing it (there is no MASS_MASK bit and no init() override), so the per-type-mass branch integrates with an uninitialized device mass array.",
+    "evidence": "src/KOKKOS/fix_nve_limit_kokkos.cpp:93-100 (initial_integrate) and :167-173 (final_integrate):\n  auto d_mass = atomKK->k_mass.template view<DeviceType>();\n  auto d_type = atomKK->k_type.template view<DeviceType>();\n  atomKK->sync(execution_space, V_MASK|F_MASK|MASK_MASK|TYPE_MASK );\n  ... const KK_FLOAT dtfm = l_dtf / d_mass[d_type[i]];\nThere is no MASS_MASK in src/atom_masks.h, so k_mass must be synced by hand.  AtomKokkos only ever marks it host-modified (src/KOKKOS/atom_kokkos.cpp:287,293,299,305,316 'k_mass.modify_host();').  Every other style that reads it on the device syncs it explicitly -- the reference is src/KOKKOS/fix_nve_kokkos.cpp:45-46 'atomKK->k_mass.modify_host(); atomKK->k_mass.sync<DeviceType>();' in init(), and likewise fix_nh_kokkos.cpp:77-78, fix_nvk_kokkos.cpp:69, compute_temp_kokkos.cpp:46, group_kokkos.h:64.  FixNVELimitKokkos declares no init() (src/KOKKOS/fix_nve_limit_kokkos.h:31-38) and never touches k_mass outside the two view() calls.",
+    "failure_scenario": "GPU build, 'fix 1 all nve/limit/kk 0.1' on a system with per-type masses (no rmass) and no other /kk style that happens to sync k_mass: d_mass holds whatever the freshly allocated device buffer contains (typically zeros), so dtfm = dtf/0 = inf and every velocity becomes NaN on the first half-kick.",
+    "suggested_fix": "Add an init() override to FixNVELimitKokkos that calls FixNVELimit::init() and then 'atomKK->k_mass.modify_host(); atomKK->k_mass.template sync<DeviceType>();', exactly as fix_nve_kokkos.cpp:41-47 does."
+  },
+  {
+    "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+    "line": 476,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "zero_force_item() subtracts the mean random force from f only, not from d_flangevin, so with 'zero yes tally yes' the tallied Langevin energy uses an uncorrected force (the CPU version corrects both).",
+    "evidence": "src/fix_langevin.cpp:487-500 (Tp_ZERO block):\n    for (int i = 0; i < nlocal; i++) {\n      if (mask[i] & groupbit) {\n        f[i][0] -= fsumall[0]; ...\n        if (Tp_TALLY) {\n          flangevin[i][0] -= fsumall[0];\n          flangevin[i][1] -= fsumall[1];\n          flangevin[i][2] -= fsumall[2];\n        }\n      }\n    }\nsrc/KOKKOS/fix_langevin_kokkos.cpp:474-481:\n  if (mask[i] & groupbit) {\n    f(i,0) -= static_cast<KK_ACC_FLOAT>(d_fsumall[0]);\n    f(i,1) -= static_cast<KK_ACC_FLOAT>(d_fsumall[1]);\n    f(i,2) -= static_cast<KK_ACC_FLOAT>(d_fsumall[2]);\n  }\nd_flangevin is written only in post_force_item (line 453-457) and read in compute_energy_item (line 733); nothing subtracts d_fsumall from it.",
+    "failure_scenario": "'fix f all langevin/kk 300 300 100 999 zero yes tally yes' -- f_f (the cumulative energy transferred to the reservoir, used in ecouple/thermo output and for energy conservation checks) differs from the equivalent non-kk run by the omitted -fsumall*v term at every step.",
+    "suggested_fix": "In zero_force_item(), also subtract d_fsumall from d_flangevin(i,*) when the tally array is active (add a template flag, mirroring Tp_TALLY in the CPU code)."
+  },
+  {
+    "file": "src/KOKKOS/fix_momentum_kokkos.cpp",
+    "line": 120,
+    "severity": "medium",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "get_kinetic_energy() reads the per-type mass dual view on the device without calling atomKK->k_mass.sync<DeviceType>() first, so it can use a stale (or never-copied) device mass array.",
+    "evidence": "src/KOKKOS/fix_momentum_kokkos.cpp:116-126:\n  } else {\n    // D.I. : why is there no MASS_MASK ?\n    atomKK->sync(execution_space, TYPE_MASK);\n    typename AT::t_int_1d_randomread type = atomKK->k_type.view<DeviceType>();\n    typename AT::t_kkfloat_1d_randomread mass = atomKK->k_mass.view<DeviceType>();\n    Kokkos::parallel_reduce(... mass(type(i)) ...)\nThere is no MASS_MASK bit (src/atom_masks.h has RMASS_MASK at :34 but no MASS_MASK), so k_mass must be synced explicitly.  Every other consumer in the package does exactly that, e.g. src/KOKKOS/group_kokkos.h:63-64, :121-122, :194-195, :253-254, :320-321, :392-393, :470-471 all pair 'atomKK->sync(execution_space,...TYPE_MASK); atomKK->k_mass.template sync<DeviceType>();'.  AtomKokkos::set_mass() and allocate_type_arrays() mark k_mass host-modified (src/KOKKOS/atom_kokkos.cpp:283-306, :313-317).",
+    "failure_scenario": "A 'mass' command (or a data-file read) between runs marks k_mass host-modified; if fix momentum/kk with 'rescale yes' is the first device consumer of the masses, the reduction uses the previous (or zero-filled) device copy, so ekin_old/ekin_new and hence the rescale factor are wrong -- silently, since factor just becomes 1.0 when both are 0.",
+    "suggested_fix": "Add 'atomKK->k_mass.template sync<DeviceType>();' next to the TYPE_MASK sync in get_kinetic_energy(), matching src/KOKKOS/group_kokkos.h."
+  },
+  {
+    "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+    "line": 137,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "FixLangevinKokkos::setup() unconditionally calls post_force(vflag), dropping the r-RESPA branch of the base setup() and without erroring out on respa the way every other KOKKOS fix does.",
+    "evidence": "src/fix_langevin.cpp:270-280:\n  void FixLangevin::setup(int vflag) {\n    if (utils::strmatch(update->integrate_style, \"^verlet\")) post_force(vflag);\n    else { respa->copy_flevel_f(nlevels_respa - 1); post_force_respa(vflag, nlevels_respa - 1, 0); respa->copy_f_flevel(nlevels_respa - 1); }\n  }\nsrc/KOKKOS/fix_langevin_kokkos.cpp:136-140:\n  void FixLangevinKokkos<DeviceType>::setup(int vflag) { post_force(vflag); }\nsetmask() still sets POST_FORCE_RESPA (src/fix_langevin.cpp:176) and FixLangevinKokkos::init() has no respa guard, unlike e.g. src/KOKKOS/fix_efield_kokkos.cpp:75 or fix_drag_kokkos.cpp:55 which do error->all(FLERR,\"Cannot (yet) use respa with ...\").",
+    "failure_scenario": "'run_style respa 2 2' plus 'fix f all langevin/kk ...': at setup the Langevin force is added to atom->f without copy_flevel_f/copy_f_flevel, so the outer-level respa force array does not contain it and the first steps of the run use a different force than the non-kk build.",
+    "suggested_fix": "Either replicate the base setup()'s respa branch, or add the standard 'Cannot (yet) use respa with fix langevin/kk' error in FixLangevinKokkos::init()."
+  },
+  {
+    "file": "src/KOKKOS/fix_neigh_history_kokkos.cpp",
+    "line": 258,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "post_neighbor()'s kernel writes the masked neighbor index into d_firstflag instead of writing it back into d_neighbors, leaving non-boolean values in the per-neighbor history flag array.",
+    "evidence": "src/fix_neigh_history.cpp:665-669 (CPU):\n      if (use_bit_flag && !surface_global) {\n        rflag = histmask(j) | pair->beyond_contact;\n        j &= HISTMASK;\n        jlist[jj] = j;          <-- writes back into the NEIGHBOR LIST\n      } else rflag = 1;\nand it later sets 'allflags[jj] = 0;' on every path where no history is found.\nsrc/KOKKOS/fix_neigh_history_kokkos.cpp:254-261:\n    int rflag;\n    if (use_bit_flag) {\n      rflag = histmask(j) | beyond_contact;\n      j &= HISTMASK;\n      d_firstflag(i,jj) = j;   <-- writes the neighbor index into the FLAG array\n    } else {\n      rflag = 1;\n    }\nOnly the 'm < np' path (line 279) resets it to 1; otherwise d_firstflag(i,jj) keeps the (usually nonzero) neighbor index, while pre_exchange treats it as a boolean ('if (d_firstflag(i,jj))', line 161).",
+    "failure_scenario": "Today the two ported granular pair styles happen to hide it -- pair_gran_hooke_history_kokkos.cpp:172 and pair_gran_hertz_history_kokkos.cpp:172 both Kokkos::deep_copy(d_firsttouch,0) at the start of every compute(), so the bogus flags are wiped before pre_exchange reads them.  Any pair style that does not re-zero the flags (or any path where pre_exchange follows post_neighbor without an intervening compute) would count every neighbor as a history partner, immediately overflow maxpartner, and store zero-valued history.",
+    "suggested_fix": "Change the statement to 'd_neighbors(i,jj) = j;' to mirror the CPU's 'jlist[jj] = j;', and explicitly leave d_firstflag(i,jj) at the 0 written by the preceding deep_copy unless history is found."
+  },
+  {
+    "file": "src/KOKKOS/fix_minimize_kokkos.cpp",
+    "line": 101,
+    "severity": "low",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "Neither FixMinimize's nor FixMinimizeKokkos's destructor starts with the mandatory 'if (copymode) return;' guard.",
+    "evidence": "src/fix_minimize.cpp:37-50 'FixMinimize::~FixMinimize() { atom->delete_callback(id,Atom::GROW); memory->destroy(peratom); if (vectors) {...} }' has no copymode test, and src/KOKKOS/fix_minimize_kokkos.cpp:101-105 'FixMinimizeKokkos::~FixMinimizeKokkos() { memoryKK->destroy_kokkos(k_vectors,vectors); vectors = nullptr; }' has none either.  .github/instructions/kokkos.instructions.md rule 1 requires the guard as the first line of every base-class destructor a KOKKOS style inherits.",
+    "failure_scenario": "Today the class is only used through lambdas that capture views, so copymode is never set and nothing double-frees; the moment anyone passes *this to a parallel_for the copy's destructor would delete_callback() and free k_vectors out from under the live fix.",
+    "suggested_fix": "Add 'if (copymode) return;' as the first statement of both destructors."
+  },
+  {
+    "file": "src/KOKKOS/fix_nh_kokkos.cpp",
+    "line": 579,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "nh_v_press() and nh_v_temp() call temperature->restore_bias_all() rather than restore_bias_all_kk() on a kokkosable temperature compute, forcing a full device->host copy of v twice per timestep.",
+    "evidence": "src/KOKKOS/fix_nh_kokkos.cpp:578-579 'if (which == BIAS) { if (temperature->kokkosable) temperature->restore_bias_all();' and the identical line at :733-734, while the matching remove calls at :558 and :716 correctly use remove_bias_all_kk().  Every KOKKOS temperature compute implements restore_bias_all() as 'restore_bias_all_kk(); atomKK->sync(Host,V_MASK);' (src/KOKKOS/compute_temp_partial_kokkos.cpp:212-216, and the same shape in compute_temp_deform/ramp/com/profile/region_kokkos.cpp), i.e. the non-_kk entry point adds a host copy of the whole velocity array.  All sibling fixes use the _kk form: src/KOKKOS/fix_temp_rescale_kokkos.cpp:162, fix_temp_berendsen_kokkos.cpp:159, fix_nvt_sllod_kokkos.cpp:386, fix_langevin_kokkos.cpp:371.",
+    "failure_scenario": "GPU run of 'fix 1 all npt/kk temp ... ' with 'fix_modify 1 temp <a temp/partial/kk or temp/profile/kk compute>': every timestep transfers atom->v device->host twice (once from nh_v_press, once from nh_v_temp) for no reason; results are correct but the port loses most of its speedup.",
+    "suggested_fix": "Change both kokkosable branches to temperature->restore_bias_all_kk()."
+  },
+  {
+    "file": "src/KOKKOS/fix_nh_kokkos.cpp",
+    "line": 374,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "FixNHKokkos::remap() converts the dilate-group atoms with a host loop (two full x host/device round trips per remap) although DomainKokkos already provides a device x2lamda/lamda2x variant that takes a groupbit.",
+    "evidence": "src/KOKKOS/fix_nh_kokkos.cpp:368-381 and :523-536:\n  if (allremap) domainKK->x2lamda(nlocal);\n  else {\n    atomKK->sync(Host,X_MASK|MASK_MASK);\n    auto h_x = atomKK->k_x.view_host();\n    auto h_mask = atomKK->k_mask.view_host();\n    for (int i = 0; i < nlocal; i++)\n      if (h_mask[i] & dilate_group_bit) domainKK->x2lamda(&h_x(i,0), &h_x(i,0));\n    atomKK->modified(Host,X_MASK);\n  }\nsrc/KOKKOS/domain_kokkos.cpp:689-704 defines 'void DomainKokkos::x2lamda(int n, int groupbit_in)' (and :625-641 lamda2x) which runs the same conversion in a device kernel and does its own sync/modified.  The sibling barostat already uses it: src/KOKKOS/fix_press_berendsen_kokkos.cpp:156-159 'if (allremap) domain->x2lamda(nlocal); else domain->x2lamda(nlocal, groupbit);'.",
+    "failure_scenario": "'fix 1 all npt/kk ... dilate mygroup' on a GPU: remap() is called twice per timestep and each call copies the whole coordinate array device->host and back twice, so the /kk barostat is slower than the plain CPU one; results are correct.",
+    "suggested_fix": "Replace both host loops with 'domainKK->x2lamda(nlocal, dilate_group_bit);' and 'domainKK->lamda2x(nlocal, dilate_group_bit);'."
+  },
+  {
+    "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+    "line": 765,
+    "severity": "low",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "FixLangevinKokkos::end_of_step() marks V_MASK and k_lv as device-modified although it only reads v and never touches lv.",
+    "evidence": "src/KOKKOS/fix_langevin_kokkos.cpp:743-770 launches only FixLangevinKokkosTallyEnergyFunctor (a read-only reduction over d_flangevin and v) and then does\n  atomKK->modified(execution_space,V_MASK);\n  k_lv.template modify<DeviceType>();\nThe base end_of_step (src/fix_langevin.cpp:651-666) only accumulates energy.  k_lv is a TransformView (kokkos_type.h:698); marking it device-modified while copy_arrays() (fix_langevin_kokkos.cpp:830) marks the legacy host side modified is exactly the state TransformView::modify_device_legacy() aborts on ('Concurrent modification of legacy host and device views').",
+    "failure_scenario": "Spurious device->host copies of v every step; and if lv were ever registered for atom callbacks (grow_arrays/copy_arrays are currently dead code because fix langevin registers no Atom::GROW callback), a copy_arrays() followed by end_of_step() would hit Kokkos::abort on a GPU build.",
+    "suggested_fix": "Delete both statements: end_of_step() writes nothing.  Consider removing the vestigial lv/franprev/end_of_step_item code entirely now that the gjf option has been removed from fix langevin."
+  }
+]
+COVERAGE: all files read completely

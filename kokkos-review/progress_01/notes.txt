@@ -1,0 +1,50 @@
+GROUP 01 - all 16 assigned files read line by line. Review COMPLETE.
+
+Base classes used for comparison:
+  angle harmonic  -> src/MOLECULE/angle_harmonic.cpp/.h
+  angle hybrid    -> src/angle_hybrid.cpp/.h        (core src/, not a package)
+  angle mm3       -> src/YAFF/angle_mm3.cpp/.h
+  angle mwlc      -> src/EXTRA-MOLECULE/angle_mwlc.cpp/.h
+  angle quartic   -> src/EXTRA-MOLECULE/angle_quartic.cpp/.h
+  angle spica     -> src/CG-SPICA/angle_spica.cpp/.h (+ src/CG-SPICA/pair_lj_spica.cpp extract())
+  angle table     -> src/MOLECULE/angle_table.cpp/.h
+  atom_vec spin   -> src/SPIN/atom_vec_spin.cpp/.h
+  generic tally   -> src/angle.cpp  Angle::ev_tally / Angle::ev_setup
+  reference kk atom_vec -> src/KOKKOS/atom_vec_atomic_kokkos.cpp (sync_pinned pattern)
+
+Verified-OK (do not re-report):
+- All 6 templated angle kk styles reproduce the CPU force/energy formulas exactly
+  (harmonic, mm3, mwlc, quartic, spica, table); signs, a11/a12/a22, f1/f3 all match.
+- The commented-out "atomKK->sync(execution_space,datamask_read)" in harmonic/table is
+  intentional; verlet_kokkos.cpp:472-479 does the sync/modified for topology styles
+  (comment block in angle_spica_kokkos.cpp:102-108 documents it).
+- All 6 set centroidstressflag = CENTROID_NOTAVAIL so the missing cvflag_atom branch in
+  their kk ev_tally is correct.
+- All 6 base classes have "virtual void allocate()" and a copymode-guarded destructor.
+  AngleTable::allocate() is NOT virtual, but AngleTableKokkos does not override it - OK.
+- angle_table: kk tables are ntables x (tablength+1); the spline branch reading itable+1
+  at itable==tablength-1 is safe (b==0 there); base compute_table always fills e2/f2.
+- angle_table setup_tables() is called from init_style => covers restart and repeated
+  angle_coeff.
+- read_restart overrides all call the base first (which calls the virtual allocate(),
+  re-creating the dual views and re-assigning d_*), then refill host + modify_host. OK.
+- All per-atom views are typename AT::..., DAT:: only for self-allocated dual views (rule 3 OK).
+- Kokkos:: math everywhere, no std::pow/exp, no alternative logical tokens, no printf.
+- Explicit template instantiation present at the bottom of every templated .cpp.
+- atom_vec_spin_kokkos: local "static constexpr int DELTA = 10" equals
+  LMP_KOKKOS_AV_DELTA (kokkos_type.h:45), so no behavioural difference - not a bug.
+- atom_vec_spin_kokkos relies on the generic AtomVecKokkos pack/unpack machinery
+  (SP_MASK/FM_MASK/FML_MASK handled in atom_vec_kokkos.cpp) - same as atom_vec_atomic_kokkos.
+- angle_hybrid_kokkos maxangle_all growth loop is monotone and always >= max nanglelist[m].
+- doc/src/angle_{mm3,mwlc,quartic,harmonic,spica,table,hybrid}.rst all carry the
+  index + Accelerator Variants entries (angle_spica.rst lists "*spica/omp*, *spica/kk*",
+  i.e. not alphabetical - cosmetic only, not reported).
+
+Candidates considered and DROPPED:
+- ev_tally in harmonic/mwlc/quartic/table computes THIRD*v then multiplies by 3.0 for
+  the newton_bond global-virial branch: ~1 ulp difference vs CPU, negligible.
+- angle_hybrid_kokkos.cpp:113-114 redundant modify_device()/sync_host() of k_nanglelist
+  on non-reneighbour steps: harmless.
+- AngleHybridKokkos::allocate/deallocate vs the base's raw nanglelist/maxangle/anglelist
+  arrays: the KK deallocate() clears allocated first, so AngleHybrid::deallocate() (called
+  from ~AngleHybrid) returns early and never dereferences the null anglelist. OK.

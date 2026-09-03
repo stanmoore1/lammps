@@ -1,0 +1,63 @@
+GROUP 03 = all bond_*_kokkos styles.  ALL 34 assigned files read line-by-line and
+compared against their CPU base classes.  Findings are in findings.jsonl.
+
+Base-class locations used (for a successor):
+  bond_class2            -> src/CLASS2/bond_class2.cpp
+  bond_fene              -> src/MOLECULE/bond_fene.cpp
+  bond_fene_expand       -> src/MOLECULE/bond_fene_expand.cpp
+  bond_fene_nm           -> src/EXTRA-MOLECULE/bond_fene_nm.cpp   (derives from BondFENE)
+  bond_gaussian          -> src/EXTRA-MOLECULE/bond_gaussian.cpp
+  bond_gromos            -> src/MOLECULE/bond_gromos.cpp
+  bond_harmonic          -> src/MOLECULE/bond_harmonic.cpp
+  bond_harmonic_restrain -> src/EXTRA-MOLECULE/bond_harmonic_restrain.cpp
+  bond_harmonic_shift    -> src/EXTRA-MOLECULE/bond_harmonic_shift.cpp
+  bond_harmonic_shift_cut-> src/EXTRA-MOLECULE/bond_harmonic_shift_cut.cpp
+  bond_hybrid            -> src/bond_hybrid.cpp
+  bond_mm3               -> src/YAFF/bond_mm3.cpp
+  bond_morse             -> src/MOLECULE/bond_morse.cpp
+  bond_nonlinear         -> src/EXTRA-MOLECULE/bond_nonlinear.cpp
+  bond_quartic           -> src/MOLECULE/bond_quartic.cpp
+  bond_quartic_exp       -> src/EXTRA-MOLECULE/bond_quartic_exp.cpp
+  bond_table             -> src/MOLECULE/bond_table.cpp
+  ev_tally reference     -> src/bond.cpp:178-260
+
+Checked and found CLEAN (no finding filed):
+- ev_tally math of every style matches Bond::ev_tally (src/bond.cpp:178) including the
+  newton_bond half/full factors and the 2.0*v_half_acc convention.
+- Force/energy expressions of class2, fene, fene/expand, fene/nm, gaussian, gromos,
+  harmonic, harmonic/restrain, harmonic/shift, harmonic/shift/cut, mm3, morse,
+  nonlinear, quartic, quartic/exp, table all match the CPU formulas term for term.
+- Rule 1 (copymode guard in base dtor): every base class has it
+  (`if (copymode) return;` or `if (allocated && !copymode)`).
+- Rule 2 (virtual allocate): every base header that a kokkos subclass overrides declares
+  it virtual; bond_table.h's allocate() is non-virtual but BondTableKokkos does not
+  override it, so that is fine.
+- Rule 3 (DAT:: per-atom views): the `Kokkos::View<...,DAT::t_kkacc_1d_3::array_layout,
+  KKDevice<DeviceType>::value,...> f` idiom is safe because kokkos_type.h defines the
+  HOST dual views with LMPDeviceLayout as well (kokkos_type.h:1244, 1323ff), so host and
+  device layouts agree.  Only the layout type name is taken from DAT, not the space.
+- Explicit template instantiation present at the bottom of every .cpp.
+- All device math uses Kokkos:: (sqrt/exp/log/pow/abs).  Only exception noted:
+  std::numeric_limits in bond_gaussian_kokkos.cpp (filed, low).
+- No alternative logical tokens, no VLAs, no sprintf/printf.
+- Callers (VerletKokkos, verlet_kokkos.cpp:162-166/252-256/463-471) do the
+  atomKK->sync/modified around bond->compute, so bond styles need not do it themselves.
+- BondHybrid::init_style() writes map[0] = has_quartic on the host without a
+  k_map.modify_host(); this is SAFE only because coeff()'s pending modify_host flag is
+  still set when the first compute() calls k_map.sync_device().  Fragile but not a bug.
+- BondHybrid::read_restart does NOT restore map[]/setflag (hybrid coeffs are not stored
+  in restart files), so there is no missing modify_host there either.
+- BondHybridKokkos::maxbond_all loop (bond_hybrid_kokkos.cpp:85-88) looks wrong but is
+  provably >= max(nbondlist[m]) because EXTRA=1000 is always added; NOT a bug.
+- src/KOKKOS/Install.sh action() only removes files (mode 0); the KOKKOS package no
+  longer supports the legacy make build (Install.sh:757), so the 22 missing action
+  lines only affect stale-file cleanup on `make no-kokkos`.  Filed as low/rule.
+
+Open candidates deliberately NOT filed (could not substantiate):
+- bond_nonlinear_kokkos.cpp:164 adds an `if (r > 0)` guard the CPU
+  (src/EXTRA-MOLECULE/bond_nonlinear.cpp:87) does not have.  KK is safer, not wrong.
+- bond_gaussian_kokkos.cpp update_2d_views() only reallocates the 2-D views when
+  max nterms grows; the first dimension is ntypes+1 which cannot change within one
+  style object, so no out-of-bounds.
+- FixStoreAtom ghost forward-comm dependency in harmonic/restrain is identical in the
+  CPU base, so not a KOKKOS regression.

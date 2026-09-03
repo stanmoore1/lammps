@@ -1,0 +1,48 @@
+[
+  {
+    "file": "src/KOKKOS/dihedral_hybrid_kokkos.cpp",
+    "line": 148,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "dihedral_style hybrid/kk keeps the base class default centroidstressflag = CENTROID_AVAIL while every KOKKOS dihedral sub-style sets CENTROID_NOTAVAIL, so with a centroid/stress/atom compute the hybrid enters its cvflag_atom branch and dereferences styles[m]->cvatom, which the sub-styles never allocate (nullptr).",
+    "evidence": "src/KOKKOS/dihedral_hybrid_kokkos.cpp:145-151 'if (cvflag_atom) {\\n      int n = atom->nlocal;\\n      if (force->newton_bond) n += atom->nghost;\\n      double **cvatom_substyle = styles[m]->cvatom;\\n      for (int i = 0; i < n; i++)\\n        for (int j = 0; j < 9; j++) cvatom[i][j] += cvatom_substyle[i][j];\\n    }'. DihedralHybridKokkos's constructor (lines 33-44) never touches centroidstressflag, so it keeps src/dihedral.cpp:47 'centroidstressflag = CENTROID_AVAIL;' and src/dihedral.cpp:127 'if (vflag & VIRIAL_CENTROID && centroidstressflag == CENTROID_AVAIL) cvflag_atom = 1;' makes the hybrid's cvflag_atom = 1. Every KOKKOS dihedral sub-style instead sets CENTROID_NOTAVAIL (e.g. dihedral_harmonic_kokkos.cpp:51, dihedral_charmm_kokkos.cpp:54, dihedral_class2_kokkos.cpp:52, dihedral_opls_kokkos.cpp:53 - all 16 of them), so src/dihedral.cpp:125-127 gives them cvflag_atom = 0 and their cvatom stays the nullptr set in src/dihedral.cpp:45. No CPU dihedral style sets centroidstressflag (grep over src/**/dihedral_*.cpp outside KOKKOS returns nothing), which is why the identical CPU code in src/dihedral_hybrid.cpp works. src/integrate.cpp:146 'if (flag || (tdflag && (!cvlist_atom.empty()))) cvflag_atom = VIRIAL_CENTROID;' shows VIRIAL_CENTROID is set whenever a centroid/stress/atom compute exists.",
+    "failure_scenario": "'dihedral_style hybrid/kk harmonic opls' plus 'compute p all centroid/stress/atom NULL' and a thermo/dump referencing it: on the first force evaluation cvatom_substyle is nullptr and the inner loop segfaults. Even without the crash the sub-styles' per-atom virial is silently dropped, because the hybrid's own vflag_atom stays 0 while the sub-styles fill vatom.",
+    "suggested_fix": "Set centroidstressflag = CENTROID_NOTAVAIL in the DihedralHybridKokkos constructor (matching all KOKKOS sub-styles), or make init_style() derive the hybrid's flag from the sub-styles and skip/guard the cvatom accumulation when a sub-style did not produce cvatom. The same shape exists in angle_hybrid_kokkos.cpp:144 and improper_hybrid_kokkos.cpp:146."
+  },
+  {
+    "file": "src/KOKKOS/dihedral_fourier_kokkos.cpp",
+    "line": 357,
+    "severity": "medium",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "allocate_kokkos() calls DualView::resize() without first forcing the host copy to be the newest, so on a GPU build a dihedral_coeff issued after a run (when the dual views are in the 'device up to date' state) silently zeroes the host mirror and then that zeroed mirror is copied back over the device coefficients.",
+    "evidence": "src/KOKKOS/dihedral_fourier_kokkos.cpp:356-362 '} else {\\n    k_k.resize(n+1,nterms_max);\\n    k_cos_shift.resize(n+1,nterms_max);\\n    k_sin_shift.resize(n+1,nterms_max);\\n    k_multiplicity.resize(n+1,nterms_max);\\n    k_nterms.resize(n+1);\\n  }'. lib/kokkos/containers/src/Kokkos_DualView.hpp:1027-1031 picks the branch: 'if (modified_flags(1) >= modified_flags(0)) resize_on_device(arg_prop); else resize_on_host(arg_prop);'. resize_on_device (lines 962-974) resizes only d_view and then calls resync_host(), which at line 1044 does 'h_view = create_mirror_view(typename t_host::memory_space(), d_view);' -- a freshly value-initialized host array, NOT a copy of the device data -- and then '++modified_flags(1)'. DihedralFourierKokkos<DeviceType>::compute() line 96-100 ends every step with 'k_k.template sync<DeviceType>();' etc., which resets both modified flags to 0, so on the next dihedral_coeff the condition modified_flags(1) >= modified_flags(0) is 0 >= 0 == true and the device branch is taken. coeff() (lines 386-400) then rewrites only rows ilo..ihi of the host mirror and calls k_k.modify_host(), making the (mostly zero) host copy newest, and the next compute()'s sync<DeviceType>() deep-copies it onto the device.",
+    "failure_scenario": "GPU build (host and device memory spaces differ). Input: 'dihedral_style fourier/kk; dihedral_coeff 1 2 ...; dihedral_coeff 2 2 ...; run 100; dihedral_coeff 3 4 ... (nterms_max grows from 2 to 4); run 100'. In the second run all dihedral types except type 3 have k/cos_shift/sin_shift/multiplicity = 0, so their dihedral energies and forces silently become zero.",
+    "suggested_fix": "Call sync_host()/modify_host() (or simply k_*.sync_host() followed by modify_host()) on each dual view before resizing, or pass Kokkos::view_alloc(Kokkos::SequentialHostInit) / reallocate and refill all types after a resize, so the host mirror is authoritative when resize() runs."
+  },
+  {
+    "file": "src/KOKKOS/dihedral_harmonic_kokkos.cpp",
+    "line": 44,
+    "severity": "low",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "Eight of the dihedral KOKKOS styles declare Q_MASK in datamask_read although none of them ever reads atom->q, so VerletKokkos performs a needless charge sync around every dihedral compute.",
+    "evidence": "src/KOKKOS/dihedral_harmonic_kokkos.cpp:44 'datamask_read = X_MASK | F_MASK | Q_MASK | ENERGY_MASK | VIRIAL_MASK;' and the same line in dihedral_class2_kokkos.cpp:45, dihedral_class2xe_kokkos.cpp:46, dihedral_cosine_shift_exp_kokkos.cpp:46, dihedral_cosine_squared_restricted_kokkos.cpp:48, dihedral_fourier_kokkos.cpp:46, dihedral_helix_kokkos.cpp:49 and dihedral_multi_harmonic_kokkos.cpp:45. Grepping those eight .cpp/.h pairs for 'k_q' or 'q[i' returns zero hits -- only dihedral_charmm_kokkos.cpp (line 109 'q = atomKK->k_q.view<DeviceType>();') and dihedral_charmmfsw_kokkos.cpp:116 actually read charge. src/KOKKOS/verlet_kokkos.cpp:173 'atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);' is what consumes the mask. .github/instructions/kokkos.instructions.md requires datamask_read to be 'exactly the per-atom arrays the style reads and writes'.",
+    "failure_scenario": "No wrong numbers; on a GPU build with a charged system the q dual view is considered part of the dihedral's read set every step, which can force extra host/device traffic and masks a genuine mask error if one is ever introduced.",
+    "suggested_fix": "Drop Q_MASK from datamask_read in the eight styles that do not touch atom->q, keeping it only in dihedral_charmm_kokkos and dihedral_charmmfsw_kokkos."
+  },
+  {
+    "file": "src/KOKKOS/dihedral_charmmfsw_kokkos.cpp",
+    "line": 84,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "The neighbor-list error message in dihedral charmmfsw/kk names the wrong style ('charmm/kk'), which will misdirect a user who is running charmmfsw/kk.",
+    "evidence": "src/KOKKOS/dihedral_charmmfsw_kokkos.cpp:83-84 'if (lmp->kokkos->neighflag == FULL)\\n    error->all(FLERR,\"Dihedral_style charmm/kk requires half neighbor list\");' -- copy-pasted verbatim from src/KOKKOS/dihedral_charmm_kokkos.cpp:76-77 without renaming the style.",
+    "failure_scenario": "User runs 'dihedral_style charmmfsw/kk' with '-pk kokkos neigh full' and is told that 'Dihedral_style charmm/kk' is at fault, a style not present in the input.",
+    "suggested_fix": "Change the message text to 'Dihedral_style charmmfsw/kk requires half neighbor list'."
+  }
+]
+
+COVERAGE: all files read completely

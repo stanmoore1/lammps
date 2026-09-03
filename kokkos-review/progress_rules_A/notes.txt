@@ -1,0 +1,55 @@
+# rules_A audit notes
+Scripts: lib_parse.py (class/dtor index), rule1.py -> rule1_raw.json (64 dtor candidates
+w/o `if (copymode) return;` first that free something, over all base chains of src/KOKKOS
+classes), rule1b.py -> rule1_filtered.json + rule1b_out.txt (split HOT = some kk user sets
+copymode=1 / COLD).
+STEP 1 (script for rule 1) DONE. Next: manual verification of HOT+relevant COLD.
+
+RULE 1 (copymode in base destructors) -- DONE.
+Scripts: rule1.py(raw, all chains) rule1b.py(HOT/COLD) rule1c.py(which KOKKOS files copy
+*this / KOKKOS_CLASS_LAMBDA -> rule1c.json) rule1d.py(at-risk chains, incl. class itself ->
+rule1d_self.json) rule1e.py(wider free-pattern -> rule1e.json, 0 new hits).
+Verified manually and DISMISSED:
+ - Pair::~Pair src/pair.cpp:138-142 frees list_tally_compute BEFORE `if (copymode) return;`
+   -> harmless: Pair::add_tally_callback (pair.cpp:835) does error->all "Cannot yet use
+   compute tally with Kokkos" when lmp->kokkos, so list_tally_compute is always nullptr.
+ - ComputeGridLocal::~ComputeGridLocal calls deallocate(), which itself starts with
+   `if (copymode) return;` (compute_grid_local.cpp:123). OK.
+ - ComputeTemp/ComputeTempCOM use `if (!copymode) delete[] vector;` -- equivalent guard.
+ - all bond/angle/dihedral/improper CPU bases use `if (allocated && !copymode) {...}` -- OK.
+ - PairTIP4PKokkos / FixRigidNHSmallKokkos use `if (this->copymode) return;` -- OK.
+ - Fix/Compute/Pair/Bond/Angle/Dihedral/Improper/KSpace root dtors all guarded first line.
+ - PairPOD::~PairPOD (ML-POD/pair_pod.cpp:107) has NO guard and frees ~50 arrays +
+   fastpodptr + setflag/cutsq, and PairPODKokkos sets copymode=1 (pair_pod_kokkos.cpp:208).
+   BUT pair_pod_kokkos only uses KOKKOS_LAMBDA with local shadow views, never copies *this
+   and never uses pair_compute<>/PairComputeFunctor -> no copy is ever made today. Latent
+   only. Reported at low severity.
+FINDING: FixShardlow::~FixShardlow (src/DPD-REACT/fix_shardlow.cpp:118) no guard.
+
+RULE 2 scripts: rule2.py -> rule2_raw.json (204 raw), rule2_filtered.json/out (62 after
+dropping KOKKOS_INLINE_FUNCTION device shadows and arity mismatches).
+NOTE: lib_parse.strip_comments was fixed to preserve newlines (line numbers in rule2_raw
+before that fix were WRONG). rule1* line numbers came from raw text and were always right.
+
+RULE 2 (virtual overrides) -- DONE. Two independent scripts (rule2.py class-body parser,
+rule2b.py line-based cross-check) agree. Real findings: DynamicalMatrixKokkos::setup and
+ThirdOrderKokkos::setup (base setup() not virtual, KK version dead).
+Verified and DISMISSED as intentional name shadowing / not called through a base pointer:
+ PPPMKokkos compute_rho_coeff/setup_triclinic/compute_gf_ik_triclinic/poisson_ik_triclinic
+ (only PPPMKokkos code calls them; PPPMKokkos overrides all base entry points);
+ PairMLIAPKokkos::e_tally (called only from PairMLIAPKokkos::compute, cpp:133);
+ MLIAPModelPythonKokkos::connect_param_counts and MLIAPDummyDescriptorKokkos::set_elements
+ (own Cython coupling modules); FixLangevinKokkos compute_target/angmom_thermostat (base
+ callers are inside FixLangevin::post_force_templated, which the KK style never runs);
+ FixMinimizeKokkos::reset_coords (MinKokkos::energy_force overrides and uses fix_minimize_kk);
+ PairMultiLucyRXKokkos::computeLocalDensity, FixRxKokkos::odeDiagnostics/
+ computeLocalTemperature (own overridden callers); FixEOStableRX(Kokkos)::allocate (dead
+ declaration, no definition anywhere); DomainKokkos::closest_image (declared, never defined);
+ Grid3dKokkos forward_comm/reverse_comm (different parameter types, overload not override);
+ all KOKKOS_INLINE_FUNCTION device helpers (ev_tally, v_tally, twobody, e_zbl,
+ polar_prefactor, getMixingWeights, set_3_orthogonal_vectors, PairPOD/PairExp6rx helpers).
+RULE 3 (copymode=1 with a return path that never resets) -- DONE, rule3.py/rule3.json.
+ Real: fix_wall_gran_kokkos.cpp:105 (+ generic error->all pattern, see findings).
+ False positives: pppm_kokkos.cpp poisson_ik (return at 1534 is outside a 1/0 pair) and all
+ the "no copymode=0" hits, which are `k_list.copymode = 1` in FindMaxNumNeighs destructors.
+ALL DONE.

@@ -1,0 +1,2735 @@
+[
+ {
+  "file": "angle_charmm_kokkos.cpp",
+  "copy_lines": [
+   105,
+   107,
+   111,
+   113
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   97
+  ]
+ },
+ {
+  "file": "angle_class2_kokkos.cpp",
+  "copy_lines": [
+   121,
+   123,
+   127,
+   129
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   113
+  ]
+ },
+ {
+  "file": "angle_class2_p6_kokkos.cpp",
+  "copy_lines": [
+   111,
+   114,
+   119,
+   122
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   105
+  ]
+ },
+ {
+  "file": "angle_class2xe_kokkos.cpp",
+  "copy_lines": [
+   120,
+   122,
+   126,
+   128
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   112
+  ]
+ },
+ {
+  "file": "angle_cosine_delta_kokkos.cpp",
+  "copy_lines": [
+   109,
+   111,
+   115,
+   117
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   101
+  ]
+ },
+ {
+  "file": "angle_cosine_kokkos.cpp",
+  "copy_lines": [
+   104,
+   106,
+   110,
+   112
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "angle_cosine_periodic_kokkos.cpp",
+  "copy_lines": [
+   107,
+   109,
+   113,
+   115
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   99
+  ]
+ },
+ {
+  "file": "angle_cosine_shift_exp_kokkos.cpp",
+  "copy_lines": [
+   110,
+   112,
+   116,
+   118
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   102
+  ]
+ },
+ {
+  "file": "angle_cosine_shift_kokkos.cpp",
+  "copy_lines": [
+   109,
+   111,
+   115,
+   117
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   101
+  ]
+ },
+ {
+  "file": "angle_cosine_squared_kokkos.cpp",
+  "copy_lines": [
+   106,
+   108,
+   112,
+   114
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   98
+  ]
+ },
+ {
+  "file": "angle_cosine_squared_restricted_kokkos.cpp",
+  "copy_lines": [
+   106,
+   108,
+   112,
+   114
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   98
+  ]
+ },
+ {
+  "file": "angle_cross_kokkos.cpp",
+  "copy_lines": [
+   104,
+   106,
+   110,
+   112
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   98
+  ]
+ },
+ {
+  "file": "angle_dipole_kokkos.cpp",
+  "copy_lines": [
+   105,
+   107
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   100
+  ]
+ },
+ {
+  "file": "angle_fourier_kokkos.cpp",
+  "copy_lines": [
+   100,
+   102,
+   106,
+   108
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   94
+  ]
+ },
+ {
+  "file": "angle_fourier_simple_kokkos.cpp",
+  "copy_lines": [
+   101,
+   103,
+   107,
+   109
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   95
+  ]
+ },
+ {
+  "file": "angle_gaussian_kokkos.cpp",
+  "copy_lines": [
+   134,
+   136,
+   140,
+   142
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   128
+  ]
+ },
+ {
+  "file": "angle_harmonic_kokkos.cpp",
+  "copy_lines": [
+   111,
+   113,
+   117,
+   119
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   103
+  ]
+ },
+ {
+  "file": "angle_mm3_kokkos.cpp",
+  "copy_lines": [
+   100,
+   103,
+   108,
+   111
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   94
+  ]
+ },
+ {
+  "file": "angle_mwlc_kokkos.cpp",
+  "copy_lines": [
+   102,
+   104,
+   108,
+   110
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "angle_quartic_kokkos.cpp",
+  "copy_lines": [
+   102,
+   104,
+   108,
+   110
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "angle_spica_kokkos.cpp",
+  "copy_lines": [
+   127,
+   129,
+   133,
+   135
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   119
+  ]
+ },
+ {
+  "file": "angle_table_kokkos.cpp",
+  "copy_lines": [
+   110,
+   112,
+   116,
+   118
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   102
+  ]
+ },
+ {
+  "file": "bond_class2_kokkos.cpp",
+  "copy_lines": [
+   114,
+   116,
+   121,
+   123,
+   126,
+   128
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   100
+  ]
+ },
+ {
+  "file": "bond_fene_expand_kokkos.cpp",
+  "copy_lines": [
+   115,
+   117,
+   122,
+   124,
+   127,
+   129
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   103
+  ]
+ },
+ {
+  "file": "bond_fene_kokkos.cpp",
+  "copy_lines": [
+   120,
+   122,
+   127,
+   129,
+   132,
+   134
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   106
+  ]
+ },
+ {
+  "file": "bond_fene_nm_kokkos.cpp",
+  "copy_lines": [
+   107,
+   109,
+   113,
+   115
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   101
+  ]
+ },
+ {
+  "file": "bond_gaussian_kokkos.cpp",
+  "copy_lines": [
+   110,
+   112,
+   116,
+   118
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   102
+  ]
+ },
+ {
+  "file": "bond_gromos_kokkos.cpp",
+  "copy_lines": [
+   98,
+   101,
+   106,
+   109
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   92
+  ]
+ },
+ {
+  "file": "bond_harmonic_kokkos.cpp",
+  "copy_lines": [
+   111,
+   113,
+   118,
+   120,
+   123,
+   125
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   97
+  ]
+ },
+ {
+  "file": "bond_harmonic_restrain_kokkos.cpp",
+  "copy_lines": [
+   142,
+   144,
+   148,
+   150
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   134
+  ]
+ },
+ {
+  "file": "bond_harmonic_shift_cut_kokkos.cpp",
+  "copy_lines": [
+   104,
+   106,
+   110,
+   112
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "bond_harmonic_shift_kokkos.cpp",
+  "copy_lines": [
+   104,
+   106,
+   110,
+   112
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "bond_mm3_kokkos.cpp",
+  "copy_lines": [
+   106,
+   109,
+   114,
+   117
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   100
+  ]
+ },
+ {
+  "file": "bond_morse_kokkos.cpp",
+  "copy_lines": [
+   104,
+   106,
+   110,
+   112
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "bond_nonlinear_kokkos.cpp",
+  "copy_lines": [
+   104,
+   106,
+   110,
+   112
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   96
+  ]
+ },
+ {
+  "file": "bond_quartic_exp_kokkos.cpp",
+  "copy_lines": [
+   100,
+   104,
+   110,
+   114
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   92
+  ]
+ },
+ {
+  "file": "bond_quartic_kokkos.cpp",
+  "copy_lines": [
+   134,
+   136,
+   140,
+   142
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   126
+  ]
+ },
+ {
+  "file": "bond_table_kokkos.cpp",
+  "copy_lines": [
+   190,
+   192,
+   196,
+   198
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   184
+  ]
+ },
+ {
+  "file": "compute_ave_sphere_atom_kokkos.cpp",
+  "copy_lines": [
+   128,
+   238,
+   267
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   126,
+   237,
+   266
+  ]
+ },
+ {
+  "file": "compute_centro_atom_kokkos.cpp",
+  "copy_lines": [
+   138,
+   141
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   135
+  ]
+ },
+ {
+  "file": "compute_composition_atom_kokkos.cpp",
+  "copy_lines": [
+   108
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   106
+  ]
+ },
+ {
+  "file": "compute_coord_atom_kokkos.cpp",
+  "copy_lines": [
+   157,
+   160,
+   164
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   153
+  ]
+ },
+ {
+  "file": "compute_entropy_atom_kokkos.cpp",
+  "copy_lines": [
+   148,
+   151,
+   155
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   145
+  ]
+ },
+ {
+  "file": "compute_erotate_sphere_atom_kokkos.cpp",
+  "copy_lines": [
+   76
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   75
+  ]
+ },
+ {
+  "file": "compute_gaussian_grid_local_kokkos.cpp",
+  "copy_lines": [
+   192
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   136
+  ]
+ },
+ {
+  "file": "compute_hexorder_atom_kokkos.cpp",
+  "copy_lines": [
+   118
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   116
+  ]
+ },
+ {
+  "file": "compute_ke_atom_kokkos.cpp",
+  "copy_lines": [
+   82,
+   84
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   80
+  ]
+ },
+ {
+  "file": "compute_orientorder_atom_kokkos.cpp",
+  "copy_lines": [
+   205,
+   210,
+   218,
+   223
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   117,
+   163
+  ]
+ },
+ {
+  "file": "compute_temp_com_kokkos.cpp",
+  "copy_lines": [
+   73,
+   75,
+   140,
+   142,
+   202,
+   240
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   71,
+   138,
+   201,
+   239
+  ]
+ },
+ {
+  "file": "compute_temp_deform_kokkos.cpp",
+  "copy_lines": [
+   192,
+   234,
+   286
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   191,
+   233,
+   285
+  ]
+ },
+ {
+  "file": "compute_temp_kokkos.cpp",
+  "copy_lines": [
+   64,
+   66,
+   122,
+   124
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   62,
+   120
+  ]
+ },
+ {
+  "file": "compute_temp_partial_kokkos.cpp",
+  "copy_lines": [
+   66,
+   68,
+   125,
+   127,
+   190,
+   230
+  ],
+  "ncopy": 7,
+  "copymode1": [
+   64,
+   123,
+   189,
+   229,
+   261
+  ]
+ },
+ {
+  "file": "compute_temp_profile_kokkos.cpp",
+  "copy_lines": [
+   92,
+   126,
+   128,
+   229,
+   231,
+   278
+  ],
+  "ncopy": 9,
+  "copymode1": [
+   91,
+   124,
+   227,
+   276,
+   403,
+   442
+  ]
+ },
+ {
+  "file": "compute_temp_ramp_kokkos.cpp",
+  "copy_lines": [
+   65,
+   67,
+   125,
+   127,
+   190,
+   230
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   63,
+   123,
+   189,
+   229
+  ]
+ },
+ {
+  "file": "compute_temp_region_kokkos.cpp",
+  "copy_lines": [
+   100,
+   102,
+   162,
+   164,
+   226,
+   271
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   98,
+   160,
+   225,
+   270
+  ]
+ },
+ {
+  "file": "compute_temp_sphere_kokkos.cpp",
+  "copy_lines": [
+   72,
+   75,
+   146,
+   149
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   70,
+   144
+  ]
+ },
+ {
+  "file": "dihedral_charmm_kokkos.cpp",
+  "copy_lines": [
+   130,
+   132,
+   136,
+   138
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   122
+  ]
+ },
+ {
+  "file": "dihedral_charmmfsw_kokkos.cpp",
+  "copy_lines": [
+   137,
+   139,
+   143,
+   145
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   129
+  ]
+ },
+ {
+  "file": "dihedral_class2_kokkos.cpp",
+  "copy_lines": [
+   152,
+   154,
+   158,
+   160
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   144
+  ]
+ },
+ {
+  "file": "dihedral_class2xe_kokkos.cpp",
+  "copy_lines": [
+   157,
+   159,
+   163,
+   165
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   149
+  ]
+ },
+ {
+  "file": "dihedral_cosine_shift_exp_kokkos.cpp",
+  "copy_lines": [
+   121,
+   123,
+   127,
+   129
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   113
+  ]
+ },
+ {
+  "file": "dihedral_cosine_squared_restricted_kokkos.cpp",
+  "copy_lines": [
+   119,
+   121,
+   125,
+   127
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   111
+  ]
+ },
+ {
+  "file": "dihedral_fourier_kokkos.cpp",
+  "copy_lines": [
+   122,
+   124,
+   128,
+   130
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   114
+  ]
+ },
+ {
+  "file": "dihedral_harmonic_kokkos.cpp",
+  "copy_lines": [
+   118,
+   120,
+   124,
+   126
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   110
+  ]
+ },
+ {
+  "file": "dihedral_helix_kokkos.cpp",
+  "copy_lines": [
+   121,
+   123,
+   127,
+   129
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   113
+  ]
+ },
+ {
+  "file": "dihedral_multi_harmonic_kokkos.cpp",
+  "copy_lines": [
+   119,
+   121,
+   125,
+   127
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   111
+  ]
+ },
+ {
+  "file": "dihedral_nharmonic_kokkos.cpp",
+  "copy_lines": [
+   119,
+   121,
+   125,
+   127
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   111
+  ]
+ },
+ {
+  "file": "dihedral_opls_kokkos.cpp",
+  "copy_lines": [
+   115,
+   117,
+   121,
+   123
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   107
+  ]
+ },
+ {
+  "file": "dihedral_quadratic_kokkos.cpp",
+  "copy_lines": [
+   120,
+   122,
+   126,
+   128
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   112
+  ]
+ },
+ {
+  "file": "dihedral_spherical_kokkos.cpp",
+  "copy_lines": [
+   127,
+   129,
+   133,
+   135
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   119
+  ]
+ },
+ {
+  "file": "dihedral_table_cut_kokkos.cpp",
+  "copy_lines": [
+   118,
+   120,
+   124,
+   126
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   110
+  ]
+ },
+ {
+  "file": "dihedral_table_kokkos.cpp",
+  "copy_lines": [
+   130,
+   132,
+   136,
+   138
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   122
+  ]
+ },
+ {
+  "file": "domain_kokkos.cpp",
+  "copy_lines": [
+   478,
+   582,
+   619,
+   639,
+   683,
+   703
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   477,
+   581,
+   618,
+   638,
+   682,
+   702
+  ]
+ },
+ {
+  "file": "fix_acks2_reaxff_kokkos.cpp",
+  "copy_lines": [
+   403,
+   541,
+   1250,
+   1257,
+   1270,
+   1282
+  ],
+  "ncopy": 19,
+  "copymode1": [
+   235
+  ]
+ },
+ {
+  "file": "fix_addforce_kokkos.cpp",
+  "copy_lines": [
+   133,
+   167
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   132,
+   166
+  ]
+ },
+ {
+  "file": "fix_addtorque_atom_kokkos.cpp",
+  "copy_lines": [
+   113,
+   144
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   112,
+   143
+  ]
+ },
+ {
+  "file": "fix_addtorque_group_kokkos.cpp",
+  "copy_lines": [
+   137,
+   141,
+   161,
+   164
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   135,
+   159
+  ]
+ },
+ {
+  "file": "fix_aveforce_kokkos.cpp",
+  "copy_lines": [
+   105,
+   125
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   104,
+   124
+  ]
+ },
+ {
+  "file": "fix_baoab_kokkos.cpp",
+  "copy_lines": [
+   121,
+   123,
+   126,
+   128,
+   147,
+   179
+  ],
+  "ncopy": 7,
+  "copymode1": [
+   118,
+   146,
+   177
+  ]
+ },
+ {
+  "file": "fix_brownian_kokkos.cpp",
+  "copy_lines": [
+   117
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   116
+  ]
+ },
+ {
+  "file": "fix_cmap_kokkos.cpp",
+  "copy_lines": [
+   185,
+   259
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   184,
+   257,
+   792,
+   884
+  ]
+ },
+ {
+  "file": "fix_damping_cundall_kokkos.cpp",
+  "copy_lines": [
+   111,
+   113,
+   115
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   109
+  ]
+ },
+ {
+  "file": "fix_drag_kokkos.cpp",
+  "copy_lines": [
+   93
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   92
+  ]
+ },
+ {
+  "file": "fix_dt_reset_kokkos.cpp",
+  "copy_lines": [
+   79,
+   81
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   77
+  ]
+ },
+ {
+  "file": "fix_efield_kokkos.cpp",
+  "copy_lines": [
+   144,
+   146,
+   148,
+   150,
+   174,
+   176
+  ],
+  "ncopy": 8,
+  "copymode1": [
+   141,
+   171
+  ]
+ },
+ {
+  "file": "fix_electron_stopping_kokkos.cpp",
+  "copy_lines": [
+   114
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   106
+  ]
+ },
+ {
+  "file": "fix_eos_table_rx_kokkos.cpp",
+  "copy_lines": [
+   127,
+   137,
+   191,
+   195,
+   244,
+   295
+  ],
+  "ncopy": 7,
+  "copymode1": [
+   107,
+   173,
+   227,
+   271
+  ]
+ },
+ {
+  "file": "fix_external_kokkos.cpp",
+  "copy_lines": [
+   103
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   102
+  ]
+ },
+ {
+  "file": "fix_flow_gauss_kokkos.cpp",
+  "copy_lines": [
+   93,
+   120,
+   126
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   92,
+   117
+  ]
+ },
+ {
+  "file": "fix_freeze_kokkos.cpp",
+  "copy_lines": [
+   52
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   50
+  ]
+ },
+ {
+  "file": "fix_gjf_kokkos.cpp",
+  "copy_lines": [
+   172,
+   262,
+   309,
+   460
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   171,
+   261,
+   308,
+   406,
+   459
+  ]
+ },
+ {
+  "file": "fix_gravity_kokkos.cpp",
+  "copy_lines": [
+   85,
+   88
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   75
+  ]
+ },
+ {
+  "file": "fix_halt_kokkos.cpp",
+  "copy_lines": [
+   68
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   67
+  ]
+ },
+ {
+  "file": "fix_heat_kokkos.cpp",
+  "copy_lines": [
+   114,
+   147
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   113,
+   146
+  ]
+ },
+ {
+  "file": "fix_lineforce_kokkos.cpp",
+  "copy_lines": [
+   62
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   61
+  ]
+ },
+ {
+  "file": "fix_neigh_history_kokkos.cpp",
+  "copy_lines": [
+   134,
+   235,
+   439,
+   499
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   108,
+   230,
+   437,
+   497
+  ]
+ },
+ {
+  "file": "fix_nh_kokkos.cpp",
+  "copy_lines": [
+   571,
+   573,
+   632,
+   634,
+   681,
+   728
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   569,
+   630,
+   680,
+   727
+  ]
+ },
+ {
+  "file": "fix_nh_sphere_kokkos.cpp",
+  "copy_lines": [
+   99,
+   147,
+   193
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   98,
+   146,
+   192
+  ]
+ },
+ {
+  "file": "fix_nve_noforce_kokkos.cpp",
+  "copy_lines": [
+   72
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   71
+  ]
+ },
+ {
+  "file": "fix_nvk_kokkos.cpp",
+  "copy_lines": [
+   80,
+   82,
+   102,
+   104,
+   107,
+   109
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   78,
+   99
+  ]
+ },
+ {
+  "file": "fix_nvt_sllod_kokkos.cpp",
+  "copy_lines": [
+   232,
+   233,
+   365,
+   381
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   231,
+   364,
+   380
+  ]
+ },
+ {
+  "file": "fix_oneway_kokkos.cpp",
+  "copy_lines": [
+   81
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   80
+  ]
+ },
+ {
+  "file": "fix_planeforce_kokkos.cpp",
+  "copy_lines": [
+   62
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   61
+  ]
+ },
+ {
+  "file": "fix_propel_self_kokkos.cpp",
+  "copy_lines": [
+   109,
+   112
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   107
+  ]
+ },
+ {
+  "file": "fix_qeq_reaxff_kokkos.cpp",
+  "copy_lines": [
+   272,
+   364,
+   438,
+   446,
+   483,
+   497
+  ],
+  "ncopy": 23,
+  "copymode1": [
+   215,
+   1333,
+   1379
+  ]
+ },
+ {
+  "file": "fix_rigid_small_kokkos.cpp",
+  "copy_lines": [
+   795,
+   1343,
+   1344,
+   1346
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   794,
+   1341
+  ]
+ },
+ {
+  "file": "fix_rx_kokkos.cpp",
+  "copy_lines": [
+   1435,
+   1455,
+   1457,
+   1814,
+   1893,
+   1930
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   1344
+  ]
+ },
+ {
+  "file": "fix_setforce_kokkos.cpp",
+  "copy_lines": [
+   110,
+   141
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   109,
+   140
+  ]
+ },
+ {
+  "file": "fix_settorque_atom_kokkos.cpp",
+  "copy_lines": [
+   111,
+   142
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   110,
+   141
+  ]
+ },
+ {
+  "file": "fix_shake_kokkos.cpp",
+  "copy_lines": [
+   264,
+   453,
+   455,
+   458,
+   460,
+   730
+  ],
+  "ncopy": 13,
+  "copymode1": [
+   262,
+   430,
+   633,
+   1964,
+   2052
+  ]
+ },
+ {
+  "file": "fix_shardlow_kokkos.cpp",
+  "copy_lines": [
+   624,
+   626,
+   660,
+   662
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   559
+  ]
+ },
+ {
+  "file": "fix_spring_kokkos.cpp",
+  "copy_lines": [
+   113,
+   118,
+   184,
+   189
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   110,
+   181
+  ]
+ },
+ {
+  "file": "fix_spring_rg_kokkos.cpp",
+  "copy_lines": [
+   88,
+   106,
+   123
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   87,
+   105,
+   122
+  ]
+ },
+ {
+  "file": "fix_spring_self_kokkos.cpp",
+  "copy_lines": [
+   290
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   108,
+   228,
+   288
+  ]
+ },
+ {
+  "file": "fix_store_force_kokkos.cpp",
+  "copy_lines": [
+   86
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   85
+  ]
+ },
+ {
+  "file": "fix_temp_csld_kokkos.cpp",
+  "copy_lines": [
+   177,
+   192
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   176,
+   191
+  ]
+ },
+ {
+  "file": "fix_ti_spring_kokkos.cpp",
+  "copy_lines": [
+   281
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   102,
+   219,
+   279
+  ]
+ },
+ {
+  "file": "fix_viscous_kokkos.cpp",
+  "copy_lines": [
+   79
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   78
+  ]
+ },
+ {
+  "file": "fix_viscous_nonlinear_kokkos.cpp",
+  "copy_lines": [
+   68
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   67
+  ]
+ },
+ {
+  "file": "fix_viscous_sphere_kokkos.cpp",
+  "copy_lines": [
+   90
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   89
+  ]
+ },
+ {
+  "file": "fix_wall_flow_kokkos.cpp",
+  "copy_lines": [
+   64,
+   94,
+   97,
+   251,
+   290
+  ],
+  "ncopy": 5,
+  "copymode1": [
+   63,
+   92,
+   249,
+   289
+  ]
+ },
+ {
+  "file": "fix_wall_gran_kokkos.cpp",
+  "copy_lines": [
+   111,
+   113,
+   115,
+   117,
+   406,
+   445
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   105,
+   404,
+   443
+  ]
+ },
+ {
+  "file": "fix_wall_harmonic_kokkos.cpp",
+  "copy_lines": [
+   113
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   112
+  ]
+ },
+ {
+  "file": "fix_wall_harmonic_outside_kokkos.cpp",
+  "copy_lines": [
+   107
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   106
+  ]
+ },
+ {
+  "file": "fix_wall_lj1043_kokkos.cpp",
+  "copy_lines": [
+   177
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   176
+  ]
+ },
+ {
+  "file": "fix_wall_lj126_kokkos.cpp",
+  "copy_lines": [
+   156
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   155
+  ]
+ },
+ {
+  "file": "fix_wall_lj93_kokkos.cpp",
+  "copy_lines": [
+   163
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   162
+  ]
+ },
+ {
+  "file": "fix_wall_morse_kokkos.cpp",
+  "copy_lines": [
+   158
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   157
+  ]
+ },
+ {
+  "file": "fix_wall_piston_kokkos.cpp",
+  "copy_lines": [
+   166,
+   168,
+   197,
+   199
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   164,
+   195
+  ]
+ },
+ {
+  "file": "fix_wall_reflect_kokkos.cpp",
+  "copy_lines": [
+   78
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   77
+  ]
+ },
+ {
+  "file": "improper_class2_kokkos.cpp",
+  "copy_lines": [
+   120,
+   122,
+   126,
+   128,
+   153,
+   155
+  ],
+  "ncopy": 8,
+  "copymode1": [
+   110
+  ]
+ },
+ {
+  "file": "improper_cossq_kokkos.cpp",
+  "copy_lines": [
+   110,
+   112,
+   116,
+   118
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   104
+  ]
+ },
+ {
+  "file": "improper_cvff_kokkos.cpp",
+  "copy_lines": [
+   115,
+   117,
+   121,
+   123
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   107
+  ]
+ },
+ {
+  "file": "improper_distance_kokkos.cpp",
+  "copy_lines": [
+   99,
+   101,
+   105,
+   107
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   93
+  ]
+ },
+ {
+  "file": "improper_distharm_kokkos.cpp",
+  "copy_lines": [
+   99,
+   101,
+   105,
+   107
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   93
+  ]
+ },
+ {
+  "file": "improper_fourier_kokkos.cpp",
+  "copy_lines": [
+   113,
+   115,
+   119,
+   121
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   107
+  ]
+ },
+ {
+  "file": "improper_harmonic_kokkos.cpp",
+  "copy_lines": [
+   114,
+   116,
+   120,
+   122
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   106
+  ]
+ },
+ {
+  "file": "improper_inversion_harmonic_kokkos.cpp",
+  "copy_lines": [
+   99,
+   101,
+   105,
+   107
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   93
+  ]
+ },
+ {
+  "file": "improper_ring_kokkos.cpp",
+  "copy_lines": [
+   101,
+   103,
+   107,
+   109
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   95
+  ]
+ },
+ {
+  "file": "improper_sqdistharm_kokkos.cpp",
+  "copy_lines": [
+   99,
+   101,
+   105,
+   107
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   93
+  ]
+ },
+ {
+  "file": "improper_umbrella_kokkos.cpp",
+  "copy_lines": [
+   111,
+   113,
+   117,
+   119
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   105
+  ]
+ },
+ {
+  "file": "mliap_so3_kokkos.cpp",
+  "copy_lines": [
+   716,
+   723,
+   735,
+   847,
+   854,
+   866
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   715,
+   722,
+   734,
+   846,
+   853,
+   865
+  ]
+ },
+ {
+  "file": "neigh_bond_kokkos.cpp",
+  "copy_lines": [
+   279,
+   367,
+   431,
+   483,
+   577,
+   649
+  ],
+  "ncopy": 11,
+  "copymode1": [
+   278,
+   366,
+   430,
+   482,
+   576,
+   648,
+   712,
+   811,
+   888,
+   969,
+   1068
+  ]
+ },
+ {
+  "file": "neighbor_kokkos.cpp",
+  "copy_lines": [
+   232,
+   296
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   231,
+   295
+  ]
+ },
+ {
+  "file": "npair_halffull_kokkos.cpp",
+  "copy_lines": [
+   76
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   75
+  ]
+ },
+ {
+  "file": "npair_skip_kokkos.cpp",
+  "copy_lines": [
+   92,
+   100
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   91
+  ]
+ },
+ {
+  "file": "npair_trim_kokkos.cpp",
+  "copy_lines": [
+   78
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   77
+  ]
+ },
+ {
+  "file": "pair_adp_kokkos.cpp",
+  "copy_lines": [
+   146,
+   148,
+   160,
+   162,
+   166,
+   168
+  ],
+  "ncopy": 24,
+  "copymode1": [
+   141
+  ]
+ },
+ {
+  "file": "pair_bondval_kokkos.cpp",
+  "copy_lines": [
+   138,
+   140,
+   152,
+   154,
+   158,
+   160
+  ],
+  "ncopy": 24,
+  "copymode1": [
+   133
+  ]
+ },
+ {
+  "file": "pair_bondval_vec_kokkos.cpp",
+  "copy_lines": [
+   140,
+   142,
+   154,
+   156,
+   160,
+   162
+  ],
+  "ncopy": 24,
+  "copymode1": [
+   135
+  ]
+ },
+ {
+  "file": "pair_brownian_kokkos.cpp",
+  "copy_lines": [
+   202,
+   203,
+   205,
+   206,
+   208,
+   209
+  ],
+  "ncopy": 24,
+  "copymode1": [
+   195
+  ]
+ },
+ {
+  "file": "pair_coul_dsf_kokkos.cpp",
+  "copy_lines": [
+   123,
+   125,
+   129,
+   131,
+   135,
+   137
+  ],
+  "ncopy": 12,
+  "copymode1": [
+   112
+  ]
+ },
+ {
+  "file": "pair_coul_wolf_cs_kokkos.cpp",
+  "copy_lines": [
+   132,
+   134,
+   138,
+   140,
+   144,
+   146
+  ],
+  "ncopy": 12,
+  "copymode1": [
+   121
+  ]
+ },
+ {
+  "file": "pair_coul_wolf_kokkos.cpp",
+  "copy_lines": [
+   127,
+   129,
+   133,
+   135,
+   139,
+   141
+  ],
+  "ncopy": 12,
+  "copymode1": [
+   116
+  ]
+ },
+ {
+  "file": "pair_dpd_ext_kokkos.cpp",
+  "copy_lines": [
+   167,
+   168,
+   170,
+   171
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   165
+  ]
+ },
+ {
+  "file": "pair_dpd_ext_tstat_kokkos.cpp",
+  "copy_lines": [
+   180,
+   181,
+   183,
+   184
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   178
+  ]
+ },
+ {
+  "file": "pair_dpd_fdt_energy_kokkos.cpp",
+  "copy_lines": [
+   196,
+   197,
+   199,
+   200,
+   204,
+   205
+  ],
+  "ncopy": 49,
+  "copymode1": [
+   135
+  ]
+ },
+ {
+  "file": "pair_dpd_kokkos.cpp",
+  "copy_lines": [
+   229,
+   237,
+   240,
+   243,
+   244
+  ],
+  "ncopy": 5,
+  "copymode1": [
+   217
+  ]
+ },
+ {
+  "file": "pair_dpd_tstat_kokkos.cpp",
+  "copy_lines": [
+   179,
+   180,
+   182,
+   183
+  ],
+  "ncopy": 4,
+  "copymode1": [
+   177
+  ]
+ },
+ {
+  "file": "pair_eam_kokkos.cpp",
+  "copy_lines": [
+   143,
+   145,
+   157,
+   159,
+   163,
+   165
+  ],
+  "ncopy": 24,
+  "copymode1": [
+   138
+  ]
+ },
+ {
+  "file": "pair_exp6_rx_kokkos.cpp",
+  "copy_lines": [
+   203,
+   206,
+   253,
+   254,
+   256,
+   257
+  ],
+  "ncopy": 28,
+  "copymode1": [
+   110
+  ]
+ },
+ {
+  "file": "pair_gran_hertz_history_kokkos.cpp",
+  "copy_lines": [
+   180,
+   182,
+   186,
+   188,
+   194,
+   196
+  ],
+  "ncopy": 16,
+  "copymode1": [
+   100
+  ]
+ },
+ {
+  "file": "pair_gran_hooke_history_kokkos.cpp",
+  "copy_lines": [
+   180,
+   182,
+   186,
+   188,
+   194,
+   196
+  ],
+  "ncopy": 16,
+  "copymode1": [
+   100
+  ]
+ },
+ {
+  "file": "pair_gran_hooke_kokkos.cpp",
+  "copy_lines": [
+   148,
+   150,
+   154,
+   156,
+   162,
+   164
+  ],
+  "ncopy": 8,
+  "copymode1": [
+   86
+  ]
+ },
+ {
+  "file": "pair_lj_cut_dipole_cut_kokkos.cpp",
+  "copy_lines": [
+   147,
+   148,
+   150,
+   151,
+   153,
+   154
+  ],
+  "ncopy": 25,
+  "copymode1": [
+   137
+  ]
+ },
+ {
+  "file": "pair_lj_cut_tip4p_cut_kokkos.cpp",
+  "copy_lines": [
+   67,
+   71,
+   73
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   64
+  ]
+ },
+ {
+  "file": "pair_lj_cut_tip4p_long_kokkos.cpp",
+  "copy_lines": [
+   69,
+   73,
+   75
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   66
+  ]
+ },
+ {
+  "file": "pair_meam_kokkos.cpp",
+  "copy_lines": [
+   116,
+   124,
+   346,
+   412,
+   665,
+   791
+  ],
+  "ncopy": 6,
+  "copymode1": [
+   109,
+   110
+  ]
+ },
+ {
+  "file": "pair_multi_lucy_rx_kokkos.cpp",
+  "copy_lines": [
+   197,
+   214,
+   215,
+   217,
+   218,
+   222
+  ],
+  "ncopy": 28,
+  "copymode1": [
+   129
+  ]
+ },
+ {
+  "file": "pair_pace_extrapolation_kokkos.cpp",
+  "copy_lines": [
+   724,
+   733,
+   742,
+   748,
+   754,
+   760
+  ],
+  "ncopy": 13,
+  "copymode1": [
+   588,
+   647
+  ]
+ },
+ {
+  "file": "pair_pace_kokkos.cpp",
+  "copy_lines": [
+   1133,
+   1139,
+   1145,
+   1151,
+   1159,
+   1165
+  ],
+  "ncopy": 15,
+  "copymode1": [
+   1000,
+   1050
+  ]
+ },
+ {
+  "file": "pair_reaxff_kokkos.cpp",
+  "copy_lines": [
+   781,
+   783,
+   786,
+   788,
+   797,
+   799
+  ],
+  "ncopy": 56,
+  "copymode1": [
+   709,
+   4144,
+   4218,
+   4240,
+   4357
+  ]
+ },
+ {
+  "file": "pair_sw_kokkos.cpp",
+  "copy_lines": [
+   150,
+   152,
+   158,
+   161,
+   163,
+   168
+  ],
+  "ncopy": 8,
+  "copymode1": [
+   127
+  ]
+ },
+ {
+  "file": "pair_sw_mod_kokkos.cpp",
+  "copy_lines": [
+   150,
+   152,
+   158,
+   161,
+   163,
+   168
+  ],
+  "ncopy": 8,
+  "copymode1": [
+   127
+  ]
+ },
+ {
+  "file": "pair_tersoff_kokkos.cpp",
+  "copy_lines": [
+   259,
+   261,
+   265,
+   268,
+   270,
+   276
+  ],
+  "ncopy": 9,
+  "copymode1": [
+   234
+  ]
+ },
+ {
+  "file": "pair_tersoff_mod_c_kokkos.cpp",
+  "copy_lines": [
+   224,
+   228,
+   230,
+   234,
+   237,
+   240
+  ],
+  "ncopy": 7,
+  "copymode1": [
+   209
+  ]
+ },
+ {
+  "file": "pair_tersoff_mod_kokkos.cpp",
+  "copy_lines": [
+   224,
+   228,
+   230,
+   234,
+   237,
+   240
+  ],
+  "ncopy": 7,
+  "copymode1": [
+   209
+  ]
+ },
+ {
+  "file": "pair_tersoff_zbl_kokkos.cpp",
+  "copy_lines": [
+   237,
+   241,
+   243,
+   247,
+   250,
+   253
+  ],
+  "ncopy": 7,
+  "copymode1": [
+   222
+  ]
+ },
+ {
+  "file": "pair_tip4p_cut_kokkos.cpp",
+  "copy_lines": [
+   31,
+   35,
+   37
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   28
+  ]
+ },
+ {
+  "file": "pair_tip4p_long_kokkos.cpp",
+  "copy_lines": [
+   35,
+   39,
+   41
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   32
+  ]
+ },
+ {
+  "file": "pair_uf3_kokkos.cpp",
+  "copy_lines": [
+   789,
+   795,
+   799
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   769
+  ]
+ },
+ {
+  "file": "pair_vashishta_kokkos.cpp",
+  "copy_lines": [
+   135,
+   143,
+   145,
+   149,
+   151,
+   155
+  ],
+  "ncopy": 9,
+  "copymode1": [
+   112
+  ]
+ },
+ {
+  "file": "pair_ylz_kokkos.cpp",
+  "copy_lines": [
+   128,
+   129,
+   131,
+   132,
+   134,
+   135
+  ],
+  "ncopy": 24,
+  "copymode1": [
+   121
+  ]
+ },
+ {
+  "file": "pppm_kokkos.cpp",
+  "copy_lines": [
+   365,
+   369,
+   373,
+   384,
+   498,
+   504
+  ],
+  "ncopy": 60,
+  "copymode1": [
+   364,
+   368,
+   372,
+   383,
+   497,
+   503,
+   717,
+   724,
+   731,
+   1060,
+   1151,
+   1255,
+   1317,
+   1329,
+   1336,
+   1458,
+   1489,
+   1506,
+   1512,
+   1522,
+   1555,
+   1562,
+   1569,
+   1576,
+   1582,
+   1588,
+   1735,
+   1741,
+   1747,
+   1753,
+   1759,
+   1765,
+   1874,
+   1881,
+   1891,
+   1898,
+   1903,
+   1910,
+   1915,
+   1922,
+   1926,
+   1933,
+   1938,
+   1945,
+   1950,
+   1957,
+   2180,
+   2250,
+   2326,
+   2330,
+   2385,
+   2389,
+   2443,
+   2475,
+   2570,
+   2583,
+   2607,
+   2616,
+   2648,
+   2686
+  ]
+ },
+ {
+  "file": "pppm_tip4p_kokkos.cpp",
+  "copy_lines": [
+   98,
+   161,
+   213,
+   220,
+   228,
+   333
+  ],
+  "ncopy": 11,
+  "copymode1": [
+   97,
+   160,
+   212,
+   219,
+   226,
+   332,
+   416,
+   512,
+   523,
+   545,
+   554
+  ]
+ },
+ {
+  "file": "region_block_kokkos.cpp",
+  "copy_lines": [
+   47
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   46
+  ]
+ },
+ {
+  "file": "region_cone_kokkos.cpp",
+  "copy_lines": [
+   46
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   45
+  ]
+ },
+ {
+  "file": "region_cylinder_kokkos.cpp",
+  "copy_lines": [
+   46
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   45
+  ]
+ },
+ {
+  "file": "region_ellipsoid_kokkos.cpp",
+  "copy_lines": [
+   58
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   57
+  ]
+ },
+ {
+  "file": "region_plane_kokkos.cpp",
+  "copy_lines": [
+   46
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   45
+  ]
+ },
+ {
+  "file": "region_prism_kokkos.cpp",
+  "copy_lines": [
+   46
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   45
+  ]
+ },
+ {
+  "file": "region_sphere_kokkos.cpp",
+  "copy_lines": [
+   50
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   49
+  ]
+ },
+ {
+  "file": "compute_sna_grid_kokkos_impl.h",
+  "copy_lines": [
+   239,
+   247,
+   253,
+   275,
+   280,
+   293
+  ],
+  "ncopy": 13,
+  "copymode1": [
+   181
+  ]
+ },
+ {
+  "file": "compute_sna_grid_local_kokkos_impl.h",
+  "copy_lines": [
+   223,
+   231,
+   237,
+   259,
+   264,
+   277
+  ],
+  "ncopy": 13,
+  "copymode1": [
+   164
+  ]
+ },
+ {
+  "file": "kokkos_type.h",
+  "copy_lines": [
+   1563
+  ],
+  "ncopy": 1,
+  "copymode1": []
+ },
+ {
+  "file": "meam_dens_final_kokkos.h",
+  "copy_lines": [
+   42
+  ],
+  "ncopy": 1,
+  "copymode1": [
+   41
+  ]
+ },
+ {
+  "file": "meam_dens_init_kokkos.h",
+  "copy_lines": [
+   190,
+   246,
+   248
+  ],
+  "ncopy": 3,
+  "copymode1": [
+   189,
+   244
+  ]
+ },
+ {
+  "file": "meam_force_kokkos.h",
+  "copy_lines": [
+   63,
+   66
+  ],
+  "ncopy": 2,
+  "copymode1": [
+   61
+  ]
+ },
+ {
+  "file": "pair_snap_kokkos.h",
+  "copy_lines": [
+   227,
+   232,
+   248,
+   254,
+   260,
+   275
+  ],
+  "ncopy": 6,
+  "copymode1": []
+ },
+ {
+  "file": "pair_snap_kokkos_impl.h",
+  "copy_lines": [
+   208,
+   216,
+   224,
+   230,
+   237,
+   262
+  ],
+  "ncopy": 22,
+  "copymode1": [
+   96,
+   134
+  ]
+ },
+ {
+  "file": "transpose_helper_kokkos.h",
+  "copy_lines": [
+   99
+  ],
+  "ncopy": 1,
+  "copymode1": []
+ }
+]

@@ -1,0 +1,68 @@
+[
+ {
+  "file": "src/KOKKOS/dynamical_matrix_kokkos.h",
+  "line": 35,
+  "severity": "medium",
+  "category": "rule",
+  "confidence": "confirmed",
+  "summary": "DynamicalMatrixKokkos::setup() shadows the non-virtual DynamicalMatrix::setup(), so the KOKKOS version is never executed and the command runs the plain CPU setup path.",
+  "evidence": "src/KOKKOS/dynamical_matrix_kokkos.h:35 declares `void setup();` with no `override` (only command(), update_force(), force_clear() are override). src/PHONON/dynamical_matrix.h:23 declares `void setup();` NON-virtual (contrast with lines 37-39 `virtual void update_force(); virtual void force_clear(); virtual void openfile(...)`). The only callers are src/PHONON/dynamical_matrix.cpp:169 and :177 inside DynamicalMatrix::command(), which statically binds to DynamicalMatrix::setup(). src/KOKKOS/dynamical_matrix_kokkos.cpp:79-83 `void DynamicalMatrixKokkos::command(...) { atomKK->sync(...); DynamicalMatrix::command(narg, arg); }` -> base command -> base setup. DynamicalMatrixKokkos::setup() (dynamical_matrix_kokkos.cpp:91-133) is therefore dead code; its `lmp->kokkos->auto_sync = 1;` (line 93), the `pair_compute_flag` sync/compute/modified block (lines 117-123) and `lmp->kokkos->auto_sync = 0;` (line 126) never run.",
+  "failure_scenario": "`dynamical_matrix all regular 0.000001 file dynmat.dat` with -k on -sf kk: DynamicalMatrix::setup() runs instead, so auto_sync is never enabled around domain->pbc()/reset_box()/image_check()/box_too_small_check()/neighbor->build(1), which read the legacy host x/image arrays; on a GPU run those can be stale relative to the device copy, giving wrong ghost/image handling and hence a wrong dynamical matrix (and the KOKKOS-specific pair sync block is silently skipped).",
+  "suggested_fix": "Declare `virtual void setup();` in src/PHONON/dynamical_matrix.h:23 and mark the KOKKOS one `void setup() override;`, or have DynamicalMatrixKokkos::command() do the setup itself instead of delegating to DynamicalMatrix::command()."
+ },
+ {
+  "file": "src/KOKKOS/third_order_kokkos.h",
+  "line": 35,
+  "severity": "medium",
+  "category": "rule",
+  "confidence": "confirmed",
+  "summary": "ThirdOrderKokkos::setup() shadows the non-virtual ThirdOrder::setup(), so the KOKKOS version is never executed.",
+  "evidence": "src/KOKKOS/third_order_kokkos.h declares `void setup();` without `override`; src/PHONON/third_order.h:23 declares `void setup();` NON-virtual while lines 37-39 declare `virtual void update_force(); virtual void force_clear(); virtual void openfile(...)`. Callers are src/PHONON/third_order.cpp:186 and :194 inside ThirdOrder::command(); src/KOKKOS/third_order_kokkos.cpp:79-83 ThirdOrderKokkos::command() just syncs and calls ThirdOrder::command(narg,arg). ThirdOrderKokkos::setup() (third_order_kokkos.cpp:91-135) with `lmp->kokkos->auto_sync = 1;` (line 93), the pair_compute_flag sync/compute/modified block (lines 117-123) and `auto_sync = 0` (line 126) is dead code.",
+  "failure_scenario": "`third_order all ... ` run with -k on -sf kk: the CPU ThirdOrder::setup() runs, auto_sync is never enabled around the host-side domain/comm/neighbor block, so host x/image data can be stale on a GPU run and the third-order force constants come out wrong.",
+  "suggested_fix": "Make ThirdOrder::setup() virtual in src/PHONON/third_order.h:23 and add `override` to the KOKKOS declaration (same fix as dynamical_matrix)."
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_gran_kokkos.cpp",
+  "line": 105,
+  "severity": "medium",
+  "category": "rule",
+  "confidence": "confirmed",
+  "summary": "FixWallGranKokkos::post_force() sets copymode = 1 and then takes an error->all() exit for the hooke / hertz/history wall styles, so copymode is never reset to 0 and every later destructor of the fix silently skips atom->delete_callback().",
+  "evidence": "src/KOKKOS/fix_wall_gran_kokkos.cpp:105-123:\n  copymode = 1;\n  if (pairstyle == HOOKE)\n    error->all(FLERR, \"Fix wall/gran/kk doesn't yet support hooke style\");\n  ...\n  } else if (pairstyle == HERTZ_HISTORY)\n    error->all(FLERR, \"Fix wall/gran/kk doesn't yet support hertz/history style\");\n  atomKK->modified(execution_space,datamask_modify);\n  copymode = 0;\nBoth error->all() calls are between `copymode = 1` (line 105) and `copymode = 0` (line 123). The style accepts these keywords in its constructor (src/KOKKOS/fix_wall_gran_old.cpp:80 `if (strcmp(arg[3],\"hooke\") == 0) pairstyle = HOOKE;`), so the path is reachable from valid input. src/KOKKOS/fix_wall_gran_old.cpp:476-490 `FixWallGranOld::~FixWallGranOld() { if (copymode) return; atom->delete_callback(id,Atom::GROW); atom->delete_callback(id,Atom::RESTART); ... }` and src/KOKKOS/fix_wall_gran_kokkos.cpp:50-55 `~FixWallGranKokkos() { if (copymode) return; memoryKK->destroy_kokkos(k_history_one, history_one); }`.",
+  "failure_scenario": "Exception-enabled build (liblammps / the Python module, LAMMPS_EXCEPTIONS=on): `fix 1 all wall/gran/kk hooke 200000.0 NULL 50.0 NULL 0.5 0 zplane 0.0 NULL` then `run 1` -> post_force throws with copymode==1. The caller catches the exception and issues `unfix 1` (or any later fix/atom_style change): Modify::delete_fix destroys the fix, the destructors early-return, so the Atom GROW/RESTART callbacks for this fix are never removed and history_one/mass_rigid leak. The next atom->grow() dispatches grow_arrays() through the stale callback entry -> use-after-free / crash.",
+  "suggested_fix": "Move both error->all() checks above `copymode = 1` (they only depend on pairstyle, which is fixed at construction), or reset copymode = 0 before erroring."
+ },
+ {
+  "file": "src/DPD-REACT/fix_shardlow.cpp",
+  "line": 118,
+  "severity": "low",
+  "category": "rule",
+  "confidence": "confirmed",
+  "summary": "FixShardlow::~FixShardlow() lacks the mandatory `if (copymode) return;` guard although FixShardlowKokkos is copied by value into Kokkos functors.",
+  "evidence": "src/DPD-REACT/fix_shardlow.cpp:117-121: `FixShardlow::~FixShardlow()\\n{\\n  memory->destroy(rand_state);\\n  maxRNG = 0;\\n}` -- no copymode guard. src/KOKKOS/fix_shardlow_kokkos.h:45 `class FixShardlowKokkos : public FixShardlow`; src/KOKKOS/fix_shardlow_kokkos.cpp:559 sets `copymode = 1;` in initial_integrate() and resets it at line 684, and the object is passed as `*this` to Kokkos::parallel_for, so ~FixShardlow runs on every functor copy. Compare src/fix_nh.cpp:673-675 and src/fix.cpp:120-122, which both start with `if (copymode) return;`.",
+  "failure_scenario": "Today the KOKKOS variant keeps the base `rand_state` pointer at nullptr (it uses the device view d_rand_state, fix_shardlow_kokkos.cpp:592), so memory->destroy() is a no-op and nothing crashes. The moment any code path lets the base allocate rand_state (e.g. a future host fallback calling FixShardlow::initial_integrate, which grows it at fix_shardlow.cpp:532), the functor copy's destructor frees the original's array -> double free / use-after-free in the next `fix shardlow` step with pair dpd/fdt/energy.",
+  "suggested_fix": "Add `if (copymode) return;` as the first statement of FixShardlow::~FixShardlow()."
+ },
+ {
+  "file": "src/KOKKOS/pair_pod_kokkos.cpp",
+  "line": 208,
+  "severity": "low",
+  "category": "rule",
+  "confidence": "confirmed",
+  "summary": "Several KOKKOS styles set copymode = 1 and then call error->all()/error->one() before resetting it to 0, so on an exception-enabled build the style is left with copymode == 1 and its destructors free nothing (memory leak).",
+  "evidence": "src/KOKKOS/pair_pod_kokkos.cpp:208-211:\n  copymode = 1;\n  int newton_pair = force->newton_pair;\n  if (newton_pair == false)\n    error->all(FLERR,\"PairPODKokkos requires 'newton on'\");\n(reset only at line 324). The same shape occurs in src/KOKKOS/pair_pace_kokkos.cpp:1050-1055 (copymode=1 then \"PairPACEKokkos requires 'newton on'\" / \"Must use 'product' algorithm with pair pace/kk\", reset at 1259), src/KOKKOS/pair_pace_extrapolation_kokkos.cpp:647-649 (reset at 856), src/KOKKOS/pair_snap_kokkos_impl.h:134-137 (reset at 421), src/KOKKOS/pair_exp6_rx_kokkos.cpp:110/226-322 (reset at 346), src/KOKKOS/pair_meam_kokkos.cpp:109/201 (reset at 284), src/KOKKOS/bond_fene_kokkos.cpp:106/143 \"Bad FENE bond\" (reset at 165), bond_fene_expand_kokkos.cpp:103/138, bond_fene_nm_kokkos.cpp:101/124, bond_table_kokkos.cpp:184/207-209, src/KOKKOS/fix_heat_kokkos.cpp:113/120,138, src/KOKKOS/fix_electron_stopping_kokkos.cpp:106/120, src/KOKKOS/fix_rx_kokkos.cpp:1344/1465, src/KOKKOS/fix_enforce2d_kokkos.cpp:73/116, src/KOKKOS/fix_shardlow_kokkos.cpp:559/564. Script: progress_rules_A/rule3.py, raw output progress_rules_A/rule3.json.",
+  "failure_scenario": "liblammps/Python (LAMMPS_EXCEPTIONS=on): a run that trips e.g. \"Bad FENE bond\" or \"requires 'newton on'\" throws out of compute(); the caller catches it and later closes LAMMPS. Every destructor in the style's chain sees copymode == 1 and returns immediately, so eatom/vatom, the style's dual views and Pair/Bond::id/style allocations are all leaked. Repeated catch-and-retry loops (a common Python driver pattern) leak on every failure.",
+  "suggested_fix": "Hoist the input-validation error->all() checks above the `copymode = 1` line (they do not depend on the kernel), and for genuinely in-kernel failures set copymode = 0 before calling error->one()/error->all()."
+ },
+ {
+  "file": "src/ML-POD/pair_pod.cpp",
+  "line": 107,
+  "severity": "low",
+  "category": "rule",
+  "confidence": "likely",
+  "summary": "PairPOD::~PairPOD() has no `if (copymode) return;` guard although PairPODKokkos derives from it and sets copymode = 1 around its kernels.",
+  "evidence": "src/ML-POD/pair_pod.cpp:107-157: `PairPOD::~PairPOD() { memory->destroy(rij); ... memory->destroy(elemindex); delete fastpodptr; if (allocated) { memory->destroy(setflag); memory->destroy(cutsq); } }` -- no guard. src/KOKKOS/pair_pod_kokkos.h:33 `class PairPODKokkos : public PairPOD`; src/KOKKOS/pair_pod_kokkos.cpp:74-80 `~PairPODKokkos() { if (copymode) return; ... }` and :208 `copymode = 1;` show the style is meant to be copy-safe. src/KOKKOS/pair_pod_kokkos.cpp:131-137 `PairPODKokkos::coeff()` calls `PairPOD::coeff(narg,arg)`, which allocates fastpodptr and (via PairPOD::allocate, called from pair_pod_kokkos.cpp:163) setflag/cutsq, so the base really does own memory. Contrast the guarded base destructors src/pair.cpp:138, src/fix.cpp:120, src/ML-SNAP/... .",
+  "failure_scenario": "Not reachable today: pair_pod_kokkos.cpp uses only KOKKOS_LAMBDA with local shadow views and never passes *this to a kernel nor uses pair_compute<>/PairComputeFunctor, so no copy of the style is ever destroyed. It becomes a double free (fastpodptr deleted twice, setflag/cutsq freed twice) the moment anyone converts a kernel to the usual `*this` functor form, which the existing `copymode = 1` at line 208 already advertises as safe.",
+  "suggested_fix": "Add `if (copymode) return;` as the first statement of PairPOD::~PairPOD()."
+ }
+]

@@ -1,0 +1,279 @@
+[
+  {
+    "file": "src/KOKKOS/meam_kokkos.h",
+    "line": 65,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The MEAM pair scale factor is stored in an INTEGER Kokkos view, so every non-integral 'fix adapt ... pair meam scale' value is truncated (0.5 becomes 0, 1.9 becomes 1) before it reaches the device kernels.",
+    "evidence": "src/KOKKOS/meam_kokkos.h:65 'typename AT::t_int_2d d_scale;' and src/KOKKOS/pair_meam_kokkos.h:108 'typename AT::t_int_2d d_scale;'. It is filled from the CPU double array by an implicit narrowing conversion at src/KOKKOS/pair_meam_kokkos.cpp:303-307: 'for (int i = 1; i <= n; i++) { h_map[i] = map[i]; for (int j = 1; j <= n; j++) h_scale(i,j) = scale[i][j]; }' where PairMEAM::scale is 'double **' (src/MEAM/pair_meam.cpp:170 'memory->create(scale, np1, np1, \"pair:scale\");'). It is then read as a floating-point factor: src/KOKKOS/meam_dens_final_kokkos.h:63 'scaleii = d_scale(type[i],type[i]);' followed by ':182 Fl *= scaleii;', and src/KOKKOS/meam_force_kokkos.h:186-187 'KK_FLOAT scaleij = d_scale(type[i], type[i]);'. 'scale' is a documented fix adapt target for pair meam (doc/src/fix_adapt.rst:243: '| :doc:`meam <pair_meam>` | scale | type pairs |'), and PairMEAM::extract exposes it (src/MEAM/pair_meam.cpp:895-898 'if (strcmp(str, \"scale\") == 0) return (void *) scale;').",
+    "failure_scenario": "'pair_style meam/kk ...' plus 'fix adapt 1 pair meam scale 1 1 v_ramp' with v_ramp going 1.0 -> 0.0: the CPU style scales the MEAM energy smoothly, while the /kk style sees d_scale = 1 until the value drops below 1.0 and then 0, so the embedding energy of every atom of that type jumps discontinuously to zero. Any fractional scale (the normal case for a thermodynamic-integration ramp) is silently wrong.",
+    "suggested_fix": "Declare d_scale as a floating-point view ('typename AT::t_kkfloat_2d') in both src/KOKKOS/meam_kokkos.h:65 and src/KOKKOS/pair_meam_kokkos.h:108 (and in the meam_dens_final signature at meam_dens_final_kokkos.h:25 / meam_kokkos.h:89), and re-copy scale[][] to the device whenever fix adapt can have changed it, not only in coeff()."
+  },
+  {
+    "file": "src/KOKKOS/meam_force_kokkos.h",
+    "line": 699,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The KOKKOS MEAM force kernel never applies the pair scale factor to the forces or the virial: the whole 'if (!isone(scaleij)) { dUdrij *= scaleij; ... }' block of the CPU version is missing.",
+    "evidence": "src/KOKKOS/meam_force_kokkos.h:692-702 reads 'dUdrij = phip * sij + d_frhop[i] * drhodr1 + d_frhop[j] * drhodr2; dUdsij = 0.0; if (!iszero_kk(d_dscrfcn[fnoffset + jn])) { dUdsij = phi + d_frhop[i] * drhods1 + d_frhop[j] * drhods2; } for (m = 0; m < 3; m++) { dUdrijm[m] = d_frhop[i] * drhodrm1[m] + d_frhop[j] * drhodrm2[m]; }' and then goes straight to 'force = dUdrij * recip + dUdsij * d_dscrfcn[fnoffset + jn];'. The CPU original has five more lines between them, src/MEAM/meam_force.cpp:622-627: 'if (!isone(scaleij)) { dUdrij *= scaleij; dUdsij *= scaleij; dUdrijm[0] *= scaleij; dUdrijm[1] *= scaleij; dUdrijm[2] *= scaleij; }'. Nothing else in meam_force_kokkos.h uses scaleij -- 'grep -c scaleij src/KOKKOS/meam_force_kokkos.h' returns 2, both inside the eflag_either block at :186-187.",
+    "failure_scenario": "'pair_style meam/kk' with 'fix adapt 1 pair meam scale 1 2 2.0': the CPU style doubles both energy and force of the 1-2 MEAM interaction, the /kk style doubles only the energy and leaves the force (and the virial and pressure computed from it) at the unscaled value, so the trajectory is wrong and the reported energy is inconsistent with the forces.",
+    "suggested_fix": "Insert the scaling block after line 699, using the correct per-pair factor: 'if (!isone_kk(scaleij)) { dUdrij *= scaleij; dUdsij *= scaleij; dUdrijm[0] *= scaleij; dUdrijm[1] *= scaleij; dUdrijm[2] *= scaleij; }' with scaleij hoisted out of the eflag_either block."
+  },
+  {
+    "file": "src/KOKKOS/kokkos.cpp",
+    "line": 824,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The block that undoes the 'pair/only' sort/atom-map overrides is guarded by 'if (lmp->pair_only_flag)' instead of 'if (!lmp->pair_only_flag)', so 'package kokkos pair/only on' never actually moves atom sorting and the atom map back to the host.",
+    "evidence": "src/KOKKOS/kokkos.cpp:776-785 sets 'if (lmp->pair_only_flag) { if (sort_legacy == 0) { sort_legacy = 1; sort_changed = 1; } if (atom_map_legacy == 0) { atom_map_legacy = 1; atom_map_changed = 1; } }'; then src/KOKKOS/kokkos.cpp:824-833 immediately does 'if (lmp->pair_only_flag) { if (sort_changed) { sort_legacy = 0; sort_changed = 0; } if (atom_map_changed) { atom_map_legacy = 0; atom_map_changed = 0; } }'. The analogous 'change them back' block for the comm flags at line 789 is correctly guarded with 'if (gpu_aware_flag && !lmp->pair_only_flag)'. As written the second block is only reachable when pair_only_flag is true, i.e. exactly when the first block has just set the flags, so the two cancel and the settings never change; and when pair/only is later switched off the stale sort_changed/atom_map_changed flags can never be undone (they were already cleared).",
+    "failure_scenario": "GPU build, 'package kokkos pair/only on': the intent is that with only pair styles accelerated the atom sort and atom map run on the host (sort_legacy = atom_map_legacy = 1). Instead both stay 0 and sorting/atom map keep running on the device while all non-pair styles are plain CPU styles, costing extra host/device transfers (and exercising the device sort/map path that pair/only is meant to avoid).",
+    "suggested_fix": "Change the condition at line 824 to 'if (!lmp->pair_only_flag)' so the sort/atom-map overrides are undone only when pair/only is turned off again, matching the comm-flag block at line 789."
+  },
+  {
+    "file": "src/KOKKOS/kokkos.cpp",
+    "line": 223,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The SLURM_LOCALID branch of the '-k on g N' parser is missing the 'if (ngpus > 0)' guard that all six other MPI-launcher branches have, so 'g 0' divides by zero.",
+    "evidence": "src/KOKKOS/kokkos.cpp:223-228: 'if ((str = getenv(\"SLURM_LOCALID\"))) { int local_rank = std::stoi(str); device = local_rank % ngpus; if (device >= skip_gpu) device++; set_flag = 1; }' -- no ngpus check, while FLUX_TASK_LOCAL_ID (229), MPT_LRANK (237), MV2_COMM_WORLD_LOCAL_RANK (245), OMPI_COMM_WORLD_LOCAL_RANK (253), PMI_LOCAL_RANK (261) and PALS_LOCAL_RANKID (269) all wrap the identical body in 'if (ngpus > 0) { ... }'. ngpus comes straight from the user at line 208 and is only rejected later (line 316) for LMP_KOKKOS_GPU builds, and 'ngpus > 0' is not required at all for host-only builds (line 209-212 only errors for ngpus > 0).",
+    "failure_scenario": "Run under SLURM (SLURM_LOCALID set) with 'lmp -k on g 0 ...' (e.g. a host-only Kokkos build where the user disables GPUs explicitly, or a typo): 'local_rank % 0' is integer division by zero -> SIGFPE/undefined behavior before any of the later argument validation runs.",
+    "suggested_fix": "Wrap the SLURM_LOCALID body in 'if (ngpus > 0) { ... }' exactly like the other launcher branches, or validate ngpus >= 1 right after parsing it."
+  },
+  {
+    "file": "src/KOKKOS/memory_kokkos.h",
+    "line": 142,
+    "severity": "medium",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "A leftover debugging printf() sits in MemoryKokkos::create4d_offset_kokkos(), which the project rules forbid in LAMMPS code.",
+    "evidence": "src/KOKKOS/memory_kokkos.h:142: 'printf(\"^^^^^ memoryKK->create_4d_offset_kokkos\\n\");' inside create4d_offset_kokkos(), with a commented-out sanity check right above it at line 140 ('//if (n1 <= 0 || n2lo > n2hi || ...) array = nullptr;'). The project instructions state 'There should not be any printf() statements or fprintf(screen,...) ... in new code' and 'Any output statements that were added for the obvious purpose of aiding in debugging should be removed entirely'.",
+    "failure_scenario": "The first caller of this helper makes every MPI rank print '^^^^^ memoryKK->create_4d_offset_kokkos' to stdout, outside the log file and unguarded by comm->me == 0.",
+    "suggested_fix": "Delete the printf and the commented-out guard line; restore the real dimension check ('if (n1 <= 0 || n2lo > n2hi || n3lo > n3hi || n4lo > n4hi) return ...') that Memory::create4d_offset has at src/memory.h:742."
+  },
+  {
+    "file": "src/KOKKOS/memory_kokkos.h",
+    "line": 133,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "create4d_offset_kokkos() never applies the n2lo/n3lo/n4lo index offsets its name and comment promise, so every access through the returned pointer array is shifted, and there is no matching destroy for the pointer levels it smallocs.",
+    "evidence": "src/KOKKOS/memory_kokkos.h:151-172 builds the pointer levels with 'array[i][j][k] = &data.view_host()(i,j,k,0);' and returns without any offset arithmetic. The CPU original, Memory::create4d_offset (src/memory.h:739-755), ends with 'bigint m = ((bigint) n1) * n2 * n3; for (bigint i = 0; i < m; i++) array[0][0][i] -= n4lo; m = ((bigint) n1) * n2; for (bigint i = 0; i < m; i++) array[0][i] -= n3lo; for (int i = 0; i < n1; i++) array[i] -= n2lo;'. It also drops the 'if (n1 <= 0 || n2lo > n2hi || n3lo > n3hi || n4lo > n4hi) return nullptr;' guard of src/memory.h:742 (commented out at line 140), and no destroy4d_offset_kokkos exists to free the per-i and per-i,j smalloc'ed pointer blocks (src/memory.h:769-778 has destroy4d_offset for the CPU version). grep confirms the function currently has no callers.",
+    "failure_scenario": "The first style that ports a create4d_offset() array to KOKKOS and calls this with a non-zero n2lo/n3lo/n4lo (the usual case, e.g. type arrays starting at 1) reads and writes at index-lo instead of index, silently corrupting data or running off the end of the view; freeing the array leaks the two inner pointer levels.",
+    "suggested_fix": "Either delete this unused helper, or add the three offset loops and the dimension guard mirroring src/memory.h:742-753 and provide a matching destroy4d_offset_kokkos()."
+  },
+  {
+    "file": "src/KOKKOS/memory_kokkos.h",
+    "line": 327,
+    "severity": "medium",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "The 3d create_kokkos() overload that also builds a host mirror allocates the view with only two of the three extents and then indexes it in three dimensions.",
+    "evidence": "src/KOKKOS/memory_kokkos.h:319-351: 'TYPE create_kokkos(TYPE &data, HTYPE &h_data, typename TYPE::value_type ***&array, int n1, int n2, int n3, const char *name) { ... data = TYPE(std::string(name),n1,n2); h_data = Kokkos::create_mirror_view(data); ... array[i][j] = &data.view_host()(i,j,0); ... }'. The n3 argument is never used in the allocation, while the sibling overload without the host mirror (src/KOKKOS/memory_kokkos.h:287-317) correctly writes 'data = TYPE(std::string(name),n1,n2,n3);'. The body is also internally inconsistent: it makes h_data with Kokkos::create_mirror_view(data) (i.e. TYPE is a plain View, as in the working 2d overload at line 177-197 which uses '&h_data(i,0)'), yet indexes 'data.view_host()', a DualView member. grep over src/KOKKOS shows no caller passes seven arguments, so the template is never instantiated today.",
+    "failure_scenario": "The first caller of this overload either fails to compile (no view_host() on a plain View) or, for a DualView TYPE, gets a view whose third extent is 0 and then takes '&data.view_host()(i,j,0)' on a zero-size view -- out-of-bounds pointers handed back to the caller as a legacy 3d array.",
+    "suggested_fix": "Fix the allocation to 'data = TYPE(std::string(name),n1,n2,n3);' and index the host mirror consistently ('array[i][j] = &h_data(i,j,0);'), or delete the unused overload."
+  },
+  {
+    "file": "src/KOKKOS/kissfft_kokkos.h",
+    "line": 387,
+    "severity": "medium",
+    "category": "race",
+    "confidence": "confirmed",
+    "summary": "kf_bfly_generic() uses the single per-plan scratch view st.d_scratch that every concurrently running 1d FFT of the same parallel_for shares, where the CPU original allocates a private scratch buffer per call.",
+    "evidence": "src/KOKKOS/kissfft_kokkos.h:387 'typename FFT_AT::t_FFT_DATA_1d_um d_scratch = st.d_scratch;' then :392-393 'd_scratch(q1).re = d_Fout(Fout_count + k).re; ...' and :407 'C_MUL(t,d_scratch,q,d_twiddles,twidx);'. st.d_scratch is allocated once per plan in kiss_fft_alloc_kokkos (src/KOKKOS/kissfft_kokkos.h:520 'st.d_scratch = typename FFT_AT::t_FFT_DATA_1d(\"kissfft:scratch\",p_max);'). The state is copied by value into kiss_fft_functor (src/KOKKOS/fft3d_kokkos.cpp:183-193 'kiss_fft_state_kokkos<DeviceType> st;'), but a Kokkos::View member copies by reference-counted handle, so all threads of 'Kokkos::parallel_for(total/length,f);' (src/KOKKOS/fft3d_kokkos.cpp:261, and the mid/slow equivalents) write the same memory. The CPU original gives every call its own buffer: src/KSPACE/kissfft.h:340 'auto *scratch = (FFT_DATA *) KISS_FFT_TMP_ALLOC(sizeof(FFT_DATA) * p);' ... :362 'KISS_FFT_TMP_FREE(scratch);'.",
+    "failure_scenario": "Any FFT grid dimension with a prime factor larger than 5 (e.g. nfast = 7) routes kf_work's default switch case to kf_bfly_generic; every one of the total/length concurrent 1d FFTs then reads and writes the same p_max-element scratch view, so the transformed data is garbage (nondeterministic, differs run to run). Today this is latent for PPPM only because PPPM::set_grid_global boosts every grid dimension until PPPM::factorable() accepts it and factors[] is only {2,3,5} (src/KSPACE/pppm.cpp:92-96,1170-1172) -- any future user of FFT3dKokkos with an arbitrary grid size hits it immediately.",
+    "suggested_fix": "Give each FFT its own scratch slice: size st.d_scratch as p_max*(number of concurrent FFTs) and index it with the functor's 'i' (or the offset/length), or use Kokkos scratch (team) memory instead of a plan-wide view."
+  },
+  {
+    "file": "src/KOKKOS/meam_dens_init_kokkos.h",
+    "line": 149,
+    "severity": "medium",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "The five MS-MEAM per-atom arrays and their duplicated scatter views are allocated unconditionally, where the CPU base allocates them only when msmeamflag is set, wasting 23 KK_FLOATs per atom (times the thread count under a duplicated scatter view) in every plain pair_style meam/kk run.",
+    "evidence": "src/KOKKOS/meam_dens_init_kokkos.h:148-168 allocates k_arho2mb (nmax), k_arho1m (nmax x 3), k_arho2m (nmax x 6), k_arho3m (nmax x 10) and k_arho3mb (nmax x 3) with no msmeamflag test, and :222-226 / :237-241 unconditionally build dup_/ndup_ scatter views over them ('dup_arho2mb = Kokkos::Experimental::create_scatter_view<...ScatterDuplicated>(d_arho2mb);' etc.), with :261-265 contributing them back. The CPU original guards every one of these: src/MEAM/meam_dens_init.cpp:74-81 'if (msmeamflag) { memory->create(arho1m, nmax, 3, \"pair:arho1m\"); memory->create(arho2m, nmax, 6, ...); memory->create(arho3m, nmax, 10, ...); memory->create(arho2mb, nmax, ...); memory->create(arho3mb, nmax, 3, ...); }' (and the matching destroy at :47-53). Every consumer of these arrays in the KOKKOS kernels is itself behind 'if (msmeamflag)' (meam_dens_init_kokkos.h:47-63, :516-523, :561-570, :578-598), so the storage is provably dead for a non-MS-MEAM potential.",
+    "failure_scenario": "pair_style meam/kk (not meam/ms/kk) on a GPU with 10 million owned+ghost atoms permanently holds an extra 23 * 8 bytes/atom = ~1.8 GB of device memory that is never read or written; on a threaded host backend where lmp->kokkos->need_dup<DeviceType>() is true the duplicated scatter views multiply that waste by the thread count, so a 16-thread run over 1M atoms burns ~2.9 GB.",
+    "suggested_fix": "Wrap the msmeam allocations at :148-168, the scatter-view creation at :221-226 / :236-241, and the contribute calls at :260-265 in 'if (msmeamflag)', mirroring src/MEAM/meam_dens_init.cpp:74-81."
+  },
+  {
+    "file": "src/KOKKOS/meam_force_kokkos.h",
+    "line": 186,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The pair scale factor is looked up as d_scale(type[i], type[i]) instead of d_scale(type[i], type[j]), so a per-type-pair 'fix adapt pair meam scale' uses the i-i factor for every i-j pair.",
+    "evidence": "src/KOKKOS/meam_force_kokkos.h:186 'KK_FLOAT scaleij = d_scale(type[i], type[i]);'. The CPU original indexes both types: src/MEAM/meam_force.cpp:92 'scaleij = scale[type[i]][type[j]];' (inside the jn loop, after 'j = firstneigh[jn]'). The name 'scaleij' in the KOKKOS code confirms the intent. The other lookup in the port, src/KOKKOS/meam_dens_final_kokkos.h:63 'scaleii = d_scale(type[i],type[i]);', is correct because the base uses scale[type[i]][type[i]] there (src/MEAM/meam_dens_final.cpp:34 and :138).",
+    "failure_scenario": "A two-element MEAM system with 'fix adapt 1 pair meam scale 1 2 0.5' (only the cross interaction scaled, so scale[1][1] = scale[2][2] = 1.0): the CPU style halves the 1-2 pair energy while the /kk style applies scale[1][1] = 1.0 and leaves it unscaled -- and conversely, scaling only 1 1 wrongly rescales the 1-2 pairs of every type-1 atom.",
+    "suggested_fix": "Change to 'd_scale(type[i], type[j])' and hoist the lookup out of the 'if (eflag_either)' block so the same value can also scale dUdrij/dUdsij/dUdrijm as the CPU version does."
+  },
+  {
+    "file": "src/KOKKOS/meam_force_kokkos.h",
+    "line": 191,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The per-atom pair energy tally uses the unscaled phi while the global energy tally on the line above uses the scaled phi_sc, so eatom no longer sums to the global energy when a scale factor is set.",
+    "evidence": "src/KOKKOS/meam_force_kokkos.h:188-192: 'if (eflag_global) ev.evdwl += static_cast<KK_ACC_FLOAT>(phi_sc * sij); if (eflag_atom) { a_eatom[i] += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5) * phi * sij); a_eatom[j] += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5) * phi * sij); }'. The CPU original uses phi_sc in both places, src/MEAM/meam_force.cpp:116-121: 'if (eflag_global != 0) *eng_vdwl = *eng_vdwl + phi_sc * sij; if (eflag_atom != 0) { eatom[i] = eatom[i] + 0.5 * phi_sc * sij; eatom[j] = eatom[j] + 0.5 * phi_sc * sij; }'.",
+    "failure_scenario": "'pair_style meam/kk' with any scale != 1 and 'compute pe/atom': the sum of the per-atom energies differs from the thermo pe by the unscaled pair contribution, and a 'compute reduce sum c_pe' sanity check that passes on the CPU style fails on /kk.",
+    "suggested_fix": "Use phi_sc in the eflag_atom branch, matching src/MEAM/meam_force.cpp:119-120."
+  },
+  {
+    "file": "src/KOKKOS/kokkos.cpp",
+    "line": 282,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The 't'/'threads' command-line option reads arg[iarg+1] without the 'if (iarg+2 > narg)' bounds check that the 'd'/'device' and 'g'/'gpus' options perform.",
+    "evidence": "src/KOKKOS/kokkos.cpp:282-289: '} else if (strcmp(arg[iarg],\"t\") == 0 || strcmp(arg[iarg],\"threads\") == 0) { nthreads = utils::inumeric(FLERR, arg[iarg+1], false, lmp);' -- compare src/KOKKOS/kokkos.cpp:200-202 ('if (iarg+2 > narg) error->all(FLERR,\"Invalid Kokkos command-line args\");') and :207. narg here is kklast-kkfirst computed in src/lammps.cpp:302-304, so arg[iarg+1] can be one past the delimited range.",
+    "failure_scenario": "'lmp -k on t' as the final command-line arguments passes narg=1; arg[1] is read out of the delimited range (it is argv's terminating nullptr for a main()-provided argv, but an arbitrary pointer for a library caller of lammps_open() whose argv is not nullptr-terminated) -> out-of-bounds read instead of the intended 'Invalid Kokkos command-line args' error.",
+    "suggested_fix": "Add 'if (iarg+2 > narg) error->all(FLERR,\"Invalid Kokkos command-line args\");' as the first statement of the 't'/'threads' branch."
+  },
+  {
+    "file": "src/KOKKOS/kokkos.cpp",
+    "line": 299,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "The 'Kokkos package already initialized' check tests a freshly default-constructed InitializationSettings object, so the branch is dead and the warning can never fire.",
+    "evidence": "src/KOKKOS/kokkos.cpp:297-310: 'Kokkos::InitializationSettings args;' immediately followed by 'if (args.has_num_threads()) { ... error->warning(FLERR,\"Kokkos package already initalized. Cannot change parameters\"); nthreads = args.get_num_threads(); ... }'. 'args' is a local object that has just been default constructed and no setter has been called, so has_num_threads() is always false and only the else branch (set_num_threads/set_device_id) ever executes. The comment above it ('we cannot change any Kokkos library parameters after the first initalization') shows the intent was to detect an already-initialized Kokkos runtime, which is what KokkosLMP::initialize() tests with Kokkos::is_initialized() at line 496.",
+    "failure_scenario": "A library user calls lammps_open() twice with different '-k on t N g M' settings: the second instance silently reports and uses the newly requested nthreads/ngpus in its log while Kokkos keeps the settings from the first initialization (KokkosLMP::initialize skips Kokkos::initialize), and no warning is printed.",
+    "suggested_fix": "Test 'Kokkos::is_initialized()' (and query the live execution space / init_ngpus) instead of args.has_num_threads(), or drop the dead branch."
+  },
+  {
+    "file": "src/KOKKOS/kokkos.h",
+    "line": 29,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "Member 'neighflag_qeq_set' is declared but never initialized nor used anywhere in the source tree.",
+    "evidence": "src/KOKKOS/kokkos.h:29 'int neighflag_qeq_set;'; 'grep -rn neighflag_qeq_set src/' returns only this declaration. It is not set in the KokkosLMP constructor (src/KOKKOS/kokkos.cpp:116-490, which initializes neigh_thread_set, threads_per_atom_set, pair_team_size_set, ... but not this one) and never read.",
+    "failure_scenario": "No runtime effect today, but the uninitialized member is a trap for anyone who later adds a 'if (neighflag_qeq_set)' test analogous to neigh_thread_set.",
+    "suggested_fix": "Remove the member, or initialize it in the constructor and use it to distinguish an explicit 'neigh/qeq' setting like neigh_thread_set does."
+  },
+  {
+    "file": "src/KOKKOS/kokkos_type.h",
+    "line": 1421,
+    "severity": "low",
+    "category": "race",
+    "confidence": "confirmed",
+    "summary": "memset_kokkos() keeps its zeroing functor in a function-local static and zeroes only floor(bytes/4) bytes; the helper is dead code (no caller anywhere in src/).",
+    "evidence": "src/KOKKOS/kokkos_type.h:1421-1427: 'template<class ViewType> void memset_kokkos (ViewType &view) { static MemsetZeroFunctor<typename ViewType::execution_space> f; f.ptr = view.data(); Kokkos::parallel_for(view.span()*sizeof(typename ViewType::value_type)/4, f); ... }'. The functor object is shared by every call for a given execution space, and 'f.ptr' is written before the launch, so two host threads calling this for different views race on 'f.ptr'. The trip count 'span()*sizeof(value_type)/4' truncates: a view whose byte size is not a multiple of 4 leaves its last 1-3 bytes untouched. 'grep -rn memset_kokkos src/' finds only this definition -- there is no caller.",
+    "failure_scenario": "If a future caller uses it on a view whose byte size is not a multiple of 4 (e.g. a char or a 2-byte value type), the tail bytes stay uninitialized; if two threads call it concurrently one view is zeroed twice and the other not at all.",
+    "suggested_fix": "Delete the unused helper, or replace its body with 'Kokkos::deep_copy(view, typename ViewType::value_type());' which is correct for any value type and has no shared state."
+  },
+  {
+    "file": "src/KOKKOS/kokkos_type.h",
+    "line": 185,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "Two blocks of commented-out code left in the header, which the project coding rules ask to remove.",
+    "evidence": "src/KOKKOS/kokkos_type.h:185 '//typedef Kokkos::LayoutLeft LMPDeviceLayout;' inside the '#else' of the layout selection, and src/KOKKOS/kokkos_type.h:1465 '//typedef struct { SNAreal re, im; } SNAcomplex;' just above the SNAComplex template.",
+    "failure_scenario": "None at runtime; the review checklist in .github/copilot-instructions.md ('Commented out code ... should be removed entirely') flags these.",
+    "suggested_fix": "Delete both commented-out typedefs."
+  },
+  {
+    "file": "src/KOKKOS/modify_kokkos.h",
+    "line": 34,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "ModifyKokkos declares a member function pre_decide() that is never defined and never called, and it does not override anything in Modify.",
+    "evidence": "src/KOKKOS/modify_kokkos.h:34 'void pre_decide();' -- it carries no 'override' (Modify has no such virtual, see src/modify.h:58-104) and 'grep -rn pre_decide src/' finds only this one line: there is no definition in src/KOKKOS/modify_kokkos.cpp and no caller.",
+    "failure_scenario": "No runtime effect; any future call to it would be an undefined-reference link error rather than the intended behavior.",
+    "suggested_fix": "Remove the declaration, or implement it if a pre-decide hook is actually wanted."
+  },
+  {
+    "file": "src/KOKKOS/modify_kokkos.cpp",
+    "line": 504,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "ModifyKokkos::energy_atom() is a byte-for-byte copy of Modify::energy_atom(), adding no KOKKOS sync/modify handling, so the override serves no purpose.",
+    "evidence": "src/KOKKOS/modify_kokkos.cpp:504-514 and src/modify.cpp:514-524 have identical bodies ('eatom = fix[list_energy_atom[i]]->eatom; if (!eatom) continue; for (j = 0; j < nlocal; j++) energy[j] += eatom[j];'). Unlike every other wrapper in modify_kokkos.cpp it contains no atomKK->sync/modified and no auto_sync bracket. (This is currently harmless because no fix in src/KOKKOS sets energy_peratom_flag, so list_energy_atom only ever holds non-KOKKOS fixes whose eatom is plain host memory.)",
+    "failure_scenario": "None today; but the empty override hides the fact that the first KOKKOS fix to provide a device-resident per-atom energy would be read here without a sync.",
+    "suggested_fix": "Delete the override and let Modify::energy_atom() be used, or make it actually sync the fix's per-atom energy when the fix is kokkosable."
+  },
+  {
+    "file": "src/KOKKOS/math_special_kokkos.h",
+    "line": 34,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "MathSpecialKokkos::factorial() is declared extern in the header but is defined nowhere and called nowhere, so any use would be a link error.",
+    "evidence": "src/KOKKOS/math_special_kokkos.h:34 'extern double factorial(const int n);' with the doc comment promising a table lookup for 0 <= n <= 167. src/KOKKOS/math_special_kokkos.cpp defines only 'double MathSpecialKokkos::erfcx_y100(const double y100)' (line 61) -- the nfac_table[] and the factorial() definition that src/math_special.cpp:10-199 carries were not ported. 'grep -rn \"MathSpecialKokkos::factorial\" src/' finds nothing; the KOKKOS styles that need factorials use their own copies (src/KOKKOS/sna_kokkos_impl.h:1910, and compute_orientorder_atom_kokkos.cpp:38 which pulls in the non-KOKKOS MathSpecial::factorial).",
+    "failure_scenario": "A future KOKKOS style that calls MathSpecialKokkos::factorial() compiles cleanly and then fails at link time with an undefined reference.",
+    "suggested_fix": "Remove the declaration, or port the nfac_table[] lookup from src/math_special.cpp into math_special_kokkos.cpp."
+  },
+  {
+    "file": "src/KOKKOS/math_special_kokkos.h",
+    "line": 59,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "The header defines the object-like macro FM_DOUBLE_LOG2OFE and never undefines it, leaking it into every translation unit that includes math_special_kokkos.h.",
+    "evidence": "src/KOKKOS/math_special_kokkos.h:59 '#define FM_DOUBLE_LOG2OFE  1.4426950408889634074'. The non-KOKKOS original keeps the same constant out of the header and as a typed constant in the implementation file: src/math_special.cpp has 'static constexpr double FM_DOUBLE_LOG2OFE = 1.4426950408889634074;'.",
+    "failure_scenario": "Any translation unit that includes both math_special_kokkos.h and a file declaring an identifier named FM_DOUBLE_LOG2OFE (e.g. src/math_special.cpp's static constexpr, were it ever pulled in) fails to compile with a confusing macro-expansion error.",
+    "suggested_fix": "Replace the macro with 'static constexpr double FM_DOUBLE_LOG2OFE = 1.4426950408889634074;' inside the MathSpecialKokkos namespace."
+  },
+  {
+    "file": "src/KOKKOS/math_extra_kokkos.h",
+    "line": 526,
+    "severity": "low",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "Three device-callable functions use unqualified sqrt()/cos()/sin() instead of the Kokkos:: math functions the rest of the file (and the KOKKOS package rules) use.",
+    "evidence": "src/KOKKOS/math_extra_kokkos.h:526 (qnormalize) 'double norm = 1.0 / sqrt(q[0] * q[0] + ...);'; :722,:727,:732,:737 (exyz_to_q) 'q[0] = sqrt(q0sq);' etc.; :824-825 (no_squish_rotate) 'c_phi = cos(static_cast<double>(dt) * phi); s_phi = sin(static_cast<double>(dt) * phi);'. Every other function in the same header uses the qualified form, e.g. :108 'Kokkos::sqrt(v[0]*v[0]+...)', :207, :571-572 'Kokkos::sin(halfa) / Kokkos::cos(halfa)'. .github/instructions/kokkos.instructions.md rule 4: 'Use Kokkos:: math functions in device kernels (Kokkos::sqrt, Kokkos::exp, Kokkos::pow, Kokkos::log, ...), never std::'. All three are reached from device kernels: src/KOKKOS/fix_rigid_small_kokkos.cpp:854 'MathExtraKokkos::richardson(...)' (which calls qnormalize) and :1476 'MathExtraKokkos::qnormalize(quatatom);', src/KOKKOS/fix_rigid_nh_small_kokkos.cpp:665-669 'MathExtraKokkos::no_squish_rotate(...)'.",
+    "failure_scenario": "Compiles today because CUDA/HIP inject ::sqrt/::cos/::sin device overloads for double via math.h, but the same construct is what rule 4 was written for; a backend that does not (or a KK_FLOAT=float build, where the unqualified call silently promotes to double) either fails to compile or costs double-precision transcendentals in a single-precision kernel.",
+    "suggested_fix": "Replace with Kokkos::sqrt / Kokkos::cos / Kokkos::sin like the rest of the header."
+  },
+  {
+    "file": "src/KOKKOS/meam_funcs_kokkos.h",
+    "line": 51,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "MEAMKokkos::G_gam() is missing the 'gamma == 0.0' division-by-zero guard that was added to the CPU MEAM::G_gam(), so the two implementations can return different values for the same input.",
+    "evidence": "src/KOKKOS/meam_funcs_kokkos.h:47-52 'if (gamma < gsmooth_switchpoint) { KK_FLOAT G = 1 / (gsmooth_factor_kk + 1) * Kokkos::pow((gsmooth_switchpoint / gamma), gsmooth_factor_kk); return Kokkos::sqrt(G); }'. The CPU original has one extra line at src/MEAM/meam_funcs.cpp:43-49: 'if (gamma < gsmooth_switchpoint) { ... if (gamma == 0.0) return 0.0; // avoid division by zero. For gamma = 0.0 => G = 1 / inf   double G = 1 / (gsmooth_factor + 1) * pow((gsmooth_switchpoint / gamma), gsmooth_factor); return sqrt(G); }'. git log -L on those lines shows the guard came from the 'static-analysis-updates' merge (63fcdb6e5) and was never propagated to the KOKKOS copy; MEAMKokkos::G_gam is otherwise a line-by-line transliteration.",
+    "failure_scenario": "A potential file with a negative gsmooth_factor puts gsmooth_switchpoint = -gsf/(gsf+1) above zero, so gamma == 0.0 enters the branch: the CPU pair style returns 0.0 while pair_style meam/kk evaluates gsmooth_switchpoint/0.0 and feeds the infinity to pow, so the /kk run can disagree with the CPU run (0/0 -> NaN when gsmooth_switchpoint is also 0). With the usual positive gsmooth_factor the branch requires gamma < -0.99 and the guard is unreachable, so this is a latent divergence rather than an observed wrong answer.",
+    "suggested_fix": "Add 'if (gamma == static_cast<KK_FLOAT>(0.0)) return 0.0;' before the pow, mirroring src/MEAM/meam_funcs.cpp:47 (and consider the same for dG_gam, which divides by gamma at line 99 and has no guard in either version)."
+  },
+  {
+    "file": "src/KOKKOS/kokkos_type.h",
+    "line": 1046,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "likely",
+    "summary": "The 'if (SINGLE_DEVICE) modify_legacy_device();' branch inside TransformView::sync_hostkk_to_legacy() is unreachable, because a single-device Kokkos DualView always reports need_sync_host()/need_sync_device() as false.",
+    "evidence": "src/KOKKOS/kokkos_type.h:1041-1049: 'if (modified_hostkk_legacy) { Kokkos::deep_copy(h_view,h_viewkk); modified_hostkk_legacy = 0; if (k_view.need_sync_host() || k_view.need_sync_device()) { if (SINGLE_DEVICE) modify_legacy_device(); } else modified_legacy_device = 0; }'. SINGLE_DEVICE is defined at line 714 as 't_dev::device_type == t_host::device_type', which is exactly Kokkos' impl_dualview_is_single_device; for such a DualView Kokkos' need_sync<Device>() returns false unconditionally, so the guarded call can never execute and the else branch always runs under SINGLE_DEVICE.",
+    "failure_scenario": "No wrong results today; the intent of the branch (record that the legacy host is now ahead of the device) is silently never carried out, so a later change to the surrounding logic will behave differently from what the code reads as.",
+    "suggested_fix": "Drop the dead 'if (SINGLE_DEVICE)' branch, or if the intent was the non-single-device case, change it to 'if (!SINGLE_DEVICE) modify_legacy_device();' and re-verify the sync state machine."
+  },
+  {
+    "file": "src/KOKKOS/modify_kokkos.cpp",
+    "line": 520,
+    "severity": "low",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "ModifyKokkos::post_run() is the only fix-calling wrapper that omits the auto_sync bracketing used around every other non-KOKKOS fix callback.",
+    "evidence": "src/KOKKOS/modify_kokkos.cpp:522-528: 'for (int i = 0; i < nfix; i++) { atomKK->sync(fix[i]->execution_space, fix[i]->datamask_read); fix[i]->post_run(); atomKK->modified(fix[i]->execution_space, fix[i]->datamask_modify); }'. Every other wrapper in the file (e.g. end_of_step at :446-449, post_force at :379-382, min_post_force at :745-748, and energy_couple/energy_global as of commit 9ba00b501) wraps the call as 'int prev_auto_sync = lmp->kokkos->auto_sync; if (!fix[...]->kokkosable) lmp->kokkos->auto_sync = 1; fix[...]->hook(); lmp->kokkos->auto_sync = prev_auto_sync;'. The purpose (documented in src/KOKKOS/verlet_kokkos.cpp:425-428) is that a non-KOKKOS style running inside a KOKKOS run needs auto_sync on so that any sync()/modified() it triggers indirectly (e.g. through the DomainKokkos x2lamda/lamda2x overrides) writes through to the legacy host arrays it reads.",
+    "failure_scenario": "A non-KOKKOS fix whose post_run() goes through a KOKKOS-overridden helper that syncs to the device (DomainKokkos::x2lamda/lamda2x, AtomKokkos::sort) leaves the legacy host arrays behind, so anything the fix reads afterwards in post_run() (or a later 'run' command that re-reads them) sees stale coordinates.",
+    "suggested_fix": "Add the same 'prev_auto_sync' save/force/restore around 'fix[i]->post_run();' that all the other ModifyKokkos wrappers use."
+  },
+  {
+    "file": "src/KOKKOS/kokkos_few.h",
+    "line": 117,
+    "severity": "low",
+    "category": "memory",
+    "confidence": "likely",
+    "summary": "Few's initializer_list constructor neither bounds-checks nor default-initializes: a list longer than n writes past the fixed buffer, a shorter one leaves elements uninitialized.",
+    "evidence": "src/KOKKOS/kokkos_few.h:113 'alignas(T) char array_[n * sizeof(T)];' and :117-122 'Few(std::initializer_list<T> l) { std::size_t i = 0; for (auto it = l.begin(); it != l.end(); ++it) { new (data() + (i++)) T(*it); } }'. There is no 'i < n' guard and no loop to construct the remaining n - l.size() elements, while the destructor at :132-134 unconditionally runs '(data()[i]).~T()' for all n. The sibling constructors at :124-130 correctly cover all n slots.",
+    "failure_scenario": "'Few<double,3> f = {1.0, 2.0, 3.0, 4.0};' constructs a fourth double past the end of array_ (stack/object corruption); 'Few<double,3> f = {1.0, 2.0};' leaves f[2] holding garbage that is then used as a coordinate or box length. No in-tree caller uses the initializer-list form today, so this is latent.",
+    "suggested_fix": "Clamp the loop to n and default-construct the remaining slots, e.g. 'std::size_t i = 0; for (auto it = l.begin(); it != l.end() && i < n; ++it) new (data() + (i++)) T(*it); for (; i < n; ++i) new (data() + i) T();'."
+  }
+]
+
+COVERAGE: all files read completely

@@ -1,0 +1,124 @@
+[
+  {
+    "file": "src/KOKKOS/angle_hybrid_kokkos.cpp",
+    "line": 147,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "angle_style hybrid/kk dereferences a null cvatom of its sub-styles because it keeps the inherited centroidstressflag = CENTROID_AVAIL while every KOKKOS angle sub-style sets CENTROID_NOTAVAIL.",
+    "evidence": "src/KOKKOS/angle_hybrid_kokkos.cpp:144-150 'if (cvflag_atom) { int n = atom->nlocal; ... double **cvatom_substyle = styles[m]->cvatom; for (int i = 0; i < n; i++) for (int j = 0; j < 9; j++) cvatom[i][j] += cvatom_substyle[i][j]; }'. AngleHybridKokkos's constructor (src/KOKKOS/angle_hybrid_kokkos.cpp:33-44) never touches centroidstressflag, and neither does src/angle_hybrid.cpp, so it keeps Angle's default 'centroidstressflag = CENTROID_AVAIL' (src/angle.cpp:48). Angle::ev_setup then sets 'cvflag_atom = 1' for the hybrid (src/angle.cpp:128). Every KOKKOS angle sub-style, however, sets 'centroidstressflag = CENTROID_NOTAVAIL' in its constructor (e.g. src/KOKKOS/angle_harmonic_kokkos.cpp:48, angle_mm3_kokkos.cpp:48, angle_quartic_kokkos.cpp:44, angle_spica_kokkos.cpp:53, angle_table_kokkos.cpp:49, angle_mwlc_kokkos.cpp:42), so in their ev_setup src/angle.cpp:126-128 takes the 'vflag_atom = 1 / cvflag_atom = 0' branch and their 'cvatom' is never allocated (it stays the nullptr set in Angle's constructor). No CPU angle style sets CENTROID_NOTAVAIL (grep over src/**/angle_*.cpp returns only KOKKOS files), which is why the CPU angle_hybrid never hits this. PairHybrid does recompute the flag from its sub-styles (src/pair_hybrid.cpp:445-457); AngleHybrid/AngleHybridKokkos do not.",
+    "failure_scenario": "angle_style hybrid/kk harmonic quartic (or any pair of kk angle styles) together with 'compute centroid/stress/atom' -> the run's ev_set() adds VIRIAL_CENTROID, AngleHybridKokkos::compute sets cvflag_atom = 1, the sub-style leaves cvatom == nullptr, and the accumulation loop segfaults on the first timestep. Even if it did not crash, the per-atom virial the sub-styles wrote into vatom would be silently discarded because the hybrid's own vflag_atom is 0.",
+    "suggested_fix": "In AngleHybridKokkos::init_style() (after AngleHybrid::init_style()) recompute centroidstressflag from the sub-styles exactly as PairHybrid::init_one does (src/pair_hybrid.cpp:450-457): set CENTROID_NOTAVAIL if any sub-style is CENTROID_NOTAVAIL. Better still, add that loop to the CPU AngleHybrid so all hybrids inherit it."
+  },
+  {
+    "file": "src/KOKKOS/angle_spica_kokkos.cpp",
+    "line": 382,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "AngleSPICAKokkos::init_style() unconditionally copies the pair style's lj_type/lj1..lj4/rminsq/emin arrays, but the base class only sets those pointers when repflag is non-zero, so they are still nullptr and the loop dereferences null.",
+    "evidence": "src/KOKKOS/angle_spica_kokkos.cpp:379-390: 'int ntypes = atom->ntypes; for (int i = 1; i <= ntypes; i++) { for (int j = 1; j <= ntypes; j++) { k_lj_type.view_host()(i,j) = lj_type[i][j]; k_lj1.view_host()(i,j) = static_cast<KK_FLOAT>(lj1[i][j]); ... k_emin.view_host()(i,j) = static_cast<KK_FLOAT>(emin[i][j]); } }'. The base, src/CG-SPICA/angle_spica.cpp:294-321, does: 'repflag = 0; for (int i = 1; i <= atom->nangletypes; i++) if (repscale && (repscale[i] > 0.0)) repflag = 1; ... if (repflag) { lj1 = (double **) force->pair->extract(\"lj1\",itmp); ... }' -- i.e. lj1..lj4, lj_type, rminsq and emin are only assigned inside 'if (repflag)'. They are initialised to nullptr in the AngleSPICA constructor (src/CG-SPICA/angle_spica.cpp:47-52). The kernel itself correctly guards its use with 'if (repflag)' (src/KOKKOS/angle_spica_kokkos.cpp:215), but init_style does not.",
+    "failure_scenario": "Any input where the 1-3 repulsion is switched off for every angle type, e.g. 'angle_coeff * 50.0 173.0 0.0' (4-argument form sets repscale = 0.0, src/CG-SPICA/angle_spica.cpp:272) or the legacy 6-argument cg/cmm form with epsilon 0.0. repflag stays 0, lj_type is nullptr, and 'lj_type[1][1]' in init_style segfaults at the start of the run. The plain CPU angle_style spica runs this input fine.",
+    "suggested_fix": "Wrap the ntypes x ntypes copy loop and the matching modify_host() calls in 'if (repflag) { ... }', mirroring the guard the base class and the device kernel already use."
+  },
+  {
+    "file": "src/KOKKOS/angle_spica_kokkos.cpp",
+    "line": 47,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "AngleSPICAKokkos's constructor never sets kokkosable = 1, so angle_style hybrid/kk rejects spica/kk and VerletKokkos turns on auto_sync (a full host/device round trip of x and f) every timestep.",
+    "evidence": "src/KOKKOS/angle_spica_kokkos.cpp:44-54 is the whole constructor: 'AngleSPICAKokkos<DeviceType>::AngleSPICAKokkos(LAMMPS *lmp) : AngleSPICA(lmp) { atomKK = (AtomKokkos *) atom; neighborKK = (NeighborKokkos *) neighbor; execution_space = ExecutionSpaceFromDevice<DeviceType>::space; datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK; datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK; centroidstressflag = CENTROID_NOTAVAIL; }' -- no 'kokkosable = 1;'. Every sibling sets it as the first statement: angle_harmonic_kokkos.cpp:41, angle_mm3_kokkos.cpp:41, angle_mwlc_kokkos.cpp:35, angle_quartic_kokkos.cpp:37, angle_table_kokkos.cpp:42, angle_hybrid_kokkos.cpp:35. Consumers: src/KOKKOS/angle_hybrid_kokkos.cpp:203-204 'if (!styles[m]->kokkosable) error->all(FLERR,\"Must use only Kokkos-enabled angle styles with angle_style hybrid/kk\");' and src/KOKKOS/verlet_kokkos.cpp:473-474 'int prev_auto_sync = lmp->kokkos->auto_sync; if (!force->angle->kokkosable) lmp->kokkos->auto_sync = 1;' (same at dynamical_matrix_kokkos.cpp:247). auto_sync = 1 makes AtomKokkos::sync/modified push everything through the legacy host arrays (src/KOKKOS/atom_kokkos.cpp:241-269).",
+    "failure_scenario": "'angle_style hybrid/kk spica harmonic' aborts with 'Must use only Kokkos-enabled angle styles with angle_style hybrid/kk' even though spica/kk is a full KOKKOS port. With a plain 'angle_style spica/kk' on a GPU, every step copies x and f device->host->device around the angle compute, so the /kk variant is far slower than intended.",
+    "suggested_fix": "Add 'kokkosable = 1;' as the first statement of AngleSPICAKokkos's constructor, matching every other KOKKOS angle style."
+  },
+  {
+    "file": "src/KOKKOS/Install.sh",
+    "line": 50,
+    "severity": "medium",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "angle_mm3_kokkos, angle_mwlc_kokkos and angle_quartic_kokkos have no action lines in src/KOKKOS/Install.sh, so the traditional make build never installs them and the mm3/kk, mwlc/kk and quartic/kk styles silently do not exist there.",
+    "evidence": "'grep \"^action angle\" src/KOKKOS/Install.sh' returns only lines 37-50 (charmm, class2, cosine, table, harmonic, hybrid, spica). The files src/KOKKOS/angle_mm3_kokkos.{cpp,h}, angle_mwlc_kokkos.{cpp,h} and angle_quartic_kokkos.{cpp,h} exist and register AngleStyle(mm3/kk,...), AngleStyle(mwlc/kk,...), AngleStyle(quartic/kk,...) (angle_mm3_kokkos.h:16-18, angle_mwlc_kokkos.h:16-18, angle_quartic_kokkos.h:16-18). Their base classes live in optional packages (src/YAFF/angle_mm3.cpp, src/EXTRA-MOLECULE/angle_mwlc.cpp, src/EXTRA-MOLECULE/angle_quartic.cpp), so per .github/instructions/kokkos.instructions.md rule 5 they need two-argument action lines, e.g. 'action angle_mm3_kokkos.cpp angle_mm3.cpp'.",
+    "failure_scenario": "'cd src && make yes-kokkos yes-yaff yes-extra-molecule && make mpi' produces a binary in which 'angle_style mm3/kk' fails with 'Unrecognized angle style'; a CMake build of the same tree has the style, so the two build systems disagree. (The same omission affects several other angle kk styles outside this review group.)",
+    "suggested_fix": "Add the six missing action lines to src/KOKKOS/Install.sh, each naming both the KOKKOS file and its package base file, and audit the rest of the angle_*_kokkos files for the same omission."
+  },
+  {
+    "file": "src/KOKKOS/atom_vec_spin_kokkos.cpp",
+    "line": 291,
+    "severity": "medium",
+    "category": "sync-modify",
+    "confidence": "confirmed",
+    "summary": "In the Device branch of AtomVecSpinKokkos::sync_pinned the guard for the fm array tests k_sp instead of k_fm, so fm can be left unsynced (or synced spuriously) depending on the state of an unrelated array.",
+    "evidence": "src/KOKKOS/atom_vec_spin_kokkos.cpp:289-294: 'if ((mask & SP_MASK) && atomKK->k_sp.need_sync_device()) perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_4>(atomKK->k_sp,space,async_flag); if ((mask & FM_MASK) && atomKK->k_sp.need_sync_device()) perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_fm,space,async_flag); if ((mask & FML_MASK) && atomKK->k_fm_long.need_sync_device()) ...'. The FM line tests k_sp, not k_fm. The host branch of the same function has it right: src/KOKKOS/atom_vec_spin_kokkos.cpp:312-313 'if ((mask & FM_MASK) && atomKK->k_fm.need_sync_host()) perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_fm,space,async_flag);'. The reference implementation always pairs the guard with the view it copies (src/KOKKOS/atom_vec_atomic_kokkos.cpp:165-179).",
+    "failure_scenario": "Whenever a caller asks for sync_pinned(Device, ... FM_MASK ...) with fm modified on the host and sp already clean, fm is not copied to the device and the following spin kernel reads stale magnetic forces. Today only sync_pinned(HostKK,...)/sync_pinned(Host,...) call sites exist (verlet_kokkos.cpp:448, dynamical_matrix_kokkos.cpp:230, third_order_kokkos.cpp:230), so the defect is latent, but it is armed for the first Device-side caller.",
+    "suggested_fix": "Change the FM_MASK guard on line 291 to 'atomKK->k_fm.need_sync_device()'."
+  },
+  {
+    "file": "src/KOKKOS/angle_mm3_kokkos.cpp",
+    "line": 72,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "angle mm3/kk destroys and re-creates the k_eatom/k_vatom dual views on every energy/virial-tally step instead of only when maxeatom/maxvatom grows.",
+    "evidence": "src/KOKKOS/angle_mm3_kokkos.cpp:72-81: 'if (eflag_atom) { memoryKK->destroy_kokkos(k_eatom,eatom); memoryKK->create_kokkos(k_eatom,eatom,maxeatom,\"angle:eatom\"); d_eatom = k_eatom.template view<DeviceType>(); } if (vflag_atom) { memoryKK->destroy_kokkos(k_vatom,vatom); ... }'. The sibling styles use the guarded form, e.g. src/KOKKOS/angle_harmonic_kokkos.cpp:74-87 and angle_quartic_kokkos.cpp:68-81: 'if ((int)k_eatom.extent(0) < maxeatom) { destroy; create; d_eatom = ...; } else Kokkos::deep_copy(d_eatom,0.0);'. maxeatom only grows when atom->nmax grows (src/angle.cpp:133-139).",
+    "failure_scenario": "A run with 'compute pe/atom' or 'compute stress/atom' and thermo output every step frees and re-allocates two device arrays of atom->nmax (and 6*nmax) elements on every tally step; on a GPU this serialises the step behind an allocation and can dominate the angle time.",
+    "suggested_fix": "Use the same 'if ((int)k_eatom.extent(0) < maxeatom) { ... } else Kokkos::deep_copy(d_eatom,0.0);' pattern as angle_harmonic_kokkos.cpp:74-87."
+  },
+  {
+    "file": "src/KOKKOS/angle_spica_kokkos.cpp",
+    "line": 79,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "angle spica/kk destroys and re-creates the k_eatom/k_vatom dual views on every energy/virial-tally step instead of only when maxeatom/maxvatom grows.",
+    "evidence": "src/KOKKOS/angle_spica_kokkos.cpp:79-88: 'if (eflag_atom) { memoryKK->destroy_kokkos(k_eatom,eatom); memoryKK->create_kokkos(k_eatom,eatom,maxeatom,\"angle:eatom\"); d_eatom = k_eatom.template view<DeviceType>(); } if (vflag_atom) { memoryKK->destroy_kokkos(k_vatom,vatom); ... }', versus the guarded form in src/KOKKOS/angle_harmonic_kokkos.cpp:74-87 / angle_table_kokkos.cpp:75-88 / angle_mwlc_kokkos.cpp:66-79.",
+    "failure_scenario": "Same as angle_mm3_kokkos.cpp:72 -- per-atom energy/stress output turns every tally step into two device allocations and frees.",
+    "suggested_fix": "Adopt the extent-guarded reallocation plus Kokkos::deep_copy(...,0.0) used by the other angle kk styles."
+  },
+  {
+    "file": "src/KOKKOS/angle_spica_kokkos.cpp",
+    "line": 335,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "k_setflag/d_setflag and k_repscale/d_repscale are allocated, filled, synced and carried into the device functor but are never read by any kernel.",
+    "evidence": "Allocated at src/KOKKOS/angle_spica_kokkos.cpp:335 and 334 ('k_repscale = DAT::tdual_kkfloat_1d(\"AngleSPICA::repscale\",nangletypes+1); k_setflag = DAT::tdual_int_1d(\"AngleSPICA::setflag\",nangletypes+1);'), filled in coeff() (lines 416-417) and read_restart() (lines 439-440), synced in compute() (line 92 'k_repscale.template sync<DeviceType>();'), and declared as members at src/KOKKOS/angle_spica_kokkos.h:92-96. Neither d_setflag nor d_repscale appears anywhere in operator(), ev_tally or ev_tally13 (the whole file contains no other occurrence). The base class likewise only uses repscale to derive repflag (src/CG-SPICA/angle_spica.cpp:300-301).",
+    "failure_scenario": "No wrong results; it wastes device memory and one host->device transfer per step, and it misleads a reader into thinking the 1-3 repulsion is per-type scaled on the device when it is not.",
+    "suggested_fix": "Delete k_setflag/d_setflag and k_repscale/d_repscale (and the sync at line 92), or use d_repscale in the kernel if per-type scaling of the 1-3 term is actually intended."
+  },
+  {
+    "file": "src/KOKKOS/angle_hybrid_kokkos.cpp",
+    "line": 220,
+    "severity": "low",
+    "category": "memory",
+    "confidence": "likely",
+    "summary": "AngleHybridKokkos::maxangle_all is never initialised, so memory_usage() reads an indeterminate value if it is called before the first re-neighbour step.",
+    "evidence": "'int maxangle_all;' is declared at src/KOKKOS/angle_hybrid_kokkos.h:43 and is written only inside the 'if (neighbor->ago == 0)' block, src/KOKKOS/angle_hybrid_kokkos.cpp:85-88 ('maxangle_all = 0; for (int m = 0; m < nstyles; m++) if (h_nanglelist[m] > maxangle_all) maxangle_all = h_nanglelist[m] + EXTRA;'). The constructor (lines 33-44) and allocate() (lines 161-171) do not set it, while memory_usage() reads it at line 220: 'for (int m = 0; m < nstyles; m++) bytes += (double) maxangle_all * 4 * sizeof(int);'. The CPU class initialises the corresponding per-style array in allocate() ('for (int m = 0; m < nstyles; m++) maxangle[m] = 0;', src/angle_hybrid.cpp:161-166).",
+    "failure_scenario": "'angle_style hybrid/kk ... ; angle_coeff ... ; info coeffs' (or any memory_usage query issued before a run) reads uninitialised memory and prints a garbage or negative memory figure; it is undefined behaviour reported by valgrind/MSan.",
+    "suggested_fix": "Initialise maxangle_all = 0 in the AngleHybridKokkos constructor (and/or in allocate())."
+  },
+  {
+    "file": "src/KOKKOS/atom_vec_spin_kokkos.cpp",
+    "line": 166,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "AtomVecSpinKokkos::force_clear() ignores its first argument, so it always zeroes fm/fm_long starting at atom 0 instead of at atom n as the base class does.",
+    "evidence": "src/KOKKOS/atom_vec_spin_kokkos.cpp:166-190: 'void AtomVecSpinKokkos::force_clear(int /*n*/, size_t nbytes) { int nzero = (double)nbytes/sizeof(double); ... Kokkos::parallel_for(nzero, LAMMPS_LAMBDA(int i) { l_fm(i,0) = 0.0; ... l_fm_long(i,2) = 0.0; }); ... }'. The base is src/SPIN/atom_vec_spin.cpp:86-90: 'void AtomVecSpin::force_clear(int n, size_t nbytes) { memset(&fm[n][0], 0, 3 * nbytes); memset(&fm_long[n][0], 0, 3 * nbytes); }' -- it starts at row n. The interface contract is stated in src/atom_vec.h:74 and in the comment 'clear extra forces starting at atom N'.",
+    "failure_scenario": "Latent today: the only KOKKOS caller, MinKokkos::force_clear (src/KOKKOS/min_kokkos.cpp:602-606), passes n = 0. Any future caller that uses the neighbor->includegroup form (src/verlet.cpp:417 calls 'atom->avec->force_clear(nlocal,nbytes)') would zero the wrong atoms and clobber the magnetic forces of the first nlocal atoms while leaving the ghosts stale.",
+    "suggested_fix": "Honour the argument: capture n and zero rows [n, n+nzero) (or assert n == 0 with an explicit comment if the offset form is deliberately unsupported)."
+  },
+  {
+    "file": "src/KOKKOS/angle_mwlc_kokkos.cpp",
+    "line": 173,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "possible",
+    "summary": "In single/mixed precision builds the two Boltzmann factors of angle mwlc/kk can both underflow float to zero, making Q = 0 and turning the force and energy into NaN.",
+    "evidence": "src/KOKKOS/angle_mwlc_kokkos.cpp:170-180: 'const KK_FLOAT kbt = d_temp[type] * boltz; ... const KK_FLOAT q = Kokkos::exp(-d_k1[type] * (1.0 + c) / kbt); const KK_FLOAT qm = Kokkos::exp((-d_k2[type] * (1.0 + c) - d_mu[type]) / kbt); const KK_FLOAT Q = q + qm; ... if (eflag) eangle = -kbt * Kokkos::log(Q) - v_min; const KK_FLOAT a = (d_k1[type] * q + d_k2[type] * qm) / Q;'. With LMP_KOKKOS_SINGLE_SINGLE or LMP_KOKKOS_SINGLE_DOUBLE, KK_FLOAT is float (src/KOKKOS/kokkos_type.h:400-408) and expf underflows to 0 below about -88, whereas the CPU version (src/EXTRA-MOLECULE/angle_mwlc.cpp:115-121) works in double and only underflows below about -745. In metal units kbt = 8.617e-5 * T, so at T = 300 K a bending constant k1 of ~0.4 eV already gives an exponent of -88 at c = 1.",
+    "failure_scenario": "A mwlc/kk run built with -DLMP_KOKKOS_SINGLE_DOUBLE, metal units, temp 300 and k1 = k2 = 0.5 (eV): for nearly straight angles q = qm = 0, a = 0/0 = NaN and eangle = -kbt*log(0) = inf, so the whole trajectory becomes NaN while the double-precision build and the CPU style are fine.",
+    "suggested_fix": "Factor out the larger exponent (compute emin_exp = min of the two exponents and evaluate Q = exp(e1-emin_exp) + exp(e2-emin_exp) with the log shifted accordingly), or evaluate the Boltzmann factors in KK_ACC_FLOAT."
+  }
+]
+COVERAGE: all files read completely

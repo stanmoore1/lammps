@@ -1,0 +1,12 @@
+('compute_sna_grid_kokkos.h', 'missing-host-instantiation', ('ComputeSNAGridKokkosDevice', 'compute_sna_grid_kokkos.cpp'))
+('compute_sna_grid_kokkos.h', 'missing-device-instantiation', ('ComputeSNAGridKokkosHost', 'compute_sna_grid_kokkos.cpp', ['LMPHostType']))
+('compute_sna_grid_local_kokkos.h', 'missing-host-instantiation', ('ComputeSNAGridLocalKokkosDevice', 'compute_sna_grid_local_kokkos.cpp'))
+('compute_sna_grid_local_kokkos.h', 'missing-device-instantiation', ('ComputeSNAGridLocalKokkosHost', 'compute_sna_grid_local_kokkos.cpp', ['LMPHostType']))
+('fix_neigh_history_kokkos.h', 'wrong-param', ('NEIGH_HISTORY/KK/HOST', 'FixNeighHistoryKokkos<LMPHostType>', 18, 'expected LMPDeviceType'))
+('fix_neigh_history_kokkos.h', 'missing-kk-device', ('FixNeighHistoryKokkos', ['NEIGH_HISTORY/KK', 'NEIGH_HISTORY/KK/DEVICE', 'NEIGH_HISTORY/KK/HOST']))
+('fix_neigh_history_kokkos.h', 'missing-kk-host', ('FixNeighHistoryKokkos', ['NEIGH_HISTORY/KK', 'NEIGH_HISTORY/KK/DEVICE', 'NEIGH_HISTORY/KK/HOST']))
+('npair_ssa_kokkos.h', 'instantiated-not-registered', ('NPairSSAKokkos', 'npair_ssa_kokkos.cpp'))
+('pair_pace_kokkos.h', 'wrong-param', ('pace/kk/host', 'PairPACEKokkos<LMPDeviceType>', 21, 'expected LMPHostType'))
+('pair_snap_kokkos.h', 'missing-host-instantiation', ('PairSNAPKokkosDevice', 'pair_snap_kokkos.cpp'))
+('pair_snap_kokkos.h', 'missing-device-instantiation', ('PairSNAPKokkosHost', 'pair_snap_kokkos.cpp', ['LMPHostType']))
+TOTAL 11

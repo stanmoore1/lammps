@@ -1,0 +1,105 @@
+[group 05 notes]
+Base classes: src/compute_temp_profile.cpp/.h, src/compute_temp_ramp.cpp, src/compute_temp_region.cpp,
+src/compute_temp_sphere.cpp, src/verlet.cpp, src/nbin_standard.cpp, src/min*.cpp
+temp/profile/kk: reviewed fully vs src/compute_temp_profile.cpp. No substantiated finding.
+ - checked: bin kernel formula == bin_assign; scatter == bin_average; scalar/vector == base;
+   compute_array == base; remove/restore bias kk; datamask; copymode guard in base dtor (line 150);
+   types use typename AT:: not DAT::; explicit instantiation present.
+temp/ramp/kk: reviewed vs src/compute_temp_ramp.cpp. math identical (fraction clamp, vramp, tensor).
+ - NOTE (project-wide convention, NOT reported): all KOKKOS temp computes shadow Compute::vbiasall
+   (double**) with a Kokkos view of the same name (deform/partial/ramp/region). Base double** stays
+   nullptr; base dtor memory->destroy(nullptr) is a no-op. Pre-existing pattern.
+ - no substantiated finding.
+temp/region/kk: reviewed vs src/compute_temp_region.cpp. dof formula, remove/restore bias, region
+ match via KokkosBase::match_all_kokkos all match. DualView modify flags are shared across copies so
+ pass-by-value k_match in match_all_kokkos is OK. No substantiated finding.
+ - open low-prio: KK_FLOAT product before double accumulate in Scalar/Vector kernels (same as
+   pre-existing compute_temp_kokkos) -> not reported (package convention).
+ - TODO for compute_temp_sphere_kokkos: src/compute_temp_sphere.cpp uses tbias->dof_remove()/
+   dof_remove_pre() and remove_bias_all/restore_bias_all -- check the kk variant handles bias.
+temp/sphere/kk: 3 findings recorded (strcmp style suffix -> dof_remove(-1) OOB in base;
+ non-guarded tbias->remove_bias_all() host round trip; shadowing atomKK member).
+ dof_compute() host-x staleness was investigated and is NOT a bug: the tempbias branch already
+ does atomKK->sync(Host, tbias->datamask_read==ALL_MASK) at line 54/80 before dof_compute().
+Next: verlet_kokkos.cpp/.h
+verlet_kokkos: 2 findings. Key analysis: TransformView NEED_TRANSFORM (kokkos_type.h:700) is FALSE for
+ k_f in the default double-precision LayoutRight build, so the legacy-force-drop bug only bites on
+ single-precision or LMP_KOKKOS_LAYOUT_DEFAULT GPU builds. datamask_exclude is 0 unless
+ overlap_possible(), so CPU-only builds are unaffected.
+ Verified NOT bugs: kk pair styles claim F_MASK themselves (pair_lj_cut_kokkos.cpp:90-91) so the
+ fuse_force_clear path still claims device f; zero_host ranges match the device ranges; extraflag
+ only fires for atom_style spin among KOKKOS atom vecs; fuse_integrate is disabled on output steps,
+ the last step and when a timeout is set.
+Next: nbin_kokkos
+nbin_kokkos: compared vs src/nbin_standard.cpp. coord2bin identical; includegroup filter matches
+ NBinStandard::bin_atoms() (owned i<nfirst, ghosts with the group bit); copymode guard present in
+ src/nbin.cpp:65; parallel_for picks DeviceType via the functor's device_type typedef; MemsetZeroFunctor
+ writes mbins ints into bincount (correct). copy_bin_info() runs in NPair::build_setup() AFTER
+ bin_atoms(), so a regrown k_bins is picked up. 1 low cleanup finding.
+Next: nbin_ssa_kokkos
+nbin_ssa_kokkos: compared vs src/DPD-REACT/nbin_ssa.cpp/.h. coord2bin and coord2ssaAIR identical to
+ the CPU inline versions; includegroup handling (nlocal=nfirst for owned, mask&bitmask for ghosts)
+ matches; copymode guards present (added in b45d3ca7b); DualView flag discipline on k_gbincount OK.
+ Verified NOT bugs: bins/bincount extents can never be smaller than mbins (induction over
+ bin_atoms_setup + the realloc at :200); atoms_per_bin/ghosts_per_gbin copied into NPairSSAKokkos are
+ dead there so the inflated atoms_per_bin only wastes memory; ghost counting pass omits the group
+ filter but that only over-sizes gbins; NBin::bins/binhead(int*) shadowed by the kokkos views but the
+ KK bin_atoms_setup never calls the parent and NPairSSAKokkos never reads them.
+ 2 low findings recorded.
+Next: min_kokkos (base src/min.cpp), then min_linesearch/min_cg/min_sd/min_quickmin/min_fire.
+min_kokkos: compared vs src/min.cpp (setup 201-336, setup_minimal 341-412, run 417-455, energy_force
+ 499-611, force_clear 618-633, fnorm_sqr/inf/max 832-920). All control flow and math match; the only
+ additions are the sync/modified wrappers and the auto_sync toggling for non-kokkosable styles.
+ Verified NOT bugs: compute_dummy(eflag,vflag,0) is the intended 3-arg form (pair.h:147);
+ ModifyKokkos::min_* already do the per-fix sync/modified + auto_sync dance (modify_kokkos.cpp:650+);
+ fnorm_* ignore nextra_atom but MinKokkos::run() errors out for nextra_atom (min_kokkos.cpp:349-351);
+ fnorm_max()'s nextra_global loop only squaring fextra[i] is copied verbatim from min.cpp:915-918
+ (pre-existing base quirk, not a KOKKOS divergence); F_LAYOUTRIGHT branches are equivalent.
+ No substantiated finding.
+Next: min_linesearch_kokkos
+min_linesearch_kokkos: compared vs src/min_linesearch.cpp (setup_style 95-122, reset_vectors 130-152,
+ linemin_quadratic 326-505, alpha_step 832-869, compute_dir_deriv 875-925). Control flow and all
+ constants identical. 2 findings: (a) xvec flat-alias loops missing the F_LAYOUTRIGHT branch,
+ (b) s_KK_double2 accumulators are KK_FLOAT.
+ Verified NOT bugs: alpha_step's k_x.clear_sync_state()/sync(Device,X_MASK) dance is correct because
+ ModifyKokkos::min_step (modify_kokkos.cpp:840-861) sets auto_sync for non-kokkosable fixes and calls
+ modified(Host,...) which round-trips the fix box/relax remap; the alphamax division by hmaxall before
+ the hmaxall==0 test is copied verbatim from min_linesearch.cpp:364-373; the unqualified fabs() in the
+ device lambda at :229 compiles on CUDA/HIP and is used the same way elsewhere in the package (not
+ reported).
+min_cg_kokkos: read fully vs src/min_cg.cpp; branches on F_LAYOUTRIGHT everywhere it touches fvec.
+Next: finish min_cg comparison, then min_sd, min_quickmin, min_fire.
+min_cg_kokkos: line-by-line vs src/min_cg.cpp:38-192. Identical (nlimit, Polak-Ribiere beta, ETOL/FTOL
+ tests, downhill restart, output block). The LayoutLeft branch correctly splits the g/h update into two
+ kernels so h sees the new g. Only issue is the shared s_KK_double2 accumulator already reported.
+ No new finding.
+Next: min_sd_kokkos
+min_sd_kokkos: matches src/min_sd.cpp:38-118 exactly (set_search_direction factored out so the nvcc
+ extended-lambda rule is satisfied; F_LAYOUTRIGHT branch present). No new finding.
+OPEN CANDIDATE (decide before writing findings): MinKokkos::energy_force only does
+ atomKK->sync(Device,F_MASK) inside 'if (force->newton)' (min_kokkos.cpp:524-528) and inside
+ 'if (modify->n_min_post_force)' (:538-543). With 'newton off' AND a force style that has no /kk
+ variant (execution_space Host, modified(Host,ALL_MASK) at :469/:480/:504/:515) the device f view is
+ stale for the reduces in min_cg_kokkos.cpp:119-143, min_sd_kokkos.cpp:51-64 and the in-loop reduce of
+ min_linesearch_kokkos.cpp:286-304 -- note compute_dir_deriv (:432) and the top of linemin_quadratic
+ (:180) DO sync, so the omission is inconsistent within the same file.
+Next: min_quickmin_kokkos, min_fire_kokkos
+min_quickmin_kokkos: line-by-line vs src/min_quickmin.cpp:39-244. Identical math. Verified the
+ Kokkos::Min<double> dtvone reduce is equivalent to the sequential CPU shrink (identity DBL_MAX ->
+ min_i dmax/vmax_i, then the explicit MIN(dtvone,dt) at :190 restores the nlocal==0 / no-constraint
+ case). Uses (i,0..2) indexing everywhere, so it is layout-safe; xvec/fvec are only consumed by the
+ F_LAYOUTRIGHT-guarded fnorm_* of MinKokkos. syncs F_MASK at the top of every iteration (:116), so the
+ stale-device-f candidate does not apply here. No finding.
+Next: min_fire_kokkos (last file)
+min_fire_kokkos: line-by-line vs src/min_fire.cpp:50-608 for all four integrators x abcflag.
+ Verified equal: delayflag inversion (!A||!B), abc/scale1/scale2 formulas, dtf=0.5*dtv*ftm2v for the
+ two VERLET half kicks, EULEREXPLICIT x-then-v ordering, the dmax velocity clamp, MAXVDOTF exit, the
+ dtvone Kokkos::Min identity + fmin(dtvone,dt), and the ETOL/FTOL multireplica reductions. flagv0 is a
+ MinFire-only member (min_fire.h:40) so the local in run_iterate is required, initialised to 1 exactly
+ as MinFire::setup_style() does. refresh() after every energy_force() is an improvement over the CPU
+ version, which caches atom->f/v pointers across energy_force. Sync/modify discipline is complete
+ (every kernel followed by modified(Device,...)). Only nits: the redundant trailing
+ modified(Device,X|V|F) at :420, the missing 'else error' for an unknown normstyle at :396, and
+ scale1/scale2/dtf_final being KK_FLOAT rather than double (same class as the s_KK_double2 finding).
+ No new finding beyond the MinKokkos enum duplication.
+ALL ASSIGNED FILES DONE.

@@ -1,0 +1,252 @@
+void FixShake::shake4(int ilist)
+{
+ int atomlist[4];
+  double v[6];
+  double invmass0,invmass1,invmass2,invmass3;
+
+  // local atom IDs and constraint distances
+
+  int m = list[ilist];
+  int i0 = closest_list[ilist][0];
+  int i1 = closest_list[ilist][1];
+  int i2 = closest_list[ilist][2];
+  int i3 = closest_list[ilist][3];
+  double bond1 = bond_distance[shake_type[m][0]];
+  double bond2 = bond_distance[shake_type[m][1]];
+  double bond3 = bond_distance[shake_type[m][2]];
+
+  // r01,r02,r03 = distance vec between atoms
+
+  double r01[3];
+  r01[0] = x[i0][0] - x[i1][0];
+  r01[1] = x[i0][1] - x[i1][1];
+  r01[2] = x[i0][2] - x[i1][2];
+
+  double r02[3];
+  r02[0] = x[i0][0] - x[i2][0];
+  r02[1] = x[i0][1] - x[i2][1];
+  r02[2] = x[i0][2] - x[i2][2];
+
+  double r03[3];
+  r03[0] = x[i0][0] - x[i3][0];
+  r03[1] = x[i0][1] - x[i3][1];
+  r03[2] = x[i0][2] - x[i3][2];
+
+  // s01,s02,s03 = distance vec after unconstrained update
+
+  double s01[3];
+  s01[0] = xshake[i0][0] - xshake[i1][0];
+  s01[1] = xshake[i0][1] - xshake[i1][1];
+  s01[2] = xshake[i0][2] - xshake[i1][2];
+
+  double s02[3];
+  s02[0] = xshake[i0][0] - xshake[i2][0];
+  s02[1] = xshake[i0][1] - xshake[i2][1];
+  s02[2] = xshake[i0][2] - xshake[i2][2];
+
+  double s03[3];
+  s03[0] = xshake[i0][0] - xshake[i3][0];
+  s03[1] = xshake[i0][1] - xshake[i3][1];
+  s03[2] = xshake[i0][2] - xshake[i3][2];
+
+  // scalar distances between atoms
+
+  double r01sq = r01[0]*r01[0] + r01[1]*r01[1] + r01[2]*r01[2];
+  double r02sq = r02[0]*r02[0] + r02[1]*r02[1] + r02[2]*r02[2];
+  double r03sq = r03[0]*r03[0] + r03[1]*r03[1] + r03[2]*r03[2];
+  double s01sq = s01[0]*s01[0] + s01[1]*s01[1] + s01[2]*s01[2];
+  double s02sq = s02[0]*s02[0] + s02[1]*s02[1] + s02[2]*s02[2];
+  double s03sq = s03[0]*s03[0] + s03[1]*s03[1] + s03[2]*s03[2];
+
+  // matrix coeffs and rhs for lamda equations
+
+  if (rmass) {
+    invmass0 = 1.0 / rmass[i0];
+    invmass1 = 1.0 / rmass[i1];
+    invmass2 = 1.0 / rmass[i2];
+    invmass3 = 1.0 / rmass[i3];
+  } else {
+    invmass0 = 1.0 / mass[type[i0]];
+    invmass1 = 1.0 / mass[type[i1]];
+    invmass2 = 1.0 / mass[type[i2]];
+    invmass3 = 1.0 / mass[type[i3]];
+  }
+
+  double a11 = 2.0 * (invmass0+invmass1) *
+    (s01[0]*r01[0] + s01[1]*r01[1] + s01[2]*r01[2]);
+  double a12 = 2.0 * invmass0 *
+    (s01[0]*r02[0] + s01[1]*r02[1] + s01[2]*r02[2]);
+  double a13 = 2.0 * invmass0 *
+    (s01[0]*r03[0] + s01[1]*r03[1] + s01[2]*r03[2]);
+  double a21 = 2.0 * invmass0 *
+    (s02[0]*r01[0] + s02[1]*r01[1] + s02[2]*r01[2]);
+  double a22 = 2.0 * (invmass0+invmass2) *
+    (s02[0]*r02[0] + s02[1]*r02[1] + s02[2]*r02[2]);
+  double a23 = 2.0 * invmass0 *
+    (s02[0]*r03[0] + s02[1]*r03[1] + s02[2]*r03[2]);
+  double a31 = 2.0 * invmass0 *
+    (s03[0]*r01[0] + s03[1]*r01[1] + s03[2]*r01[2]);
+  double a32 = 2.0 * invmass0 *
+    (s03[0]*r02[0] + s03[1]*r02[1] + s03[2]*r02[2]);
+  double a33 = 2.0 * (invmass0+invmass3) *
+    (s03[0]*r03[0] + s03[1]*r03[1] + s03[2]*r03[2]);
+
+  // inverse of matrix;
+
+  double determ = a11*a22*a33 + a12*a23*a31 + a13*a21*a32 -
+    a11*a23*a32 - a12*a21*a33 - a13*a22*a31;
+  if (determ == 0.0) error->one(FLERR,"Shake determinant = 0.0");
+  double determinv = 1.0/determ;
+
+  double a11inv = determinv * (a22*a33 - a23*a32);
+  double a12inv = -determinv * (a12*a33 - a13*a32);
+  double a13inv = determinv * (a12*a23 - a13*a22);
+  double a21inv = -determinv * (a21*a33 - a23*a31);
+  double a22inv = determinv * (a11*a33 - a13*a31);
+  double a23inv = -determinv * (a11*a23 - a13*a21);
+  double a31inv = determinv * (a21*a32 - a22*a31);
+  double a32inv = -determinv * (a11*a32 - a12*a31);
+  double a33inv = determinv * (a11*a22 - a12*a21);
+
+  // quadratic correction coeffs
+
+  double r0102 = (r01[0]*r02[0] + r01[1]*r02[1] + r01[2]*r02[2]);
+  double r0103 = (r01[0]*r03[0] + r01[1]*r03[1] + r01[2]*r03[2]);
+  double r0203 = (r02[0]*r03[0] + r02[1]*r03[1] + r02[2]*r03[2]);
+
+  double quad1_0101 = (invmass0+invmass1)*(invmass0+invmass1) * r01sq;
+  double quad1_0202 = invmass0*invmass0 * r02sq;
+  double quad1_0303 = invmass0*invmass0 * r03sq;
+  double quad1_0102 = 2.0 * (invmass0+invmass1)*invmass0 * r0102;
+  double quad1_0103 = 2.0 * (invmass0+invmass1)*invmass0 * r0103;
+  double quad1_0203 = 2.0 * invmass0*invmass0 * r0203;
+
+  double quad2_0101 = invmass0*invmass0 * r01sq;
+  double quad2_0202 = (invmass0+invmass2)*(invmass0+invmass2) * r02sq;
+  double quad2_0303 = invmass0*invmass0 * r03sq;
+  double quad2_0102 = 2.0 * (invmass0+invmass2)*invmass0 * r0102;
+  double quad2_0103 = 2.0 * invmass0*invmass0 * r0103;
+  double quad2_0203 = 2.0 * (invmass0+invmass2)*invmass0 * r0203;
+
+  double quad3_0101 = invmass0*invmass0 * r01sq;
+  double quad3_0202 = invmass0*invmass0 * r02sq;
+  double quad3_0303 = (invmass0+invmass3)*(invmass0+invmass3) * r03sq;
+  double quad3_0102 = 2.0 * invmass0*invmass0 * r0102;
+  double quad3_0103 = 2.0 * (invmass0+invmass3)*invmass0 * r0103;
+  double quad3_0203 = 2.0 * (invmass0+invmass3)*invmass0 * r0203;
+
+  // iterate until converged
+
+  double lamda01 = 0.0;
+  double lamda02 = 0.0;
+  double lamda03 = 0.0;
+  int niter = 0;
+  int done = 0;
+
+  double quad1,quad2,quad3,b1,b2,b3,lamda01_new,lamda02_new,lamda03_new;
+
+  while (!done && niter < max_iter) {
+    quad1 = quad1_0101 * lamda01*lamda01 +
+      quad1_0202 * lamda02*lamda02 +
+      quad1_0303 * lamda03*lamda03 +
+      quad1_0102 * lamda01*lamda02 +
+      quad1_0103 * lamda01*lamda03 +
+      quad1_0203 * lamda02*lamda03;
+
+    quad2 = quad2_0101 * lamda01*lamda01 +
+      quad2_0202 * lamda02*lamda02 +
+      quad2_0303 * lamda03*lamda03 +
+      quad2_0102 * lamda01*lamda02 +
+      quad2_0103 * lamda01*lamda03 +
+      quad2_0203 * lamda02*lamda03;
+
+    quad3 = quad3_0101 * lamda01*lamda01 +
+      quad3_0202 * lamda02*lamda02 +
+      quad3_0303 * lamda03*lamda03 +
+      quad3_0102 * lamda01*lamda02 +
+      quad3_0103 * lamda01*lamda03 +
+      quad3_0203 * lamda02*lamda03;
+
+    b1 = bond1*bond1 - s01sq - quad1;
+    b2 = bond2*bond2 - s02sq - quad2;
+    b3 = bond3*bond3 - s03sq - quad3;
+
+    lamda01_new = a11inv*b1 + a12inv*b2 + a13inv*b3;
+    lamda02_new = a21inv*b1 + a22inv*b2 + a23inv*b3;
+    lamda03_new = a31inv*b1 + a32inv*b2 + a33inv*b3;
+
+    done = 1;
+    if (fabs(lamda01_new-lamda01) > tolerance) done = 0;
+    if (fabs(lamda02_new-lamda02) > tolerance) done = 0;
+    if (fabs(lamda03_new-lamda03) > tolerance) done = 0;
+
+    lamda01 = lamda01_new;
+    lamda02 = lamda02_new;
+    lamda03 = lamda03_new;
+
+    // stop iterations before we have a floating point overflow
+    // max double is < 1.0e308, so 1e150 is a reasonable cutoff
+
+    if (fabs(lamda01) > 1e150 || fabs(lamda02) > 1e150
+        || fabs(lamda03) > 1e150) done = 1;
+
+    niter++;
+  }
+
+  // update forces if atom is owned by this processor
+
+  lamda01 = lamda01/dtfsq;
+  lamda02 = lamda02/dtfsq;
+  lamda03 = lamda03/dtfsq;
+
+  if (i0 < nlocal) {
+    f[i0][0] += lamda01*r01[0] + lamda02*r02[0] + lamda03*r03[0];
+    f[i0][1] += lamda01*r01[1] + lamda02*r02[1] + lamda03*r03[1];
+    f[i0][2] += lamda01*r01[2] + lamda02*r02[2] + lamda03*r03[2];
+  }
+
+  if (i1 < nlocal) {
+    f[i1][0] -= lamda01*r01[0];
+    f[i1][1] -= lamda01*r01[1];
+    f[i1][2] -= lamda01*r01[2];
+  }
+
+  if (i2 < nlocal) {
+    f[i2][0] -= lamda02*r02[0];
+    f[i2][1] -= lamda02*r02[1];
+    f[i2][2] -= lamda02*r02[2];
+  }
+
+  if (i3 < nlocal) {
+    f[i3][0] -= lamda03*r03[0];
+    f[i3][1] -= lamda03*r03[1];
+    f[i3][2] -= lamda03*r03[2];
+  }
+
+  if (evflag) {
+    int count = 0;
+    if (i0 < nlocal) atomlist[count++] = i0;
+    if (i1 < nlocal) atomlist[count++] = i1;
+    if (i2 < nlocal) atomlist[count++] = i2;
+    if (i3 < nlocal) atomlist[count++] = i3;
+
+    v[0] = lamda01*r01[0]*r01[0]+lamda02*r02[0]*r02[0]+lamda03*r03[0]*r03[0];
+    v[1] = lamda01*r01[1]*r01[1]+lamda02*r02[1]*r02[1]+lamda03*r03[1]*r03[1];
+    v[2] = lamda01*r01[2]*r01[2]+lamda02*r02[2]*r02[2]+lamda03*r03[2]*r03[2];
+    v[3] = lamda01*r01[0]*r01[1]+lamda02*r02[0]*r02[1]+lamda03*r03[0]*r03[1];
+    v[4] = lamda01*r01[0]*r01[2]+lamda02*r02[0]*r02[2]+lamda03*r03[0]*r03[2];
+    v[5] = lamda01*r01[1]*r01[2]+lamda02*r02[1]*r02[2]+lamda03*r03[1]*r03[2];
+
+    double fpairlist[] = {lamda01, lamda02, lamda03};
+    double dellist[][3]  = {{r01[0], r01[1], r01[2]},
+                            {r02[0], r02[1], r02[2]},
+                            {r03[0], r03[1], r03[2]}};
+    int pairlist[][2] = {{i0,i1}, {i0,i2}, {i0,i3}};
+    v_tally(count,atomlist,4.0,v,nlocal,3,pairlist,fpairlist,dellist);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   calculate SHAKE constraint forces for size 3 cluster = two bonds + angle
+------------------------------------------------------------------------- */
+

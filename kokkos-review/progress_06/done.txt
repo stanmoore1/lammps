@@ -1,0 +1,17 @@
+atom_kokkos.cpp
+atom_kokkos.h
+atom_map_kokkos.cpp
+comm_kokkos.cpp
+comm_kokkos.h
+comm_tiled_kokkos.cpp
+comm_tiled_kokkos.h
+domain_kokkos.cpp
+domain_kokkos.h
+dynamical_matrix_kokkos.cpp
+dynamical_matrix_kokkos.h
+fft3d_kokkos.cpp
+fft3d_kokkos.h
+fftdata_kokkos.h
+grid3d_kokkos.cpp
+grid3d_kokkos.h
+group_kokkos.h

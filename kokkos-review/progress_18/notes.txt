@@ -1,0 +1,18 @@
+[copy] reviewed. No substantiated findings. Notes:
+- kk2cpu lists DO get grow()+setup_pages (neighbor.cpp:1071,1084,2603,2701) so list->ilist/numneigh/firstneigh/ipage are allocated. OK.
+- utils::errorurl OK: utils.h comes via pointers.h.
+- copy_to_kokkos does not copy d_neighbors_transpose, but nothing outside npair_kokkos build reads it -> not a bug (verify later in npair_kokkos.cpp:362).
+- CANDIDATE: npair_skip_kokkos.cpp does NOT call k_ilist.modify<DeviceType>() (grep shows only npair_kokkos:360, halffull:82, ssa:520, trim:84). Verify when reading skip.
+[halffull] done. 3 findings. Key systematic issue: KOKKOS trim variants drop the CPU
+  '(cutsq_custom > 0.0) ? cutsq_custom : cutneighsq[itype][jtype]' fallback
+  (src/npair_halffull.cpp:127, src/npair_trim.cpp:89, src/npair_skip.cpp:108).
+  CHECK THE SAME in npair_skip_kokkos.cpp and npair_trim_kokkos.cpp.
+Known-already-reported (do not re-report): halffull_kokkos.h:221 wrong class, :262 mislabeled key.
+Verified only one duplicate NPairStyle key in npair_halffull_kokkos.h (the known :262 one).
+choose_pair (neighbor.cpp:2310) requires NP_TRI when (kk_fp32 && newtflag) even for ortho ->
+  the extra NP_ORTHO on the kk newton/tri styles is intentional, not a bug.
+[skip][trim] done. 8 findings total so far (3 halffull + 5... actually 3+8).
+Confirmed: NPair::execution_space defaults to Host (src/npair.cpp:44); only halffull and skip
+  kokkos ctors override it; trim does not.
+atomKK is a Pointers reference (pointers.h:131) so not assigning it in the trim ctor is harmless.
+Remaining: npair_kokkos.cpp/.h, npair_ssa_kokkos.cpp/.h, pppm_kokkos, pppm_tip4p_kokkos.

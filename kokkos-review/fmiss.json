@@ -1,0 +1,9668 @@
+[
+ {
+  "file": "src/KOKKOS/atom_vec_angle_kokkos.cpp",
+  "func": "void AtomVecAngleKokkos::grow_pointers()",
+  "line": 108,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     111,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     112,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     115,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     116,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     118,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     119,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     121,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     122,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     125,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     126,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     128,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     129,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     131,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     132,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     135,
+     "d_molecule = atomKK->k_molecule.view_device();"
+    ],
+    [
+     136,
+     "h_molecule = atomKK->k_molecule.view_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     138,
+     "d_nspecial = atomKK->k_nspecial.view_device();"
+    ],
+    [
+     139,
+     "h_nspecial = atomKK->k_nspecial.view_hostkk();"
+    ],
+    [
+     141,
+     "d_special = atomKK->k_special.view_device();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     144,
+     "d_num_bond = atomKK->k_num_bond.view_device();"
+    ],
+    [
+     145,
+     "h_num_bond = atomKK->k_num_bond.view_host();"
+    ],
+    [
+     147,
+     "d_bond_type = atomKK->k_bond_type.view_device();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     154,
+     "d_num_angle = atomKK->k_num_angle.view_device();"
+    ],
+    [
+     155,
+     "h_num_angle = atomKK->k_num_angle.view_host();"
+    ],
+    [
+     157,
+     "d_angle_type = atomKK->k_angle_type.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_angle_kokkos.cpp",
+  "func": "void AtomVecAngleKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 201,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     204,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     229,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     254,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     205,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     230,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     255,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     206,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     231,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     256,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     207,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     232,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     257,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     208,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     233,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     258,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     209,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     234,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     259,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     210,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     235,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     260,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     211,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_device();"
+    ],
+    [
+     236,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ],
+    [
+     261,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     213,
+     "atomKK->k_nspecial.sync_device();"
+    ],
+    [
+     238,
+     "atomKK->k_nspecial.sync_host();"
+    ],
+    [
+     263,
+     "atomKK->k_nspecial.sync_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     217,
+     "atomKK->k_num_bond.sync_device();"
+    ],
+    [
+     242,
+     "atomKK->k_num_bond.sync_host();"
+    ],
+    [
+     267,
+     "atomKK->k_num_bond.sync_host();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     222,
+     "atomKK->k_num_angle.sync_device();"
+    ],
+    [
+     247,
+     "atomKK->k_num_angle.sync_host();"
+    ],
+    [
+     272,
+     "atomKK->k_num_angle.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_angle_kokkos.cpp",
+  "func": "void AtomVecAngleKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 283,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     286,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     287,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     329,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     288,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     289,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     331,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     290,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     291,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     333,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     292,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     293,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     335,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     294,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     295,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     337,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     296,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     297,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     339,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     298,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     299,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     341,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     300,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())"
+    ],
+    [
+     301,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space,async_flag);"
+    ],
+    [
+     343,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     303,
+     "if (atomKK->k_nspecial.need_sync_device())"
+    ],
+    [
+     304,
+     "perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_nspecial,space,async_flag);"
+    ],
+    [
+     346,
+     "if (atomKK->k_nspecial.need_sync_host())"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     309,
+     "if (atomKK->k_num_bond.need_sync_device())"
+    ],
+    [
+     310,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space,async_flag);"
+    ],
+    [
+     352,
+     "if (atomKK->k_num_bond.need_sync_host())"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     317,
+     "if (atomKK->k_num_angle.need_sync_device())"
+    ],
+    [
+     318,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_angle,space,async_flag);"
+    ],
+    [
+     360,
+     "if (atomKK->k_num_angle.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_angle_kokkos.cpp",
+  "func": "void AtomVecAngleKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 376,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     379,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     404,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     429,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     380,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     405,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     430,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     381,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     406,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     431,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     382,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     407,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     432,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     383,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     408,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     433,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     384,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     409,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     434,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     385,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     410,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     435,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     386,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_device();"
+    ],
+    [
+     411,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ],
+    [
+     436,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     388,
+     "atomKK->k_nspecial.modify_device();"
+    ],
+    [
+     413,
+     "atomKK->k_nspecial.modify_host();"
+    ],
+    [
+     438,
+     "atomKK->k_nspecial.modify_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     392,
+     "atomKK->k_num_bond.modify_device();"
+    ],
+    [
+     417,
+     "atomKK->k_num_bond.modify_host();"
+    ],
+    [
+     442,
+     "atomKK->k_num_bond.modify_host();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     397,
+     "atomKK->k_num_angle.modify_device();"
+    ],
+    [
+     422,
+     "atomKK->k_num_angle.modify_host();"
+    ],
+    [
+     447,
+     "atomKK->k_num_angle.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_atomic_kokkos.cpp",
+  "func": "void AtomVecAtomicKokkos::grow_pointers()",
+  "line": 85,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     88,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     89,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     92,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     93,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     95,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     96,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     98,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     99,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     102,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     103,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     105,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     106,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     108,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     109,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_atomic_kokkos.cpp",
+  "func": "void AtomVecAtomicKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 132,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     135,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     143,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     151,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     136,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     144,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     152,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     137,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     145,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     153,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     138,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     146,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     154,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     139,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     147,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     155,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     140,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     148,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     156,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     141,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     149,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     157,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_atomic_kokkos.cpp",
+  "func": "void AtomVecAtomicKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 163,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     166,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     167,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     181,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     168,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     169,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     183,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     170,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     171,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     185,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     172,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     173,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     187,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     174,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     175,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     189,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     176,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     177,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     191,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     178,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     179,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     193,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_atomic_kokkos.cpp",
+  "func": "void AtomVecAtomicKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 200,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     203,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     211,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     219,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     204,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     212,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     220,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     205,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     213,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     221,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     206,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     214,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     222,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     207,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     215,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     223,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     208,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     216,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     224,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     209,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     217,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     225,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_bond_kokkos.cpp",
+  "func": "void AtomVecBondKokkos::grow_pointers()",
+  "line": 93,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     96,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     97,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     100,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     101,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     103,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     104,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     106,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     107,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     110,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     111,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     113,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     114,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     116,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     117,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     120,
+     "d_molecule = atomKK->k_molecule.view_device();"
+    ],
+    [
+     121,
+     "h_molecule = atomKK->k_molecule.view_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     123,
+     "d_nspecial = atomKK->k_nspecial.view_device();"
+    ],
+    [
+     124,
+     "h_nspecial = atomKK->k_nspecial.view_hostkk();"
+    ],
+    [
+     126,
+     "d_special = atomKK->k_special.view_device();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     129,
+     "d_num_bond = atomKK->k_num_bond.view_device();"
+    ],
+    [
+     130,
+     "h_num_bond = atomKK->k_num_bond.view_host();"
+    ],
+    [
+     132,
+     "d_bond_type = atomKK->k_bond_type.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_bond_kokkos.cpp",
+  "func": "void AtomVecBondKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 165,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     168,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     186,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     204,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     169,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     187,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     205,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     170,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     188,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     206,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     171,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     189,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     207,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     172,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     190,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     208,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     173,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     191,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     209,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     174,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     192,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     210,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     175,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_device();"
+    ],
+    [
+     193,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ],
+    [
+     211,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     177,
+     "atomKK->k_nspecial.sync_device();"
+    ],
+    [
+     195,
+     "atomKK->k_nspecial.sync_host();"
+    ],
+    [
+     213,
+     "atomKK->k_nspecial.sync_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     181,
+     "atomKK->k_num_bond.sync_device();"
+    ],
+    [
+     199,
+     "atomKK->k_num_bond.sync_host();"
+    ],
+    [
+     217,
+     "atomKK->k_num_bond.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_bond_kokkos.cpp",
+  "func": "void AtomVecBondKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 226,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     229,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     230,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     260,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     231,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     232,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     262,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     233,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     234,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     264,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     235,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     236,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     266,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     237,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     238,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     268,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     239,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     240,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     270,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     241,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     242,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     272,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     243,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())"
+    ],
+    [
+     244,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space,async_flag);"
+    ],
+    [
+     274,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     246,
+     "if (atomKK->k_nspecial.need_sync_device())"
+    ],
+    [
+     247,
+     "perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_nspecial,space,async_flag);"
+    ],
+    [
+     277,
+     "if (atomKK->k_nspecial.need_sync_host())"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     252,
+     "if (atomKK->k_num_bond.need_sync_device())"
+    ],
+    [
+     253,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space,async_flag);"
+    ],
+    [
+     283,
+     "if (atomKK->k_num_bond.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_bond_kokkos.cpp",
+  "func": "void AtomVecBondKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 295,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     298,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     316,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     334,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     299,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     317,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     335,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     300,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     318,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     336,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     301,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     319,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     337,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     302,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     320,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     338,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     303,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     321,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     339,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     304,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     322,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     340,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     305,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_device();"
+    ],
+    [
+     323,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ],
+    [
+     341,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     307,
+     "atomKK->k_nspecial.modify_device();"
+    ],
+    [
+     325,
+     "atomKK->k_nspecial.modify_host();"
+    ],
+    [
+     343,
+     "atomKK->k_nspecial.modify_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     311,
+     "atomKK->k_num_bond.modify_device();"
+    ],
+    [
+     329,
+     "atomKK->k_num_bond.modify_host();"
+    ],
+    [
+     347,
+     "atomKK->k_num_bond.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_charge_kokkos.cpp",
+  "func": "void AtomVecChargeKokkos::grow_pointers()",
+  "line": 87,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     90,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     91,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     94,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     95,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     97,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     98,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     100,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     101,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     104,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     105,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     107,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     108,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     110,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     111,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     114,
+     "d_q = atomKK->k_q.view_device();"
+    ],
+    [
+     115,
+     "h_q = atomKK->k_q.view_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_charge_kokkos.cpp",
+  "func": "void AtomVecChargeKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 139,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     142,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     151,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     160,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     143,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     152,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     161,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     144,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     153,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     162,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     145,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     154,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     163,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     146,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     155,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     164,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     147,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     156,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     165,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     148,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     157,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     166,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     149,
+     "if (mask & Q_MASK) atomKK->k_q.sync_device();"
+    ],
+    [
+     158,
+     "if (mask & Q_MASK) atomKK->k_q.sync_host();"
+    ],
+    [
+     167,
+     "if (mask & Q_MASK) atomKK->k_q.sync_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_charge_kokkos.cpp",
+  "func": "void AtomVecChargeKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 173,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     176,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     185,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     194,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     177,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     186,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     195,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     178,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     187,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     196,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     179,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     188,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     197,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     180,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     189,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     198,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     181,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     190,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     199,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     182,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     191,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     200,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     183,
+     "if (mask & Q_MASK) atomKK->k_q.modify_device();"
+    ],
+    [
+     192,
+     "if (mask & Q_MASK) atomKK->k_q.modify_host();"
+    ],
+    [
+     201,
+     "if (mask & Q_MASK) atomKK->k_q.modify_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_charge_kokkos.cpp",
+  "func": "void AtomVecChargeKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 207,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     210,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     211,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     227,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     212,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     213,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     229,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     214,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     215,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     231,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     216,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     217,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     233,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     218,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     219,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     235,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     220,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     221,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     237,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     222,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     223,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     239,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     224,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())"
+    ],
+    [
+     225,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_q,space,async_flag);"
+    ],
+    [
+     241,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dipole_kokkos.cpp",
+  "func": "void AtomVecDipoleKokkos::grow_pointers()",
+  "line": 86,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     89,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     90,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     93,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     94,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     96,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     97,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     99,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     100,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     103,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     104,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     106,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     107,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     109,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     110,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     113,
+     "d_q = atomKK->k_q.view_device();"
+    ],
+    [
+     114,
+     "h_q = atomKK->k_q.view_hostkk();"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     116,
+     "d_mu = atomKK->k_mu.view_device();"
+    ],
+    [
+     117,
+     "h_mu = atomKK->k_mu.view_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dipole_kokkos.cpp",
+  "func": "void AtomVecDipoleKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 142,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     145,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     155,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     165,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     146,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     156,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     166,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     147,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     157,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     167,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     148,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     158,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     168,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     149,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     159,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     169,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     150,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     160,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     170,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     151,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     161,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     171,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     152,
+     "if (mask & Q_MASK) atomKK->k_q.sync_device();"
+    ],
+    [
+     162,
+     "if (mask & Q_MASK) atomKK->k_q.sync_host();"
+    ],
+    [
+     172,
+     "if (mask & Q_MASK) atomKK->k_q.sync_hostkk();"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     153,
+     "if (mask & MU_MASK) atomKK->k_mu.sync_device();"
+    ],
+    [
+     163,
+     "if (mask & MU_MASK) atomKK->k_mu.sync_host();"
+    ],
+    [
+     173,
+     "if (mask & MU_MASK) atomKK->k_mu.sync_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dipole_kokkos.cpp",
+  "func": "void AtomVecDipoleKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 179,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     182,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     192,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     202,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     183,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     193,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     203,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     184,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     194,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     204,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     185,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     195,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     205,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     186,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     196,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     206,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     187,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     197,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     207,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     188,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     198,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     208,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     189,
+     "if (mask & Q_MASK) atomKK->k_q.modify_device();"
+    ],
+    [
+     199,
+     "if (mask & Q_MASK) atomKK->k_q.modify_host();"
+    ],
+    [
+     209,
+     "if (mask & Q_MASK) atomKK->k_q.modify_hostkk();"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     190,
+     "if (mask & MU_MASK) atomKK->k_mu.modify_device();"
+    ],
+    [
+     200,
+     "if (mask & MU_MASK) atomKK->k_mu.modify_host();"
+    ],
+    [
+     210,
+     "if (mask & MU_MASK) atomKK->k_mu.modify_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dipole_kokkos.cpp",
+  "func": "void AtomVecDipoleKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 216,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     219,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     220,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     238,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     221,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     222,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     240,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     223,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     224,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     242,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     225,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     226,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     244,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     227,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     228,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     246,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     229,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     230,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     248,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     231,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     232,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     250,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     233,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())"
+    ],
+    [
+     234,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_q,space,async_flag);"
+    ],
+    [
+     252,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     235,
+     "if ((mask & MU_MASK) && atomKK->k_mu.need_sync_device())"
+    ],
+    [
+     236,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_4>(atomKK->k_mu,space,async_flag);"
+    ],
+    [
+     254,
+     "if ((mask & MU_MASK) && atomKK->k_mu.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dpd_kokkos.cpp",
+  "func": "void AtomVecDPDKokkos::grow_pointers()",
+  "line": 97,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     100,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     101,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     104,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     105,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     107,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     108,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     110,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     111,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     114,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     115,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     117,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     118,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     120,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     121,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "DPDRHO_MASK": [
+    [
+     124,
+     "d_rho = atomKK->k_rho.view_device();"
+    ],
+    [
+     125,
+     "h_rho = atomKK->k_rho.view_hostkk();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     127,
+     "d_dpdTheta = atomKK->k_dpdTheta.view_device();"
+    ],
+    [
+     128,
+     "h_dpdTheta = atomKK->k_dpdTheta.view_hostkk();"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     130,
+     "d_uCond = atomKK->k_uCond.view_device();"
+    ],
+    [
+     131,
+     "h_uCond = atomKK->k_uCond.view_hostkk();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     133,
+     "d_uMech = atomKK->k_uMech.view_device();"
+    ],
+    [
+     134,
+     "h_uMech = atomKK->k_uMech.view_hostkk();"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     136,
+     "d_uChem = atomKK->k_uChem.view_device();"
+    ],
+    [
+     137,
+     "h_uChem = atomKK->k_uChem.view_hostkk();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     139,
+     "d_uCG = atomKK->k_uCG.view_device();"
+    ],
+    [
+     140,
+     "h_uCG = atomKK->k_uCG.view_hostkk();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     142,
+     "d_uCGnew = atomKK->k_uCGnew.view_device();"
+    ],
+    [
+     143,
+     "h_uCGnew = atomKK->k_uCGnew.view_hostkk();"
+    ]
+   ],
+   "DUCHEM_MASK": [
+    [
+     145,
+     "d_duChem = atomKK->k_duChem.view_device();"
+    ],
+    [
+     146,
+     "h_duChem = atomKK->k_duChem.view_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dpd_kokkos.cpp",
+  "func": "void AtomVecDPDKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 175,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     178,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     194,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     210,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     179,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     195,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     211,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     180,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     196,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     212,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     181,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     197,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     213,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     182,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     198,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     214,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     183,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     199,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     215,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     184,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     200,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     216,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "DPDRHO_MASK": [
+    [
+     185,
+     "if (mask & DPDRHO_MASK) atomKK->k_rho.sync_device();"
+    ],
+    [
+     201,
+     "if (mask & DPDRHO_MASK) atomKK->k_rho.sync_host();"
+    ],
+    [
+     217,
+     "if (mask & DPDRHO_MASK) atomKK->k_rho.sync_hostkk();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     186,
+     "if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.sync_device();"
+    ],
+    [
+     202,
+     "if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.sync_host();"
+    ],
+    [
+     218,
+     "if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.sync_hostkk();"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     187,
+     "if (mask & UCOND_MASK) atomKK->k_uCond.sync_device();"
+    ],
+    [
+     203,
+     "if (mask & UCOND_MASK) atomKK->k_uCond.sync_host();"
+    ],
+    [
+     219,
+     "if (mask & UCOND_MASK) atomKK->k_uCond.sync_hostkk();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     188,
+     "if (mask & UMECH_MASK) atomKK->k_uMech.sync_device();"
+    ],
+    [
+     204,
+     "if (mask & UMECH_MASK) atomKK->k_uMech.sync_host();"
+    ],
+    [
+     220,
+     "if (mask & UMECH_MASK) atomKK->k_uMech.sync_hostkk();"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     189,
+     "if (mask & UCHEM_MASK) atomKK->k_uChem.sync_device();"
+    ],
+    [
+     205,
+     "if (mask & UCHEM_MASK) atomKK->k_uChem.sync_host();"
+    ],
+    [
+     221,
+     "if (mask & UCHEM_MASK) atomKK->k_uChem.sync_hostkk();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     190,
+     "if (mask & UCG_MASK) atomKK->k_uCG.sync_device();"
+    ],
+    [
+     206,
+     "if (mask & UCG_MASK) atomKK->k_uCG.sync_host();"
+    ],
+    [
+     222,
+     "if (mask & UCG_MASK) atomKK->k_uCG.sync_hostkk();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     191,
+     "if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync_device();"
+    ],
+    [
+     207,
+     "if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync_host();"
+    ],
+    [
+     223,
+     "if (mask & UCGNEW_MASK) atomKK->k_uCGnew.sync_hostkk();"
+    ]
+   ],
+   "DUCHEM_MASK": [
+    [
+     192,
+     "if (mask & DUCHEM_MASK) atomKK->k_duChem.sync_device();"
+    ],
+    [
+     208,
+     "if (mask & DUCHEM_MASK) atomKK->k_duChem.sync_host();"
+    ],
+    [
+     224,
+     "if (mask & DUCHEM_MASK) atomKK->k_duChem.sync_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dpd_kokkos.cpp",
+  "func": "void AtomVecDPDKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 230,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     233,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     234,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     264,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     235,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     236,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     266,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     237,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     238,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     268,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     239,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     240,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     270,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     241,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     242,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     272,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     243,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     244,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     274,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     245,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     246,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     276,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "DPDRHO_MASK": [
+    [
+     247,
+     "if ((mask & DPDRHO_MASK) && atomKK->k_rho.need_sync_device())"
+    ],
+    [
+     248,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rho,space,async_flag);"
+    ],
+    [
+     278,
+     "if ((mask & DPDRHO_MASK) && atomKK->k_rho.need_sync_host())"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     249,
+     "if ((mask & DPDTHETA_MASK) && atomKK->k_dpdTheta.need_sync_device())"
+    ],
+    [
+     250,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_dpdTheta,space,async_flag);"
+    ],
+    [
+     280,
+     "if ((mask & DPDTHETA_MASK) && atomKK->k_dpdTheta.need_sync_host())"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     251,
+     "if ((mask & UCOND_MASK) && atomKK->k_uCond.need_sync_device())"
+    ],
+    [
+     252,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCond,space,async_flag);"
+    ],
+    [
+     282,
+     "if ((mask & UCOND_MASK) && atomKK->k_uCond.need_sync_host())"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     253,
+     "if ((mask & UMECH_MASK) && atomKK->k_uMech.need_sync_device())"
+    ],
+    [
+     254,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uMech,space,async_flag);"
+    ],
+    [
+     284,
+     "if ((mask & UMECH_MASK) && atomKK->k_uMech.need_sync_host())"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     255,
+     "if ((mask & UCHEM_MASK) && atomKK->k_uChem.need_sync_device())"
+    ],
+    [
+     256,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uChem,space,async_flag);"
+    ],
+    [
+     286,
+     "if ((mask & UCHEM_MASK) && atomKK->k_uChem.need_sync_host())"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     257,
+     "if ((mask & UCG_MASK) && atomKK->k_uCG.need_sync_device())"
+    ],
+    [
+     258,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCG,space,async_flag);"
+    ],
+    [
+     288,
+     "if ((mask & UCG_MASK) && atomKK->k_uCG.need_sync_host())"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     259,
+     "if ((mask & UCGNEW_MASK) && atomKK->k_uCGnew.need_sync_device())"
+    ],
+    [
+     260,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_uCGnew,space,async_flag);"
+    ],
+    [
+     290,
+     "if ((mask & UCGNEW_MASK) && atomKK->k_uCGnew.need_sync_host())"
+    ]
+   ],
+   "DUCHEM_MASK": [
+    [
+     261,
+     "if ((mask & DUCHEM_MASK) && atomKK->k_duChem.need_sync_device())"
+    ],
+    [
+     262,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_duChem,space,async_flag);"
+    ],
+    [
+     292,
+     "if ((mask & DUCHEM_MASK) && atomKK->k_duChem.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_dpd_kokkos.cpp",
+  "func": "void AtomVecDPDKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 299,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     302,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     318,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     334,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     303,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     319,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     335,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     304,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     320,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     336,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     305,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     321,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     337,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     306,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     322,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     338,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     307,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     323,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     339,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     308,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     324,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     340,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "DPDRHO_MASK": [
+    [
+     309,
+     "if (mask & DPDRHO_MASK) atomKK->k_rho.modify_device();"
+    ],
+    [
+     325,
+     "if (mask & DPDRHO_MASK) atomKK->k_rho.modify_host();"
+    ],
+    [
+     341,
+     "if (mask & DPDRHO_MASK) atomKK->k_rho.modify_hostkk();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     310,
+     "if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.modify_device();"
+    ],
+    [
+     326,
+     "if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.modify_host();"
+    ],
+    [
+     342,
+     "if (mask & DPDTHETA_MASK) atomKK->k_dpdTheta.modify_hostkk();"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     311,
+     "if (mask & UCOND_MASK) atomKK->k_uCond.modify_device();"
+    ],
+    [
+     327,
+     "if (mask & UCOND_MASK) atomKK->k_uCond.modify_host();"
+    ],
+    [
+     343,
+     "if (mask & UCOND_MASK) atomKK->k_uCond.modify_hostkk();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     312,
+     "if (mask & UMECH_MASK) atomKK->k_uMech.modify_device();"
+    ],
+    [
+     328,
+     "if (mask & UMECH_MASK) atomKK->k_uMech.modify_host();"
+    ],
+    [
+     344,
+     "if (mask & UMECH_MASK) atomKK->k_uMech.modify_hostkk();"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     313,
+     "if (mask & UCHEM_MASK) atomKK->k_uChem.modify_device();"
+    ],
+    [
+     329,
+     "if (mask & UCHEM_MASK) atomKK->k_uChem.modify_host();"
+    ],
+    [
+     345,
+     "if (mask & UCHEM_MASK) atomKK->k_uChem.modify_hostkk();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     314,
+     "if (mask & UCG_MASK) atomKK->k_uCG.modify_device();"
+    ],
+    [
+     330,
+     "if (mask & UCG_MASK) atomKK->k_uCG.modify_host();"
+    ],
+    [
+     346,
+     "if (mask & UCG_MASK) atomKK->k_uCG.modify_hostkk();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     315,
+     "if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify_device();"
+    ],
+    [
+     331,
+     "if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify_host();"
+    ],
+    [
+     347,
+     "if (mask & UCGNEW_MASK) atomKK->k_uCGnew.modify_hostkk();"
+    ]
+   ],
+   "DUCHEM_MASK": [
+    [
+     316,
+     "if (mask & DUCHEM_MASK) atomKK->k_duChem.modify_device();"
+    ],
+    [
+     332,
+     "if (mask & DUCHEM_MASK) atomKK->k_duChem.modify_host();"
+    ],
+    [
+     348,
+     "if (mask & DUCHEM_MASK) atomKK->k_duChem.modify_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::grow_pointers()",
+  "line": 113,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     116,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     117,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     120,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     121,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     123,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     124,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     126,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     127,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     130,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     131,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     133,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     134,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     136,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     137,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     140,
+     "d_rmass = atomKK->k_rmass.view_device();"
+    ],
+    [
+     141,
+     "h_rmass = atomKK->k_rmass.view_hostkk();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     143,
+     "d_angmom = atomKK->k_angmom.view_device();"
+    ],
+    [
+     144,
+     "h_angmom = atomKK->k_angmom.view_hostkk();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     146,
+     "d_torque = atomKK->k_torque.view_device();"
+    ],
+    [
+     147,
+     "h_torque = atomKK->k_torque.view_hostkk();"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     149,
+     "d_ellipsoid= atomKK->k_ellipsoid.view_device();"
+    ],
+    [
+     150,
+     "h_ellipsoid = atomKK->k_ellipsoid.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(const int &n, const DAT::tdual_int_1d &list,",
+  "line": 236,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     273,
+     "_ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &first,",
+  "line": 296,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     336,
+     "_ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::pack_comm_self_bonus_kokkos(const int &n,",
+  "line": 353,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     397,
+     "_ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::pack_comm_self_fused_bonus_kokkos(const int &n,",
+  "line": 430,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     471,
+     "_ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int n, DAT::tdual_int_1d k_sendlist,",
+  "line": 496,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     541,
+     "_ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, const int &first,",
+  "line": 572,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     632,
+     "_ellipsoid(atomKK->k_ellipsoid.template view<DeviceType>()),"
+    ],
+    [
+     634,
+     "_ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),"
+    ],
+    [
+     709,
+     "_ellipsoid(atomKK->k_ellipsoid.template view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::pack_exchange_bonus_kokkos(const int &nsend,",
+  "line": 738,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "ELLIPSOID_MASK": [
+    [
+     808,
+     "_ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 894,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     897,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     910,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     923,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     898,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     911,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     924,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     899,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     912,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     925,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     900,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     913,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     926,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     901,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     914,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     927,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     902,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     915,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     928,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     903,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     916,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     929,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     904,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.sync_device();"
+    ],
+    [
+     917,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.sync_host();"
+    ],
+    [
+     930,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.sync_hostkk();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     905,
+     "if (mask & ANGMOM_MASK) atomKK->k_angmom.sync_device();"
+    ],
+    [
+     918,
+     "if (mask & ANGMOM_MASK) atomKK->k_angmom.sync_host();"
+    ],
+    [
+     931,
+     "if (mask & ANGMOM_MASK) atomKK->k_angmom.sync_hostkk();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     906,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.sync_device();"
+    ],
+    [
+     919,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.sync_host();"
+    ],
+    [
+     932,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.sync_hostkk();"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     907,
+     "if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync_device();"
+    ],
+    [
+     920,
+     "if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync_host();"
+    ],
+    [
+     933,
+     "if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 940,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     943,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     944,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     968,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     945,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     946,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     970,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     947,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     948,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     972,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     949,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     950,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     974,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     951,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     952,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     976,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     953,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     954,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     978,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     955,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     956,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     980,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     957,
+     "if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())"
+    ],
+    [
+     958,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space,async_flag);"
+    ],
+    [
+     982,
+     "if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     959,
+     "if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync_device())"
+    ],
+    [
+     960,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_angmom,space,async_flag);"
+    ],
+    [
+     984,
+     "if ((mask & ANGMOM_MASK) && atomKK->k_angmom.need_sync_host())"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     961,
+     "if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync_device())"
+    ],
+    [
+     962,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_torque,space,async_flag);"
+    ],
+    [
+     986,
+     "if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync_host())"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     963,
+     "if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync_device())"
+    ],
+    [
+     964,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_ellipsoid,space,async_flag);"
+    ],
+    [
+     988,
+     "if ((mask & ELLIPSOID_MASK) && atomKK->k_ellipsoid.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+  "func": "void AtomVecEllipsoidKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 997,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     1000,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     1013,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     1026,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     1001,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     1014,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     1027,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     1002,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     1015,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     1028,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     1003,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     1016,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     1029,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     1004,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     1017,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     1030,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     1005,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     1018,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     1031,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     1006,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     1019,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     1032,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     1007,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.modify_device();"
+    ],
+    [
+     1020,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.modify_host();"
+    ],
+    [
+     1033,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.modify_hostkk();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     1008,
+     "if (mask & ANGMOM_MASK) atomKK->k_angmom.modify_device();"
+    ],
+    [
+     1021,
+     "if (mask & ANGMOM_MASK) atomKK->k_angmom.modify_host();"
+    ],
+    [
+     1034,
+     "if (mask & ANGMOM_MASK) atomKK->k_angmom.modify_hostkk();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     1009,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.modify_device();"
+    ],
+    [
+     1022,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.modify_host();"
+    ],
+    [
+     1035,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.modify_hostkk();"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     1010,
+     "if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_device();"
+    ],
+    [
+     1023,
+     "if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_host();"
+    ],
+    [
+     1036,
+     "if (mask & ELLIPSOID_MASK) atomKK->k_ellipsoid.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_full_kokkos.cpp",
+  "func": "void AtomVecFullKokkos::grow_pointers()",
+  "line": 134,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     137,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     138,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     141,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     142,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     144,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     145,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     147,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     148,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     151,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     152,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     154,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     155,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     157,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     158,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     161,
+     "d_q = atomKK->k_q.view_device();"
+    ],
+    [
+     162,
+     "h_q = atomKK->k_q.view_hostkk();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     165,
+     "d_molecule = atomKK->k_molecule.view_device();"
+    ],
+    [
+     166,
+     "h_molecule = atomKK->k_molecule.view_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     169,
+     "d_nspecial = atomKK->k_nspecial.view_device();"
+    ],
+    [
+     170,
+     "h_nspecial = atomKK->k_nspecial.view_hostkk();"
+    ],
+    [
+     172,
+     "d_special = atomKK->k_special.view_device();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     176,
+     "d_num_bond = atomKK->k_num_bond.view_device();"
+    ],
+    [
+     177,
+     "h_num_bond = atomKK->k_num_bond.view_host();"
+    ],
+    [
+     179,
+     "d_bond_type = atomKK->k_bond_type.view_device();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     186,
+     "d_num_angle = atomKK->k_num_angle.view_device();"
+    ],
+    [
+     187,
+     "h_num_angle = atomKK->k_num_angle.view_host();"
+    ],
+    [
+     189,
+     "d_angle_type = atomKK->k_angle_type.view_device();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     202,
+     "d_num_dihedral = atomKK->k_num_dihedral.view_device();"
+    ],
+    [
+     203,
+     "h_num_dihedral = atomKK->k_num_dihedral.view_host();"
+    ],
+    [
+     205,
+     "d_dihedral_type = atomKK->k_dihedral_type.view_device();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     221,
+     "d_num_improper = atomKK->k_num_improper.view_device();"
+    ],
+    [
+     222,
+     "h_num_improper = atomKK->k_num_improper.view_host();"
+    ],
+    [
+     224,
+     "d_improper_type = atomKK->k_improper_type.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_full_kokkos.cpp",
+  "func": "void AtomVecFullKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 284,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     287,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     329,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     371,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     288,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     330,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     372,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     289,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     331,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     373,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     290,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     332,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     374,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     291,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     333,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     375,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     292,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     334,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     376,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     293,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     335,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     377,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     294,
+     "if (mask & Q_MASK) atomKK->k_q.sync_device();"
+    ],
+    [
+     336,
+     "if (mask & Q_MASK) atomKK->k_q.sync_host();"
+    ],
+    [
+     378,
+     "if (mask & Q_MASK) atomKK->k_q.sync_hostkk();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     295,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_device();"
+    ],
+    [
+     337,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ],
+    [
+     379,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     297,
+     "atomKK->k_nspecial.sync_device();"
+    ],
+    [
+     339,
+     "atomKK->k_nspecial.sync_host();"
+    ],
+    [
+     381,
+     "atomKK->k_nspecial.sync_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     301,
+     "atomKK->k_num_bond.sync_device();"
+    ],
+    [
+     343,
+     "atomKK->k_num_bond.sync_host();"
+    ],
+    [
+     385,
+     "atomKK->k_num_bond.sync_host();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     306,
+     "atomKK->k_num_angle.sync_device();"
+    ],
+    [
+     348,
+     "atomKK->k_num_angle.sync_host();"
+    ],
+    [
+     390,
+     "atomKK->k_num_angle.sync_host();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     313,
+     "atomKK->k_num_dihedral.sync_device();"
+    ],
+    [
+     355,
+     "atomKK->k_num_dihedral.sync_host();"
+    ],
+    [
+     397,
+     "atomKK->k_num_dihedral.sync_host();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     321,
+     "atomKK->k_num_improper.sync_device();"
+    ],
+    [
+     363,
+     "atomKK->k_num_improper.sync_host();"
+    ],
+    [
+     405,
+     "atomKK->k_num_improper.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_full_kokkos.cpp",
+  "func": "void AtomVecFullKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 417,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     420,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     421,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     491,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     422,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     423,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     493,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     424,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     425,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     495,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     426,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     427,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     497,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     428,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     429,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     499,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     430,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     431,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     501,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     432,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     433,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     503,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     434,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())"
+    ],
+    [
+     435,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_q,space,async_flag);"
+    ],
+    [
+     505,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     436,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())"
+    ],
+    [
+     437,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space,async_flag);"
+    ],
+    [
+     507,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     439,
+     "if (atomKK->k_nspecial.need_sync_device())"
+    ],
+    [
+     440,
+     "perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_nspecial,space,async_flag);"
+    ],
+    [
+     510,
+     "if (atomKK->k_nspecial.need_sync_host())"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     445,
+     "if (atomKK->k_num_bond.need_sync_device())"
+    ],
+    [
+     446,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space,async_flag);"
+    ],
+    [
+     516,
+     "if (atomKK->k_num_bond.need_sync_host())"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     453,
+     "if (atomKK->k_num_angle.need_sync_device())"
+    ],
+    [
+     454,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_angle,space,async_flag);"
+    ],
+    [
+     524,
+     "if (atomKK->k_num_angle.need_sync_host())"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     465,
+     "if (atomKK->k_num_dihedral.need_sync_device())"
+    ],
+    [
+     466,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral,space,async_flag);"
+    ],
+    [
+     536,
+     "if (atomKK->k_num_dihedral.need_sync_host())"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     477,
+     "if (atomKK->k_num_improper.need_sync_device())"
+    ],
+    [
+     478,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_improper,space,async_flag);"
+    ],
+    [
+     550,
+     "if (atomKK->k_num_improper.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_full_kokkos.cpp",
+  "func": "void AtomVecFullKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 568,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     571,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     613,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     655,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     572,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     614,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     656,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     573,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     615,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     657,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     574,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     616,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     658,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     575,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     617,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     659,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     576,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     618,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     660,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     577,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     619,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     661,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     578,
+     "if (mask & Q_MASK) atomKK->k_q.modify_device();"
+    ],
+    [
+     620,
+     "if (mask & Q_MASK) atomKK->k_q.modify_host();"
+    ],
+    [
+     662,
+     "if (mask & Q_MASK) atomKK->k_q.modify_hostkk();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     579,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_device();"
+    ],
+    [
+     621,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ],
+    [
+     663,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     581,
+     "atomKK->k_nspecial.modify_device();"
+    ],
+    [
+     623,
+     "atomKK->k_nspecial.modify_host();"
+    ],
+    [
+     665,
+     "atomKK->k_nspecial.modify_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     585,
+     "atomKK->k_num_bond.modify_device();"
+    ],
+    [
+     627,
+     "atomKK->k_num_bond.modify_host();"
+    ],
+    [
+     669,
+     "atomKK->k_num_bond.modify_host();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     590,
+     "atomKK->k_num_angle.modify_device();"
+    ],
+    [
+     632,
+     "atomKK->k_num_angle.modify_host();"
+    ],
+    [
+     674,
+     "atomKK->k_num_angle.modify_host();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     597,
+     "atomKK->k_num_dihedral.modify_device();"
+    ],
+    [
+     639,
+     "atomKK->k_num_dihedral.modify_host();"
+    ],
+    [
+     681,
+     "atomKK->k_num_dihedral.modify_host();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     605,
+     "atomKK->k_num_improper.modify_device();"
+    ],
+    [
+     647,
+     "atomKK->k_num_improper.modify_host();"
+    ],
+    [
+     689,
+     "atomKK->k_num_improper.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_hybrid_kokkos.cpp",
+  "func": "void AtomVecHybridKokkos::grow(int n)",
+  "line": 67,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     70,
+     "nmax = atomKK->k_x.view_host().extent(0);"
+    ],
+    [
+     77,
+     "x = atom->x;"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     73,
+     "tag = atom->tag;"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     74,
+     "type = atom->type;"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     75,
+     "mask = atom->mask;"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     76,
+     "image = atom->image;"
+    ]
+   ],
+   "V_MASK": [
+    [
+     78,
+     "v = atom->v;"
+    ]
+   ],
+   "F_MASK": [
+    [
+     79,
+     "f = atom->f;"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "AtomVecKokkos::~AtomVecKokkos()",
+  "line": 48,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     79,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     80,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     81,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     82,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     83,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     84,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     85,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_comm_kokkos(const int &n,",
+  "line": 151,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     296,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     297,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     298,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     299,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     300,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     301,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     302,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "void AtomVecKokkos::unpack_comm_kokkos(const int &n, const int &first,",
+  "line": 351,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     402,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     403,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     404,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     405,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     406,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     407,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     408,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_comm_self_kokkos(const int &n, const DAT::tdual_int_1d &list,",
+  "line": 469,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     624,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     625,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     626,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     627,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     628,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     629,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     630,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_comm_self_fused_kokkos(const int &n,",
+  "line": 706,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     809,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     810,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "V_MASK": [
+    [
+     811,
+     "_v(atomKK->k_v.view<DeviceType>()),"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     812,
+     "_angmom(atomKK->k_angmom.view<DeviceType>()),"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     813,
+     "_omega(atomKK->k_omega.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     814,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     815,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     816,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     817,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_comm_vel_kokkos(",
+  "line": 919,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     1073,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "V_MASK": [
+    [
+     1074,
+     "_v(atomKK->k_v.view<DeviceType>()),"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     1075,
+     "_angmom(atomKK->k_angmom.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     1076,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     1077,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     1078,
+     "_omega(atomKK->k_omega.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     1079,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     1080,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     1081,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     1082,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "void AtomVecKokkos::unpack_comm_vel_kokkos(const int &n, const int &first,",
+  "line": 1150,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     1195,
+     "_f(atomKK->k_f.view<DeviceType>()),"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     1196,
+     "_fm(atomKK->k_fm.view<DeviceType>()),"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     1197,
+     "_fm_long(atomKK->k_fm_long.view<DeviceType>()),"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     1198,
+     "_torque(atomKK->k_torque.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_reverse_kokkos(const int &n, const int &first,",
+  "line": 1240,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     1283,
+     "_f(atomKK->k_f.view<DeviceType>()),"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     1284,
+     "_fm(atomKK->k_fm.view<DeviceType>()),"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     1285,
+     "_fm_long(atomKK->k_fm_long.view<DeviceType>()),"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     1286,
+     "_torque(atomKK->k_torque.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "void AtomVecKokkos::unpack_reverse_kokkos(const int &n,",
+  "line": 1330,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     1378,
+     "_f(atomKK->k_f.view<DeviceType>()),"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     1379,
+     "_fm(atomKK->k_fm.view<DeviceType>()),"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     1380,
+     "_fm_long(atomKK->k_fm_long.view<DeviceType>()),"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     1381,
+     "_torque(atomKK->k_torque.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_reverse_self_kokkos(const int &n, const DAT::tdual_int_1d &list,",
+  "line": 1420,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     1475,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     1476,
+     "_tag(atomKK->k_tag.view<DeviceType>()),"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     1477,
+     "_type(atomKK->k_type.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     1478,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     1479,
+     "_molecule(atomKK->k_molecule.view<DeviceType>()),"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     1480,
+     "_q(atomKK->k_q.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     1481,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     1482,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     1483,
+     "_radius(atomKK->k_radius.view<DeviceType>()),"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     1484,
+     "_rmass(atomKK->k_rmass.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     1485,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     1486,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     1487,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     1488,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     1489,
+     "_uCG(atomKK->k_uCG.view<DeviceType>()),"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     1490,
+     "_uCGnew(atomKK->k_uCGnew.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_border_kokkos(int n, DAT::tdual_int_1d k_sendlist,",
+  "line": 1556,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     1659,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     1660,
+     "_tag(atomKK->k_tag.view<DeviceType>()),"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     1661,
+     "_type(atomKK->k_type.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     1662,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     1663,
+     "_molecule(atomKK->k_molecule.view<DeviceType>()),"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     1664,
+     "_q(atomKK->k_q.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     1665,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     1666,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     1667,
+     "_radius(atomKK->k_radius.view<DeviceType>()),"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     1668,
+     "_rmass(atomKK->k_rmass.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     1669,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     1670,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     1671,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     1672,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     1673,
+     "_uCG(atomKK->k_uCG.view<DeviceType>()),"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     1674,
+     "_uCGnew(atomKK->k_uCGnew.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "void AtomVecKokkos::unpack_border_kokkos(const int &n, const int &first,",
+  "line": 1733,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     1802,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "V_MASK": [
+    [
+     1803,
+     "_v(atomKK->k_v.view<DeviceType>()),"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     1804,
+     "_tag(atomKK->k_tag.view<DeviceType>()),"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     1805,
+     "_type(atomKK->k_type.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     1806,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     1807,
+     "_angmom(atomKK->k_angmom.view<DeviceType>()),"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     1808,
+     "_molecule(atomKK->k_molecule.view<DeviceType>()),"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     1809,
+     "_q(atomKK->k_q.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     1810,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     1811,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     1812,
+     "_radius(atomKK->k_radius.view<DeviceType>()),"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     1813,
+     "_rmass(atomKK->k_rmass.view<DeviceType>()),"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     1814,
+     "_omega(atomKK->k_omega.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     1815,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     1816,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     1817,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     1818,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     1819,
+     "_uCG(atomKK->k_uCG.view<DeviceType>()),"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     1820,
+     "_uCGnew(atomKK->k_uCGnew.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_border_vel_kokkos(",
+  "line": 1915,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     2024,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     2025,
+     "_tag(atomKK->k_tag.view<DeviceType>()),"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     2026,
+     "_type(atomKK->k_type.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     2027,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     2028,
+     "_angmom(atomKK->k_angmom.view<DeviceType>()),"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     2029,
+     "_molecule(atomKK->k_molecule.view<DeviceType>()),"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     2030,
+     "_q(atomKK->k_q.view<DeviceType>()),"
+    ]
+   ],
+   "V_MASK": [
+    [
+     2031,
+     "_v(atomKK->k_v.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     2032,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     2033,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     2034,
+     "_radius(atomKK->k_radius.view<DeviceType>()),"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     2035,
+     "_rmass(atomKK->k_rmass.view<DeviceType>()),"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     2036,
+     "_omega(atomKK->k_omega.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     2037,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     2038,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     2039,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     2040,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     2041,
+     "_uCG(atomKK->k_uCG.view<DeviceType>()),"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     2042,
+     "_uCGnew(atomKK->k_uCGnew.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "void AtomVecKokkos::unpack_border_vel_kokkos(",
+  "line": 2122,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     2215,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "V_MASK": [
+    [
+     2216,
+     "_v(atomKK->k_v.view<DeviceType>()),"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     2217,
+     "_tag(atomKK->k_tag.view<DeviceType>()),"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     2218,
+     "_type(atomKK->k_type.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     2219,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     2220,
+     "_image(atomKK->k_image.view<DeviceType>()),"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     2221,
+     "_q(atomKK->k_q.view<DeviceType>()),"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     2222,
+     "_molecule(atomKK->k_molecule.view<DeviceType>()),"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     2223,
+     "_nspecial(atomKK->k_nspecial.view<DeviceType>()),"
+    ],
+    [
+     2224,
+     "_special(atomKK->k_special.view<DeviceType>()),"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     2225,
+     "_num_bond(atomKK->k_num_bond.view<DeviceType>()),"
+    ],
+    [
+     2226,
+     "_bond_type(atomKK->k_bond_type.view<DeviceType>()),"
+    ],
+    [
+     2227,
+     "_bond_atom(atomKK->k_bond_atom.view<DeviceType>()),"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     2228,
+     "_num_angle(atomKK->k_num_angle.view<DeviceType>()),"
+    ],
+    [
+     2229,
+     "_angle_type(atomKK->k_angle_type.view<DeviceType>()),"
+    ],
+    [
+     2230,
+     "_angle_atom1(atomKK->k_angle_atom1.view<DeviceType>()),"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     2233,
+     "_num_dihedral(atomKK->k_num_dihedral.view<DeviceType>()),"
+    ],
+    [
+     2234,
+     "_dihedral_type(atomKK->k_dihedral_type.view<DeviceType>()),"
+    ],
+    [
+     2235,
+     "_dihedral_atom1(atomKK->k_dihedral_atom1.view<DeviceType>()),"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     2239,
+     "_num_improper(atomKK->k_num_improper.view<DeviceType>()),"
+    ],
+    [
+     2240,
+     "_improper_type(atomKK->k_improper_type.view<DeviceType>()),"
+    ],
+    [
+     2241,
+     "_improper_atom1(atomKK->k_improper_atom1.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     2245,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     2246,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     2247,
+     "_radius(atomKK->k_radius.view<DeviceType>()),"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     2248,
+     "_rmass(atomKK->k_rmass.view<DeviceType>()),"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     2249,
+     "_omega(atomKK->k_omega.view<DeviceType>()),"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     2250,
+     "_angmom(atomKK->k_angmom.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     2251,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     2252,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     2253,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     2254,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     2255,
+     "_uCG(atomKK->k_uCG.view<DeviceType>()),"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     2256,
+     "_uCGnew(atomKK->k_uCGnew.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_kokkos.cpp",
+  "func": "int AtomVecKokkos::pack_exchange_kokkos(const int &nsend,DAT::tdual_double_2d_lr &k_buf,",
+  "line": 2506,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     2609,
+     "_x(atomKK->k_x.view<DeviceType>()),"
+    ]
+   ],
+   "V_MASK": [
+    [
+     2610,
+     "_v(atomKK->k_v.view<DeviceType>()),"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     2611,
+     "_tag(atomKK->k_tag.view<DeviceType>()),"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     2612,
+     "_type(atomKK->k_type.view<DeviceType>()),"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     2613,
+     "_mask(atomKK->k_mask.view<DeviceType>()),"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     2614,
+     "_image(atomKK->k_image.view<DeviceType>()),"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     2615,
+     "_q(atomKK->k_q.view<DeviceType>()),"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     2616,
+     "_molecule(atomKK->k_molecule.view<DeviceType>()),"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     2617,
+     "_nspecial(atomKK->k_nspecial.view<DeviceType>()),"
+    ],
+    [
+     2618,
+     "_special(atomKK->k_special.view<DeviceType>()),"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     2619,
+     "_num_bond(atomKK->k_num_bond.view<DeviceType>()),"
+    ],
+    [
+     2620,
+     "_bond_type(atomKK->k_bond_type.view<DeviceType>()),"
+    ],
+    [
+     2621,
+     "_bond_atom(atomKK->k_bond_atom.view<DeviceType>()),"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     2622,
+     "_num_angle(atomKK->k_num_angle.view<DeviceType>()),"
+    ],
+    [
+     2623,
+     "_angle_type(atomKK->k_angle_type.view<DeviceType>()),"
+    ],
+    [
+     2624,
+     "_angle_atom1(atomKK->k_angle_atom1.view<DeviceType>()),"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     2627,
+     "_num_dihedral(atomKK->k_num_dihedral.view<DeviceType>()),"
+    ],
+    [
+     2628,
+     "_dihedral_type(atomKK->k_dihedral_type.view<DeviceType>()),"
+    ],
+    [
+     2629,
+     "_dihedral_atom1(atomKK->k_dihedral_atom1.view<DeviceType>()),"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     2633,
+     "_num_improper(atomKK->k_num_improper.view<DeviceType>()),"
+    ],
+    [
+     2634,
+     "_improper_type(atomKK->k_improper_type.view<DeviceType>()),"
+    ],
+    [
+     2635,
+     "_improper_atom1(atomKK->k_improper_atom1.view<DeviceType>()),"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     2639,
+     "_mu(atomKK->k_mu.view<DeviceType>()),"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     2640,
+     "_sp(atomKK->k_sp.view<DeviceType>()),"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     2641,
+     "_radius(atomKK->k_radius.view<DeviceType>()),"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     2642,
+     "_rmass(atomKK->k_rmass.view<DeviceType>()),"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     2643,
+     "_omega(atomKK->k_omega.view<DeviceType>()),"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     2644,
+     "_angmom(atomKK->k_angmom.view<DeviceType>()),"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     2645,
+     "_dpdTheta(atomKK->k_dpdTheta.view<DeviceType>()),"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     2646,
+     "_uCond(atomKK->k_uCond.view<DeviceType>()),"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     2647,
+     "_uMech(atomKK->k_uMech.view<DeviceType>()),"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     2648,
+     "_uChem(atomKK->k_uChem.view<DeviceType>()),"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     2649,
+     "_uCG(atomKK->k_uCG.view<DeviceType>()),"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     2650,
+     "_uCGnew(atomKK->k_uCGnew.view<DeviceType>()),"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_molecular_kokkos.cpp",
+  "func": "void AtomVecMolecularKokkos::grow_pointers()",
+  "line": 134,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     137,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     138,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     141,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     142,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     144,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     145,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     147,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     148,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     151,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     152,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     154,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     155,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     157,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     158,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     161,
+     "d_molecule = atomKK->k_molecule.view_device();"
+    ],
+    [
+     162,
+     "h_molecule = atomKK->k_molecule.view_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     164,
+     "d_nspecial = atomKK->k_nspecial.view_device();"
+    ],
+    [
+     165,
+     "h_nspecial = atomKK->k_nspecial.view_hostkk();"
+    ],
+    [
+     167,
+     "d_special = atomKK->k_special.view_device();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     170,
+     "d_num_bond = atomKK->k_num_bond.view_device();"
+    ],
+    [
+     171,
+     "h_num_bond = atomKK->k_num_bond.view_host();"
+    ],
+    [
+     173,
+     "d_bond_type = atomKK->k_bond_type.view_device();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     180,
+     "d_num_angle = atomKK->k_num_angle.view_device();"
+    ],
+    [
+     181,
+     "h_num_angle = atomKK->k_num_angle.view_host();"
+    ],
+    [
+     183,
+     "d_angle_type = atomKK->k_angle_type.view_device();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     196,
+     "d_num_dihedral = atomKK->k_num_dihedral.view_device();"
+    ],
+    [
+     197,
+     "h_num_dihedral = atomKK->k_num_dihedral.view_host();"
+    ],
+    [
+     199,
+     "d_dihedral_type = atomKK->k_dihedral_type.view_device();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     215,
+     "d_num_improper = atomKK->k_num_improper.view_device();"
+    ],
+    [
+     216,
+     "h_num_improper = atomKK->k_num_improper.view_host();"
+    ],
+    [
+     218,
+     "d_improper_type = atomKK->k_improper_type.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_molecular_kokkos.cpp",
+  "func": "void AtomVecMolecularKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 277,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     280,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     321,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     362,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     281,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     322,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     363,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     282,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     323,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     364,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     283,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     324,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     365,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     284,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     325,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     366,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     285,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     326,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     367,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     286,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     327,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     368,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     287,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_device();"
+    ],
+    [
+     328,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ],
+    [
+     369,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.sync_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     289,
+     "atomKK->k_nspecial.sync_device();"
+    ],
+    [
+     330,
+     "atomKK->k_nspecial.sync_host();"
+    ],
+    [
+     371,
+     "atomKK->k_nspecial.sync_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     293,
+     "atomKK->k_num_bond.sync_device();"
+    ],
+    [
+     334,
+     "atomKK->k_num_bond.sync_host();"
+    ],
+    [
+     375,
+     "atomKK->k_num_bond.sync_host();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     298,
+     "atomKK->k_num_angle.sync_device();"
+    ],
+    [
+     339,
+     "atomKK->k_num_angle.sync_host();"
+    ],
+    [
+     380,
+     "atomKK->k_num_angle.sync_host();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     305,
+     "atomKK->k_num_dihedral.sync_device();"
+    ],
+    [
+     346,
+     "atomKK->k_num_dihedral.sync_host();"
+    ],
+    [
+     387,
+     "atomKK->k_num_dihedral.sync_host();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     313,
+     "atomKK->k_num_improper.sync_device();"
+    ],
+    [
+     354,
+     "atomKK->k_num_improper.sync_host();"
+    ],
+    [
+     395,
+     "atomKK->k_num_improper.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_molecular_kokkos.cpp",
+  "func": "void AtomVecMolecularKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 405,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     408,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     409,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     477,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     410,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     411,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     479,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     412,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     413,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     481,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     414,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     415,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     483,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     416,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     417,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     485,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     418,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     419,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     487,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     420,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     421,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     489,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     422,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())"
+    ],
+    [
+     423,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space,async_flag);"
+    ],
+    [
+     491,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     425,
+     "if (atomKK->k_nspecial.need_sync_device())"
+    ],
+    [
+     426,
+     "perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_nspecial,space,async_flag);"
+    ],
+    [
+     494,
+     "if (atomKK->k_nspecial.need_sync_host())"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     431,
+     "if (atomKK->k_num_bond.need_sync_device())"
+    ],
+    [
+     432,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space,async_flag);"
+    ],
+    [
+     500,
+     "if (atomKK->k_num_bond.need_sync_host())"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     439,
+     "if (atomKK->k_num_angle.need_sync_device())"
+    ],
+    [
+     440,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_angle,space,async_flag);"
+    ],
+    [
+     508,
+     "if (atomKK->k_num_angle.need_sync_host())"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     451,
+     "if (atomKK->k_num_dihedral.need_sync_device())"
+    ],
+    [
+     452,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_dihedral,space,async_flag);"
+    ],
+    [
+     520,
+     "if (atomKK->k_num_dihedral.need_sync_host())"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     463,
+     "if (atomKK->k_num_improper.need_sync_device())"
+    ],
+    [
+     464,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_improper,space,async_flag);"
+    ],
+    [
+     534,
+     "if (atomKK->k_num_improper.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_molecular_kokkos.cpp",
+  "func": "void AtomVecMolecularKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 552,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     555,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     596,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     637,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     556,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     597,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     638,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     557,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     598,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     639,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     558,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     599,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     640,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     559,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     600,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     641,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     560,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     601,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     642,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     561,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     602,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     643,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     562,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_device();"
+    ],
+    [
+     603,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ],
+    [
+     644,
+     "if (mask & MOLECULE_MASK) atomKK->k_molecule.modify_host();"
+    ]
+   ],
+   "SPECIAL_MASK": [
+    [
+     564,
+     "atomKK->k_nspecial.modify_device();"
+    ],
+    [
+     605,
+     "atomKK->k_nspecial.modify_host();"
+    ],
+    [
+     646,
+     "atomKK->k_nspecial.modify_hostkk();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     568,
+     "atomKK->k_num_bond.modify_device();"
+    ],
+    [
+     609,
+     "atomKK->k_num_bond.modify_host();"
+    ],
+    [
+     650,
+     "atomKK->k_num_bond.modify_host();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     573,
+     "atomKK->k_num_angle.modify_device();"
+    ],
+    [
+     614,
+     "atomKK->k_num_angle.modify_host();"
+    ],
+    [
+     655,
+     "atomKK->k_num_angle.modify_host();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     580,
+     "atomKK->k_num_dihedral.modify_device();"
+    ],
+    [
+     621,
+     "atomKK->k_num_dihedral.modify_host();"
+    ],
+    [
+     662,
+     "atomKK->k_num_dihedral.modify_host();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     588,
+     "atomKK->k_num_improper.modify_device();"
+    ],
+    [
+     629,
+     "atomKK->k_num_improper.modify_host();"
+    ],
+    [
+     670,
+     "atomKK->k_num_improper.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_sphere_kokkos.cpp",
+  "func": "void AtomVecSphereKokkos::grow_pointers()",
+  "line": 93,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     96,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     97,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     100,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     101,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     103,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     104,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     106,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     107,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     110,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     111,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     113,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     114,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     116,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     117,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     119,
+     "d_radius = atomKK->k_radius.view_device();"
+    ],
+    [
+     120,
+     "h_radius = atomKK->k_radius.view_hostkk();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     122,
+     "d_rmass = atomKK->k_rmass.view_device();"
+    ],
+    [
+     123,
+     "h_rmass = atomKK->k_rmass.view_hostkk();"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     125,
+     "d_omega = atomKK->k_omega.view_device();"
+    ],
+    [
+     126,
+     "h_omega = atomKK->k_omega.view_hostkk();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     128,
+     "d_torque = atomKK->k_torque.view_device();"
+    ],
+    [
+     129,
+     "h_torque = atomKK->k_torque.view_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_sphere_kokkos.cpp",
+  "func": "void AtomVecSphereKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 155,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     158,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     170,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     182,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     159,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     171,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     183,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     160,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     172,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     184,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     161,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     173,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     185,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     162,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     174,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     186,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     163,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     175,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     187,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     164,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     176,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     188,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     165,
+     "if (mask & RADIUS_MASK) atomKK->k_radius.sync_device();"
+    ],
+    [
+     177,
+     "if (mask & RADIUS_MASK) atomKK->k_radius.sync_host();"
+    ],
+    [
+     189,
+     "if (mask & RADIUS_MASK) atomKK->k_radius.sync_hostkk();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     166,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.sync_device();"
+    ],
+    [
+     178,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.sync_host();"
+    ],
+    [
+     190,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.sync_hostkk();"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     167,
+     "if (mask & OMEGA_MASK) atomKK->k_omega.sync_device();"
+    ],
+    [
+     179,
+     "if (mask & OMEGA_MASK) atomKK->k_omega.sync_host();"
+    ],
+    [
+     191,
+     "if (mask & OMEGA_MASK) atomKK->k_omega.sync_hostkk();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     168,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.sync_device();"
+    ],
+    [
+     180,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.sync_host();"
+    ],
+    [
+     192,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.sync_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_sphere_kokkos.cpp",
+  "func": "void AtomVecSphereKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 198,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     201,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     202,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     224,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     203,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     204,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     226,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     205,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     206,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     228,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     207,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     208,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     230,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     209,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     210,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     232,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     211,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     212,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     234,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     213,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     214,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     236,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     215,
+     "if ((mask & RADIUS_MASK) && atomKK->k_radius.need_sync_device())"
+    ],
+    [
+     216,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_radius,space,async_flag);"
+    ],
+    [
+     238,
+     "if ((mask & RADIUS_MASK) && atomKK->k_radius.need_sync_host())"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     217,
+     "if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())"
+    ],
+    [
+     218,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space,async_flag);"
+    ],
+    [
+     240,
+     "if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     219,
+     "if ((mask & OMEGA_MASK) && atomKK->k_omega.need_sync_device())"
+    ],
+    [
+     220,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_omega,space,async_flag);"
+    ],
+    [
+     242,
+     "if ((mask & OMEGA_MASK) && atomKK->k_omega.need_sync_host())"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     221,
+     "if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync_device())"
+    ],
+    [
+     222,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_torque,space,async_flag);"
+    ],
+    [
+     244,
+     "if ((mask & TORQUE_MASK) && atomKK->k_torque.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_sphere_kokkos.cpp",
+  "func": "void AtomVecSphereKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 251,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     254,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     266,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     278,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     255,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     267,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     279,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     256,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     268,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     280,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     257,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     269,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     281,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     258,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     270,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     282,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     259,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     271,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     283,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     260,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     272,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     284,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     261,
+     "if (mask & RADIUS_MASK) atomKK->k_radius.modify_device();"
+    ],
+    [
+     273,
+     "if (mask & RADIUS_MASK) atomKK->k_radius.modify_host();"
+    ],
+    [
+     285,
+     "if (mask & RADIUS_MASK) atomKK->k_radius.modify_hostkk();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     262,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.modify_device();"
+    ],
+    [
+     274,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.modify_host();"
+    ],
+    [
+     286,
+     "if (mask & RMASS_MASK) atomKK->k_rmass.modify_hostkk();"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     263,
+     "if (mask & OMEGA_MASK) atomKK->k_omega.modify_device();"
+    ],
+    [
+     275,
+     "if (mask & OMEGA_MASK) atomKK->k_omega.modify_host();"
+    ],
+    [
+     287,
+     "if (mask & OMEGA_MASK) atomKK->k_omega.modify_hostkk();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     264,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.modify_device();"
+    ],
+    [
+     276,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.modify_host();"
+    ],
+    [
+     288,
+     "if (mask & TORQUE_MASK) atomKK->k_torque.modify_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_spin_kokkos.cpp",
+  "func": "void AtomVecSpinKokkos::grow_pointers()",
+  "line": 104,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TAG_MASK": [
+    [
+     107,
+     "d_tag = atomKK->k_tag.view_device();"
+    ],
+    [
+     108,
+     "h_tag = atomKK->k_tag.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     111,
+     "d_type = atomKK->k_type.view_device();"
+    ],
+    [
+     112,
+     "h_type = atomKK->k_type.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     114,
+     "d_mask = atomKK->k_mask.view_device();"
+    ],
+    [
+     115,
+     "h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     117,
+     "d_image = atomKK->k_image.view_device();"
+    ],
+    [
+     118,
+     "h_image = atomKK->k_image.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     121,
+     "d_x = atomKK->k_x.view_device();"
+    ],
+    [
+     122,
+     "h_x = atomKK->k_x.view_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     124,
+     "d_v = atomKK->k_v.view_device();"
+    ],
+    [
+     125,
+     "h_v = atomKK->k_v.view_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     127,
+     "d_f = atomKK->k_f.view_device();"
+    ],
+    [
+     128,
+     "h_f = atomKK->k_f.view_hostkk();"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     131,
+     "d_sp = atomKK->k_sp.view_device();"
+    ],
+    [
+     132,
+     "h_sp = atomKK->k_sp.view_hostkk();"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     134,
+     "d_fm = atomKK->k_fm.view_device();"
+    ],
+    [
+     135,
+     "h_fm = atomKK->k_fm.view_hostkk();"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     137,
+     "d_fm_long = atomKK->k_fm_long.view_device();"
+    ],
+    [
+     138,
+     "h_fm_long = atomKK->k_fm_long.view_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_spin_kokkos.cpp",
+  "func": "void AtomVecSpinKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 194,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     197,
+     "if (mask & X_MASK) atomKK->k_x.sync_device();"
+    ],
+    [
+     208,
+     "if (mask & X_MASK) atomKK->k_x.sync_host();"
+    ],
+    [
+     219,
+     "if (mask & X_MASK) atomKK->k_x.sync_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     198,
+     "if (mask & V_MASK) atomKK->k_v.sync_device();"
+    ],
+    [
+     209,
+     "if (mask & V_MASK) atomKK->k_v.sync_host();"
+    ],
+    [
+     220,
+     "if (mask & V_MASK) atomKK->k_v.sync_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     199,
+     "if (mask & F_MASK) atomKK->k_f.sync_device();"
+    ],
+    [
+     210,
+     "if (mask & F_MASK) atomKK->k_f.sync_host();"
+    ],
+    [
+     221,
+     "if (mask & F_MASK) atomKK->k_f.sync_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     200,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_device();"
+    ],
+    [
+     211,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ],
+    [
+     222,
+     "if (mask & TAG_MASK) atomKK->k_tag.sync_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     201,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_device();"
+    ],
+    [
+     212,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ],
+    [
+     223,
+     "if (mask & TYPE_MASK) atomKK->k_type.sync_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     202,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_device();"
+    ],
+    [
+     213,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ],
+    [
+     224,
+     "if (mask & MASK_MASK) atomKK->k_mask.sync_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     203,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_device();"
+    ],
+    [
+     214,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ],
+    [
+     225,
+     "if (mask & IMAGE_MASK) atomKK->k_image.sync_host();"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     204,
+     "if (mask & SP_MASK) atomKK->k_sp.sync_device();"
+    ],
+    [
+     215,
+     "if (mask & SP_MASK) atomKK->k_sp.sync_host();"
+    ],
+    [
+     226,
+     "if (mask & SP_MASK) atomKK->k_sp.sync_hostkk();"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     205,
+     "if (mask & FM_MASK) atomKK->k_fm.sync_device();"
+    ],
+    [
+     216,
+     "if (mask & FM_MASK) atomKK->k_fm.sync_host();"
+    ],
+    [
+     227,
+     "if (mask & FM_MASK) atomKK->k_fm.sync_hostkk();"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     206,
+     "if (mask & FML_MASK) atomKK->k_fm_long.sync_device();"
+    ],
+    [
+     217,
+     "if (mask & FML_MASK) atomKK->k_fm_long.sync_host();"
+    ],
+    [
+     228,
+     "if (mask & FML_MASK) atomKK->k_fm_long.sync_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_spin_kokkos.cpp",
+  "func": "void AtomVecSpinKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 234,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     237,
+     "if (mask & X_MASK) atomKK->k_x.modify_device();"
+    ],
+    [
+     248,
+     "if (mask & X_MASK) atomKK->k_x.modify_host();"
+    ],
+    [
+     259,
+     "if (mask & X_MASK) atomKK->k_x.modify_hostkk();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     238,
+     "if (mask & V_MASK) atomKK->k_v.modify_device();"
+    ],
+    [
+     249,
+     "if (mask & V_MASK) atomKK->k_v.modify_host();"
+    ],
+    [
+     260,
+     "if (mask & V_MASK) atomKK->k_v.modify_hostkk();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     239,
+     "if (mask & F_MASK) atomKK->k_f.modify_device();"
+    ],
+    [
+     250,
+     "if (mask & F_MASK) atomKK->k_f.modify_host();"
+    ],
+    [
+     261,
+     "if (mask & F_MASK) atomKK->k_f.modify_hostkk();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     240,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_device();"
+    ],
+    [
+     251,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ],
+    [
+     262,
+     "if (mask & TAG_MASK) atomKK->k_tag.modify_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     241,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_device();"
+    ],
+    [
+     252,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ],
+    [
+     263,
+     "if (mask & TYPE_MASK) atomKK->k_type.modify_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     242,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_device();"
+    ],
+    [
+     253,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ],
+    [
+     264,
+     "if (mask & MASK_MASK) atomKK->k_mask.modify_host();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     243,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_device();"
+    ],
+    [
+     254,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ],
+    [
+     265,
+     "if (mask & IMAGE_MASK) atomKK->k_image.modify_host();"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     244,
+     "if (mask & SP_MASK) atomKK->k_sp.modify_device();"
+    ],
+    [
+     255,
+     "if (mask & SP_MASK) atomKK->k_sp.modify_host();"
+    ],
+    [
+     266,
+     "if (mask & SP_MASK) atomKK->k_sp.modify_hostkk();"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     245,
+     "if (mask & FM_MASK) atomKK->k_fm.modify_device();"
+    ],
+    [
+     256,
+     "if (mask & FM_MASK) atomKK->k_fm.modify_host();"
+    ],
+    [
+     267,
+     "if (mask & FM_MASK) atomKK->k_fm.modify_hostkk();"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     246,
+     "if (mask & FML_MASK) atomKK->k_fm_long.modify_device();"
+    ],
+    [
+     257,
+     "if (mask & FML_MASK) atomKK->k_fm_long.modify_host();"
+    ],
+    [
+     268,
+     "if (mask & FML_MASK) atomKK->k_fm_long.modify_hostkk();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/atom_vec_spin_kokkos.cpp",
+  "func": "void AtomVecSpinKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 272,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     275,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_device())"
+    ],
+    [
+     276,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3_lr>(atomKK->k_x,space,async_flag);"
+    ],
+    [
+     296,
+     "if ((mask & X_MASK) && atomKK->k_x.need_sync_host())"
+    ]
+   ],
+   "V_MASK": [
+    [
+     277,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_device())"
+    ],
+    [
+     278,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_3>(atomKK->k_v,space,async_flag);"
+    ],
+    [
+     298,
+     "if ((mask & V_MASK) && atomKK->k_v.need_sync_host())"
+    ]
+   ],
+   "F_MASK": [
+    [
+     279,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_device())"
+    ],
+    [
+     280,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_f,space,async_flag);"
+    ],
+    [
+     300,
+     "if ((mask & F_MASK) && atomKK->k_f.need_sync_host())"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     281,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_device())"
+    ],
+    [
+     282,
+     "perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_tag,space,async_flag);"
+    ],
+    [
+     302,
+     "if ((mask & TAG_MASK) && atomKK->k_tag.need_sync_host())"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     283,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_device())"
+    ],
+    [
+     284,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_type,space,async_flag);"
+    ],
+    [
+     304,
+     "if ((mask & TYPE_MASK) && atomKK->k_type.need_sync_host())"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     285,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_device())"
+    ],
+    [
+     286,
+     "perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_mask,space,async_flag);"
+    ],
+    [
+     306,
+     "if ((mask & MASK_MASK) && atomKK->k_mask.need_sync_host())"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     287,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_device())"
+    ],
+    [
+     288,
+     "perform_pinned_copy<DAT::tdual_imageint_1d>(atomKK->k_image,space,async_flag);"
+    ],
+    [
+     308,
+     "if ((mask & IMAGE_MASK) && atomKK->k_image.need_sync_host())"
+    ]
+   ],
+   "SP_MASK": [
+    [
+     289,
+     "if ((mask & SP_MASK) && atomKK->k_sp.need_sync_device())"
+    ],
+    [
+     290,
+     "perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d_4>(atomKK->k_sp,space,async_flag);"
+    ],
+    [
+     291,
+     "if ((mask & FM_MASK) && atomKK->k_sp.need_sync_device())"
+    ]
+   ],
+   "FM_MASK": [
+    [
+     292,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_fm,space,async_flag);"
+    ],
+    [
+     312,
+     "if ((mask & FM_MASK) && atomKK->k_fm.need_sync_host())"
+    ],
+    [
+     313,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_fm,space,async_flag);"
+    ]
+   ],
+   "FML_MASK": [
+    [
+     293,
+     "if ((mask & FML_MASK) && atomKK->k_fm_long.need_sync_device())"
+    ],
+    [
+     294,
+     "perform_pinned_copy_transform<DAT::ttransform_kkacc_1d_3>(atomKK->k_fm_long,space,async_flag);"
+    ],
+    [
+     314,
+     "if ((mask & FML_MASK) && atomKK->k_fm_long.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/comm_kokkos.cpp",
+  "func": "void CommKokkos::forward_comm_device()",
+  "line": 165,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     187,
+     "if (comm_x_only && !atomKK->k_x.NEED_TRANSFORM) {"
+    ],
+    [
+     189,
+     "buf = (double*)atomKK->k_x.view<DeviceType>().data() +"
+    ],
+    [
+     190,
+     "firstrecv[iswap]*atomKK->k_x.view<DeviceType>().extent(1);"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/comm_kokkos.cpp",
+  "func": "void CommKokkos::reverse_comm_device()",
+  "line": 291,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     305,
+     "if (comm_f_only && !atomKK->k_f.NEED_TRANSFORM) {"
+    ],
+    [
+     318,
+     "buf = (double *)atomKK->k_f.view<DeviceType>().data() +"
+    ],
+    [
+     319,
+     "firstrecv[iswap]*atomKK->k_f.view<DeviceType>().extent(1);"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/comm_tiled_kokkos.cpp",
+  "func": "void CommTiledKokkos::forward_comm_device()",
+  "line": 122,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     140,
+     "if (comm_x_only && !atomKK->k_x.NEED_TRANSFORM) {"
+    ],
+    [
+     147,
+     "buf = (double*)atomKK->k_x.view<DeviceType>().data() +"
+    ],
+    [
+     148,
+     "firstrecv[iswap][i]*atomKK->k_x.view<DeviceType>().extent(1);"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/comm_tiled_kokkos.cpp",
+  "func": "void CommTiledKokkos::reverse_comm_device()",
+  "line": 275,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     293,
+     "if (comm_f_only  && !atomKK->k_f.NEED_TRANSFORM) {"
+    ],
+    [
+     311,
+     "buf = (double*)atomKK->k_f.view<DeviceType>().data() +"
+    ],
+    [
+     312,
+     "firstrecv[iswap][i]*atomKK->k_f.view<DeviceType>().extent(1);"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/domain_kokkos.cpp",
+  "func": "void DomainKokkos::reset_box()",
+  "line": 84,
+  "drs": [],
+  "dms": [],
+  "synced": [
+   "X_MASK"
+  ],
+  "modified": [],
+  "miss": {
+   "V_MASK": [
+    [
+     337,
+     "Dump::write() temporarily replaces atom->x, atom->v, and atom->image by"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     337,
+     "Dump::write() temporarily replaces atom->x, atom->v, and atom->image by"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/domain_kokkos.cpp",
+  "func": "int DomainKokkos::detached_atom_x() const",
+  "line": 344,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     347,
+     "return atom->x[0] != atomKK->k_x.view_host().data();"
+    ],
+    [
+     346,
+     "if ((atom->nmax == 0) || (atom->x == nullptr)) return 0;"
+    ],
+    [
+     347,
+     "return atom->x[0] != atomKK->k_x.view_host().data();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/dynamical_matrix_kokkos.cpp",
+  "func": "void DynamicalMatrixKokkos::setup()",
+  "line": 91,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     140,
+     "return negative gradient stored in atom->f"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+  "func": "int FixEOStableRXKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)",
+  "line": 447,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "UCHEM_MASK": [
+    [
+     450,
+     "HAT::t_double_1d h_uChem = atomKK->k_uChem.view_host();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     451,
+     "HAT::t_double_1d h_uCG = atomKK->k_uCG.view_host();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     452,
+     "HAT::t_double_1d h_uCGnew = atomKK->k_uCGnew.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+  "func": "void FixEOStableRXKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)",
+  "line": 467,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "UCHEM_MASK": [
+    [
+     470,
+     "HAT::t_double_1d h_uChem = atomKK->k_uChem.view_host();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     471,
+     "HAT::t_double_1d h_uCG = atomKK->k_uCG.view_host();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     472,
+     "HAT::t_double_1d h_uCGnew = atomKK->k_uCGnew.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+  "func": "int FixEOStableRXKokkos<DeviceType>::pack_reverse_comm(int n, int first, double *buf)",
+  "line": 486,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "UCG_MASK": [
+    [
+     489,
+     "HAT::t_double_1d h_uCG = atomKK->k_uCG.view_host();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     490,
+     "HAT::t_double_1d h_uCGnew = atomKK->k_uCGnew.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+  "func": "void FixEOStableRXKokkos<DeviceType>::unpack_reverse_comm(int n, int *list, double *buf)",
+  "line": 504,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "UCG_MASK": [
+    [
+     507,
+     "HAT::t_double_1d h_uCG = atomKK->k_uCG.view_host();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     508,
+     "HAT::t_double_1d h_uCGnew = atomKK->k_uCGnew.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "func": "FixPropertyAtomKokkos::~FixPropertyAtomKokkos()",
+  "line": 63,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MOLECULE_MASK": [
+    [
+     71,
+     "memoryKK->destroy_kokkos(atomKK->k_molecule,atom->molecule);"
+    ],
+    [
+     71,
+     "memoryKK->destroy_kokkos(atomKK->k_molecule,atom->molecule);"
+    ],
+    [
+     72,
+     "atom->molecule = nullptr;"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     75,
+     "memoryKK->destroy_kokkos(atomKK->k_q,atom->q);"
+    ],
+    [
+     75,
+     "memoryKK->destroy_kokkos(atomKK->k_q,atom->q);"
+    ],
+    [
+     76,
+     "atom->q = nullptr;"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     79,
+     "memoryKK->destroy_kokkos(atomKK->k_rmass,atom->rmass);"
+    ],
+    [
+     79,
+     "memoryKK->destroy_kokkos(atomKK->k_rmass,atom->rmass);"
+    ],
+    [
+     80,
+     "atom->rmass = nullptr;"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "func": "void FixPropertyAtomKokkos::grow_arrays(int nmax)",
+  "line": 94,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [
+   "DVECTOR_MASK",
+   "IVECTOR_MASK",
+   "MOLECULE_MASK",
+   "Q_MASK",
+   "RMASS_MASK"
+  ],
+  "modified": [
+   "DVECTOR_MASK",
+   "IVECTOR_MASK",
+   "MOLECULE_MASK",
+   "Q_MASK",
+   "RMASS_MASK"
+  ],
+  "miss": {
+   "IARRAY_MASK": [
+    [
+     147,
+     "auto& inner = atomKK->k_iarray.view_host()[idx].k_view;"
+    ],
+    [
+     159,
+     "atomKK->k_iarray.modify_host();"
+    ],
+    [
+     160,
+     "atomKK->k_iarray.sync_device();"
+    ]
+   ],
+   "DARRAY_MASK": [
+    [
+     163,
+     "auto& inner = atomKK->k_darray.view_host()[idx].k_view;"
+    ],
+    [
+     173,
+     "atomKK->k_darray.modify_host();"
+    ],
+    [
+     174,
+     "atomKK->k_darray.sync_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "func": "void FixPropertyAtomKokkos::sync(ExecutionSpace space, uint64_t mask)",
+  "line": 182,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MOLECULE_MASK": [
+    [
+     185,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync_device();"
+    ],
+    [
+     197,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync_host();"
+    ],
+    [
+     209,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     186,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync_device();"
+    ],
+    [
+     198,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync_host();"
+    ],
+    [
+     210,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync_hostkk();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     187,
+     "if (rmass_flag && (mask & RMASS_MASK)) {atomKK->k_rmass.sync_device();}"
+    ],
+    [
+     199,
+     "if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.sync_host();"
+    ],
+    [
+     211,
+     "if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.sync_hostkk();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     188,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync_device();"
+    ],
+    [
+     200,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync_host();"
+    ],
+    [
+     212,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync_hostkk();"
+    ]
+   ],
+   "IVECTOR_MASK": [
+    [
+     189,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.sync_device();"
+    ],
+    [
+     201,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.sync_host();"
+    ],
+    [
+     213,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.sync_host();"
+    ]
+   ],
+   "IARRAY_MASK": [
+    [
+     192,
+     "atomKK->k_iarray.view_host()[i].k_view.sync_device();"
+    ],
+    [
+     204,
+     "atomKK->k_iarray.view_host()[i].k_view.sync_host();"
+    ],
+    [
+     216,
+     "atomKK->k_iarray.view_host()[i].k_view.sync_host();"
+    ]
+   ],
+   "DARRAY_MASK": [
+    [
+     195,
+     "atomKK->k_darray.view_host()[i].k_view.sync_device();"
+    ],
+    [
+     207,
+     "atomKK->k_darray.view_host()[i].k_view.sync_host();"
+    ],
+    [
+     219,
+     "atomKK->k_darray.view_host()[i].k_view.sync_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "func": "void FixPropertyAtomKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int async_flag)",
+  "line": 225,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MOLECULE_MASK": [
+    [
+     228,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_device())"
+    ],
+    [
+     229,
+     "atomKK->avecKK->perform_pinned_copy<DAT::tdual_tagint_1d>(atomKK->k_molecule,space,async_flag);"
+    ],
+    [
+     249,
+     "if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     230,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_device())"
+    ],
+    [
+     231,
+     "atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_q,space,async_flag);"
+    ],
+    [
+     251,
+     "if ((mask & Q_MASK) && atomKK->k_q.need_sync_host())"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     232,
+     "if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())"
+    ],
+    [
+     233,
+     "atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space,async_flag);"
+    ],
+    [
+     253,
+     "if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     234,
+     "if ((mask & DVECTOR_MASK) && atomKK->k_dvector.need_sync_device())"
+    ],
+    [
+     235,
+     "atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d>(atomKK->k_dvector,space,async_flag);"
+    ],
+    [
+     255,
+     "if ((mask & DVECTOR_MASK) && atomKK->k_dvector.need_sync_host())"
+    ]
+   ],
+   "IVECTOR_MASK": [
+    [
+     236,
+     "if ((mask & IVECTOR_MASK) && atomKK->k_ivector.need_sync_device())"
+    ],
+    [
+     237,
+     "atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr>(atomKK->k_ivector,space,async_flag);"
+    ],
+    [
+     257,
+     "if ((mask & IVECTOR_MASK) && atomKK->k_ivector.need_sync_host())"
+    ]
+   ],
+   "IARRAY_MASK": [
+    [
+     240,
+     "if (atomKK->k_iarray.view_host()[i].k_view.need_sync_device())"
+    ],
+    [
+     242,
+     "atomKK->k_iarray.view_host()[i].k_view, space, async_flag);"
+    ],
+    [
+     261,
+     "if (atomKK->k_iarray.view_host()[i].k_view.need_sync_host())"
+    ]
+   ],
+   "DARRAY_MASK": [
+    [
+     245,
+     "if (atomKK->k_darray.view_host()[i].k_view.need_sync_device())"
+    ],
+    [
+     247,
+     "atomKK->k_darray.view_host()[i].k_view, space, async_flag);"
+    ],
+    [
+     266,
+     "if (atomKK->k_darray.view_host()[i].k_view.need_sync_host())"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "func": "void FixPropertyAtomKokkos::modified(ExecutionSpace space, uint64_t mask)",
+  "line": 274,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MOLECULE_MASK": [
+    [
+     277,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.modify_device();"
+    ],
+    [
+     289,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.modify_host();"
+    ],
+    [
+     301,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.modify_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     278,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.modify_device();"
+    ],
+    [
+     290,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.modify_host();"
+    ],
+    [
+     302,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.modify_hostkk();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     279,
+     "if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.modify_device();"
+    ],
+    [
+     291,
+     "if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.modify_host();"
+    ],
+    [
+     303,
+     "if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.modify_hostkk();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     280,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.modify_device();"
+    ],
+    [
+     292,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.modify_host();"
+    ],
+    [
+     304,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.modify_hostkk();"
+    ]
+   ],
+   "IVECTOR_MASK": [
+    [
+     281,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.modify_device();"
+    ],
+    [
+     293,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.modify_host();"
+    ],
+    [
+     305,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.modify_host();"
+    ]
+   ],
+   "IARRAY_MASK": [
+    [
+     284,
+     "atomKK->k_iarray.view_host()[i].k_view.modify_device();"
+    ],
+    [
+     296,
+     "atomKK->k_iarray.view_host()[i].k_view.modify_host();"
+    ],
+    [
+     308,
+     "atomKK->k_iarray.view_host()[i].k_view.modify_host();"
+    ]
+   ],
+   "DARRAY_MASK": [
+    [
+     287,
+     "atomKK->k_darray.view_host()[i].k_view.modify_device();"
+    ],
+    [
+     299,
+     "atomKK->k_darray.view_host()[i].k_view.modify_host();"
+    ],
+    [
+     311,
+     "atomKK->k_darray.view_host()[i].k_view.modify_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_rigid_small_kokkos.cpp",
+  "func": "void FixRigidSmallKokkos<DeviceType>::setup_pre_neighbor()",
+  "line": 272,
+  "drs": [
+   "F_MASK",
+   "TAG_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "dms": [
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "synced": [
+   "F_MASK",
+   "TAG_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "modified": [
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "miss": {
+   "IMAGE_MASK": [
+    [
+     275,
+     "// positions, so it also reads atom->image and atom->mask (and rmass for"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     275,
+     "// positions, so it also reads atom->image and atom->mask (and rmass for"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_rigid_small_kokkos.cpp",
+  "func": "void FixRigidSmallKokkos<DeviceType>::set_xv_kokkos(int setxflag)",
+  "line": 1267,
+  "drs": [
+   "F_MASK",
+   "TAG_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "dms": [
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "synced": [
+   "F_MASK",
+   "TAG_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "modified": [
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "miss": {
+   "RMASS_MASK": [
+    [
+     1292,
+     "d_rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     1310,
+     "d_rmass = atomKK->k_rmass.template view<DeviceType>();"
+    ],
+    [
+     1322,
+     "if (atom->rmass) extra_read |= RMASS_MASK;"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     1301,
+     "if (atom->omega_flag)  d_omega  = atomKK->k_omega.template view<DeviceType>();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     1302,
+     "if (atom->angmom_flag) d_angmom = atomKK->k_angmom.template view<DeviceType>();"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     1303,
+     "if (atom->mu_flag)     d_mu     = atomKK->k_mu.template view<DeviceType>();"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     1309,
+     "d_ellipsoid = atomKK->k_ellipsoid.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_rx_kokkos.cpp",
+  "func": "void FixRxKokkos<DeviceType>::odeDiagnostics()",
+  "line": 1505,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MASK_MASK": [
+    [
+     1583,
+     "HAT::t_int_1d h_mask = atomKK->k_mask.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_rx_kokkos.cpp",
+  "func": "int FixRxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)",
+  "line": 1938,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "DVECTOR_MASK": [
+    [
+     1940,
+     "HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_rx_kokkos.cpp",
+  "func": "void FixRxKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)",
+  "line": 1965,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "DVECTOR_MASK": [
+    [
+     1967,
+     "HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.view_host();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_shake_kokkos.cpp",
+  "func": "void FixShakeKokkos<DeviceType>::correct_coordinates(int vflag) {",
+  "line": 2227,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [
+   "F_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "modified": [
+   "F_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "miss": {
+   "RMASS_MASK": [
+    [
+     2232,
+     "rmass = atom->rmass;"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     2233,
+     "type = atom->type;"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_shardlow_kokkos.cpp",
+  "func": "void FixShardlowKokkos<DeviceType>::pre_neighbor()",
+  "line": 175,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     206,
+     "x = atomKK->k_x.template view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     207,
+     "v = atomKK->k_v.template view<DeviceType>();"
+    ],
+    [
+     208,
+     "h_v = atomKK->k_v.view_host();"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     209,
+     "uCond = atomKK->k_uCond.template view<DeviceType>();"
+    ],
+    [
+     210,
+     "h_uCond = atomKK->k_uCond.view_host();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     211,
+     "uMech = atomKK->k_uMech.template view<DeviceType>();"
+    ],
+    [
+     212,
+     "h_uMech = atomKK->k_uMech.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     213,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     216,
+     "masses = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     222,
+     "dpdTheta = atomKK->k_dpdTheta.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_temp_csld_kokkos.cpp",
+  "func": "void FixTempCSLDKokkos<DeviceType>::init()",
+  "line": 95,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "V_MASK": [
+    [
+     101,
+     "// (that operates on atom->v).  Only the unbiased case is supported on device."
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_region_kokkos.cpp",
+  "func": "void FixWallRegionKokkos<DeviceType>::post_force(int vflag)",
+  "line": 76,
+  "drs": [
+   "F_MASK",
+   "MASK_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "dms": [
+   "F_MASK"
+  ],
+  "synced": [
+   "F_MASK",
+   "MASK_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "modified": [
+   "F_MASK"
+  ],
+  "miss": {
+   "RADIUS_MASK": [
+    [
+     98,
+     "if (style == COLLOID) d_radius = atomKK->k_radius.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/min_fire_kokkos.cpp",
+  "func": "void MinFireKokkos::reset_vectors() {",
+  "line": 90,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     93,
+     "auto d_x = atomKK->k_x.view_device();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     94,
+     "auto d_f = atomKK->k_f.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/min_quickmin_kokkos.cpp",
+  "func": "void MinQuickMinKokkos::reset_vectors()",
+  "line": 79,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     85,
+     "auto d_x = atomKK->k_x.view_device();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     86,
+     "auto d_f = atomKK->k_f.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/min_sd_kokkos.cpp",
+  "func": "void MinSDKokkos::set_search_direction()",
+  "line": 45,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     57,
+     "auto l_f = atomKK->k_f.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/mliap_data_kokkos.cpp",
+  "func": "void MLIAPDataKokkos<DeviceType>::grow_neigharrays() {",
+  "line": 199,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     202,
+     "f_device = atomKK->k_f.view<DeviceType>().data();"
+    ],
+    [
+     201,
+     "f = atom->f;"
+    ]
+   ],
+   "X_MASK": [
+    [
+     223,
+     "auto x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     224,
+     "auto type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/npair_trim_kokkos.cpp",
+  "func": "void NPairTrimKokkos<DeviceType>::trim_to_cpu(NeighList *list)",
+  "line": 125,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "X_MASK": [
+    [
+     132,
+     "double** x = atom->x;"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/pair_dpd_kokkos.cpp",
+  "func": "void PairDPDKokkos<DeviceType>::compute(int eflagin, int vflagin)",
+  "line": 156,
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "synced": [
+   "ENERGY_MASK",
+   "F_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "modified": [
+   "ENERGY_MASK",
+   "F_MASK",
+   "VIRIAL_MASK"
+  ],
+  "miss": {
+   "TAG_MASK": [
+    [
+     179,
+     "tag = atomKK->k_tag.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "func": "void PairHybridScaledKokkos::save_forces(int nall)",
+  "line": 83,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     87,
+     "typename AT::t_kkacc_1d_3 d_f = atomKK->k_f.template view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     88,
+     "typename AT::t_kkacc_1d_3 d_t = atomKK->k_torque.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "func": "void PairHybridScaledKokkos::clear_forces(int nall)",
+  "line": 114,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     118,
+     "typename AT::t_kkacc_1d_3 d_f = atomKK->k_f.template view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     119,
+     "typename AT::t_kkacc_1d_3 d_t = atomKK->k_torque.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "func": "void PairHybridScaledKokkos::accumulate_forces(int nall, double scale, int useatomscale)",
+  "line": 142,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     146,
+     "typename AT::t_kkacc_1d_3 d_f = atomKK->k_f.template view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     147,
+     "typename AT::t_kkacc_1d_3 d_t = atomKK->k_torque.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "func": "void PairHybridScaledKokkos::restore_forces(int nall)",
+  "line": 176,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     185,
+     "typename AT::t_kkacc_1d_3 d_f = atomKK->k_f.template view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     186,
+     "typename AT::t_kkacc_1d_3 d_t = atomKK->k_torque.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "func": "void PairHybridScaledKokkos::compute(int eflag, int vflag)",
+  "line": 237,
+  "drs": [],
+  "dms": [],
+  "synced": [
+   "F_MASK",
+   "X_MASK"
+  ],
+  "modified": [],
+  "miss": {
+   "TORQUE_MASK": [
+    [
+     341,
+     "if (torqueflag) atomKK->k_torque.clear_sync_state(); // special case"
+    ],
+    [
+     436,
+     "if (torqueflag) atomKK->k_torque.clear_sync_state(); // special case"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/third_order_kokkos.cpp",
+  "func": "void ThirdOrderKokkos::setup()",
+  "line": 91,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     141,
+     "return negative gradient stored in atom->f"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/variable_kokkos.cpp",
+  "func": "void VariableKokkos::sync_host(uint64_t mask)",
+  "line": 27,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MASK_MASK": [
+    [
+     37,
+     "compute_atom() reads atom->mask on the host for the group test"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/variable_kokkos.cpp",
+  "func": "void VariableKokkos::atom_vector(char *word, Tree **tree, Tree **treestack, int &ntreestack)",
+  "line": 51,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "TYPE_MASK": [
+    [
+     71,
+     "// indexes with atom->type[i], so it is atom->type that must be current"
+    ],
+    [
+     71,
+     "// indexes with atom->type[i], so it is atom->type that must be current"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     73,
+     "else if (strcmp(word,\"mass\") == 0) mask = atom->rmass ? RMASS_MASK : TYPE_MASK;"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/variable_kokkos.cpp",
+  "func": "int VariableKokkos::group_function(char *word, char *contents, Tree **tree, Tree **treestack,",
+  "line": 87,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "MASK_MASK": [
+    [
+     99,
+     "gmask() tests atom->mask, rmask() and grmask() also match a region"
+    ]
+   ],
+   "X_MASK": [
+    [
+     100,
+     "against atom->x.  sum(), min(), ave(), sort() and the like take a"
+    ]
+   ]
+  }
+ },
+ {
+  "file": "src/KOKKOS/verlet_kokkos.cpp",
+  "func": "int VerletKokkos::overlap_possible()",
+  "line": 675,
+  "drs": [],
+  "dms": [],
+  "synced": [],
+  "modified": [],
+  "miss": {
+   "F_MASK": [
+    [
+     678,
+     "return atomKK->k_f.view_hostkk().data() != atomKK->k_f.view_device().data();"
+    ],
+    [
+     678,
+     "return atomKK->k_f.view_hostkk().data() != atomKK->k_f.view_device().data();"
+    ]
+   ]
+  }
+ }
+]

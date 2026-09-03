@@ -1,0 +1,3122 @@
+[
+ {
+  "style": "compute_ave_sphere_atom_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     111,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     112,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     133,
+     "atomKK->k_v.clear_sync_state();"
+    ],
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     235,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     264,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     113,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     116,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "compute_ave_sphere_atom_kokkos.cpp",
+     117,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "compute_composition_atom_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_composition_atom_kokkos.cpp",
+     99,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "compute_composition_atom_kokkos.cpp",
+     100,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "compute_composition_atom_kokkos.cpp",
+     101,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "compute_coord_atom_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_coord_atom_kokkos.cpp",
+     149,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "compute_coord_atom_kokkos.cpp",
+     150,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "compute_coord_atom_kokkos.cpp",
+     151,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "compute_gaussian_grid_local_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_gaussian_grid_local_kokkos.cpp",
+     144,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "compute_gaussian_grid_local_kokkos.cpp",
+     145,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "compute_orientorder_atom_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_orientorder_atom_kokkos.cpp",
+     184,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "compute_orientorder_atom_kokkos.cpp",
+     185,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "compute_sna_grid_kokkos_impl",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_sna_grid_kokkos_impl.h",
+     189,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "compute_sna_grid_kokkos_impl.h",
+     190,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "compute_sna_grid_local_kokkos_impl",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "compute_sna_grid_local_kokkos_impl.h",
+     172,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "compute_sna_grid_local_kokkos_impl.h",
+     173,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_addforce_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_addforce_kokkos.cpp",
+     81,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_addforce_kokkos.cpp",
+     82,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_addforce_kokkos.cpp",
+     83,
+     "image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_addforce_kokkos.cpp",
+     84,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_addtorque_group_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_addtorque_group_kokkos.cpp",
+     118,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_addtorque_group_kokkos.cpp",
+     119,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_addtorque_group_kokkos.cpp",
+     120,
+     "image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_addtorque_group_kokkos.cpp",
+     121,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_addtorque_group_kokkos.cpp",
+     124,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_addtorque_group_kokkos.cpp",
+     128,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_aveforce_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "F_MASK": [
+    [
+     "fix_aveforce_kokkos.cpp",
+     95,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_aveforce_kokkos.cpp",
+     96,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_cmap_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_cmap_kokkos.cpp",
+     169,
+     "d_x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "fix_cmap_kokkos.cpp",
+     233,
+     "d_x = atomKK->k_x.template view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_cmap_kokkos.cpp",
+     234,
+     "d_f = atomKK->k_f.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_dpd_energy_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "UCOND_MASK": [
+    [
+     "fix_dpd_energy_kokkos.cpp",
+     51,
+     "typename AT::t_kkfloat_1d uCond = atomKK->k_uCond.view<DeviceType>();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     "fix_dpd_energy_kokkos.cpp",
+     53,
+     "typename AT::t_kkfloat_1d uMech = atomKK->k_uMech.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_drag_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_drag_kokkos.cpp",
+     65,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_drag_kokkos.cpp",
+     66,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_drag_kokkos.cpp",
+     67,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_dt_reset_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_dt_reset_kokkos.cpp",
+     64,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_dt_reset_kokkos.cpp",
+     65,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_dt_reset_kokkos.cpp",
+     66,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_dt_reset_kokkos.cpp",
+     67,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_dt_reset_kokkos.cpp",
+     69,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_eos_table_rx_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "MASK_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     111,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     177,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     231,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     275,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     112,
+     "uCond = atomKK->k_uCond.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     178,
+     "uCond = atomKK->k_uCond.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     232,
+     "uCond = atomKK->k_uCond.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     276,
+     "uCond = atomKK->k_uCond.view<DeviceType>();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     113,
+     "uMech = atomKK->k_uMech.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     179,
+     "uMech = atomKK->k_uMech.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     233,
+     "uMech = atomKK->k_uMech.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     277,
+     "uMech = atomKK->k_uMech.view<DeviceType>();"
+    ]
+   ],
+   "UCHEM_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     114,
+     "uChem = atomKK->k_uChem.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     180,
+     "uChem = atomKK->k_uChem.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     234,
+     "uChem = atomKK->k_uChem.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     278,
+     "uChem = atomKK->k_uChem.view<DeviceType>();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     115,
+     "dpdTheta= atomKK->k_dpdTheta.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     181,
+     "dpdTheta= atomKK->k_dpdTheta.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     235,
+     "dpdTheta= atomKK->k_dpdTheta.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     279,
+     "dpdTheta= atomKK->k_dpdTheta.view<DeviceType>();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     116,
+     "uCG = atomKK->k_uCG.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     280,
+     "uCG = atomKK->k_uCG.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     451,
+     "HAT::t_double_1d h_uCG = atomKK->k_uCG.view_host();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     471,
+     "HAT::t_double_1d h_uCG = atomKK->k_uCG.view_host();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     117,
+     "uCGnew = atomKK->k_uCGnew.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     281,
+     "uCGnew = atomKK->k_uCGnew.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     452,
+     "HAT::t_double_1d h_uCGnew = atomKK->k_uCGnew.view_host();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     472,
+     "HAT::t_double_1d h_uCGnew = atomKK->k_uCGnew.view_host();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     118,
+     "dvector = atomKK->k_dvector.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     182,
+     "dvector = atomKK->k_dvector.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     236,
+     "dvector = atomKK->k_dvector.view<DeviceType>();"
+    ],
+    [
+     "fix_eos_table_rx_kokkos.cpp",
+     282,
+     "dvector = atomKK->k_dvector.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_external_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "F_MASK": [
+    [
+     "fix_external_kokkos.cpp",
+     76,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_external_kokkos.cpp",
+     77,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_gjf_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_gjf_kokkos.cpp",
+     120,
+     "x    = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_gjf_kokkos.cpp",
+     121,
+     "v    = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     247,
+     "v    = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     302,
+     "v    = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_gjf_kokkos.cpp",
+     122,
+     "f    = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     248,
+     "f    = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_gjf_kokkos.cpp",
+     123,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     249,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     303,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_gjf_kokkos.cpp",
+     124,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     250,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_gjf_kokkos.cpp",
+     126,
+     "if (l_rmass_flag) rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_gjf_kokkos.cpp",
+     251,
+     "if (l_rmass_flag) rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_halt_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_halt_kokkos.cpp",
+     60,
+     "x = atomKK->k_x.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_heat_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_heat_kokkos.cpp",
+     83,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_heat_kokkos.cpp",
+     84,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_heat_kokkos.cpp",
+     87,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_heat_kokkos.cpp",
+     91,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_langevin_kokkos",
+  "drs": [
+   "F_MASK",
+   "MASK_MASK",
+   "OMEGA_MASK",
+   "RADIUS_MASK",
+   "RMASS_MASK",
+   "TORQUE_MASK",
+   "TYPE_MASK",
+   "V_MASK"
+  ],
+  "dms": [
+   "F_MASK",
+   "TORQUE_MASK"
+  ],
+  "missing": {
+   "ANGMOM_MASK": [
+    [
+     "fix_langevin_kokkos.cpp",
+     620,
+     "angmom = atomKK->k_angmom.template view<DeviceType>();"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     "fix_langevin_kokkos.cpp",
+     622,
+     "ellipsoid = atomKK->k_ellipsoid.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_lineforce_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "F_MASK": [
+    [
+     "fix_lineforce_kokkos.cpp",
+     56,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_lineforce_kokkos.cpp",
+     57,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_minimize_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_minimize_kokkos.cpp",
+     119,
+     "auto l_x = atomKK->k_x.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_momentum_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "RMASS_MASK": [
+    [
+     "fix_momentum_kokkos.cpp",
+     61,
+     "typename AT::t_kkfloat_1d_randomread rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_momentum_kokkos.cpp",
+     71,
+     "typename AT::t_int_1d_randomread type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_momentum_kokkos.cpp",
+     90,
+     "typename AT::t_kkfloat_1d_3 v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_momentum_kokkos.cpp",
+     91,
+     "typename AT::t_int_1d_randomread mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     "fix_momentum_kokkos.cpp",
+     144,
+     "typename AT::t_kkfloat_1d_3_lr_randomread x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_momentum_kokkos.cpp",
+     145,
+     "typename AT::t_imageint_1d_randomread image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_neigh_history_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "TAG_MASK": [
+    [
+     "fix_neigh_history_kokkos.cpp",
+     195,
+     "tag = atomKK->k_tag.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_nh_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_nh_kokkos.cpp",
+     375,
+     "auto h_x = atomKK->k_x.view_host();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     530,
+     "auto h_x = atomKK->k_x.view_host();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     672,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_nh_kokkos.cpp",
+     376,
+     "auto h_mask = atomKK->k_mask.view_host();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     531,
+     "auto h_mask = atomKK->k_mask.view_host();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     549,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     626,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_nh_kokkos.cpp",
+     548,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     621,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     673,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nh_kokkos.cpp",
+     710,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_nh_kokkos.cpp",
+     622,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_nh_kokkos.cpp",
+     623,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_nh_kokkos.cpp",
+     625,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_nve_asphere_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "ELLIPSOID_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     67,
+     "ellipsoid = atomKK->k_ellipsoid.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     192,
+     "ellipsoid = atomKK->k_ellipsoid.view<DeviceType>();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     69,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     194,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     70,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     148,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     195,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     71,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     149,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     196,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     72,
+     "angmom = atomKK->k_angmom.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     150,
+     "angmom = atomKK->k_angmom.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     197,
+     "angmom = atomKK->k_angmom.view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     73,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     151,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     198,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     74,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     152,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     199,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     75,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     153,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_asphere_kokkos.cpp",
+     200,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_nve_asphere_noforce_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "ELLIPSOID_MASK": [
+    [
+     "fix_nve_asphere_noforce_kokkos.cpp",
+     80,
+     "ellipsoid = atomKK->k_ellipsoid.view<DeviceType>();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     "fix_nve_asphere_noforce_kokkos.cpp",
+     82,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_nve_asphere_noforce_kokkos.cpp",
+     83,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     "fix_nve_asphere_noforce_kokkos.cpp",
+     84,
+     "angmom = atomKK->k_angmom.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_nve_asphere_noforce_kokkos.cpp",
+     85,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_nve_asphere_noforce_kokkos.cpp",
+     86,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_nve_limit_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_nve_limit_kokkos.cpp",
+     52,
+     "auto d_x = atomKK->k_x.template view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_nve_limit_kokkos.cpp",
+     53,
+     "auto d_v = atomKK->k_v.template view<DeviceType>();"
+    ],
+    [
+     "fix_nve_limit_kokkos.cpp",
+     133,
+     "auto d_v = atomKK->k_v.template view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_nve_limit_kokkos.cpp",
+     54,
+     "auto d_f = atomKK->k_f.template view<DeviceType>();"
+    ],
+    [
+     "fix_nve_limit_kokkos.cpp",
+     134,
+     "auto d_f = atomKK->k_f.template view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_nve_limit_kokkos.cpp",
+     55,
+     "auto d_mask = atomKK->k_mask.template view<DeviceType>();"
+    ],
+    [
+     "fix_nve_limit_kokkos.cpp",
+     135,
+     "auto d_mask = atomKK->k_mask.template view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_nve_limit_kokkos.cpp",
+     65,
+     "auto d_rmass = atomKK->k_rmass.template view<DeviceType>();"
+    ],
+    [
+     "fix_nve_limit_kokkos.cpp",
+     144,
+     "auto d_rmass = atomKK->k_rmass.template view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_nve_limit_kokkos.cpp",
+     66,
+     "auto d_type = atomKK->k_type.template view<DeviceType>();"
+    ],
+    [
+     "fix_nve_limit_kokkos.cpp",
+     94,
+     "auto d_type = atomKK->k_type.template view<DeviceType>();"
+    ],
+    [
+     "fix_nve_limit_kokkos.cpp",
+     168,
+     "auto d_type = atomKK->k_type.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_nve_sphere_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     67,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     186,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     68,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     135,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     187,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     69,
+     "omega = atomKK->k_omega.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     136,
+     "omega = atomKK->k_omega.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     188,
+     "omega = atomKK->k_omega.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     70,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     137,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     189,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     71,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     138,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     190,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     72,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     139,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     191,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     73,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     140,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     192,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "RADIUS_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     74,
+     "radius = atomKK->k_radius.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     141,
+     "radius = atomKK->k_radius.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     193,
+     "radius = atomKK->k_radius.view<DeviceType>();"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     75,
+     "mu = atomKK->k_mu.view<DeviceType>();"
+    ],
+    [
+     "fix_nve_sphere_kokkos.cpp",
+     194,
+     "mu = atomKK->k_mu.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_nvt_sllod_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_nvt_sllod_kokkos.cpp",
+     170,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_nvt_sllod_kokkos.cpp",
+     171,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_nvt_sllod_kokkos.cpp",
+     339,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_nvt_sllod_kokkos.cpp",
+     172,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_nvt_sllod_kokkos.cpp",
+     340,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_planeforce_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "F_MASK": [
+    [
+     "fix_planeforce_kokkos.cpp",
+     56,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_planeforce_kokkos.cpp",
+     57,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_property_atom_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "MOLECULE_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     71,
+     "memoryKK->destroy_kokkos(atomKK->k_molecule,atom->molecule);"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     111,
+     "memoryKK->grow_kokkos(atomKK->k_molecule,atom->molecule,nmax,\"atom:molecule\");"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     185,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync_device();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     197,
+     "if (molecule_flag && (mask & MOLECULE_MASK)) atomKK->k_molecule.sync_host();"
+    ]
+   ],
+   "Q_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     75,
+     "memoryKK->destroy_kokkos(atomKK->k_q,atom->q);"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     116,
+     "memoryKK->grow_kokkos(atomKK->k_q,atom->q,nmax,\"atom:q\");"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     186,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync_device();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     198,
+     "if (q_flag && (mask & Q_MASK)) atomKK->k_q.sync_host();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     79,
+     "memoryKK->destroy_kokkos(atomKK->k_rmass,atom->rmass);"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     121,
+     "memoryKK->grow_kokkos(atomKK->k_rmass,atom->rmass,nmax,\"atom:rmass\");"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     187,
+     "if (rmass_flag && (mask & RMASS_MASK)) {atomKK->k_rmass.sync_device();}"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     199,
+     "if (rmass_flag && (mask & RMASS_MASK)) atomKK->k_rmass.sync_host();"
+    ]
+   ],
+   "IVECTOR_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     102,
+     "memoryKK->grow_kokkos(atomKK->k_ivector,atom->ivector,atomKK->k_ivector.extent(0),nmax,"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     102,
+     "memoryKK->grow_kokkos(atomKK->k_ivector,atom->ivector,atomKK->k_ivector.extent(0),nmax,"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     189,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.sync_device();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     201,
+     "if (ivector_flag && (mask & IVECTOR_MASK)) atomKK->k_ivector.sync_host();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     139,
+     "memoryKK->grow_kokkos(atomKK->k_dvector,atom->dvector,atomKK->k_dvector.extent(0),nmax,"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     139,
+     "memoryKK->grow_kokkos(atomKK->k_dvector,atom->dvector,atomKK->k_dvector.extent(0),nmax,"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     188,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync_device();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     200,
+     "if (dvector_flag && (mask & DVECTOR_MASK)) atomKK->k_dvector.sync_host();"
+    ]
+   ],
+   "IARRAY_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     147,
+     "auto& inner = atomKK->k_iarray.view_host()[idx].k_view;"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     159,
+     "atomKK->k_iarray.modify_host();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     160,
+     "atomKK->k_iarray.sync_device();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     192,
+     "atomKK->k_iarray.view_host()[i].k_view.sync_device();"
+    ]
+   ],
+   "DARRAY_MASK": [
+    [
+     "fix_property_atom_kokkos.cpp",
+     163,
+     "auto& inner = atomKK->k_darray.view_host()[idx].k_view;"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     173,
+     "atomKK->k_darray.modify_host();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     174,
+     "atomKK->k_darray.sync_device();"
+    ],
+    [
+     "fix_property_atom_kokkos.cpp",
+     195,
+     "atomKK->k_darray.view_host()[i].k_view.sync_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_rigid_small_kokkos",
+  "drs": [
+   "F_MASK",
+   "TAG_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "dms": [
+   "VIRIAL_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "missing": {
+   "TORQUE_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1012,
+     "d_torque = atomKK->k_torque.template view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1292,
+     "d_rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1310,
+     "d_rmass = atomKK->k_rmass.template view<DeviceType>();"
+    ]
+   ],
+   "OMEGA_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1301,
+     "if (atom->omega_flag)  d_omega  = atomKK->k_omega.template view<DeviceType>();"
+    ]
+   ],
+   "ANGMOM_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1302,
+     "if (atom->angmom_flag) d_angmom = atomKK->k_angmom.template view<DeviceType>();"
+    ]
+   ],
+   "MU_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1303,
+     "if (atom->mu_flag)     d_mu     = atomKK->k_mu.template view<DeviceType>();"
+    ]
+   ],
+   "ELLIPSOID_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     1309,
+     "d_ellipsoid = atomKK->k_ellipsoid.template view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_rigid_small_kokkos.cpp",
+     2631,
+     "ImageIntView1D d_image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_rx_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "DPDTHETA_MASK": [
+    [
+     "fix_rx_kokkos.cpp",
+     1409,
+     "this->d_dpdTheta = atomKK->k_dpdTheta.view<DeviceType>();"
+    ],
+    [
+     "fix_rx_kokkos.cpp",
+     1776,
+     "d_dpdTheta = atomKK->k_dpdTheta.view<DeviceType>();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     "fix_rx_kokkos.cpp",
+     1410,
+     "this->d_dvector  = atomKK->k_dvector.view<DeviceType>();"
+    ],
+    [
+     "fix_rx_kokkos.cpp",
+     1940,
+     "HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.view_host();"
+    ],
+    [
+     "fix_rx_kokkos.cpp",
+     1967,
+     "HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.view_host();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_rx_kokkos.cpp",
+     1411,
+     "this->d_mask     = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_rx_kokkos.cpp",
+     1583,
+     "HAT::t_int_1d h_mask = atomKK->k_mask.view_host();"
+    ]
+   ],
+   "X_MASK": [
+    [
+     "fix_rx_kokkos.cpp",
+     1774,
+     "d_x        = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_rx_kokkos.cpp",
+     1775,
+     "d_type     = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_setforce_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "F_MASK": [
+    [
+     "fix_setforce_kokkos.cpp",
+     77,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_setforce_kokkos.cpp",
+     78,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_shake_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     215,
+     "d_x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     408,
+     "this->d_x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     635,
+     "d_x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     860,
+     "d_x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     409,
+     "this->d_f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     636,
+     "d_f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     862,
+     "d_f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     637,
+     "d_type = atomKK->k_type.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     863,
+     "d_type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     638,
+     "d_rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_shake_kokkos.cpp",
+     864,
+     "d_rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     814,
+     "d_mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     815,
+     "d_tag = atomKK->k_tag.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_shake_kokkos.cpp",
+     861,
+     "d_v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_shardlow_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     206,
+     "x = atomKK->k_x.template view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     207,
+     "v = atomKK->k_v.template view<DeviceType>();"
+    ],
+    [
+     "fix_shardlow_kokkos.cpp",
+     208,
+     "h_v = atomKK->k_v.view_host();"
+    ]
+   ],
+   "UCOND_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     209,
+     "uCond = atomKK->k_uCond.template view<DeviceType>();"
+    ],
+    [
+     "fix_shardlow_kokkos.cpp",
+     210,
+     "h_uCond = atomKK->k_uCond.view_host();"
+    ]
+   ],
+   "UMECH_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     211,
+     "uMech = atomKK->k_uMech.template view<DeviceType>();"
+    ],
+    [
+     "fix_shardlow_kokkos.cpp",
+     212,
+     "h_uMech = atomKK->k_uMech.view_host();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     213,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     216,
+     "masses = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     "fix_shardlow_kokkos.cpp",
+     222,
+     "dpdTheta = atomKK->k_dpdTheta.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_spring_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "F_MASK": [
+    [
+     "fix_spring_kokkos.cpp",
+     106,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ],
+    [
+     "fix_spring_kokkos.cpp",
+     177,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_spring_kokkos.cpp",
+     107,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ],
+    [
+     "fix_spring_kokkos.cpp",
+     178,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_spring_kokkos.cpp",
+     112,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ],
+    [
+     "fix_spring_kokkos.cpp",
+     183,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_spring_kokkos.cpp",
+     117,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ],
+    [
+     "fix_spring_kokkos.cpp",
+     188,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_spring_rg_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_spring_rg_kokkos.cpp",
+     65,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_spring_rg_kokkos.cpp",
+     66,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_spring_rg_kokkos.cpp",
+     67,
+     "image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_spring_rg_kokkos.cpp",
+     68,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_spring_rg_kokkos.cpp",
+     71,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_spring_rg_kokkos.cpp",
+     75,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_spring_self_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_spring_self_kokkos.cpp",
+     97,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_spring_self_kokkos.cpp",
+     98,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_spring_self_kokkos.cpp",
+     99,
+     "image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_spring_self_kokkos.cpp",
+     100,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_temp_berendsen_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_temp_berendsen_kokkos.cpp",
+     130,
+     "auto v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_temp_berendsen_kokkos.cpp",
+     131,
+     "auto mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_temp_csld_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_temp_csld_kokkos.cpp",
+     164,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ],
+    [
+     "fix_temp_csld_kokkos.cpp",
+     190,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_temp_csld_kokkos.cpp",
+     165,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_temp_csld_kokkos.cpp",
+     166,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "fix_temp_csld_kokkos.cpp",
+     167,
+     "if (atom->rmass) rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_temp_csvr_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_temp_csvr_kokkos.cpp",
+     142,
+     "auto v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_temp_csvr_kokkos.cpp",
+     143,
+     "auto mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_temp_rescale_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_temp_rescale_kokkos.cpp",
+     133,
+     "auto v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_temp_rescale_kokkos.cpp",
+     134,
+     "auto mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_ti_spring_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "fix_ti_spring_kokkos.cpp",
+     92,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_ti_spring_kokkos.cpp",
+     93,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "IMAGE_MASK": [
+    [
+     "fix_ti_spring_kokkos.cpp",
+     94,
+     "image = atomKK->k_image.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_ti_spring_kokkos.cpp",
+     95,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_viscous_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "V_MASK": [
+    [
+     "fix_viscous_kokkos.cpp",
+     71,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "fix_viscous_kokkos.cpp",
+     72,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_viscous_kokkos.cpp",
+     73,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_viscous_kokkos.cpp",
+     74,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_viscous_sphere_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "OMEGA_MASK": [
+    [
+     "fix_viscous_sphere_kokkos.cpp",
+     82,
+     "omega = atomKK->k_omega.view<DeviceType>();"
+    ]
+   ],
+   "TORQUE_MASK": [
+    [
+     "fix_viscous_sphere_kokkos.cpp",
+     83,
+     "torque = atomKK->k_torque.view<DeviceType>();"
+    ]
+   ],
+   "MASK_MASK": [
+    [
+     "fix_viscous_sphere_kokkos.cpp",
+     84,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "fix_viscous_sphere_kokkos.cpp",
+     85,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "fix_wall_region_kokkos",
+  "drs": [
+   "F_MASK",
+   "MASK_MASK",
+   "V_MASK",
+   "X_MASK"
+  ],
+  "dms": [
+   "F_MASK"
+  ],
+  "missing": {
+   "RADIUS_MASK": [
+    [
+     "fix_wall_region_kokkos.cpp",
+     98,
+     "if (style == COLLOID) d_radius = atomKK->k_radius.template view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "neigh_bond_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "neigh_bond_kokkos.cpp",
+     230,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     "neigh_bond_kokkos.cpp",
+     231,
+     "tag = atomKK->k_tag.view<DeviceType>();"
+    ]
+   ],
+   "BOND_MASK": [
+    [
+     "neigh_bond_kokkos.cpp",
+     264,
+     "num_bond = atomKK->k_num_bond.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     352,
+     "num_bond = atomKK->k_num_bond.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     265,
+     "bond_atom = atomKK->k_bond_atom.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     353,
+     "bond_atom = atomKK->k_bond_atom.view<DeviceType>();"
+    ]
+   ],
+   "ANGLE_MASK": [
+    [
+     "neigh_bond_kokkos.cpp",
+     466,
+     "num_angle = atomKK->k_num_angle.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     560,
+     "num_angle = atomKK->k_num_angle.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     467,
+     "angle_atom1 = atomKK->k_angle_atom1.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     561,
+     "angle_atom1 = atomKK->k_angle_atom1.view<DeviceType>();"
+    ]
+   ],
+   "DIHEDRAL_MASK": [
+    [
+     "neigh_bond_kokkos.cpp",
+     695,
+     "num_dihedral = atomKK->k_num_dihedral.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     794,
+     "num_dihedral = atomKK->k_num_dihedral.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     696,
+     "dihedral_atom1 = atomKK->k_dihedral_atom1.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     795,
+     "dihedral_atom1 = atomKK->k_dihedral_atom1.view<DeviceType>();"
+    ]
+   ],
+   "IMPROPER_MASK": [
+    [
+     "neigh_bond_kokkos.cpp",
+     952,
+     "num_improper = atomKK->k_num_improper.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     1051,
+     "num_improper = atomKK->k_num_improper.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     953,
+     "improper_atom1 = atomKK->k_improper_atom1.view<DeviceType>();"
+    ],
+    [
+     "neigh_bond_kokkos.cpp",
+     1052,
+     "improper_atom1 = atomKK->k_improper_atom1.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_dpd_ext_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_dpd_ext_kokkos.cpp",
+     125,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "pair_dpd_ext_kokkos.cpp",
+     126,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_dpd_ext_kokkos.cpp",
+     127,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_dpd_ext_kokkos.cpp",
+     128,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_dpd_ext_tstat_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_dpd_ext_tstat_kokkos.cpp",
+     140,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "pair_dpd_ext_tstat_kokkos.cpp",
+     141,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_dpd_ext_tstat_kokkos.cpp",
+     142,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_dpd_ext_tstat_kokkos.cpp",
+     143,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_dpd_fdt_energy_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_dpd_fdt_energy_kokkos.cpp",
+     156,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "pair_dpd_fdt_energy_kokkos.cpp",
+     157,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_dpd_fdt_energy_kokkos.cpp",
+     158,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_dpd_fdt_energy_kokkos.cpp",
+     159,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "RMASS_MASK": [
+    [
+     "pair_dpd_fdt_energy_kokkos.cpp",
+     161,
+     "rmass = atomKK->k_rmass.view<DeviceType>();"
+    ]
+   ],
+   "DPDTHETA_MASK": [
+    [
+     "pair_dpd_fdt_energy_kokkos.cpp",
+     162,
+     "dpdTheta = atomKK->k_dpdTheta.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_dpd_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_dpd_kokkos.cpp",
+     175,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "pair_dpd_kokkos.cpp",
+     176,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_dpd_kokkos.cpp",
+     177,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_dpd_kokkos.cpp",
+     178,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "TAG_MASK": [
+    [
+     "pair_dpd_kokkos.cpp",
+     179,
+     "tag = atomKK->k_tag.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_dpd_tstat_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_dpd_tstat_kokkos.cpp",
+     139,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "V_MASK": [
+    [
+     "pair_dpd_tstat_kokkos.cpp",
+     140,
+     "v = atomKK->k_v.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_dpd_tstat_kokkos.cpp",
+     141,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_dpd_tstat_kokkos.cpp",
+     142,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_exp6_rx_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_exp6_rx_kokkos.cpp",
+     131,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_exp6_rx_kokkos.cpp",
+     132,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_exp6_rx_kokkos.cpp",
+     133,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     "pair_exp6_rx_kokkos.cpp",
+     134,
+     "uCG = atomKK->k_uCG.view<DeviceType>();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     "pair_exp6_rx_kokkos.cpp",
+     135,
+     "uCGnew = atomKK->k_uCGnew.view<DeviceType>();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     "pair_exp6_rx_kokkos.cpp",
+     136,
+     "dvector = atomKK->k_dvector.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_hybrid_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_hybrid_kokkos.cpp",
+     174,
+     "x = atomKK->k_x.view_device();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_hybrid_kokkos.cpp",
+     175,
+     "f = atomKK->k_f.view_device();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_multi_lucy_rx_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     167,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ],
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     459,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     168,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     169,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ],
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     460,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ],
+   "DPDRHO_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     170,
+     "rho = atomKK->k_rho.view<DeviceType>();"
+    ],
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     461,
+     "rho = atomKK->k_rho.view<DeviceType>();"
+    ],
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     462,
+     "h_rho = atomKK->k_rho.view_host();"
+    ]
+   ],
+   "UCG_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     171,
+     "uCG = atomKK->k_uCG.view<DeviceType>();"
+    ]
+   ],
+   "UCGNEW_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     172,
+     "uCGnew = atomKK->k_uCGnew.view<DeviceType>();"
+    ]
+   ],
+   "DVECTOR_MASK": [
+    [
+     "pair_multi_lucy_rx_kokkos.cpp",
+     173,
+     "dvector = atomKK->k_dvector.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_pace_extrapolation_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_pace_extrapolation_kokkos.cpp",
+     652,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_pace_extrapolation_kokkos.cpp",
+     653,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_pace_extrapolation_kokkos.cpp",
+     654,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_pace_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_pace_kokkos.cpp",
+     1058,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_pace_kokkos.cpp",
+     1059,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_pace_kokkos.cpp",
+     1060,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_pod_kokkos",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_pod_kokkos.cpp",
+     214,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_pod_kokkos.cpp",
+     215,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_pod_kokkos.cpp",
+     216,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_reaxff_kokkos",
+  "drs": [
+   "ENERGY_MASK",
+   "F_MASK",
+   "Q_MASK",
+   "TAG_MASK",
+   "TYPE_MASK",
+   "VIRIAL_MASK",
+   "X_MASK"
+  ],
+  "dms": [
+   "ENERGY_MASK",
+   "F_MASK",
+   "VIRIAL_MASK"
+  ],
+  "missing": {
+   "MASK_MASK": [
+    [
+     "pair_reaxff_kokkos.cpp",
+     4151,
+     "mask = atomKK->k_mask.view<DeviceType>();"
+    ]
+   ],
+   "MOLECULE_MASK": [
+    [
+     "pair_reaxff_kokkos.cpp",
+     4216,
+     "molecule = atomKK->k_molecule.view<DeviceType>();"
+    ]
+   ]
+  }
+ },
+ {
+  "style": "pair_snap_kokkos_impl",
+  "drs": [
+   "EMPTY_MASK"
+  ],
+  "dms": [
+   "EMPTY_MASK"
+  ],
+  "missing": {
+   "X_MASK": [
+    [
+     "pair_snap_kokkos_impl.h",
+     140,
+     "x = atomKK->k_x.view<DeviceType>();"
+    ]
+   ],
+   "F_MASK": [
+    [
+     "pair_snap_kokkos_impl.h",
+     141,
+     "f = atomKK->k_f.view<DeviceType>();"
+    ]
+   ],
+   "TYPE_MASK": [
+    [
+     "pair_snap_kokkos_impl.h",
+     142,
+     "type = atomKK->k_type.view<DeviceType>();"
+    ]
+   ]
+  }
+ }
+]

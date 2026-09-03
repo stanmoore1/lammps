@@ -1,0 +1,149 @@
+{
+ "guard_problems": [
+  [
+   "compute_reaxff_atom_kokkos.h",
+   [
+    "guard name ['LMP_COMPUTE_REAXFF_BONDS_KOKKOS_H'] != expected LMP_COMPUTE_REAXFF_ATOM_KOKKOS_H"
+   ]
+  ],
+  [
+   "compute_sna_grid_kokkos_impl.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "compute_sna_grid_local_kokkos_impl.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "fftdata_kokkos.h",
+   [
+    "guard name ['LMP_FFT_DATA_KOKKOS_H'] != expected LMP_FFTDATA_KOKKOS_H"
+   ]
+  ],
+  [
+   "fix_addforce_kokkos.h",
+   [
+    "guard name ['LMP_FIX_ADD_FORCE_KOKKOS_H'] != expected LMP_FIX_ADDFORCE_KOKKOS_H"
+   ]
+  ],
+  [
+   "fix_dpd_energy_kokkos.h",
+   [
+    "guard name ['LMP_FIX_DPDE_KOKKOS_H'] != expected LMP_FIX_DPD_ENERGY_KOKKOS_H"
+   ]
+  ],
+  [
+   "kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "kokkos_base.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "kokkos_few.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "kokkos_type.h",
+   [
+    "guard name ['LMP_LMPTYPE_KOKKOS_H'] != expected LMP_KOKKOS_TYPE_H"
+   ]
+  ],
+  [
+   "meam_dens_final_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "meam_dens_init_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "meam_force_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "meam_funcs_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "meam_impl_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "meam_kokkos.h",
+   [
+    "guard name ['LMP_MEAMKOKKOS_H'] != expected LMP_MEAM_KOKKOS_H"
+   ]
+  ],
+  [
+   "meam_setup_done_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "min_linesearch_kokkos.h",
+   [
+    "guard name ['LMP_MIN_LSRCH_KOKKOS_H'] != expected LMP_MIN_LINESEARCH_KOKKOS_H"
+   ]
+  ],
+  [
+   "pack_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "pair_reaxff_kokkos.h",
+   [
+    "guard name ['LMP_PAIR_REAXC_KOKKOS_H'] != expected LMP_PAIR_REAXFF_KOKKOS_H"
+   ]
+  ],
+  [
+   "pair_snap_kokkos_impl.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "rand_pool_wrap_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=['LMP_KOKKOS_GPU'] define=[]"
+   ]
+  ],
+  [
+   "sna_kokkos_impl.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ],
+  [
+   "transpose_helper_kokkos.h",
+   [
+    "NO include guard (ifndef/define pair): ifndef=[] define=[]"
+   ]
+  ]
+ ],
+ "dup_guard_macros": []
+}

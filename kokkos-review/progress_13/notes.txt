@@ -1,0 +1,38 @@
+press/langevin/kk: clean. mirrors FixNHKokkos::pre_exchange exactly; remap() matches base (device x2lamda group variant); base dtor has copymode guard; no per-atom host access outside overridden methods; Install.sh OK.
+propel/self/kk: clean. dipole+velocity kernels match base math incl TOL guard; v_init(vflag,0)+destroy/create k_vatom is the package-wide pattern (addforce, wall_*); unmap matches Domain::unmap; QUAT and respa rejected in init(). Minor nit (not reported): FixPropelSelf::init() runs its QUAT ellipsoid loop before the KK quat error.
+property/atom/kk: FOUND dtor use-after-free (update_property_atom in dtor). grow_arrays relies on DualView::resize zero-init (OK, Kokkos::resize value-initializes). sync_pinned lacks the molecule_flag/q_flag/rmass_flag guards that sync() has -> redundant copies only. sync/modified loop over ALL atom->niarray/ndarray, not just this fix's -> over-broad but safe.
+reaxff/bonds/kk: 3 findings (NULL filename, image(), unused base arrays). PackBondBuffer syncs k_buf to host itself; buf[0]=nlocal host-only write is fine.
+reaxff/species/kk: 2 findings + 1 attached to fix_property_atom_kokkos (non-kk property/atom helper reallocs kokkos memory). HostKK branch check is correct (ExecutionSpaceFromDevice<LMPHostType>::space == HostKK). kokkosable=0 is deliberate.
+recenter/kk: 1 finding (nfirst vs group2bit). group_kokkos.h mass_kk/xcm_kk do k_mass.sync<DeviceType>() correctly (not my file). FixRecenter::init() still uses host group->mass/xcm (no sync) - not reported, general pattern.
+rigid/nve/small/kk and rigid/nvt/small/kk: thin ctors, match CPU bases (RIGID/fix_rigid_nve_small.cpp, fix_rigid_nvt_small.cpp) line for line. No findings.
+rigid/npt|nph/small/kk: ctors mirror RIGID/fix_rigid_npt_small.cpp / fix_rigid_nph_small.cpp exactly, plus the documented temp/kk helper promotion (delete[] id_temp before strdup is present). id_temp/id_press are nullptr-initialised in FixRigidNHSmall's init list, so the delete[] is safe. No findings.
+qeq/reaxff/kk: read fully (1753 lines cpp + 448 h) vs src/REAXFF/fix_qeq_reaxff.{cpp,h}. 6 findings.
+  Checked and found OK (do NOT re-report): half-list tag-parity skip in compute_H/matrix-free matches
+  the newtoff list the base requests (REQ_NEWTON_OFF -> npair half/bin/newtoff keeps all ghosts, filter
+  picks one copy) and matches CPU compute_H's tag[i]<tag[j] rule; TagQEqZeroQGhosts only zeroes ghosts
+  with groupbit while CPU zeroes all ghosts -- harmless because out-of-group ghosts map to out-of-group
+  owners whose d_o is never read; k_params/k_shield/k_tap all synced at pre_force:205-207; dtor has
+  copymode guard and base dtor too (fix_qeq_reaxff.cpp:168); chi_field double-free avoided because
+  destroy_kokkos nulls the pointer before base deallocate_storage(); pack/unpack_exchange fixed-stride
+  i*nprev*2 IS correct against comm_kokkos.cpp:1422-1425 (nextrarecv1 == nrecv1_atoms*8); allocate_storage
+  never called by KK (base pointers stay nullptr, harmless); respa/min hooks inherited and dispatch
+  virtually to the KK pre_force/setup_pre_force; explicit instantiation present; bare cbrt/sqrt in device
+  code matches the rest of the package (pair_reaxff_kokkos.cpp:696 etc) so not reported.
+  Minor not reported: v/f views assigned in pre_force (:196-197) but never used, and V_MASK|F_MASK in
+  datamask_read; datamask_modify = X_MASK though only q is written; duplicate k_d.sync_host() at :1084/1086.
+rigid/nh/small/kk: read fully (1465 cpp + 190 h). Compared line-by-line against
+src/RIGID/fix_rigid_nh_small.cpp via a normalized diff (scratchpad/cpu_norm.cpp vs kk_norm.cpp).
+NO FINDINGS. Verified: ctor error checks / chain init / vol0 / t0 identical; dtor has the copymode
+guard; init() identical incl. Yoshida-Suzuki w[], rfix build, deform conflict check; setup() faithfully
+inlines FixRigidSmallKokkos::setup()'s host-comm-flag save/restore + modified(Host)/sync(execution_space)
+wrapper and ends with setup_device_push() (which does copy_body_device(), so the host conjqm written at
+:320-333 does reach the device); nh_initial/nh_final device kernels reproduce the CPU body loops exactly
+(vcm scale ordering, dtf2*fquat, no_squish_rotate 3-2-1-2-3 with dtq/dtq/dtv/dtq/dtq, q_to_exyz only in
+initial, angmom*0.5, angmom_to_omega); MathExtraKokkos::{quatvec,invquatvec,no_squish_rotate} match
+math_extra.h/.cpp term for term including the mixed double/KK_FLOAT promotions; forward_comm sizes 29/10
+== RigidConst::INITIAL_BUFSZ/FINAL_BUFSZ; v_init(vflag,0) matches the base KK (self-allocated k_vatom);
+lambdas capture only locals (no implicit this), so no copymode needed; nh_akin/compute_scalar MPI
+reductions on MPI_DOUBLE are correct; remap() uses DomainKokkos x2lamda/lamda2x incl. the group variants
+which do their own sync/modified; write_restart/restart/modify_param/allocate_* byte-identical to CPU;
+set_xv/set_v are non-virtual in FixRigidSmall so FixRigidSmall::setup()'s host path is not hijacked;
+explicit instantiation present; src/.gitignore covers /*_kokkos.cpp so no entry needed.

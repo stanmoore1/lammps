@@ -1,0 +1,54 @@
+# rules_B audit (DAT/AT rule3, device math rule4, instantiation rule5, misc tokens)
+# started fresh (no predecessor state found)
+Sub-steps:
+ B1 rule3 DAT:: per-atom views    - in progress
+ B2 rule4 device-kernel host-only - todo
+ B3 rule5 instantiation/registration - todo
+ B4 misc (and/or/not, VLA, sprintf/strtok/atoi/atof) - todo
+B1 (rule 3 DAT::t_) DONE: scripts b1_scan.py/b1_assign.py, raw b1_raw.txt, b1_members.json, b1_assign.json.
+ Result: ALL DAT::t_ *member* declarations live in NON-templated classes (atom_kokkos, atom_vec_kokkos,
+ atom_vec_ellipsoid_kokkos, dynamical_matrix_kokkos, third_order_kokkos, verlet_kokkos, min_kokkos,
+ min_linesearch_kokkos, fix_minimize_kokkos, pair_hybrid_kokkos, pair_hybrid_scaled_kokkos) and are all
+ assigned from view_device() / self-allocated. All other DAT::t_ hits in headers are `::array_layout`
+ extraction inside ScatterView/atomic-View typedefs (package-wide idiom) - not assignments. => rule 3 CLEAN.
+ Also checked fix_viscous_kokkos.cpp:90 k_gamma.view_device() in kernel: k_gamma is DualView<...,DeviceType>
+ so view_device() is the DeviceType view -> correct, NOT a bug.
+B2 (rule 4 device-kernel host-only calls) DONE: script b2_scan.py, raw b2_hits.json (358 raw hits).
+ Verified: all 44 `powint` hits inside kernels resolve to MathSpecialKokkos::powint (KOKKOS_INLINE_FUNCTION,
+ src/KOKKOS/math_special_kokkos.h:220-235) via `using namespace MathSpecialKokkos;` -> OK.
+ `using namespace MathSpecial;` in pair_reaxff_kokkos.cpp:54 -> powint only used in host init_md/LR-table code (399,683-685) -> OK.
+ MathSpecial::powint in pair_morse_soft_kokkos.cpp:250 and pair_kokkos.h:918 -> host code -> OK.
+ atom->/atomKK-> hits inside "kernel regions" were brace-matcher false positives (pair_multi_lucy_rx 284-683,
+ fix_qeq_reaxff 733-1131 spans host funcs) or on the parallel_for launch line itself (group_kokkos.h, pair_mliap) -> OK.
+ 285 `bare-math` hits = unqualified sqrt/exp/pow in device code: package-wide idiom, resolves to CUDA/HIP
+ device overloads -> not reported.
+ ONE real finding: fix_eos_table_rx_kokkos.cpp:420,436 std::isnan inside KOKKOS_INLINE_FUNCTION.
+ Minor unused `using` decls (not reported): compute_orientorder_atom_kokkos.cpp:38 `using MathSpecial::factorial;`
+ and pair_pod_kokkos.cpp:40 `using MathSpecial::powint;` are never used in those files.
+B3 (rule 5) starting.
+B3 (rule 5 instantiation/registration) DONE: scripts b3_scan.py/b3_check.py/b3_base.py, raw b3_raw.json,
+ b3_probs.txt, b3_base.txt.  All 11 flagged items verified as FALSE POSITIVES:
+  - compute_sna_grid[/_local]_kokkos.h, pair_snap_kokkos.h: use ...KokkosDevice/...KokkosHost alias classes,
+    instantiated correctly in the .cpp under #ifdef LMP_KOKKOS_GPU (pair_snap_kokkos.cpp:25-28 etc.).
+  - fix_neigh_history_kokkos.h: internal upper-case style names NEIGH_HISTORY/KK[/DEVICE|/HOST] (case only).
+  - npair_ssa_kokkos.h: registers via `using NPairSSAKokkosHost = NPairSSAKokkos<LMPHostType>;` aliases;
+    npair_ssa_kokkos.cpp:755-758 instantiates both under the LMP_KOKKOS_GPU guard.
+  - pair_pace_kokkos.h:16-22: kk/host -> <LMPDeviceType> only in the #else (non-GPU) branch, correct.
+ No missing/unguarded instantiation, no wrong kk/host param, no instantiated-not-registered anywhere.
+ Base-CPU-style existence check: only npair_* internal builder names lack a same-named non-KOKKOS style
+ (expected; NPair names are composed differently) -> no finding.
+ Also checked comm_kokkos.cpp:1980-1987 explicit member instantiations: correctly wrapped in #ifdef LMP_KOKKOS_GPU.
+B4 (misc tokens) starting.
+B4 (misc) DONE: script b4_altok.py, raw b4_altok.txt.
+ - alternative logical tokens (and/or/not/xor as operators): ZERO hits (comment/string-stripped scan + raw grep).
+ - sprintf/strtok/atoi/atof/sscanf/strcpy/strcat: ZERO hits in src/KOKKOS.
+ - VLAs: only apparent hits are compile-time constants: fix_rx_kokkos.cpp:1537-1540,1627,1643 use
+   `const int numCounters = numDiagnosticCounters-1` with `enum { numDiagnosticCounters = 5 }` in
+   src/DPD-REACT/fix_rx.h:149; pair_exp6_rx_kokkos.cpp:1218-1225 use `const int batchSize = 8`;
+   pair_pace_kokkos.cpp:2480-2482 use constexpr PACE_BATCH_NRL_MAX/V. -> no VLA.
+ Second, more robust device-region scan (b2_scan2.py -> b2_hits2.json) confirms rule 4: only real hits are
+ fix_eos_table_rx_kokkos.cpp:420,436 (std::isnan) and npair_ssa_kokkos.cpp:621,642 (fprintf inside
+ KOKKOS_INLINE_FUNCTION build_locals_onePhase, behind #ifdef DEBUG_SSA_BUILD_LOCALS).
+ Benign: bond_gaussian_kokkos.cpp:154 std::numeric_limits (constexpr), fix_wall_region_kokkos.cpp:171
+ std::remove_pointer_t (type trait), kokkos_few.h placement-new, kokkos_type.h/sna_kokkos_impl.h std:: traits.
+ALL SUB-STEPS DONE.

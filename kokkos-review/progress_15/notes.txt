@@ -1,0 +1,99 @@
+== fix_shake_kokkos (DONE) ==
+Base: src/RIGID/fix_shake.cpp/.h. shake/shake3/shake4/shake3angle formulas verified
+identical to CPU via normalized diff (script progress_15/norm.py).
+dof(), ev_tally/v_tally, closest_image, pack/unpack_exchange(_kokkos), grow/copy/set/
+update_arrays, sort_kokkos, template instantiation: all OK.
+Known-and-excluded: k_mass never synced; grow_arrays DualView::resize comment.
+Not reported (checked, benign):
+ - d_error_flag()=2/3 written non-atomically from many threads (all write same value).
+ - maxlist = atom->nmax (CPU uses nlocal) -> larger, fine.
+ - post_force sets copymode=1 at :633 covering forward_comm at :668 (see finding 4).
+ - CPU min_post_force double-lists periodic-wrapped clusters; kokkos ghost-drop cancels
+   it for forces but not for energy/virial -> that is the substance of finding 1.
+
+== fix_shardlow_kokkos (DONE) ==
+Base: src/DPD-REACT/fix_shardlow.{cpp,h}.  ssa_update_dpde math verified identical to
+CPU (incl. ii++ placement / jlen<=0 handling, EPSILON_SQUARED=1e-20 both sides).
+Checked and NOT reported: pack/unpack fwd+rev comm run on host (forward_comm_device /
+reverse_comm_device stay 0, so CommKokkos dispatches to CommBrick - correct);
+force->init() precedes modify->init() (lammps.cpp:977-985) so reading k_pairDPDE->cut
+in init() is safe; d_rand_state sizing; SSA phase races are by construction.
+Speculative, NOT reported: k_v_t0 is a KK_FLOAT DualView while h_v is double, so under
+LMP_KOKKOS_SINGLE the reverse-comm delta v-v_t0 loses precision.
+
+== fix_spring_kokkos (DONE) ==
+Base: src/fix_spring.cpp (core src/).  TETHER/COUPLE math matches CPU exactly
+(incl. ftotal sign conventions, espring, dr<0 sign flip).  respa rejected in init().
+k_mass IS synced (lines 115,186) - good.  copymode bracketing present.
+Key infrastructure facts established here (reuse for the rest of the group):
+ - VerletKokkos::run sets kokkos->auto_sync=0 (verlet_kokkos.cpp:311); atomKK->sync(Host,
+   ALL_MASK) only on output steps (:547) and after the loop (:555).
+ - DomainKokkos::pbc modifies IMAGE on DEVICE (domain_kokkos.cpp:430), so host image is
+   stale unless a style syncs IMAGE_MASK to Host.
+ - Group::xcm / Group::mass read x, mask, type, mass, rmass AND image on the host.
+ - CommKokkos::forward_comm(Fix*) falls back to CommBrick unless fix->forward_comm_device
+   (default 0, fix.cpp:114).
+
+== fix_spring_rg_kokkos (DONE) - NO FINDINGS ==
+Base: src/EXTRA-FIX/fix_spring_rg.{cpp,h}.  Device xcm/gyration reductions verified
+equivalent to Group::mass/xcm/gyration; DomainKokkos::unmap (domain_kokkos.h:129-147)
+matches Domain::unmap incl. triclinic h terms; l_coeff = 2k(1-rg0/rg)/masstotal matches
+term1*massfrac.  init() correctly syncs X|IMAGE|MASK|TYPE|RMASS to Host before the
+host-side FixSpringRG::init() -- this is the pattern fix_spring_kokkos is missing.
+Early return before modified(F_MASK) is correct (no force written).
+
+== fix_spring_self_kokkos (DONE) ==
+Base: src/fix_spring_self.{cpp,h}.  Kernel math matches CPU post_force (CONSTANT branch);
+kstyle!=CONSTANT and respa rejected in init().  ~FixSpringSelfKokkos and ~FixSpringSelf
+both have the copymode guard.  pack/unpack_exchange_kokkos scan pattern matches the
+package idiom.  sort_device is NOT set (fix.cpp:114 default 0) so AtomKokkos::sort()
+falls back to the legacy host sort, where the overridden copy_arrays() keeps xoriginal
+coherent - NOT a bug, just a warning + slow path.
+Checked TransformView semantics in kokkos_type.h:698+ : for KK_FLOAT==double and
+LayoutRight NEED_TRANSFORM==0, so modify_host()/sync<Dev>() are plain DualView calls.
+
+== fix_store_force_kokkos (DONE) ==
+Base: src/fix_store_force.{cpp,h}.  Kernel matches CPU post_force incl. the else-zero
+branch.  respa rejected in init(); min_post_force/setup route through the virtual
+post_force.  Destructor copymode guards present in both classes.
+Not reported: modify<Dev>()+sync_host() of k_foriginal every step is required because
+array_atom is host-side.
+
+== fix_temp_berendsen_kokkos (DONE) - no findings yet, ONE OPEN CANDIDATE ==
+Base: src/fix_temp_berendsen.{cpp,h}.  lamda/energy/t_target math identical; helper
+compute recreated as temp/kk (mitigation A) and warn_nonkokkos_compute in init()
+(mitigation C); lambda captures locals only so no copymode needed; syncs OK.
+OPEN CANDIDATE (applies to berendsen/rescale/csvr/csld kk alike):
+  CPU FixTempBerendsen::end_of_step uses PER-ATOM temperature->remove_bias(i,v[i]) /
+  restore_bias(i,v[i]) (fix_temp_berendsen.cpp:186,190).  The KK version uses
+  remove_bias_all[_kk]() / restore_bias_all[_kk]() (fix_temp_berendsen_kokkos.cpp:136-142,
+  158-166).  Compute::remove_bias_all() is an empty base method (compute.h:153-159), and
+  three bias-capable computes implement only the per-atom form:
+  src/compute_temp_sphere.h, src/ASPHERE/compute_temp_asphere.h, src/BODY/compute_temp_body.h
+  (verified by script: they declare remove_bias(int,double*) but no remove_bias_all()).
+  => with 'fix_modify temp' pointing at one of those, the /kk thermostat silently skips
+  the bias removal while the CPU one performs it.  Decide whether to report after
+  reviewing rescale/csvr/csld.
+
+== fix_temp_rescale_kokkos (DONE) - NO FINDINGS ==
+Base: src/fix_temp_rescale.{cpp,h}.  Structurally identical to temp/berendsen/kk;
+factor/energy/t_target math matches CPU exactly; same helper-compute recreation and
+warn_nonkokkos_compute.  Same remove_bias_all open candidate as berendsen.
+
+== fix_temp_csld_kokkos + fix_temp_csvr_kokkos (DONE) ==
+Bases: src/EXTRA-FIX/fix_temp_csld.{cpp,h}, src/EXTRA-FIX/fix_temp_csvr.{cpp,h}.
+csld: BIAS rejected in init(); k_mass synced (:163); nmax/vhold sizing matches CPU;
+c1/c2 and energy tally identical; both destructors have copymode guards; copymode
+bracketed around both parallel_for(*this).
+csvr: resamplekin stays on rank 0 + MPI_Bcast exactly like CPU; energy tally identical;
+its RanMars restart state IS meaningful (host-only draws), so no RNG-restart issue there.
+Open bias candidate resolved -> reported once against fix_temp_berendsen_kokkos.cpp:136.
+
+== fix_ti_spring_kokkos (DONE) - NO FINDINGS ==
+Base: src/EXTRA-FIX/fix_ti_spring.{cpp,h}.  Force blend (1-lambda)*f + lambda*(-k*dx)
+and espring*0.5 match CPU; early return during equilibration matches; exchange
+pack/unpack scan identical to fix_spring_self_kokkos.  IMPORTANTLY its post_force does
+'k_xoriginal.sync<DeviceType>();' with NO modify_host() (line 100) - the correct form,
+confirming fix_spring_self_kokkos.cpp:105 is the defect.
+Both grow_kokkos overloads (with and without the trailing n2=3) are valid
+(memory_kokkos.h:222-263), so the differing calls in the two files are both fine.

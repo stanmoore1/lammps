@@ -1,0 +1,1533 @@
+[
+ {
+  "class": "AngleCharmm",
+  "file": "src/MOLECULE/angle_charmm.cpp",
+  "line": 47,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n    memory->destroy(k_ub);\n    memory->destroy(r_ub);\n  }",
+  "kk_users": [
+   "AngleCharmmKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AngleCharmmKokkos"
+  ],
+  "users_copymode": [
+   "AngleCharmmKokkos"
+  ],
+  "style_roots": [
+   "Angle"
+  ]
+ },
+ {
+  "class": "AngleCosine",
+  "file": "src/MOLECULE/angle_cosine.cpp",
+  "line": 40,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n  }",
+  "kk_users": [
+   "AngleCosineKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AngleCosineKokkos"
+  ],
+  "users_copymode": [
+   "AngleCosineKokkos"
+  ],
+  "style_roots": [
+   "Angle"
+  ]
+ },
+ {
+  "class": "AngleHarmonic",
+  "file": "src/MOLECULE/angle_harmonic.cpp",
+  "line": 43,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n  }",
+  "kk_users": [
+   "AngleHarmonicKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AngleHarmonicKokkos"
+  ],
+  "users_copymode": [
+   "AngleHarmonicKokkos"
+  ],
+  "style_roots": [
+   "Angle"
+  ]
+ },
+ {
+  "class": "AngleHybrid",
+  "file": "src/angle_hybrid.cpp",
+  "line": 42,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (nstyles) {\n    for (int i = 0; i < nstyles; i++) delete styles[i];\n    delete[] styles;\n    for (int i = 0; i < nstyles; i++) delete[] keywords[i];\n    delete[] keywords;\n  }\n\n  AngleHybrid::deallocate();",
+  "kk_users": [
+   "AngleHybridKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AngleHybridKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Angle"
+  ]
+ },
+ {
+  "class": "AngleSPICA",
+  "file": "src/CG-SPICA/angle_spica.cpp",
+  "line": 56,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(theta0);\n    memory->destroy(repscale);\n\n    allocated = 0;\n  }",
+  "kk_users": [
+   "AngleSPICAKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AngleSPICAKokkos"
+  ],
+  "users_copymode": [
+   "AngleSPICAKokkos"
+  ],
+  "style_roots": [
+   "Angle"
+  ]
+ },
+ {
+  "class": "Atom",
+  "file": "src/atom.cpp",
+  "line": 298,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] atom_style;\n  delete avec;\n\n  delete[] firstgroupname;\n  memory->destroy(binhead);\n  memory->destroy(next);\n  memory->destroy(permute);\n\n  memory->destroy(tag);\n  memory->destroy(type);\n  memory->destroy(mask);\n  memory->destroy(image);\n  memory->destroy(x);\n  memory->destroy(v);\n  memory->destroy(f);\n\n  \n\n  for (int i = 0; i < nivector; i++) {\n    delete[] ivname[i];\n    memory->destroy(ivector[i]);\n  }\n  for (int i = 0; i < ndvector; i++) {\n    delete[] dvname[i];\n    memory->destroy(dvector[i]);\n  }\n  for (int i = 0; i < niarray; i++) {\n    delete[] ianame[i];\n    memory->destroy(iarray[i]);\n  }\n  for (int i = 0; i < ndarray; i++) {\n    delete[] daname[i];\n    memory->destroy(darray[i]);\n  }\n\n  memory->sfree(ivname);\n  memory->sfree(dvname);\n  memory->sfree(ianame);\n  memory->sfree(daname);\n  memory->sfree(ivector);\n  memory->sfree(dvector);\n  memory->sfree(iarray);\n  memory->sfree(darray);\n  memory->sfree(icols);\n  memory->sfree(dcols);\n  memory->destroy(ivghost);\n  memory->destroy(dvghost);\n  memory->destroy(iaghost);\n  memory->destroy(daghost);\n\n  \n\n  for (int i = 0; i < nmolecule; i++) delete molecules[i];\n  memory->sfree(molecules);\n\n  \n\n  delete lmap;\n\n  \n\n  delete[] mass;\n  delete[] mass_setflag;\n\n  \n\n  memory->destroy(extra_grow);\n  memory->destroy(extra_restart);\n  memory->destroy(extra_border);\n  memory->destroy(extra);\n\n  \n\n  Atom::map_delete();\n\n  delete unique_tags;",
+  "kk_users": [
+   "AtomKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVecAngle",
+  "file": "src/MOLECULE/atom_vec_angle.cpp",
+  "line": 59,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] bond_negative;\n  delete[] angle_negative;",
+  "kk_users": [
+   "AtomVecAngleKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomVecAngleKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVec",
+  "file": "src/atom_vec.cpp",
+  "line": 81,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "int datatype, cols;\n  void *pdata;\n\n  for (int i = 0; i < nargcopy; i++) delete[] argcopy[i];\n  delete[] argcopy;\n\n  for (int i = 0; i < ngrow; i++) {\n    pdata = mgrow.pdata[i];\n    datatype = mgrow.datatype[i];\n    cols = mgrow.cols[i];\n    if (datatype == Atom::DOUBLE) {\n      if (cols == 0)\n        memory->destroy(*((double **) pdata));\n      else if (cols > 0)\n        memory->destroy(*((double ***) pdata));\n      else {\n        memory->destroy(*((double ***) pdata));\n      }\n    } else if (datatype == Atom::INT) {\n      if (cols == 0)\n        memory->destroy(*((int **) pdata));\n      else if (cols > 0)\n        memory->destroy(*((int ***) pdata));\n      else {\n        memory->destroy(*((int ***) pdata));\n      }\n    } else if (datatype == Atom::BIGINT) {\n      if (cols == 0)\n        memory->destroy(*((bigint **) pdata));\n      else if (cols > 0)\n        memory->destroy(*((bigint ***) pdata));\n      else {\n        memory->destroy(*((bigint ***) pdata));\n      }\n    }\n  }\n\n  delete[] threads;",
+  "kk_users": [
+   "AtomVecAngleKokkos",
+   "AtomVecAtomicKokkos",
+   "AtomVecBondKokkos",
+   "AtomVecChargeKokkos",
+   "AtomVecDPDKokkos",
+   "AtomVecDipoleKokkos",
+   "AtomVecEllipsoidKokkos",
+   "AtomVecFullKokkos"
+  ],
+  "n_kk_users": 13,
+  "users_all": [
+   "AtomVecAngleKokkos",
+   "AtomVecAtomicKokkos",
+   "AtomVecBondKokkos",
+   "AtomVecChargeKokkos",
+   "AtomVecDPDKokkos",
+   "AtomVecDipoleKokkos",
+   "AtomVecEllipsoidKokkos",
+   "AtomVecFullKokkos",
+   "AtomVecHybridKokkos",
+   "AtomVecKokkos",
+   "AtomVecMolecularKokkos",
+   "AtomVecSphereKokkos",
+   "AtomVecSpinKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVecBond",
+  "file": "src/MOLECULE/atom_vec_bond.cpp",
+  "line": 52,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] bond_negative;",
+  "kk_users": [
+   "AtomVecBondKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomVecBondKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVecEllipsoid",
+  "file": "src/atom_vec_ellipsoid.cpp",
+  "line": 78,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (atom->superellipsoid_flag)\n    memory->sfree(bonus_super);\n  else\n    memory->sfree(bonus);",
+  "kk_users": [
+   "AtomVecEllipsoidKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomVecEllipsoidKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVecFull",
+  "file": "src/MOLECULE/atom_vec_full.cpp",
+  "line": 67,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] bond_negative;\n  delete[] angle_negative;\n  delete[] dihedral_negative;\n  delete[] improper_negative;",
+  "kk_users": [
+   "AtomVecFullKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomVecFullKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVecHybrid",
+  "file": "src/atom_vec_hybrid.cpp",
+  "line": 50,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "for (int k = 0; k < nstyles; k++) delete styles[k];\n  delete[] styles;\n  for (int k = 0; k < nstyles; k++) delete[] keywords[k];\n  delete[] keywords;\n  delete[] styles_bonus;",
+  "kk_users": [
+   "AtomVecHybridKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomVecHybridKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "AtomVecMolecular",
+  "file": "src/MOLECULE/atom_vec_molecular.cpp",
+  "line": 66,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] bond_negative;\n  delete[] angle_negative;\n  delete[] dihedral_negative;\n  delete[] improper_negative;",
+  "kk_users": [
+   "AtomVecMolecularKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "AtomVecMolecularKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "BondFENE",
+  "file": "src/MOLECULE/bond_fene.cpp",
+  "line": 41,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n    memory->destroy(epsilon);\n    memory->destroy(sigma);\n  }",
+  "kk_users": [
+   "BondFENEKokkos",
+   "BondFENENMKokkos"
+  ],
+  "n_kk_users": 2,
+  "users_all": [
+   "BondFENEKokkos",
+   "BondFENENMKokkos"
+  ],
+  "users_copymode": [
+   "BondFENEKokkos",
+   "BondFENENMKokkos"
+  ],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "BondFENENM",
+  "file": "src/EXTRA-MOLECULE/bond_fene_nm.cpp",
+  "line": 38,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(nn);\n    memory->destroy(mm);\n  }",
+  "kk_users": [
+   "BondFENENMKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "BondFENENMKokkos"
+  ],
+  "users_copymode": [
+   "BondFENENMKokkos"
+  ],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "BondGaussian",
+  "file": "src/EXTRA-MOLECULE/bond_gaussian.cpp",
+  "line": 43,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(nterms);\n    memory->destroy(bond_temperature);\n    for (int i = 1; i <= atom->nbondtypes; i++) {\n      delete[] alpha[i];\n      delete[] width[i];\n      delete[] r0[i];\n    }\n    delete[] alpha;\n    delete[] width;\n    delete[] r0;\n  }",
+  "kk_users": [
+   "BondGaussianKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "BondGaussianKokkos"
+  ],
+  "users_copymode": [
+   "BondGaussianKokkos"
+  ],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "BondGromos",
+  "file": "src/MOLECULE/bond_gromos.cpp",
+  "line": 41,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n  }",
+  "kk_users": [
+   "BondGromosKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "BondGromosKokkos"
+  ],
+  "users_copymode": [
+   "BondGromosKokkos"
+  ],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "BondHarmonic",
+  "file": "src/MOLECULE/bond_harmonic.cpp",
+  "line": 36,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(r0);\n  }",
+  "kk_users": [
+   "BondHarmonicKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "BondHarmonicKokkos"
+  ],
+  "users_copymode": [
+   "BondHarmonicKokkos"
+  ],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "BondHybrid",
+  "file": "src/bond_hybrid.cpp",
+  "line": 44,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (nstyles) {\n    for (int i = 0; i < nstyles; i++) delete styles[i];\n    delete[] styles;\n    for (int i = 0; i < nstyles; i++) delete[] keywords[i];\n    delete[] keywords;\n  }\n\n  delete[] svector;\n\n  BondHybrid::deallocate();",
+  "kk_users": [
+   "BondHybridKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "BondHybridKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "BondQuarticExp",
+  "file": "src/EXTRA-MOLECULE/bond_quartic_exp.cpp",
+  "line": 39,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(r0);\n    memory->destroy(k2);\n    memory->destroy(k3);\n    memory->destroy(k4);\n    memory->destroy(A);\n    memory->destroy(B);\n  }",
+  "kk_users": [
+   "BondQuarticExpKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "BondQuarticExpKokkos"
+  ],
+  "users_copymode": [
+   "BondQuarticExpKokkos"
+  ],
+  "style_roots": [
+   "Bond"
+  ]
+ },
+ {
+  "class": "CommBrick",
+  "file": "src/comm_brick.cpp",
+  "line": 60,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "CommBrick::free_swap();\n  if (mode == Comm::MULTI) {\n    CommBrick::free_multi();\n    memory->destroy(cutghostmulti);\n  }\n\n  if (sendlist) for (int i = 0; i < maxswap; i++) memory->destroy(sendlist[i]);\n  if (localsendlist) memory->destroy(localsendlist);\n  memory->sfree(sendlist);\n  memory->destroy(maxsendlist);\n\n  memory->destroy(buf_send);\n  memory->destroy(buf_recv);",
+  "kk_users": [
+   "CommKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "CommKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "Comm",
+  "file": "src/comm.cpp",
+  "line": 120,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(grid2proc);\n  memory->destroy(xsplit);\n  memory->destroy(ysplit);\n  memory->destroy(zsplit);\n  memory->destroy(cutusermulti);\n  delete [] customfile;\n  delete [] outfile;",
+  "kk_users": [
+   "CommKokkos",
+   "CommTiledKokkos"
+  ],
+  "n_kk_users": 2,
+  "users_all": [
+   "CommKokkos",
+   "CommTiledKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "CommTiled",
+  "file": "src/comm_tiled.cpp",
+  "line": 85,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(buf_send);\n  memory->destroy(buf_recv);\n  memory->destroy(overlap);\n  deallocate_swap(maxswap);\n  memory->sfree(rcbinfo);\n  memory->destroy(cutghostmulti);",
+  "kk_users": [
+   "CommTiledKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "CommTiledKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "ComputeCOM",
+  "file": "src/compute_com.cpp",
+  "line": 36,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] vector;",
+  "kk_users": [
+   "ComputeCOMKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ComputeCOMKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "ComputeGyration",
+  "file": "src/compute_gyration.cpp",
+  "line": 40,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] vector;",
+  "kk_users": [
+   "ComputeGyrationKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ComputeGyrationKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "ComputeInertia",
+  "file": "src/compute_inertia.cpp",
+  "line": 37,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] vector;",
+  "kk_users": [
+   "ComputeInertiaKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ComputeInertiaKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "ComputeReaxFFAtom",
+  "file": "src/REAXFF/compute_reaxff_atom.cpp",
+  "line": 87,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(array_local);\n  memory->destroy(array_atom);\n  memory->destroy(abo);\n  memory->destroy(neighid);\n  memory->destroy(bondcount);",
+  "kk_users": [
+   "ComputeReaxFFAtomKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ComputeReaxFFAtomKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "ComputeGridLocal",
+  "file": "src/ML-SNAP/compute_grid_local.cpp",
+  "line": 63,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "deallocate();",
+  "kk_users": [
+   "ComputeSNAGridLocalKokkos",
+   "ComputeSNAGridLocalKokkosDevice",
+   "ComputeSNAGridLocalKokkosHost"
+  ],
+  "n_kk_users": 3,
+  "users_all": [
+   "ComputeSNAGridLocalKokkos",
+   "ComputeSNAGridLocalKokkosDevice",
+   "ComputeSNAGridLocalKokkosHost"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "ComputeTempCOM",
+  "file": "src/compute_temp_com.cpp",
+  "line": 45,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (!copymode)\n    delete [] vector;",
+  "kk_users": [
+   "ComputeTempCOMKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ComputeTempCOMKokkos"
+  ],
+  "users_copymode": [
+   "ComputeTempCOMKokkos"
+  ],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "ComputeTemp",
+  "file": "src/compute_temp.cpp",
+  "line": 42,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (!copymode) delete[] vector;",
+  "kk_users": [
+   "ComputeTempKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ComputeTempKokkos"
+  ],
+  "users_copymode": [
+   "ComputeTempKokkos"
+  ],
+  "style_roots": [
+   "Compute"
+  ]
+ },
+ {
+  "class": "DihedralCharmm",
+  "file": "src/MOLECULE/dihedral_charmm.cpp",
+  "line": 52,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(multiplicity);\n    memory->destroy(shift);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n    memory->destroy(weight);\n  }",
+  "kk_users": [
+   "DihedralCharmmKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DihedralCharmmKokkos"
+  ],
+  "users_copymode": [
+   "DihedralCharmmKokkos"
+  ],
+  "style_roots": [
+   "Dihedral"
+  ]
+ },
+ {
+  "class": "DihedralCharmmfsw",
+  "file": "src/MOLECULE/dihedral_charmmfsw.cpp",
+  "line": 55,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(multiplicity);\n    memory->destroy(shift);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n    memory->destroy(weight);\n  }",
+  "kk_users": [
+   "DihedralCharmmfswKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DihedralCharmmfswKokkos"
+  ],
+  "users_copymode": [
+   "DihedralCharmmfswKokkos"
+  ],
+  "style_roots": [
+   "Dihedral"
+  ]
+ },
+ {
+  "class": "DihedralHarmonic",
+  "file": "src/MOLECULE/dihedral_harmonic.cpp",
+  "line": 44,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(sign);\n    memory->destroy(multiplicity);\n    memory->destroy(cos_shift);\n    memory->destroy(sin_shift);\n  }",
+  "kk_users": [
+   "DihedralHarmonicKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DihedralHarmonicKokkos"
+  ],
+  "users_copymode": [
+   "DihedralHarmonicKokkos"
+  ],
+  "style_roots": [
+   "Dihedral"
+  ]
+ },
+ {
+  "class": "DihedralHybrid",
+  "file": "src/dihedral_hybrid.cpp",
+  "line": 43,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (nstyles) {\n    for (int i = 0; i < nstyles; i++) delete styles[i];\n    delete[] styles;\n    for (int i = 0; i < nstyles; i++) delete[] keywords[i];\n    delete[] keywords;\n  }\n\n  DihedralHybrid::deallocate();",
+  "kk_users": [
+   "DihedralHybridKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DihedralHybridKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Dihedral"
+  ]
+ },
+ {
+  "class": "DihedralMultiHarmonic",
+  "file": "src/MOLECULE/dihedral_multi_harmonic.cpp",
+  "line": 46,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(a1);\n    memory->destroy(a2);\n    memory->destroy(a3);\n    memory->destroy(a4);\n    memory->destroy(a5);\n  }",
+  "kk_users": [
+   "DihedralMultiHarmonicKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DihedralMultiHarmonicKokkos"
+  ],
+  "users_copymode": [
+   "DihedralMultiHarmonicKokkos"
+  ],
+  "style_roots": [
+   "Dihedral"
+  ]
+ },
+ {
+  "class": "DihedralOPLS",
+  "file": "src/MOLECULE/dihedral_opls.cpp",
+  "line": 47,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k1);\n    memory->destroy(k2);\n    memory->destroy(k3);\n    memory->destroy(k4);\n  }",
+  "kk_users": [
+   "DihedralOPLSKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DihedralOPLSKokkos"
+  ],
+  "users_copymode": [
+   "DihedralOPLSKokkos"
+  ],
+  "style_roots": [
+   "Dihedral"
+  ]
+ },
+ {
+  "class": "DynamicalMatrix",
+  "file": "src/PHONON/dynamical_matrix.cpp",
+  "line": 56,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (fp && comm->me == 0) {\n    if (compressed) platform::pclose(fp);\n    else fclose(fp);\n    memory->destroy(groupmap);\n    fp = nullptr;\n  }",
+  "kk_users": [
+   "DynamicalMatrixKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "DynamicalMatrixKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Command"
+  ]
+ },
+ {
+  "class": "FixColvars",
+  "file": "src/COLVARS/fix_colvars.cpp",
+  "line": 221,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] conf_file;\n  delete[] inp_name;\n  delete[] out_name;\n  delete[] tfix_name;\n  delete[] script_args[0];\n\n  memory->sfree(comm_buf);\n\n  delete proxy;\n  if (root2root != MPI_COMM_NULL) MPI_Comm_free(&root2root);\n  --instances;",
+  "kk_users": [
+   "FixColvarsKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixColvarsKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixDeform",
+  "file": "src/fix_deform.cpp",
+  "line": 391,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (set) {\n    for (int i = 0; i < 6; i++) {\n      delete[] set[i].hstr;\n      delete[] set[i].hratestr;\n    }\n  }\n  delete[] set;\n\n  delete irregular;\n\n  \n\n  double *h_rate = domain->h_rate;\n  double *h_ratelo = domain->h_ratelo;\n\n  h_rate[0] = h_rate[1] = h_rate[2] =\n    h_rate[3] = h_rate[4] = h_rate[5] = 0.0;\n  h_ratelo[0] = h_ratelo[1] = h_ratelo[2] = 0.0;",
+  "kk_users": [
+   "FixDeformKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixDeformKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixMinimize",
+  "file": "src/fix_minimize.cpp",
+  "line": 37,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "atom->delete_callback(id,Atom::GROW);\n\n  \n\n  memory->destroy(peratom);\n  if (vectors) {\n    for (int m = 0; m < nvector; m++) memory->destroy(vectors[m]);\n    memory->sfree(vectors);\n  }",
+  "kk_users": [
+   "FixMinimizeKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixMinimizeKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixPropertyAtom",
+  "file": "src/fix_property_atom.cpp",
+  "line": 233,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "atom->delete_callback(id, Atom::GROW);\n  atom->delete_callback(id, Atom::RESTART);\n  if (border) atom->delete_callback(id, Atom::BORDER);\n\n  \n  \n\n  for (int nv = 0; nv < nvalue; nv++) {\n    if (styles[nv] == MOLECULE) {\n      atom->molecule_flag = 0;\n      memory->destroy(atom->molecule);\n      atom->molecule = nullptr;\n    } else if (styles[nv] == CHARGE) {\n      atom->q_flag = 0;\n      memory->destroy(atom->q);\n      atom->q = nullptr;\n    } else if (styles[nv] == RMASS) {\n      atom->rmass_flag = 0;\n      memory->destroy(atom->rmass);\n      atom->rmass = nullptr;\n    } else if (styles[nv] == TEMPERATURE) {\n      atom->temperature_flag = 0;\n      memory->destroy(atom->temperature);\n      atom->temperature = nullptr;\n    } else if (styles[nv] == HEATFLOW) {\n      atom->heatflow_flag = 0;\n      memory->destroy(atom->heatflow);\n      atom->heatflow = nullptr;\n    } else if (styles[nv] == IVEC) {\n      atom->remove_custom(index[nv], 0, cols[nv]);\n    } else if (styles[nv] == DVEC) {\n      atom->remove_custom(index[nv], 1, cols[nv]);\n    } else if (styles[nv] == IARRAY) {\n      atom->remove_custom(index[nv], 0, cols[nv]);\n    } else if (styles[nv] == DARRAY) {\n      atom->remove_custom(index[nv], 1, cols[nv]);\n    }\n  }\n\n  delete[] styles;\n  delete[] cols;\n  delete[] index;\n  delete[] astyle;",
+  "kk_users": [
+   "FixPropertyAtomKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixPropertyAtomKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixReaxFFBonds",
+  "file": "src/REAXFF/fix_reaxff_bonds.cpp",
+  "line": 73,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "destroy();\n\n  if (fp) fclose(fp);\n\n  \n  memory->destroy(imgobjs);\n  memory->destroy(imgparms);",
+  "kk_users": [
+   "FixReaxFFBondsKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixReaxFFBondsKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixReaxFFSpecies",
+  "file": "src/REAXFF/fix_reaxff_species.cpp",
+  "line": 335,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(BOCut);\n  memory->destroy(x0);\n\n  memory->destroy(nd);\n  memory->destroy(Name);\n  memory->destroy(NMol);\n  memory->destroy(Mol2Spec);\n  memory->destroy(MolType);\n  memory->destroy(MolName);\n  memory->destroy(delete_Tcount);\n\n  delete[] filepos;\n\n  if (comm->me == 0) {\n    if (compressed)\n      platform::pclose(fp);\n    else\n      fclose(fp);\n    if (posflag && multipos_opened) fclose(pos);\n    if (delflag == JSON) fprintf(fdel, \"        }\\n    ]\\n",
+  "kk_users": [
+   "FixReaxFFSpeciesKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixReaxFFSpeciesKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixRigidNHSmallKokkos",
+  "file": "src/KOKKOS/fix_rigid_nh_small_kokkos.cpp",
+  "line": 152,
+  "mentions_copymode": true,
+  "is_kokkos": true,
+  "body": "if (this->copymode) return;\n\n  if (tstat_flag || pstat_flag) {\n    deallocate_chain();\n    deallocate_order();\n  }\n\n  if (tcomputeflag) modify->delete_compute(id_temp);\n  delete[] id_temp;\n\n  if (pstat_flag) {\n    if (pcomputeflag) modify->delete_compute(id_press);\n    delete[] id_press;\n  }",
+  "kk_users": [
+   "FixRigidNPHSmallKokkos",
+   "FixRigidNPTSmallKokkos",
+   "FixRigidNVESmallKokkos",
+   "FixRigidNVTSmallKokkos"
+  ],
+  "n_kk_users": 4,
+  "users_all": [
+   "FixRigidNPHSmallKokkos",
+   "FixRigidNPTSmallKokkos",
+   "FixRigidNVESmallKokkos",
+   "FixRigidNVTSmallKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "FixShardlow",
+  "file": "src/DPD-REACT/fix_shardlow.cpp",
+  "line": 118,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(rand_state);\n  maxRNG = 0;",
+  "kk_users": [
+   "FixShardlowKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixShardlowKokkos"
+  ],
+  "users_copymode": [
+   "FixShardlowKokkos"
+  ],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixTempBerendsen",
+  "file": "src/fix_temp_berendsen.cpp",
+  "line": 85,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] tstr;\n\n  \n\n  if (tflag) modify->delete_compute(id_temp);\n  delete[] id_temp;",
+  "kk_users": [
+   "FixTempBerendsenKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixTempBerendsenKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "FixTempRescale",
+  "file": "src/fix_temp_rescale.cpp",
+  "line": 84,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] tstr;\n\n  \n\n  if (tflag) modify->delete_compute(id_temp);\n  delete[] id_temp;",
+  "kk_users": [
+   "FixTempRescaleKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "FixTempRescaleKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Fix"
+  ]
+ },
+ {
+  "class": "Grid3d",
+  "file": "src/grid3d.cpp",
+  "line": 189,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "for (int i = 0; i < nswap; i++) {\n    memory->destroy(swap[i].packlist);\n    memory->destroy(swap[i].unpacklist);\n  }\n  memory->sfree(swap);\n\n  delete [] xsplit;\n  delete [] ysplit;\n  delete [] zsplit;\n  memory->destroy(grid2proc);\n\n  \n\n  for (int i = 0; i < nsend; i++)\n    memory->destroy(send[i].packlist);\n  memory->sfree(send);\n\n  for (int i = 0; i < nrecv; i++)\n    memory->destroy(recv[i].unpacklist);\n  memory->sfree(recv);\n\n  for (int i = 0; i < ncopy; i++) {\n    memory->destroy(copy[i].packlist);\n    memory->destroy(copy[i].unpacklist);\n  }\n  memory->sfree(copy);\n\n  delete [] requests;\n  delete [] requests_remap;\n\n  memory->sfree(rcbinfo);\n\n  \n\n  deallocate_remap();",
+  "kk_users": [
+   "Grid3dKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "Grid3dKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "Group",
+  "file": "src/group.cpp",
+  "line": 88,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "for (int i = 0; i < MAX_GROUP; i++) delete[] names[i];\n  delete[] names;\n  delete[] bitmask;\n  delete[] inversemask;\n  delete[] dynamic;",
+  "kk_users": [
+   "GroupKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "GroupKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "ImproperHarmonic",
+  "file": "src/MOLECULE/improper_harmonic.cpp",
+  "line": 47,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (allocated && !copymode) {\n    memory->destroy(setflag);\n    memory->destroy(k);\n    memory->destroy(chi);\n  }",
+  "kk_users": [
+   "ImproperHarmonicKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ImproperHarmonicKokkos"
+  ],
+  "users_copymode": [
+   "ImproperHarmonicKokkos"
+  ],
+  "style_roots": [
+   "Improper"
+  ]
+ },
+ {
+  "class": "ImproperHybrid",
+  "file": "src/improper_hybrid.cpp",
+  "line": 43,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (nstyles) {\n    for (int i = 0; i < nstyles; i++) delete styles[i];\n    delete[] styles;\n    for (int i = 0; i < nstyles; i++) delete[] keywords[i];\n    delete[] keywords;\n  }\n\n  ImproperHybrid::deallocate();",
+  "kk_users": [
+   "ImproperHybridKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ImproperHybridKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Improper"
+  ]
+ },
+ {
+  "class": "MinLineSearchKokkos",
+  "file": "src/KOKKOS/min_linesearch_kokkos.cpp",
+  "line": 59,
+  "mentions_copymode": false,
+  "is_kokkos": true,
+  "body": "delete[] gextra;\n  delete[] hextra;",
+  "kk_users": [
+   "MinCGKokkos",
+   "MinSDKokkos"
+  ],
+  "n_kk_users": 2,
+  "users_all": [
+   "MinCGKokkos",
+   "MinSDKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Min"
+  ]
+ },
+ {
+  "class": "Min",
+  "file": "src/min.cpp",
+  "line": 95,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete[] fextra;\n\n  memory->sfree(xextra_atom);\n  memory->sfree(fextra_atom);\n  memory->destroy(extra_peratom);\n  memory->destroy(extra_nlen);\n  memory->destroy(extra_max);\n  memory->sfree(requestor);",
+  "kk_users": [
+   "MinCGKokkos",
+   "MinFireKokkos",
+   "MinKokkos",
+   "MinLineSearchKokkos",
+   "MinQuickMinKokkos",
+   "MinSDKokkos"
+  ],
+  "n_kk_users": 6,
+  "users_all": [
+   "MinCGKokkos",
+   "MinFireKokkos",
+   "MinKokkos",
+   "MinLineSearchKokkos",
+   "MinQuickMinKokkos",
+   "MinSDKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Min"
+  ]
+ },
+ {
+  "class": "MLIAPDescriptorSO3",
+  "file": "src/ML-IAP/mliap_descriptor_so3.cpp",
+  "line": 51,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(radelem);\n  memory->destroy(wjelem);\n  delete so3ptr;",
+  "kk_users": [
+   "MLIAPDescriptorSO3Kokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "MLIAPDescriptorSO3Kokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "MLIAPDescriptor",
+  "file": "src/ML-IAP/mliap_descriptor.cpp",
+  "line": 36,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (allocated_elements)\n    for (int i = 0; i < nelements; i++) delete[] elements[i];\n  delete[] elements;\n  memory->destroy(cutsq);\n  memory->destroy(radelem);\n  memory->destroy(wjelem);",
+  "kk_users": [
+   "MLIAPDescriptorSO3Kokkos",
+   "MLIAPDummyDescriptorKokkos"
+  ],
+  "n_kk_users": 2,
+  "users_all": [
+   "MLIAPDescriptorSO3Kokkos",
+   "MLIAPDummyDescriptorKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "MLIAPModel",
+  "file": "src/ML-IAP/mliap_model.cpp",
+  "line": 44,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(coeffelem);",
+  "kk_users": [
+   "MLIAPDummyModelKokkos",
+   "MLIAPModelLinearKokkos",
+   "MLIAPModelPythonKokkos",
+   "MLIAPModelPythonKokkosDevice"
+  ],
+  "n_kk_users": 4,
+  "users_all": [
+   "MLIAPDummyModelKokkos",
+   "MLIAPModelLinearKokkos",
+   "MLIAPModelPythonKokkos",
+   "MLIAPModelPythonKokkosDevice"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "Modify",
+  "file": "src/modify.cpp",
+  "line": 109,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "while (nfix) delete_fix(0);\n  memory->sfree(fix);\n  memory->destroy(fmask);\n\n  \n  \n\n  while (ncompute) delete_compute(0);\n  memory->sfree(compute);\n\n  delete[] list_initial_integrate;\n  delete[] list_post_integrate;\n  delete[] list_pre_exchange;\n  delete[] list_pre_neighbor;\n  delete[] list_post_neighbor;\n  delete[] list_pre_force;\n  delete[] list_pre_reverse;\n  delete[] list_post_force;\n  delete[] list_post_force_group;\n  delete[] list_final_integrate;\n  delete[] list_end_of_step;\n  delete[] list_energy_couple;\n  delete[] list_energy_global;\n  delete[] list_energy_atom;\n  delete[] list_initial_integrate_respa;\n  delete[] list_post_integrate_respa;\n  delete[] list_pre_force_respa;\n  delete[] list_post_force_respa;\n  delete[] list_final_integrate_respa;\n  delete[] list_min_pre_exchange;\n  delete[] list_min_pre_neighbor;\n  delete[] list_min_post_neighbor;\n  delete[] list_min_pre_force;\n  delete[] list_min_pre_reverse;\n  delete[] list_min_post_force;\n  delete[] list_min_energy;\n\n  delete[] end_of_step_every;\n  delete[] list_timeflag;\n\n  restart_deallocate(0);",
+  "kk_users": [
+   "ModifyKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ModifyKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ },
+ {
+  "class": "Pair",
+  "file": "src/pair.cpp",
+  "line": 138,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "num_tally_compute = 0;\n  memory->sfree((void *) list_tally_compute);\n  list_tally_compute = nullptr;\n\n  if (copymode) return;\n\n  if (elements)\n    for (int i = 0; i < nelements; i++) delete[] elements[i];\n  delete[] elements;\n\n  delete[] map;\n  memory->destroy(eatom);\n  memory->destroy(vatom);\n  memory->destroy(cvatom);",
+  "kk_users": [
+   "PairADPKokkos",
+   "PairBeckKokkos",
+   "PairBondValKokkos",
+   "PairBondValVecKokkos",
+   "PairBornCoulDSFCSKokkos",
+   "PairBornCoulDSFKokkos",
+   "PairBornCoulLongCSKokkos",
+   "PairBornCoulLongKokkos"
+  ],
+  "n_kk_users": 129,
+  "users_all": [
+   "PairADPKokkos",
+   "PairBeckKokkos",
+   "PairBondValKokkos",
+   "PairBondValVecKokkos",
+   "PairBornCoulDSFCSKokkos",
+   "PairBornCoulDSFKokkos",
+   "PairBornCoulLongCSKokkos",
+   "PairBornCoulLongKokkos",
+   "PairBornCoulWolfCSKokkos",
+   "PairBornCoulWolfKokkos",
+   "PairBornGaussKokkos",
+   "PairBornKokkos",
+   "PairBrownianKokkos",
+   "PairBuck6dCoulGaussDSFKokkos",
+   "PairBuck6dCoulGaussLongKokkos",
+   "PairBuckCoulCutKokkos",
+   "PairBuckCoulLongCSKokkos",
+   "PairBuckCoulLongKokkos",
+   "PairBuckKokkos",
+   "PairBuckMDFKokkos",
+   "PairColloidKokkos",
+   "PairCosineSquaredKokkos",
+   "PairCoulCutGlobalKokkos",
+   "PairCoulCutKokkos",
+   "PairCoulCutSoftKokkos",
+   "PairCoulDSFKokkos",
+   "PairCoulDebyeKokkos",
+   "PairCoulDielKokkos",
+   "PairCoulLongCSKokkos",
+   "PairCoulLongKokkos",
+   "PairCoulLongSoftKokkos",
+   "PairCoulShieldKokkos",
+   "PairCoulSlaterCutKokkos",
+   "PairCoulSlaterLongKokkos",
+   "PairCoulWolfCSKokkos",
+   "PairCoulWolfKokkos",
+   "PairDPDExtKokkos",
+   "PairDPDExtTstatKokkos",
+   "PairDPDKokkos",
+   "PairDPDTstatKokkos",
+   "PairDPDfdtEnergyKokkos",
+   "PairEAMKokkos",
+   "PairExp6rxKokkos",
+   "PairGaussCutKokkos",
+   "PairGaussKokkos",
+   "PairGranHertzHistoryKokkos",
+   "PairGranHookeHistoryKokkos",
+   "PairGranHookeKokkos",
+   "PairHarmonicCutKokkos",
+   "PairHybridKokkos",
+   "PairHybridOverlayKokkos",
+   "PairHybridScaledKokkos",
+   "PairLJ96CutKokkos",
+   "PairLJCharmmCoulCharmmImplicitKokkos",
+   "PairLJCharmmCoulCharmmKokkos",
+   "PairLJCharmmCoulLongKokkos",
+   "PairLJCharmmCoulLongSoftKokkos",
+   "PairLJCharmmfswCoulCharmmfshKokkos",
+   "PairLJCharmmfswCoulLongKokkos",
+   "PairLJClass2CoulCutKokkos",
+   "PairLJClass2CoulLongCSKokkos",
+   "PairLJClass2CoulLongKokkos",
+   "PairLJClass2Kokkos",
+   "PairLJClass2SoftKokkos",
+   "PairLJCubicKokkos",
+   "PairLJCutCoulCutKokkos",
+   "PairLJCutCoulCutSoftKokkos",
+   "PairLJCutCoulDSFKokkos",
+   "PairLJCutCoulDebyeKokkos",
+   "PairLJCutCoulLongCSKokkos",
+   "PairLJCutCoulLongKokkos",
+   "PairLJCutCoulLongSoftKokkos",
+   "PairLJCutCoulWolfKokkos",
+   "PairLJCutDipoleCutKokkos",
+   "PairLJCutKokkos",
+   "PairLJCutSoftKokkos",
+   "PairLJCutSphereKokkos",
+   "PairLJExpandCoulLongKokkos",
+   "PairLJExpandKokkos",
+   "PairLJExpandSphereKokkos",
+   "PairLJGromacsCoulGromacsKokkos",
+   "PairLJGromacsKokkos",
+   "PairLJMDFKokkos",
+   "PairLJPiraniKokkos",
+   "PairLJRelResKokkos",
+   "PairLJSPICACoulLongKokkos",
+   "PairLJSPICAKokkos",
+   "PairLJSmoothKokkos",
+   "PairLJSmoothLinearKokkos",
+   "PairLJSwitch3CoulGaussLongKokkos",
+   "PairLennardMDFKokkos",
+   "PairMEAMKokkos",
+   "PairMEAMMSKokkos",
+   "PairMIECutKokkos",
+   "PairMLIAPKokkos",
+   "PairMM3Switch3CoulGaussLongKokkos",
+   "PairMombKokkos",
+   "PairMorseKokkos",
+   "PairMorseSmoothLinearKokkos",
+   "PairMorseSoftKokkos",
+   "PairMultiLucyRXKokkos",
+   "PairNMCutCoulCutKokkos",
+   "PairNMCutCoulLongKokkos",
+   "PairNMCutKokkos",
+   "PairNMCutSplitKokkos",
+   "PairPACEExtrapolationKokkos",
+   "PairPACEKokkos",
+   "PairPODKokkos",
+   "PairPedoneKokkos",
+   "PairReaxFFKokkos",
+   "PairSNAPKokkos",
+   "PairSNAPKokkosDevice",
+   "PairSNAPKokkosHost",
+   "PairSWKokkos",
+   "PairSWMODKokkos",
+   "PairSoftKokkos",
+   "PairTableKokkos",
+   "PairTableRXKokkos",
+   "PairTersoffKokkos",
+   "PairTersoffMODCKokkos",
+   "PairTersoffMODKokkos",
+   "PairTersoffZBLKokkos",
+   "PairUFMKokkos",
+   "PairVashishtaKokkos",
+   "PairWFCutKokkos",
+   "PairYLZKokkos",
+   "PairYukawaColloidKokkos",
+   "PairYukawaKokkos",
+   "PairZBLKokkos"
+  ],
+  "users_copymode": [
+   "PairADPKokkos",
+   "PairBeckKokkos",
+   "PairBondValKokkos",
+   "PairBondValVecKokkos",
+   "PairBornCoulDSFCSKokkos",
+   "PairBornCoulDSFKokkos",
+   "PairBornCoulLongCSKokkos",
+   "PairBornCoulLongKokkos",
+   "PairBornCoulWolfCSKokkos",
+   "PairBornCoulWolfKokkos",
+   "PairBornGaussKokkos",
+   "PairBornKokkos",
+   "PairBrownianKokkos",
+   "PairBuck6dCoulGaussDSFKokkos",
+   "PairBuck6dCoulGaussLongKokkos",
+   "PairBuckCoulCutKokkos",
+   "PairBuckCoulLongCSKokkos",
+   "PairBuckCoulLongKokkos",
+   "PairBuckKokkos",
+   "PairBuckMDFKokkos",
+   "PairColloidKokkos",
+   "PairCosineSquaredKokkos",
+   "PairCoulDSFKokkos",
+   "PairCoulDielKokkos",
+   "PairCoulLongCSKokkos",
+   "PairCoulLongKokkos",
+   "PairCoulShieldKokkos",
+   "PairCoulSlaterLongKokkos",
+   "PairCoulWolfCSKokkos",
+   "PairCoulWolfKokkos",
+   "PairDPDExtKokkos",
+   "PairDPDExtTstatKokkos",
+   "PairDPDKokkos",
+   "PairDPDTstatKokkos",
+   "PairDPDfdtEnergyKokkos",
+   "PairEAMKokkos",
+   "PairExp6rxKokkos",
+   "PairGaussCutKokkos",
+   "PairGaussKokkos",
+   "PairGranHertzHistoryKokkos",
+   "PairGranHookeHistoryKokkos",
+   "PairGranHookeKokkos",
+   "PairHarmonicCutKokkos",
+   "PairLJ96CutKokkos",
+   "PairLJCharmmCoulCharmmImplicitKokkos",
+   "PairLJCharmmCoulCharmmKokkos",
+   "PairLJCharmmCoulLongKokkos",
+   "PairLJCharmmfswCoulCharmmfshKokkos",
+   "PairLJCharmmfswCoulLongKokkos",
+   "PairLJClass2CoulCutKokkos",
+   "PairLJClass2CoulLongCSKokkos",
+   "PairLJClass2CoulLongKokkos",
+   "PairLJClass2SoftKokkos",
+   "PairLJCubicKokkos",
+   "PairLJCutCoulDSFKokkos",
+   "PairLJCutCoulDebyeKokkos",
+   "PairLJCutCoulLongCSKokkos",
+   "PairLJCutCoulLongKokkos",
+   "PairLJCutCoulWolfKokkos",
+   "PairLJCutDipoleCutKokkos",
+   "PairLJCutKokkos",
+   "PairLJCutSoftKokkos",
+   "PairLJCutSphereKokkos",
+   "PairLJExpandCoulLongKokkos",
+   "PairLJExpandKokkos",
+   "PairLJExpandSphereKokkos",
+   "PairLJGromacsCoulGromacsKokkos",
+   "PairLJGromacsKokkos",
+   "PairLJMDFKokkos",
+   "PairLJPiraniKokkos",
+   "PairLJRelResKokkos",
+   "PairLJSPICACoulLongKokkos",
+   "PairLJSPICAKokkos",
+   "PairLJSmoothKokkos",
+   "PairLJSmoothLinearKokkos",
+   "PairLJSwitch3CoulGaussLongKokkos",
+   "PairLennardMDFKokkos",
+   "PairMEAMKokkos",
+   "PairMEAMMSKokkos",
+   "PairMIECutKokkos",
+   "PairMM3Switch3CoulGaussLongKokkos",
+   "PairMombKokkos",
+   "PairMorseSmoothLinearKokkos",
+   "PairMorseSoftKokkos",
+   "PairMultiLucyRXKokkos",
+   "PairNMCutCoulCutKokkos",
+   "PairNMCutCoulLongKokkos",
+   "PairNMCutKokkos",
+   "PairNMCutSplitKokkos",
+   "PairPACEExtrapolationKokkos",
+   "PairPACEKokkos",
+   "PairPODKokkos",
+   "PairPedoneKokkos",
+   "PairReaxFFKokkos",
+   "PairSWKokkos",
+   "PairSWMODKokkos",
+   "PairSoftKokkos",
+   "PairTableKokkos",
+   "PairTableRXKokkos",
+   "PairTersoffKokkos",
+   "PairTersoffMODCKokkos",
+   "PairTersoffMODKokkos",
+   "PairTersoffZBLKokkos",
+   "PairUFMKokkos",
+   "PairVashishtaKokkos",
+   "PairWFCutKokkos",
+   "PairYLZKokkos",
+   "PairZBLKokkos"
+  ],
+  "style_roots": [
+   "Pair"
+  ]
+ },
+ {
+  "class": "PairCoulSlaterLong",
+  "file": "src/EXTRA-PAIR/pair_coul_slater_long.cpp",
+  "line": 46,
+  "mentions_copymode": true,
+  "is_kokkos": false,
+  "body": "if (!copymode) {\n    if (allocated) {\n      memory->destroy(setflag);\n      memory->destroy(cutsq);\n\n      memory->destroy(scale);\n    }\n  }",
+  "kk_users": [
+   "PairCoulSlaterLongKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "PairCoulSlaterLongKokkos"
+  ],
+  "users_copymode": [
+   "PairCoulSlaterLongKokkos"
+  ],
+  "style_roots": [
+   "Pair"
+  ]
+ },
+ {
+  "class": "PairHybrid",
+  "file": "src/pair_hybrid.cpp",
+  "line": 49,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (nstyles > 0) {\n    for (int m = 0; m < nstyles; m++) {\n      delete styles[m];\n      delete[] keywords[m];\n      delete[] special_lj[m];\n      delete[] special_coul[m];\n    }\n  }\n  delete[] styles;\n  delete[] cutmax_style;\n  delete[] keywords;\n  delete[] multiple;\n\n  delete[] special_lj;\n  delete[] special_coul;\n  delete[] compute_tally;\n\n  delete[] svector;\n\n  if (allocated) {\n    memory->destroy(setflag);\n    memory->destroy(cutsq);\n    memory->destroy(cutghost);\n    memory->destroy(nmap);\n    memory->destroy(map);\n  }",
+  "kk_users": [
+   "PairHybridKokkos",
+   "PairHybridOverlayKokkos",
+   "PairHybridScaledKokkos"
+  ],
+  "n_kk_users": 3,
+  "users_all": [
+   "PairHybridKokkos",
+   "PairHybridOverlayKokkos",
+   "PairHybridScaledKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Pair"
+  ]
+ },
+ {
+  "class": "PairTIP4PKokkos",
+  "file": "src/KOKKOS/pair_tip4p_kokkos.h",
+  "line": 46,
+  "mentions_copymode": true,
+  "is_kokkos": true,
+  "body": "if (this->copymode) return;\n    if (this->allocated) {\n      this->memoryKK->destroy_kokkos(k_eatom, this->eatom);\n      this->memoryKK->destroy_kokkos(k_vatom, this->vatom);\n    }",
+  "kk_users": [
+   "PairLJCutTIP4PCutKokkos",
+   "PairLJCutTIP4PLongKokkos",
+   "PairTIP4PCutKokkos",
+   "PairTIP4PLongKokkos"
+  ],
+  "n_kk_users": 4,
+  "users_all": [
+   "PairLJCutTIP4PCutKokkos",
+   "PairLJCutTIP4PLongKokkos",
+   "PairTIP4PCutKokkos",
+   "PairTIP4PLongKokkos"
+  ],
+  "users_copymode": [
+   "PairLJCutTIP4PCutKokkos",
+   "PairLJCutTIP4PLongKokkos",
+   "PairTIP4PCutKokkos",
+   "PairTIP4PLongKokkos"
+  ],
+  "style_roots": []
+ },
+ {
+  "class": "PairPOD",
+  "file": "src/ML-POD/pair_pod.cpp",
+  "line": 107,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "memory->destroy(rij);\n  memory->destroy(fij);\n  memory->destroy(ei);\n  memory->destroy(typeai);\n  memory->destroy(numij);\n  memory->destroy(idxi);\n  memory->destroy(ai);\n  memory->destroy(aj);\n  memory->destroy(ti);\n  memory->destroy(tj);\n  memory->destroy(Phi);\n  memory->destroy(rbf);\n  memory->destroy(rbfx);\n  memory->destroy(rbfy);\n  memory->destroy(rbfz);\n  memory->destroy(abf);\n  memory->destroy(abfx);\n  memory->destroy(abfy);\n  memory->destroy(abfz);\n  memory->destroy(abftm);\n  memory->destroy(sumU);\n  memory->destroy(forcecoeff);\n  memory->destroy(Centroids);\n  memory->destroy(Proj);\n  memory->destroy(bd);\n  memory->destroy(cb);\n  memory->destroy(bdd);\n  memory->destroy(pd);\n  memory->destroy(pdd);\n  memory->destroy(coefficients);\n  memory->destroy(pn3);\n  memory->destroy(pq3);\n  memory->destroy(pc3);\n  memory->destroy(pa4);\n  memory->destroy(pb4);\n  memory->destroy(pc4);\n  memory->destroy(ind33l);\n  memory->destroy(ind33r);\n  memory->destroy(ind34l);\n  memory->destroy(ind34r);\n  memory->destroy(ind44l);\n  memory->destroy(ind44r);\n  memory->destroy(elemindex);\n\n  delete fastpodptr;\n\n  if (allocated) {\n    memory->destroy(setflag);\n    memory->destroy(cutsq);\n  }",
+  "kk_users": [
+   "PairPODKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "PairPODKokkos"
+  ],
+  "users_copymode": [
+   "PairPODKokkos"
+  ],
+  "style_roots": [
+   "Pair"
+  ]
+ },
+ {
+  "class": "ThirdOrder",
+  "file": "src/PHONON/third_order.cpp",
+  "line": 60,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "if (fp && me == 0) {\n    if (compressed) platform::pclose(fp);\n    else fclose(fp);\n  }\n  fp = nullptr;\n  memory->destroy(groupmap);",
+  "kk_users": [
+   "ThirdOrderKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "ThirdOrderKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": [
+   "Command"
+  ]
+ },
+ {
+  "class": "Variable",
+  "file": "src/variable.cpp",
+  "line": 253,
+  "mentions_copymode": false,
+  "is_kokkos": false,
+  "body": "delete randomequal;\n  delete randomatom;",
+  "kk_users": [
+   "VariableKokkos"
+  ],
+  "n_kk_users": 1,
+  "users_all": [
+   "VariableKokkos"
+  ],
+  "users_copymode": [],
+  "style_roots": []
+ }
+]

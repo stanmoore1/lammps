@@ -1,0 +1,48 @@
+{
+ "no_index_page": [
+  [
+   "angle_style",
+   "sdk"
+  ],
+  [
+   "fix",
+   "acks2/reax"
+  ],
+  [
+   "fix",
+   "qeq/reax"
+  ],
+  [
+   "pair_style",
+   "lj/sdk"
+  ],
+  [
+   "pair_style",
+   "lj/sdk/coul/long"
+  ],
+  [
+   "pair_style",
+   "lj/sf"
+  ]
+ ],
+ "no_accel_variants_line": [
+  [
+   "kspace_style",
+   "pppm",
+   "doc/src/kspace_style.rst"
+  ],
+  [
+   "kspace_style",
+   "pppm/tip4p",
+   "doc/src/kspace_style.rst"
+  ]
+ ],
+ "kk_not_in_variants": [],
+ "no_accel_include": [
+  [
+   "fix",
+   "colvars",
+   "doc/src/fix_colvars.rst"
+  ]
+ ]
+}

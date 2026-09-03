@@ -1,0 +1,3302 @@
+[
+ {
+  "kk_class": "AngleCharmmKokkos",
+  "kk_header": "src/KOKKOS/angle_charmm_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleClass2Kokkos",
+  "kk_header": "src/KOKKOS/angle_class2_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 61,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleClass2P6Kokkos",
+  "kk_header": "src/KOKKOS/angle_class2_p6_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleClass2xeKokkos",
+  "kk_header": "src/KOKKOS/angle_class2xe_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosineDeltaKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_delta_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosineKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 61,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosinePeriodicKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_periodic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosineShiftExpKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_shift_exp_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosineShiftKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_shift_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosineSquaredKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_squared_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCosineSquaredRestrictedKokkos",
+  "kk_header": "src/KOKKOS/angle_cosine_squared_restricted_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleCrossKokkos",
+  "kk_header": "src/KOKKOS/angle_cross_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleDipoleKokkos",
+  "kk_header": "src/KOKKOS/angle_dipole_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleFourierKokkos",
+  "kk_header": "src/KOKKOS/angle_fourier_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleFourierSimpleKokkos",
+  "kk_header": "src/KOKKOS/angle_fourier_simple_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleGaussianKokkos",
+  "kk_header": "src/KOKKOS/angle_gaussian_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleHarmonicKokkos",
+  "kk_header": "src/KOKKOS/angle_harmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 61,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleMM3Kokkos",
+  "kk_header": "src/KOKKOS/angle_mm3_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleMWLCKokkos",
+  "kk_header": "src/KOKKOS/angle_mwlc_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleQuarticKokkos",
+  "kk_header": "src/KOKKOS/angle_quartic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleSPICAKokkos",
+  "kk_header": "src/KOKKOS/angle_spica_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 65,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleSPICAKokkos",
+  "kk_header": "src/KOKKOS/angle_spica_kokkos.h",
+  "method": "ev_tally13",
+  "kk_line": 72,
+  "kk_decl": "void ev_tally13(EV_FLOAT &ev, const int i, const int j, const KK_FLOAT &evdwl, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "AngleSPICA",
+    "line": 54,
+    "decl": "void ev_tally13(int, int, int, int, double, double, double, double, double);",
+    "header": "src/CG-SPICA/angle_spica.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "AngleTableKokkos",
+  "kk_header": "src/KOKKOS/angle_table_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 64,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i, const int j, const int k, KK_FLOAT &eangle, KK_FLOAT *f1, KK_FLOAT *f3, const KK_FLOAT &delx1, const KK_FLOAT &dely1, c",
+  "bases": [
+   {
+    "class": "Angle",
+    "line": 90,
+    "decl": "void ev_tally(int, int, int, int, int, double, double *, double *, double, double, double, double, double, double);",
+    "header": "src/angle.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondClass2Kokkos",
+  "kk_header": "src/KOKKOS/bond_class2_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 63,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondFENEExpandKokkos",
+  "kk_header": "src/KOKKOS/bond_fene_expand_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondFENEKokkos",
+  "kk_header": "src/KOKKOS/bond_fene_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondFENENMKokkos",
+  "kk_header": "src/KOKKOS/bond_fene_nm_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondGaussianKokkos",
+  "kk_header": "src/KOKKOS/bond_gaussian_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondGromosKokkos",
+  "kk_header": "src/KOKKOS/bond_gromos_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondHarmonicKokkos",
+  "kk_header": "src/KOKKOS/bond_harmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 63,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondHarmonicRestrainKokkos",
+  "kk_header": "src/KOKKOS/bond_harmonic_restrain_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondHarmonicShiftCutKokkos",
+  "kk_header": "src/KOKKOS/bond_harmonic_shift_cut_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondHarmonicShiftKokkos",
+  "kk_header": "src/KOKKOS/bond_harmonic_shift_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondMM3Kokkos",
+  "kk_header": "src/KOKKOS/bond_mm3_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondMorseKokkos",
+  "kk_header": "src/KOKKOS/bond_morse_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondNonlinearKokkos",
+  "kk_header": "src/KOKKOS/bond_nonlinear_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondQuarticExpKokkos",
+  "kk_header": "src/KOKKOS/bond_quartic_exp_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 56,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondQuarticKokkos",
+  "kk_header": "src/KOKKOS/bond_quartic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "BondTableKokkos",
+  "kk_header": "src/KOKKOS/bond_table_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 63,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &ebond, const KK_FLOAT &fbond, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Bond",
+    "line": 104,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double);",
+    "header": "src/bond.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ComputeOrientOrderAtomKokkos",
+  "kk_header": "src/KOKKOS/compute_orientorder_atom_kokkos.h",
+  "method": "select3",
+  "kk_line": 122,
+  "kk_decl": "void select3(int, int, int) const;",
+  "bases": [
+   {
+    "class": "ComputeOrientOrderAtom",
+    "line": 52,
+    "decl": "void select3(int, int, double *, int *, double **);",
+    "header": "src/compute_orientorder_atom.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ComputeOrientOrderAtomKokkos",
+  "kk_header": "src/KOKKOS/compute_orientorder_atom_kokkos.h",
+  "method": "polar_prefactor",
+  "kk_line": 134,
+  "kk_decl": "KK_FLOAT polar_prefactor(int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "ComputeOrientOrderAtom",
+    "line": 56,
+    "decl": "double polar_prefactor(int, int, double);",
+    "header": "src/compute_orientorder_atom.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ComputeOrientOrderAtomKokkos",
+  "kk_header": "src/KOKKOS/compute_orientorder_atom_kokkos.h",
+  "method": "associated_legendre",
+  "kk_line": 138,
+  "kk_decl": "KK_FLOAT associated_legendre(int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "ComputeOrientOrderAtom",
+    "line": 57,
+    "decl": "double associated_legendre(int, int, double);",
+    "header": "src/compute_orientorder_atom.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralCharmmKokkos",
+  "kk_header": "src/KOKKOS/dihedral_charmm_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 101,
+  "kk_decl": "void ev_tally(EVM_FLOAT &evm, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FL",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralCharmmKokkos",
+  "kk_header": "src/KOKKOS/dihedral_charmm_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 109,
+  "kk_decl": "void ev_tally(EVM_FLOAT &evm, const int i, const int j, const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralCharmmfswKokkos",
+  "kk_header": "src/KOKKOS/dihedral_charmmfsw_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally(EVM_FLOAT &evm, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FL",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralCharmmfswKokkos",
+  "kk_header": "src/KOKKOS/dihedral_charmmfsw_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 70,
+  "kk_decl": "void ev_tally(EVM_FLOAT &evm, const int i, const int j, const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralClass2Kokkos",
+  "kk_header": "src/KOKKOS/dihedral_class2_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralClass2xeKokkos",
+  "kk_header": "src/KOKKOS/dihedral_class2xe_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralCosineShiftExpKokkos",
+  "kk_header": "src/KOKKOS/dihedral_cosine_shift_exp_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralCosineSquaredRestrictedKokkos",
+  "kk_header": "src/KOKKOS/dihedral_cosine_squared_restricted_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralFourierKokkos",
+  "kk_header": "src/KOKKOS/dihedral_fourier_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralHarmonicKokkos",
+  "kk_header": "src/KOKKOS/dihedral_harmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralHelixKokkos",
+  "kk_header": "src/KOKKOS/dihedral_helix_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralMultiHarmonicKokkos",
+  "kk_header": "src/KOKKOS/dihedral_multi_harmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralNHarmonicKokkos",
+  "kk_header": "src/KOKKOS/dihedral_nharmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralOPLSKokkos",
+  "kk_header": "src/KOKKOS/dihedral_opls_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralQuadraticKokkos",
+  "kk_header": "src/KOKKOS/dihedral_quadratic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralSphericalKokkos",
+  "kk_header": "src/KOKKOS/dihedral_spherical_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralTableCutKokkos",
+  "kk_header": "src/KOKKOS/dihedral_table_cut_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 63,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DihedralTableKokkos",
+  "kk_header": "src/KOKKOS/dihedral_table_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 67,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &edihedral, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Dihedral",
+    "line": 88,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/dihedral.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "DynamicalMatrixKokkos",
+  "kk_header": "src/KOKKOS/dynamical_matrix_kokkos.h",
+  "method": "setup",
+  "kk_line": 35,
+  "kk_decl": "void setup();",
+  "bases": [
+   {
+    "class": "DynamicalMatrix",
+    "line": 23,
+    "decl": "void setup();",
+    "header": "src/PHONON/dynamical_matrix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixACKS2ReaxFFKokkos",
+  "kk_header": "src/KOKKOS/fix_acks2_reaxff_kokkos.h",
+  "method": "get_s",
+  "kk_line": 75,
+  "kk_decl": "DAT::ttransform_kkfloat_1d get_s() {return k_s;}",
+  "bases": [
+   {
+    "class": "FixACKS2ReaxFF",
+    "line": 38,
+    "decl": "double *get_s() { return s; }",
+    "header": "src/REAXFF/fix_acks2_reaxff.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixACKS2ReaxFFKokkos",
+  "kk_header": "src/KOKKOS/fix_acks2_reaxff_kokkos.h",
+  "method": "sparse_matvec_acks2",
+  "kk_line": 292,
+  "kk_decl": "void sparse_matvec_acks2(typename AT::t_kkfloat_1d &, typename AT::t_kkfloat_1d &);",
+  "bases": [
+   {
+    "class": "FixACKS2ReaxFF",
+    "line": 78,
+    "decl": "void sparse_matvec_acks2(sparse_matrix *, sparse_matrix *, double *, double *);",
+    "header": "src/REAXFF/fix_acks2_reaxff.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixAddForceKokkos",
+  "kk_header": "src/KOKKOS/fix_addforce_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 75,
+  "kk_decl": "void v_tally(value_type, int, KK_FLOAT*) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixCMAPKokkos",
+  "kk_header": "src/KOKKOS/fix_cmap_kokkos.h",
+  "method": "dihedral_angle_atan2",
+  "kk_line": 117,
+  "kk_decl": "KK_FLOAT dihedral_angle_atan2(KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "FixCMAP",
+    "line": 114,
+    "decl": "double dihedral_angle_atan2(double, double, double, double, double, double, double, double, double, double);",
+    "header": "src/MOLECULE/fix_cmap.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixCMAPKokkos",
+  "kk_header": "src/KOKKOS/fix_cmap_kokkos.h",
+  "method": "bc_interpol",
+  "kk_line": 123,
+  "kk_decl": "void bc_interpol(KK_FLOAT, KK_FLOAT, int, int, KK_FLOAT *, KK_FLOAT *, KK_FLOAT *, KK_FLOAT *, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "FixCMAP",
+    "line": 123,
+    "decl": "void bc_interpol(double, double, int, int, double *, double *, double *, double *);",
+    "header": "src/MOLECULE/fix_cmap.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEfieldKokkos",
+  "kk_header": "src/KOKKOS/fix_efield_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 84,
+  "kk_decl": "void v_tally(value_type, int, KK_FLOAT*) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEOStableRXKokkos",
+  "kk_header": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "method": "energy_lookup",
+  "kk_line": 69,
+  "kk_decl": "void energy_lookup(int, KK_FLOAT, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "FixEOStableRX",
+    "line": 37,
+    "decl": "void energy_lookup(int, double, double &);",
+    "header": "src/DPD-REACT/fix_eos_table_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEOStableRXKokkos",
+  "kk_header": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "method": "temperature_lookup",
+  "kk_line": 73,
+  "kk_decl": "void temperature_lookup(int, KK_FLOAT, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "FixEOStableRX",
+    "line": 38,
+    "decl": "void temperature_lookup(int, double, double &);",
+    "header": "src/DPD-REACT/fix_eos_table_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixEOStableRXKokkos",
+  "kk_header": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "method": "allocate",
+  "kk_line": 118,
+  "kk_decl": "void allocate();",
+  "bases": [
+   {
+    "class": "FixEOStableRX",
+    "line": 55,
+    "decl": "void allocate();",
+    "header": "src/DPD-REACT/fix_eos_table_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixLangevinKokkos",
+  "kk_header": "src/KOKKOS/fix_langevin_kokkos.h",
+  "method": "compute_target",
+  "kk_line": 156,
+  "kk_decl": "void compute_target();",
+  "bases": [
+   {
+    "class": "FixLangevin",
+    "line": 79,
+    "decl": "void compute_target();",
+    "header": "src/fix_langevin.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixLangevinKokkos",
+  "kk_header": "src/KOKKOS/fix_langevin_kokkos.h",
+  "method": "angmom_thermostat",
+  "kk_line": 163,
+  "kk_decl": "void angmom_thermostat();",
+  "bases": [
+   {
+    "class": "FixLangevin",
+    "line": 78,
+    "decl": "void angmom_thermostat();",
+    "header": "src/fix_langevin.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixMinimizeKokkos",
+  "kk_header": "src/KOKKOS/fix_minimize_kokkos.h",
+  "method": "reset_coords",
+  "kk_line": 47,
+  "kk_decl": "void reset_coords();",
+  "bases": [
+   {
+    "class": "FixMinimize",
+    "line": 45,
+    "decl": "void reset_coords();",
+    "header": "src/fix_minimize.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rhs",
+  "kk_line": 156,
+  "kk_decl": "int rhs (double, const double *, double *, void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 107,
+    "decl": "int rhs(double, const double *, double *, void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rhs_dense",
+  "kk_line": 157,
+  "kk_decl": "int rhs_dense (double, const double *, double *, void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 108,
+    "decl": "int rhs_dense(double, const double *, double *, void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rhs_sparse",
+  "kk_line": 158,
+  "kk_decl": "int rhs_sparse(double, const double *, double *, void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 120,
+    "decl": "int rhs_sparse(double, const double *, double *, void *) const;",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rk4",
+  "kk_line": 176,
+  "kk_decl": "void rk4(const double t_stop, double *y, double *rwork, void *v_params) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 88,
+    "decl": "void rk4(int, double *, void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rkf45",
+  "kk_line": 179,
+  "kk_decl": "void rkf45(const int neq, const double t_stop, double *y, double *rwork, void *v_params, CounterType& counter) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 91,
+    "decl": "void rkf45(int, double *, void *, int ode_counter[]);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rkf45_step",
+  "kk_line": 182,
+  "kk_decl": "void rkf45_step (const int neq, const double h, double y[], double y_out[], double rwk[], void *) const;",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 94,
+    "decl": "void rkf45_step(const int neq, const double h, double y[], double y_out[], double rwk[], void *);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "rkf45_h0",
+  "kk_line": 186,
+  "kk_decl": "int rkf45_h0 (const int neq, const double t, const double t_stop, const double hmin, const double hmax, double& h0, double y[], double rwk[], void *v_params) co",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 97,
+    "decl": "int rkf45_h0(const int neq, const double t, const double t_stop, const double hmin, const double hmax, double &h0, double y[], double rwk[], void *v_params);",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "odeDiagnostics",
+  "kk_line": 218,
+  "kk_decl": "void odeDiagnostics();",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 156,
+    "decl": "void odeDiagnostics();",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixRxKokkos",
+  "kk_header": "src/KOKKOS/fix_rx_kokkos.h",
+  "method": "computeLocalTemperature",
+  "kk_line": 286,
+  "kk_decl": "void computeLocalTemperature();",
+  "bases": [
+   {
+    "class": "FixRX",
+    "line": 103,
+    "decl": "void computeLocalTemperature();",
+    "header": "src/DPD-REACT/fix_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShakeKokkos",
+  "kk_header": "src/KOKKOS/fix_shake_kokkos.h",
+  "method": "shake",
+  "kk_line": 190,
+  "kk_decl": "void shake(int, EV_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixShake",
+    "line": 143,
+    "decl": "void shake(int);",
+    "header": "src/RIGID/fix_shake.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShakeKokkos",
+  "kk_header": "src/KOKKOS/fix_shake_kokkos.h",
+  "method": "shake3",
+  "kk_line": 195,
+  "kk_decl": "void shake3(int, EV_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixShake",
+    "line": 144,
+    "decl": "void shake3(int);",
+    "header": "src/RIGID/fix_shake.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShakeKokkos",
+  "kk_header": "src/KOKKOS/fix_shake_kokkos.h",
+  "method": "shake4",
+  "kk_line": 200,
+  "kk_decl": "void shake4(int, EV_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixShake",
+    "line": 145,
+    "decl": "void shake4(int);",
+    "header": "src/RIGID/fix_shake.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShakeKokkos",
+  "kk_header": "src/KOKKOS/fix_shake_kokkos.h",
+  "method": "shake3angle",
+  "kk_line": 205,
+  "kk_decl": "void shake3angle(int, EV_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixShake",
+    "line": 146,
+    "decl": "void shake3angle(int);",
+    "header": "src/RIGID/fix_shake.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShakeKokkos",
+  "kk_header": "src/KOKKOS/fix_shake_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 235,
+  "kk_decl": "void v_tally(EV_FLOAT&, int, int *, KK_FLOAT, KK_FLOAT *) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShakeKokkos",
+  "kk_header": "src/KOKKOS/fix_shake_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 240,
+  "kk_decl": "void ev_tally(EV_FLOAT&, int, int *, KK_FLOAT, KK_FLOAT, KK_FLOAT *) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 303,
+    "decl": "void ev_tally(int, int *, double, double, double *);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShardlowKokkos",
+  "kk_header": "src/KOKKOS/fix_shardlow_kokkos.h",
+  "method": "ssa_update_dpd",
+  "kk_line": 150,
+  "kk_decl": "void ssa_update_dpd(int, int, int) const;",
+  "bases": [
+   {
+    "class": "FixShardlow",
+    "line": 65,
+    "decl": "void ssa_update_dpd(int, int, int);",
+    "header": "src/DPD-REACT/fix_shardlow.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixShardlowKokkos",
+  "kk_header": "src/KOKKOS/fix_shardlow_kokkos.h",
+  "method": "ssa_update_dpde",
+  "kk_line": 155,
+  "kk_decl": "void ssa_update_dpde(int, int, int) const;",
+  "bases": [
+   {
+    "class": "FixShardlow",
+    "line": 66,
+    "decl": "void ssa_update_dpde(int, int, int);",
+    "header": "src/DPD-REACT/fix_shardlow.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallHarmonicKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_harmonic_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 65,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallHarmonicOutsideKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_harmonic_outside_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 64,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallLJ1043Kokkos",
+  "kk_header": "src/KOKKOS/fix_wall_lj1043_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 70,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallLJ126Kokkos",
+  "kk_header": "src/KOKKOS/fix_wall_lj126_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 68,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallLJ93Kokkos",
+  "kk_header": "src/KOKKOS/fix_wall_lj93_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 68,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallMorseKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_morse_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 71,
+  "kk_decl": "void v_tally(value_type, int, int, KK_FLOAT) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "lj93",
+  "kk_line": 63,
+  "kk_decl": "KK_FLOAT lj93(KK_FLOAT, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixWallRegion",
+    "line": 55,
+    "decl": "void lj93(double);",
+    "header": "src/fix_wall_region.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "lj126",
+  "kk_line": 67,
+  "kk_decl": "KK_FLOAT lj126(KK_FLOAT, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixWallRegion",
+    "line": 56,
+    "decl": "void lj126(double);",
+    "header": "src/fix_wall_region.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "lj1043",
+  "kk_line": 71,
+  "kk_decl": "KK_FLOAT lj1043(KK_FLOAT, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixWallRegion",
+    "line": 57,
+    "decl": "void lj1043(double);",
+    "header": "src/fix_wall_region.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "morse",
+  "kk_line": 75,
+  "kk_decl": "KK_FLOAT morse(KK_FLOAT, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixWallRegion",
+    "line": 58,
+    "decl": "void morse(double);",
+    "header": "src/fix_wall_region.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "colloid",
+  "kk_line": 79,
+  "kk_decl": "KK_FLOAT colloid(KK_FLOAT, KK_FLOAT, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixWallRegion",
+    "line": 59,
+    "decl": "void colloid(double, double);",
+    "header": "src/fix_wall_region.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "harmonic",
+  "kk_line": 83,
+  "kk_decl": "KK_FLOAT harmonic(KK_FLOAT, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "FixWallRegion",
+    "line": 60,
+    "decl": "void harmonic(double);",
+    "header": "src/fix_wall_region.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "FixWallRegionKokkos",
+  "kk_header": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "method": "v_tally",
+  "kk_line": 87,
+  "kk_decl": "void v_tally(value_type, int, KK_FLOAT*) const;",
+  "bases": [
+   {
+    "class": "Fix",
+    "line": 313,
+    "decl": "void v_tally(int, int *, double, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 314,
+    "decl": "void v_tally(int, int *, double, double *, int, int, int[][2], double *, double[][3]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 315,
+    "decl": "void v_tally(int, int *, double, double *, double[][3], double[][3], double[]);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 316,
+    "decl": "void v_tally(int, double *);",
+    "header": "src/fix.h"
+   },
+   {
+    "class": "Fix",
+    "line": 317,
+    "decl": "void v_tally(int, int, double);",
+    "header": "src/fix.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "Grid3dKokkos",
+  "kk_header": "src/KOKKOS/grid3d_kokkos.h",
+  "method": "forward_comm",
+  "kk_line": 36,
+  "kk_decl": "void forward_comm(int, void *, int, int, int, FFT_DAT::tdual_FFT_SCALAR_1d &, FFT_DAT::tdual_FFT_SCALAR_1d &, MPI_Datatype);",
+  "bases": [
+   {
+    "class": "Grid3d",
+    "line": 49,
+    "decl": "void forward_comm(int, void *, int, int, int, void *, void *, MPI_Datatype);",
+    "header": "src/grid3d.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "Grid3dKokkos",
+  "kk_header": "src/KOKKOS/grid3d_kokkos.h",
+  "method": "reverse_comm",
+  "kk_line": 38,
+  "kk_decl": "void reverse_comm(int, void *, int, int, int, FFT_DAT::tdual_FFT_SCALAR_1d &, FFT_DAT::tdual_FFT_SCALAR_1d &, MPI_Datatype);",
+  "bases": [
+   {
+    "class": "Grid3d",
+    "line": 50,
+    "decl": "void reverse_comm(int, void *, int, int, int, void *, void *, MPI_Datatype);",
+    "header": "src/grid3d.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "Grid3dKokkos",
+  "kk_header": "src/KOKKOS/grid3d_kokkos.h",
+  "method": "indices",
+  "kk_line": 70,
+  "kk_decl": "int indices(DAT::tdual_int_2d_lr &, int, int, int, int, int, int, int);",
+  "bases": [
+   {
+    "class": "Grid3d",
+    "line": 266,
+    "decl": "int indices(int *&, int, int, int, int, int, int);",
+    "header": "src/grid3d.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperClass2Kokkos",
+  "kk_header": "src/KOKKOS/improper_class2_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 73,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperCossqKokkos",
+  "kk_header": "src/KOKKOS/improper_cossq_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperCvffKokkos",
+  "kk_header": "src/KOKKOS/improper_cvff_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperDistanceKokkos",
+  "kk_header": "src/KOKKOS/improper_distance_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperDistHarmKokkos",
+  "kk_header": "src/KOKKOS/improper_distharm_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperFourierKokkos",
+  "kk_header": "src/KOKKOS/improper_fourier_kokkos.h",
+  "method": "addone",
+  "kk_line": 60,
+  "kk_decl": "void addone(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, const int type, const KK_FLOAT vb1x, const KK_FLOAT vb1y, const KK_FLOAT vb1z,",
+  "bases": [
+   {
+    "class": "ImproperFourier",
+    "line": 41,
+    "decl": "void addone(const int &i1, const int &i2, const int &i3, const int &i4, const int &type, const int &evflag, const int &eflag, const double &vb1x, const double &",
+    "header": "src/EXTRA-MOLECULE/improper_fourier.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperFourierKokkos",
+  "kk_header": "src/KOKKOS/improper_fourier_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 68,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperHarmonicKokkos",
+  "kk_header": "src/KOKKOS/improper_harmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 60,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperInversionHarmonicKokkos",
+  "kk_header": "src/KOKKOS/improper_inversion_harmonic_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 71,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperRingKokkos",
+  "kk_header": "src/KOKKOS/improper_ring_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperSQDistHarmKokkos",
+  "kk_header": "src/KOKKOS/improper_sqdistharm_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ImproperUmbrellaKokkos",
+  "kk_header": "src/KOKKOS/improper_umbrella_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int i1, const int i2, const int i3, const int i4, KK_FLOAT &eimproper, KK_FLOAT *f1, KK_FLOAT *f3, KK_FLOAT *f4, const KK_FLOA",
+  "bases": [
+   {
+    "class": "Improper",
+    "line": 93,
+    "decl": "void ev_tally(int, int, int, int, int, int, double, double *, double *, double *, double, double, double, double, double, double, double, double, double);",
+    "header": "src/improper.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "MLIAPModelPythonKokkos",
+  "kk_header": "src/KOKKOS/mliap_model_python_kokkos.h",
+  "method": "connect_param_counts",
+  "kk_line": 37,
+  "kk_decl": "void connect_param_counts();",
+  "bases": [
+   {
+    "class": "MLIAPModelPython",
+    "line": 31,
+    "decl": "void connect_param_counts();",
+    "header": "src/ML-IAP/mliap_model_python.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "MLIAPDummyDescriptorKokkos",
+  "kk_header": "src/KOKKOS/mliap_unified_kokkos.h",
+  "method": "set_elements",
+  "kk_line": 35,
+  "kk_decl": "void set_elements(char **, int);",
+  "bases": [
+   {
+    "class": "MLIAPDummyDescriptor",
+    "line": 34,
+    "decl": "void set_elements(char **, int);",
+    "header": "src/ML-IAP/mliap_unified.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "NeighListKokkos",
+  "kk_header": "src/KOKKOS/neigh_list_kokkos.h",
+  "method": "grow",
+  "kk_line": 76,
+  "kk_decl": "void grow(int nmax);",
+  "bases": [
+   {
+    "class": "NeighList",
+    "line": 110,
+    "decl": "void grow(int, int);",
+    "header": "src/neigh_list.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairADPKokkos",
+  "kk_header": "src/KOKKOS/pair_adp_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 118,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &d",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairADPKokkos",
+  "kk_header": "src/KOKKOS/pair_adp_kokkos.h",
+  "method": "interpolate",
+  "kk_line": 191,
+  "kk_decl": "void interpolate(int, double, double *, t_hostkkfloat_2d_n7, int);",
+  "bases": [
+   {
+    "class": "PairADP",
+    "line": 82,
+    "decl": "void interpolate(int, double, double *, double **);",
+    "header": "src/MANYBODY/pair_adp.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairBondValKokkos",
+  "kk_header": "src/KOKKOS/pair_bondval_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 106,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairBondValVecKokkos",
+  "kk_header": "src/KOKKOS/pair_bondval_vec_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 108,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &delx,",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairBrownianKokkos",
+  "kk_header": "src/KOKKOS/pair_brownian_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 65,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, int i, int j, KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz, KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairCoulDSFKokkos",
+  "kk_header": "src/KOKKOS/pair_coul_dsf_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairCoulWolfCSKokkos",
+  "kk_header": "src/KOKKOS/pair_coul_wolf_cs_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairCoulWolfKokkos",
+  "kk_header": "src/KOKKOS/pair_coul_wolf_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairDPDExtKokkos",
+  "kk_header": "src/KOKKOS/pair_dpd_ext_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 83,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fx, const KK_FLOAT &fy, const KK_FLOAT &fz, const KK_FLOAT &d",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairDPDfdtEnergyKokkos",
+  "kk_header": "src/KOKKOS/pair_dpd_fdt_energy_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 89,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairDPDKokkos",
+  "kk_header": "src/KOKKOS/pair_dpd_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 96,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairEAMKokkos",
+  "kk_header": "src/KOKKOS/pair_eam_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 134,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairEAMKokkos",
+  "kk_header": "src/KOKKOS/pair_eam_kokkos.h",
+  "method": "interpolate",
+  "kk_line": 193,
+  "kk_decl": "void interpolate(int, double, double *, t_hostkkfloat_2d_n7, int);",
+  "bases": [
+   {
+    "class": "PairEAM",
+    "line": 121,
+    "decl": "void interpolate(int, double, double *, double **);",
+    "header": "src/MANYBODY/pair_eam.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 140,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "getMixingWeights",
+  "kk_line": 203,
+  "kk_decl": "void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, K",
+  "bases": [
+   {
+    "class": "PairExp6rx",
+    "line": 74,
+    "decl": "void getMixingWeights(int, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, dou",
+    "header": "src/DPD-REACT/pair_exp6_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "exponentScaling",
+  "kk_line": 210,
+  "kk_decl": "void exponentScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "PairExp6rx",
+    "line": 79,
+    "decl": "void exponentScaling(double, double &, double &) const;",
+    "header": "src/DPD-REACT/pair_exp6_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairExp6rxKokkos",
+  "kk_header": "src/KOKKOS/pair_exp6_rx_kokkos.h",
+  "method": "polynomialScaling",
+  "kk_line": 214,
+  "kk_decl": "void polynomialScaling(KK_FLOAT, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "PairExp6rx",
+    "line": 80,
+    "decl": "void polynomialScaling(double, double &, double &, double &) const;",
+    "header": "src/DPD-REACT/pair_exp6_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairGranHertzHistoryKokkos",
+  "kk_header": "src/KOKKOS/pair_gran_hertz_history_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, int i, int j, KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz, KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairGranHookeHistoryKokkos",
+  "kk_header": "src/KOKKOS/pair_gran_hooke_history_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 62,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, int i, int j, KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz, KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairGranHookeKokkos",
+  "kk_header": "src/KOKKOS/pair_gran_hooke_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 59,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, int i, int j, KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz, KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairLJCutDipoleCutKokkos",
+  "kk_header": "src/KOKKOS/pair_lj_cut_dipole_cut_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 76,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, int i, int j, const KK_FLOAT &epair, KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz, KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMLIAPKokkos",
+  "kk_header": "src/KOKKOS/pair_mliap_kokkos.h",
+  "method": "e_tally",
+  "kk_line": 51,
+  "kk_decl": "void e_tally(MLIAPData* data);",
+  "bases": [
+   {
+    "class": "PairMLIAP",
+    "line": 34,
+    "decl": "void e_tally(class MLIAPData *);",
+    "header": "src/ML-IAP/pair_mliap.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMultiLucyRXKokkos",
+  "kk_header": "src/KOKKOS/pair_multi_lucy_rx_kokkos.h",
+  "method": "computeLocalDensity",
+  "kk_line": 73,
+  "kk_decl": "void computeLocalDensity();",
+  "bases": [
+   {
+    "class": "PairMultiLucyRX",
+    "line": 45,
+    "decl": "void computeLocalDensity();",
+    "header": "src/DPD-REACT/pair_multi_lucy_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMultiLucyRXKokkos",
+  "kk_header": "src/KOKKOS/pair_multi_lucy_rx_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 109,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairMultiLucyRXKokkos",
+  "kk_header": "src/KOKKOS/pair_multi_lucy_rx_kokkos.h",
+  "method": "getMixingWeights",
+  "kk_line": 169,
+  "kk_decl": "void getMixingWeights(int, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &, KK_FLOAT &) const;",
+  "bases": [
+   {
+    "class": "PairMultiLucyRX",
+    "line": 84,
+    "decl": "void getMixingWeights(int, double &, double &, double &, double &);",
+    "header": "src/DPD-REACT/pair_multi_lucy_rx.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "divideInterval",
+  "kk_line": 75,
+  "kk_decl": "void divideInterval(int *intervals, int N, int M);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 49,
+    "decl": "void divideInterval(int *intervals, int N, int M);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "calculateNumberOfIntervals",
+  "kk_line": 76,
+  "kk_decl": "int calculateNumberOfIntervals(int N, int intervalSize);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 50,
+    "decl": "int calculateNumberOfIntervals(int N, int intervalSize);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "grow_atoms",
+  "kk_line": 77,
+  "kk_decl": "void grow_atoms(int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 97,
+    "decl": "void grow_atoms(int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "grow_pairs",
+  "kk_line": 78,
+  "kk_decl": "void grow_pairs(int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 98,
+    "decl": "void grow_pairs(int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "NeighborCount",
+  "kk_line": 160,
+  "kk_decl": "int NeighborCount(t_pod_1i, double, int, int);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 42,
+    "decl": "void NeighborCount(double **x, int **firstneigh, int *ilist, int *numneigh, double rcutsq, int i1);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "NeighborList",
+  "kk_line": 162,
+  "kk_decl": "void NeighborList(t_pod_1d l_rij, t_pod_1i l_numij, t_pod_1i l_typeai, t_pod_1i l_idxi, t_pod_1i l_ai, t_pod_1i l_aj, t_pod_1i l_ti, t_pod_1i l_tj, double l_rcu",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 44,
+    "decl": "void NeighborList(double **x, int **firstneigh, int *atomtype, int *map, int *ilist, int *numneigh, double rcutsq, int i1);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "radialbasis",
+  "kk_line": 165,
+  "kk_decl": "void radialbasis(t_pod_1d rbft, t_pod_1d rbftx, t_pod_1d rbfty, t_pod_1d rbftz, t_pod_1d rij, t_pod_1d l_besselparams, double l_rin, double l_rmax, int l_bessel",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 54,
+    "decl": "void radialbasis(double *rbft, double *rbftx, double *rbfty, double *rbftz, double *rij, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "angularbasis",
+  "kk_line": 171,
+  "kk_decl": "void angularbasis(t_pod_1d l_abf, t_pod_1d l_abfx, t_pod_1d l_abfy, t_pod_1d l_abfz, t_pod_1d l_rij, t_pod_1i l_pq3, int l_K3, int N);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 56,
+    "decl": "void angularbasis(double *tm, double *tmu, double *tmv, double *tmw, int N);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "radialangularsum",
+  "kk_line": 174,
+  "kk_decl": "void radialangularsum(t_pod_1d l_sumU, t_pod_1d l_rbf, t_pod_1d l_abf, t_pod_1i l_tj, t_pod_1i l_numij, const int l_nelements, const int l_nrbf3, const int l_K3",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 57,
+    "decl": "void radialangularsum(int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "twobodydesc",
+  "kk_line": 177,
+  "kk_decl": "void twobodydesc(t_pod_1d d2, t_pod_1d l_rbf, t_pod_1i l_idxi, t_pod_1i l_tj, int l_nrbf2, const int Ni, const int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 59,
+    "decl": "void twobodydesc(double *d2, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "threebodydesc",
+  "kk_line": 179,
+  "kk_decl": "void threebodydesc(t_pod_1d d3, t_pod_1d l_sumU, t_pod_1i l_pc3, t_pod_1i l_pn3, int l_nelements, int l_nrbf3, int l_nabf3, int l_K3, const int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 62,
+    "decl": "void threebodydesc(double *d3, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "fourbodydesc",
+  "kk_line": 182,
+  "kk_decl": "void fourbodydesc(t_pod_1d d4, t_pod_1d l_sumU, t_pod_1i l_pa4, t_pod_1i l_pb4, t_pod_1i l_pc4, int l_nelements, int l_nrbf3, int l_nrbf4, int l_nabf4, int l_K3",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 65,
+    "decl": "void fourbodydesc(double *d4, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "crossdesc",
+  "kk_line": 185,
+  "kk_decl": "void crossdesc(t_pod_1d d12, t_pod_1d d1, t_pod_1d d2, t_pod_1i ind1, t_pod_1i ind2, int n12, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 67,
+    "decl": "void crossdesc(double *d12, double *d1, double *d2, int *ind1, int *ind2, int n12, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "crossdesc_reduction",
+  "kk_line": 187,
+  "kk_decl": "void crossdesc_reduction(t_pod_1d cb1, t_pod_1d cb2, t_pod_1d c12, t_pod_1d d1, t_pod_1d d2, t_pod_1i ind1, t_pod_1i ind2, int n12, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 73,
+    "decl": "void crossdesc_reduction(double *cb1, double *cb2, double *c12, double *d1, double *d2, int *ind1, int *ind2, int n12, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_base_descriptors",
+  "kk_line": 189,
+  "kk_decl": "void blockatom_base_descriptors(t_pod_1d bd, int Ni, int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 75,
+    "decl": "void blockatom_base_descriptors(double *bd1, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_base_coefficients",
+  "kk_line": 190,
+  "kk_decl": "void blockatom_base_coefficients(t_pod_1d ei, t_pod_1d cb, t_pod_1d B, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 76,
+    "decl": "void blockatom_base_coefficients(double *ei, double *cb, double *B, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_environment_descriptors",
+  "kk_line": 191,
+  "kk_decl": "void blockatom_environment_descriptors(t_pod_1d ei, t_pod_1d cb, t_pod_1d B, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 77,
+    "decl": "void blockatom_environment_descriptors(double *ei, double *cb, double *B, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "twobody_forces",
+  "kk_line": 193,
+  "kk_decl": "void twobody_forces(t_pod_1d fij, t_pod_1d cb2, t_pod_1d l_rbfx, t_pod_1d l_rbfy, t_pod_1d l_rbfz, t_pod_1i l_idxi, t_pod_1i l_tj, int l_nrbf2, const int Ni, co",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 82,
+    "decl": "void twobody_forces(double *fij, double *cb2, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "threebody_forces",
+  "kk_line": 195,
+  "kk_decl": "void threebody_forces(t_pod_1d fij, t_pod_1d cb3, t_pod_1d l_rbf, t_pod_1d l_rbfx, t_pod_1d l_rbfy, t_pod_1d l_rbfz, t_pod_1d l_abf, t_pod_1d l_abfx, t_pod_1d l",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 83,
+    "decl": "void threebody_forces(double *fij, double *cb3, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "fourbody_forces",
+  "kk_line": 199,
+  "kk_decl": "void fourbody_forces(t_pod_1d fij, t_pod_1d cb4, t_pod_1d l_rbf, t_pod_1d l_rbfx, t_pod_1d l_rbfy, t_pod_1d l_rbfz, t_pod_1d l_abf, t_pod_1d l_abfx, t_pod_1d l_",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 84,
+    "decl": "void fourbody_forces(double *fij, double *cb4, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "threebody_forcecoeff",
+  "kk_line": 204,
+  "kk_decl": "void threebody_forcecoeff(t_pod_1d fb3, t_pod_1d cb3, t_pod_1d l_sumU, t_pod_1i l_pc3, t_pod_1i l_pn3, t_pod_1i l_elemindex, int l_nelements, int l_nrbf3, int l",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 86,
+    "decl": "void threebody_forcecoeff(double *fb3, double *cb3, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "fourbody_forcecoeff",
+  "kk_line": 207,
+  "kk_decl": "void fourbody_forcecoeff(t_pod_1d fb4, t_pod_1d cb4, t_pod_1d l_sumU, t_pod_1i l_pa4, t_pod_1i l_pb4, t_pod_1i l_pc4, int l_nelements, int l_nrbf3, int l_nrbf4,",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 87,
+    "decl": "void fourbody_forcecoeff(double *fb4, double *cb4, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "allbody_forces",
+  "kk_line": 210,
+  "kk_decl": "void allbody_forces(t_pod_1d fij, t_pod_1d l_forcecoeff, t_pod_1d l_rbf, t_pod_1d l_rbfx, t_pod_1d l_rbfy, t_pod_1d l_rbfz, t_pod_1d l_abf, t_pod_1d l_abfx, t_p",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 88,
+    "decl": "void allbody_forces(double *fij, double *forcecoeff, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "blockatom_energyforce",
+  "kk_line": 214,
+  "kk_decl": "void blockatom_energyforce(t_pod_1d l_ei, t_pod_1d l_fij, int Ni, int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 78,
+    "decl": "void blockatom_energyforce(double *ei, double *fij, int Ni, int Nij);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "tallyenergy",
+  "kk_line": 215,
+  "kk_decl": "void tallyenergy(t_pod_1d l_ei, int istart, int Ni);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 46,
+    "decl": "void tallyenergy(double *ei, int istart, int Ni);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "tallyforce",
+  "kk_line": 216,
+  "kk_decl": "void tallyforce(t_pod_1d l_fij, t_pod_1i l_ai, t_pod_1i l_aj, int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 48,
+    "decl": "void tallyforce(double **force, double *fij, int *ai, int *aj, int N);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairPODKokkos",
+  "kk_header": "src/KOKKOS/pair_pod_kokkos.h",
+  "method": "tallystress",
+  "kk_line": 217,
+  "kk_decl": "void tallystress(t_pod_1d l_fij, t_pod_1d l_rij, t_pod_1i l_ai, t_pod_1i l_aj, int Nij);",
+  "bases": [
+   {
+    "class": "PairPOD",
+    "line": 47,
+    "decl": "void tallystress(double *fij, double *rij, int *ai, int *aj, int nlocal, int N);",
+    "header": "src/ML-POD/pair_pod.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairReaxFFKokkos",
+  "kk_header": "src/KOKKOS/pair_reaxff_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 411,
+  "kk_decl": "void ev_tally(EV_FLOAT_REAX &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairReaxFFKokkos",
+  "kk_header": "src/KOKKOS/pair_reaxff_kokkos.h",
+  "method": "v_tally3",
+  "kk_line": 432,
+  "kk_decl": "void v_tally3(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 154,
+    "decl": "void v_tally3(int, int, int, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairReaxFFKokkos",
+  "kk_header": "src/KOKKOS/pair_reaxff_kokkos.h",
+  "method": "v_tally4",
+  "kk_line": 443,
+  "kk_decl": "void v_tally4(EV_FLOAT_REAX &ev, const int &i, const int &j, const int &k, const int &l, KK_ACC_FLOAT *fi, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *dril, K",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 155,
+    "decl": "void v_tally4(int, int, int, int, double *, double *, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 70,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_kokkos.h",
+  "method": "ev_tally3",
+  "kk_line": 77,
+  "kk_decl": "void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k, const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drj",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 152,
+    "decl": "void ev_tally3(int, int, int, double, double, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_kokkos.h",
+  "method": "twobody",
+  "kk_line": 101,
+  "kk_decl": "void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "PairSW",
+    "line": 63,
+    "decl": "void twobody(Param *, double, double &, int, double &);",
+    "header": "src/MANYBODY/pair_sw.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWMODKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_mod_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 70,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWMODKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_mod_kokkos.h",
+  "method": "ev_tally3",
+  "kk_line": 77,
+  "kk_decl": "void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k, const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drj",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 152,
+    "decl": "void ev_tally3(int, int, int, double, double, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairSWMODKokkos",
+  "kk_header": "src/KOKKOS/pair_sw_mod_kokkos.h",
+  "method": "twobody",
+  "kk_line": 101,
+  "kk_decl": "void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "PairSW",
+    "line": 63,
+    "decl": "void twobody(Param *, double, double &, int, double &);",
+    "header": "src/MANYBODY/pair_sw.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 272,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_kokkos.h",
+  "method": "v_tally3",
+  "kk_line": 279,
+  "kk_decl": "void v_tally3(EV_FLOAT &ev, const int &i, const int &j, const int &k, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 154,
+    "decl": "void v_tally3(int, int, int, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffMODCKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_mod_c_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 199,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffMODCKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_mod_c_kokkos.h",
+  "method": "v_tally3",
+  "kk_line": 206,
+  "kk_decl": "void v_tally3(EV_FLOAT &ev, const int &i, const int &j, const int &k, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 154,
+    "decl": "void v_tally3(int, int, int, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffMODKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_mod_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 199,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffMODKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_mod_kokkos.h",
+  "method": "v_tally3",
+  "kk_line": 206,
+  "kk_decl": "void v_tally3(EV_FLOAT &ev, const int &i, const int &j, const int &k, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 154,
+    "decl": "void v_tally3(int, int, int, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_zbl_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 198,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairTersoffZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_tersoff_zbl_kokkos.h",
+  "method": "v_tally3",
+  "kk_line": 205,
+  "kk_decl": "void v_tally3(EV_FLOAT &ev, const int &i, const int &j, const int &k, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drij, KK_FLOAT *drik) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 154,
+    "decl": "void v_tally3(int, int, int, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairVashishtaKokkos",
+  "kk_header": "src/KOKKOS/pair_vashishta_kokkos.h",
+  "method": "ev_tally",
+  "kk_line": 94,
+  "kk_decl": "void ev_tally(EV_FLOAT &ev, const int &i, const int &j, const KK_FLOAT &epair, const KK_FLOAT &fpair, const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 151,
+    "decl": "void ev_tally(int, int, int, int, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairVashishtaKokkos",
+  "kk_header": "src/KOKKOS/pair_vashishta_kokkos.h",
+  "method": "ev_tally3",
+  "kk_line": 101,
+  "kk_decl": "void ev_tally3(EV_FLOAT &ev, const int &i, const int &j, int &k, const KK_FLOAT &evdwl, const KK_FLOAT &ecoul, KK_ACC_FLOAT *fj, KK_ACC_FLOAT *fk, KK_FLOAT *drj",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 152,
+    "decl": "void ev_tally3(int, int, int, double, double, double *, double *, double *, double *);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairVashishtaKokkos",
+  "kk_header": "src/KOKKOS/pair_vashishta_kokkos.h",
+  "method": "twobody",
+  "kk_line": 125,
+  "kk_decl": "void twobody(const Param&, const KK_FLOAT&, KK_FLOAT&, const int&, KK_FLOAT&) const;",
+  "bases": [
+   {
+    "class": "PairVashishta",
+    "line": 60,
+    "decl": "void twobody(const Param *, double, double &, int, double &);",
+    "header": "src/MANYBODY/pair_vashishta.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairVashishtaKokkos",
+  "kk_header": "src/KOKKOS/pair_vashishta_kokkos.h",
+  "method": "threebody",
+  "kk_line": 129,
+  "kk_decl": "void threebody(const Param&, const Param&, const Param&, const KK_FLOAT&, const KK_FLOAT&, KK_FLOAT *, KK_FLOAT *, KK_ACC_FLOAT *, KK_ACC_FLOAT *, const int&, K",
+  "bases": [
+   {
+    "class": "PairVashishta",
+    "line": 61,
+    "decl": "void threebody(const Param *, const Param *, const Param *, double, double, double *, double *, double *, double *, int, double &);",
+    "header": "src/MANYBODY/pair_vashishta.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairYLZKokkos",
+  "kk_header": "src/KOKKOS/pair_ylz_kokkos.h",
+  "method": "ev_tally_xyz",
+  "kk_line": 65,
+  "kk_decl": "void ev_tally_xyz(EV_FLOAT &ev, int i, int j, const KK_FLOAT &epair, KK_FLOAT fx, KK_FLOAT fy, KK_FLOAT fz, KK_FLOAT delx, KK_FLOAT dely, KK_FLOAT delz) const;",
+  "bases": [
+   {
+    "class": "Pair",
+    "line": 301,
+    "decl": "void ev_tally_xyz(int, int, int, int, double, double, double, double, double, double, double, double);",
+    "header": "src/pair.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_zbl_kokkos.h",
+  "method": "e_zbl",
+  "kk_line": 77,
+  "kk_decl": "KK_FLOAT e_zbl(KK_FLOAT, int, int) const;",
+  "bases": [
+   {
+    "class": "PairZBL",
+    "line": 52,
+    "decl": "double e_zbl(double, int, int);",
+    "header": "src/pair_zbl.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_zbl_kokkos.h",
+  "method": "dzbldr",
+  "kk_line": 80,
+  "kk_decl": "KK_FLOAT dzbldr(KK_FLOAT, int, int) const;",
+  "bases": [
+   {
+    "class": "PairZBL",
+    "line": 53,
+    "decl": "double dzbldr(double, int, int);",
+    "header": "src/pair_zbl.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PairZBLKokkos",
+  "kk_header": "src/KOKKOS/pair_zbl_kokkos.h",
+  "method": "d2zbldr2",
+  "kk_line": 83,
+  "kk_decl": "KK_FLOAT d2zbldr2(KK_FLOAT, int, int) const;",
+  "bases": [
+   {
+    "class": "PairZBL",
+    "line": 54,
+    "decl": "double d2zbldr2(double, int, int);",
+    "header": "src/pair_zbl.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "compute_rho1d",
+  "kk_line": 484,
+  "kk_decl": "void compute_rho1d(const int i, const FFT_SCALAR &, const FFT_SCALAR &, const FFT_SCALAR &) const;",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 140,
+    "decl": "void compute_rho1d(const FFT_SCALAR &, const FFT_SCALAR &, const FFT_SCALAR &);",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "compute_rho_coeff",
+  "kk_line": 486,
+  "kk_decl": "void compute_rho_coeff();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 142,
+    "decl": "void compute_rho_coeff();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "setup_triclinic",
+  "kk_line": 498,
+  "kk_decl": "void setup_triclinic();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 157,
+    "decl": "void setup_triclinic();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "compute_gf_ik_triclinic",
+  "kk_line": 499,
+  "kk_decl": "void compute_gf_ik_triclinic();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 158,
+    "decl": "void compute_gf_ik_triclinic();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "PPPMKokkos",
+  "kk_header": "src/KOKKOS/pppm_kokkos.h",
+  "method": "poisson_ik_triclinic",
+  "kk_line": 500,
+  "kk_decl": "void poisson_ik_triclinic();",
+  "bases": [
+   {
+    "class": "PPPM",
+    "line": 159,
+    "decl": "void poisson_ik_triclinic();",
+    "header": "src/KSPACE/pppm.h"
+   }
+  ]
+ },
+ {
+  "kk_class": "ThirdOrderKokkos",
+  "kk_header": "src/KOKKOS/third_order_kokkos.h",
+  "method": "setup",
+  "kk_line": 35,
+  "kk_decl": "void setup();",
+  "bases": [
+   {
+    "class": "ThirdOrder",
+    "line": 23,
+    "decl": "void setup();",
+    "header": "src/PHONON/third_order.h"
+   }
+  ]
+ }
+]
