@@ -26,3 +26,7 @@ fix_viscous_nonlinear_kokkos.cpp
 fix_viscous_nonlinear_kokkos.h
 fix_viscous_sphere_kokkos.cpp
 fix_viscous_sphere_kokkos.h
+fix_wall_flow_kokkos.cpp
+fix_wall_flow_kokkos.h
+fix_wall_gran_kokkos.cpp
+fix_wall_gran_kokkos.h

@@ -114,3 +114,25 @@ rejected; datamask_read/modify correct (V|F|RADIUS|MASK / F).
 Base: src/GRANULAR/fix_viscous_sphere.{cpp,h}.  drag selection per scalestyle matches
 CPU (VS_ enum order identical); VARIABLE and respa rejected in init(); OMEGA/TORQUE
 masks correct; base dtor has copymode guard.
+
+== fix_wall_flow_kokkos (DONE) ==
+Base: src/fix_wall_flow.{cpp,h}.  generate_velocity_kk math (gamma, delta, edd,
+probability_threshold, 10 Newton iterations, nu/gamma, transverse gaussians) matches CPU
+line for line; Kokkos::exp/erf/erfc/sqrt used.  1 double per atom in the exchange buffer
+means the flat d_buf(i) <-> d_indices(i) mapping is correct (nextrarecv1 == nrecv1/data_size),
+so the nrecv1/nextrarecv1 remapping that fix_spring_self needs is genuinely unnecessary here.
+Key infrastructure fact: ModifyKokkos wraps EVERY fix callback with
+atomKK->sync(fix->execution_space, fix->datamask_read) ... modified(..., datamask_modify)
+(modify_kokkos.cpp:44-88 and the per-callback blocks), and a non-kokkosable fix has
+execution_space Host with ALL_MASK, so declared datamasks really are the contract.
+
+== fix_wall_gran_kokkos (DONE) - 6 findings ==
+Base: src/KOKKOS/fix_wall_gran_old.{cpp,h} (the base itself lives in KOKKOS/, not GRANULAR/).
+hooke_history kernel matches fix_wall_gran_old.cpp:857-975 line by line EXCEPT the missing
+limit_damping clamp and the peratom_flag contact stores.
+Base pairstyle enum is fix_wall_gran_old.h:29 {HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,GRANULAR};
+the kokkos .cpp shadows it with {HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,BONDED_HISTORY}.
+wallstyle enum values do agree (fix_wall_gran_old.cpp:53).
+Checked and NOT reported: views bound before atomKK->sync in post_force (harmless, sync
+does not realloc); grow_arrays' sync_host()+modify_host() pair is only a forced-host-resize,
+data is preserved; ZCYLINDER rwall is only used by hertz/granular so its absence is fine.

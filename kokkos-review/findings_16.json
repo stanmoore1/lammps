@@ -1,0 +1,246 @@
+[
+  {
+    "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+    "line": 758,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The per-element weight read from wjelem is stored in an int instead of a double, truncating any non-integer element weight (and zeroing weights below 1) in both the descriptor and the descriptor-derivative kernels.",
+    "evidence": "src/KOKKOS/mliap_so3_kokkos.cpp:757-758 'const int jelem = t_jelems[ipair]; int weight = t_wjelem[jelem];' (MLIAPSO3SpectrumTag), and the same 'int weight = t_wjelem[jelem];' at lines 893 and 933 (MLIAPSO3SpectrumDXDRTag). t_wjelem is 'float_1d t_wjelem' (src/KOKKOS/mliap_so3_kokkos.h:75), filled from the double array descriptor->wjelem in src/KOKKOS/mliap_descriptor_kokkos.h:36-40. The CPU original declares it double: src/ML-IAP/mliap_so3.cpp:819 'double weight;' with 'weight = wjelem[jelem];' at line 871 (and 952/1005/1063 for spectrum_dxdr), used as 'm_clist_r[tn] = m_clist_r[tn] * weight;' (line 914). The value comes straight from the 'welems' line of the SO3 parameter file, parsed with utils::numeric (src/ML-IAP/mliap_descriptor_so3.cpp:150-155), so it is an arbitrary real number.",
+    "failure_scenario": "An SO3 parameter file with 'welems 1.0 0.5' (or any non-integer weight): with pair_style mliap/kk the second element's contribution is multiplied by 0 instead of 0.5, so all descriptors, energies and forces involving that element are wrong, while pair_style mliap gives the correct answer. Even 'welems 1.0 1.0' is only correct by luck.",
+    "suggested_fix": "Change 'int weight' to 'double weight' at lines 758, 893 and 933 (the later 'double(weight)' casts then become no-ops)."
+  },
+  {
+    "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+    "line": 144,
+    "severity": "high",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "MLIAPDummyModelKokkos's destructor decrements the Python unified_interface reference that its base class destructor also decrements, so the object is released twice for a single incref.",
+    "evidence": "src/KOKKOS/mliap_unified_kokkos.cpp:140-145 '~MLIAPDummyModelKokkos() { // manually decrement borrowed reference from Python\\n  Py_DECREF(unified_interface); }' -- and the base destructor, which always runs afterwards, does exactly the same: src/ML-IAP/mliap_unified.cpp:123-127 'MLIAPDummyModel::~MLIAPDummyModel() { Py_DECREF(unified_interface); }'. build_unified takes exactly one reference per object: src/KOKKOS/mliap_unified_kokkos.cpp:251-255 'model->unified_interface = unified_interface; Py_INCREF(unified_interface); descriptor->unified_interface = unified_interface; Py_INCREF(unified_interface);'. The sibling Kokkos descriptor gets this right and deliberately leaves the DECREF to the base: lines 41-45 '~MLIAPDummyDescriptorKokkos() { // done in base class\\n  // Py_DECREF(unified_interface); }'.",
+    "failure_scenario": "'pair_style mliap/kk unified <module>' followed by redefining pair_style, or simply shutting LAMMPS down: three Py_DECREFs are issued against two Py_INCREFs, dropping the interface object's refcount to zero (or below) while the descriptor still holds a pointer to it -- a use-after-free/abort in CPython, or 'Fatal Python error: deallocating None'-style corruption.",
+    "suggested_fix": "Delete the Py_DECREF from ~MLIAPDummyModelKokkos() and let MLIAPDummyModel's destructor release the reference, mirroring the descriptor."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_region_kokkos.h",
+    "line": 97,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "The reduction functor stores a raw host pointer to the RegBlockKokkos/RegSphereKokkos object and dereferences it inside the device kernel, which is an illegal memory access on CUDA/HIP unless the build opts into unified memory.",
+    "evidence": "src/KOKKOS/fix_wall_region_kokkos.h:96-112 'FixWallRegionKokkos<DeviceType> c; T *regionKK; ... KOKKOS_INLINE_FUNCTION void operator()(const int i, value_type result) const { c.wall_particle(regionKK,i,result); }' -- the fix itself is copied BY VALUE ('c(*c_ptr)') but the region is kept as a pointer, filled in src/KOKKOS/fix_wall_region_kokkos.cpp:117-122 with the address returned by 'dynamic_cast<RegBlockKokkos<DeviceType>*>(region)', i.e. an ordinary host-heap object created by Domain's region factory. The kernel then does 'regionKK->match_kokkos(...)' (fix_wall_region_kokkos.cpp:159) and 'regionKK->surface_kokkos(...)' (line 173), which read instance members such as dynamic/openflag/interior/xlo/xhi and the RegionRemapKokkos boxremap (src/KOKKOS/region_block_kokkos.h:68-119, 122-127) from that host address. Every other Kokkos style that needs a region avoids this by calling the region's own match_all_kokkos(), which copies '*this' into the kernel (e.g. src/KOKKOS/fix_setforce_kokkos.cpp:85-90, fix_addforce_kokkos.cpp:105-110, compute_temp_region_kokkos.cpp:69-70). UVM is not on by default: cmake/Modules/Packages/KOKKOS.cmake:58-64 rejects Kokkos_ENABLE_CUDA_UVM and doc/src/Speed_kokkos.rst:439-441 documents Kokkos_ENABLE_IMPL_CUDA_UNIFIED_MEMORY as an opt-in CMake option.",
+    "failure_scenario": "'region r block ... ' + 'fix w all wall/region/kk r lj93 1.0 1.0 2.5' on a CUDA or HIP build without Kokkos_ENABLE_IMPL_CUDA_UNIFIED_MEMORY: the first post_force kernel dereferences a host address on the device and the run dies with 'an illegal memory address was encountered' (or, worse, silently reads garbage region geometry and produces wrong wall forces).",
+    "suggested_fix": "Pass the region object by value into the functor (store 'T regionKK;' copy-constructed from '*regionKK', the way the fix itself is copied) after setting the region's copymode, or restructure so the kernel is launched from inside the region class like match_all_kokkos() does."
+  },
+  {
+    "file": "src/KOKKOS/mliap_data_kokkos.cpp",
+    "line": 186,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The kernel that fills elems iterates over atom->nmax instead of nlocal+nghost, so it reads uninitialized entries of atom->type and uses them to index the element map view, which is only ntypes+1 long.",
+    "evidence": "src/KOKKOS/mliap_data_kokkos.cpp:186-189 'Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType>(0,nmax), KOKKOS_LAMBDA (int i) { const int itype = type(i); d_elems(i) = map(itype); });' -- the CPU original loops only over the valid atoms, src/ML-IAP/mliap_data.cpp:206-209 'for (int i = 0; i < nall; i++) { const int itype = type[i]; elems[i] = map[itype]; }' with 'int nall = atom->nlocal + atom->nghost;' (line 118). nmax is atom->nmax (set at src/KOKKOS/mliap_data_kokkos.cpp:72-73), so indices in [nall, nmax) hold whatever was last in the type array, or uninitialized memory right after Atom::grow(). The map view is allocated with exactly ntypes+1 entries: src/KOKKOS/pair_mliap_kokkos.cpp:159 'memoryKK->create_kokkos(k_map, map, n+1, \"pair_mliap:map\");'.",
+    "failure_scenario": "pair_style mliap/kk immediately after the atom arrays are grown (e.g. the first steps of a run, or after a large migration): type(i) for i >= nlocal+nghost is an arbitrary int, so map(itype) reads outside the ntypes+1 map allocation. With Kokkos bounds checking enabled the run aborts; without it, it is a silent out-of-bounds read (and a segfault if the index is far enough out).",
+    "suggested_fix": "Launch the kernel over RangePolicy(0, nall) (nlocal+nghost) as the CPU version does, matching the deep_copy that already zeroes the rest of d_elems."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_gran_old.cpp",
+    "line": 669,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "For wallstyle ZCYLINDER with the 'shear' keyword the wall velocity vwall is accumulated with += inside the per-atom loop, so every contacting atom sees a wall velocity contaminated by all previously processed atoms.",
+    "evidence": "src/KOKKOS/fix_wall_gran_old.cpp:602-608 sets vwall once before the loop ('vwall[0] = vwall[1] = vwall[2] = 0.0; ... else if (wshear) vwall[axis] = vshear;'), then inside the 'for (int i = 0; i < nlocal; i++)' loop at lines 666-670: 'if (wshear && axis != 2) { vwall[0] += vshear * x[i][1]/delxy; vwall[1] += -vshear * x[i][0]/delxy; vwall[2] = 0.0; }'. vwall is never reset per atom, so the rotational wall velocity of atom i is added on top of the values left by atoms 0..i-1 (and on top of the pre-loop vwall[axis]=vshear).",
+    "failure_scenario": "fix f all wall/gran/old hooke ... zcylinder 10.0 shear x 1.0 : with N atoms in contact with the cylinder, the effective wall velocity used for atom k is sum over all previous contacting atoms, growing without bound -> wrong tangential/damping forces and unphysical heating.",
+    "suggested_fix": "Compute the rotational wall velocity into a per-atom local copy (e.g. 'double vwall_local[3] = {0,0,0}; vwall_local[0] = vshear*x[i][1]/delxy; ...') and pass that to the interaction routines instead of mutating the shared vwall array."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_reflect_kokkos.cpp",
+    "line": 49,
+    "severity": "medium",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "atomKK->modified() for X_MASK|V_MASK is called before the reflection kernels run instead of after them, so a host-side sync triggered from inside the wall loop (equal-style wall variable) clears the device-modified flag and the reflections of the remaining walls are never copied back to the host.",
+    "evidence": "src/KOKKOS/fix_wall_reflect_kokkos.cpp:48-49 'atomKK->sync(execution_space,datamask_read); atomKK->modified(execution_space,datamask_modify);' -- the parallel_for that actually writes x and v is only issued later, at lines 77-79 inside the 'for (int m = 0; m < nwall; m++)' loop, and line 65 evaluates 'input->variable->compute_equal(varindex[m])' between the modified() call and the last kernel. Every other Kokkos fix in the package calls modified() after the kernels, e.g. src/KOKKOS/fix_setforce_kokkos.cpp:110-145 and src/KOKKOS/fix_momentum_kokkos.cpp:121-129, and the sibling style src/KOKKOS/fix_wall_piston_kokkos.cpp:164-203 does the same.",
+    "failure_scenario": "'fix w all wall/reflect/kk xlo 0.0 xhi v_top' where the equal-style variable v_top references a compute or thermo keyword that reads per-atom x on the host: evaluating the variable syncs x device->host and clears k_x's device-modified flag; the subsequent xhi reflection kernel then writes only the device copy, and the following host read (dump, another non-kokkos fix) sees unreflected coordinates.",
+    "suggested_fix": "Move 'atomKK->modified(execution_space,datamask_modify);' to after the wall loop (just before the addstep_compute call)."
+  },
+  {
+    "file": "src/KOKKOS/mliap_model_linear_kokkos.cpp",
+    "line": 54,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "compute_gradients launches its reduction with the default execution space instead of RangePolicy<DeviceType>, so the mliap/kk/host variant of a GPU build runs the kernel on the GPU over host-space views.",
+    "evidence": "src/KOKKOS/mliap_model_linear_kokkos.cpp:54 'Kokkos::parallel_reduce(data->nlistatoms, KOKKOS_LAMBDA (int ii, double &update) {' -- the integer form of parallel_reduce uses Kokkos::DefaultExecutionSpace, while the views captured on lines 41-49 come from '.template view<DeviceType>()'. The class is instantiated for both device types (lines 94-97 'template class MLIAPModelLinearKokkos<LMPDeviceType>; #ifdef LMP_KOKKOS_GPU template class MLIAPModelLinearKokkos<LMPHostType>;') and the host variant is reachable through 'PairStyle(mliap/kk/host,PairMLIAPKokkos<LMPHostType>)' (src/KOKKOS/pair_mliap_kokkos.h:22), which builds the model with 'new MLIAPModelLinearKokkos<DeviceType>(lmp,arg[iarg+2])' (src/KOKKOS/pair_mliap_kokkos.cpp:180). Every other kernel in this ML-IAP group spells the policy out, e.g. src/KOKKOS/mliap_data_kokkos.cpp:148,154,186,228 and mliap_descriptor_so3_kokkos.cpp:92,205.",
+    "failure_scenario": "A CUDA-enabled build running 'pair_style mliap/kk/host model linear ... descriptor so3 ...': the reduction is dispatched to Kokkos::Cuda while d_ielems/d_descriptors/d_betas/d_eatoms are HostSpace views, so the kernel dereferences host pointers on the device (illegal memory address, or silently wrong betas/energy).",
+    "suggested_fix": "Use 'Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,data->nlistatoms), ...)' as the rest of the ML-IAP Kokkos code does."
+  },
+  {
+    "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+    "line": 807,
+    "severity": "medium",
+    "category": "memory",
+    "confidence": "likely",
+    "summary": "spectrum_dxdr() grows m_ulist_r/m_ulist_i/m_dYlm_r/m_dYlm_i for a larger atom count but forgets m_dclist, which the same kernel subviews by the identical chunk index.",
+    "evidence": "src/KOKKOS/mliap_so3_kokkos.cpp:807-820 re-creates m_clisttot_r/i, and inside 'if (delta > 0)' re-creates m_ulist_r, m_ulist_i, m_dYlm_r and m_dYlm_i with the new num_of_temp -- m_dclist is absent. The only place m_dclist is allocated is init_arrays (line 244 'memoryKK->create_kokkos(m_dclist, num_of_temp, m_nmax, m_numYlms, 3, ...)'), which is called only from spectrum() (line 679). The DXDR kernel indexes it with the same chunk index as the views that were grown: line 886 'auto dclist = Kokkos::subview(m_dclist,ii_chunk,Kokkos::ALL,Kokkos::ALL,Kokkos::ALL);' with 'int ii_chunk = ii%m_chunk_size;' (line 879). spectrum() is skipped whenever the model is linear and eflag is 0 -- src/KOKKOS/pair_mliap_kokkos.cpp:113 'if (model->nonlinearflag || eflag)' and MLIAPModelLinear leaves nonlinearflag = 0 (src/ML-IAP/mliap_model.cpp:39).",
+    "failure_scenario": "pair_style mliap/kk model linear ... descriptor so3 ...: on a non-thermo timestep (eflag = 0) where list->inum has grown since the last energy step, spectrum_dxdr enlarges m_ulist_r but not m_dclist, and the kernel writes dclist(n,i,k) through a subview whose first index is past the end of m_dclist -- out-of-bounds device writes and corrupted forces (or an abort with Kokkos bounds checking).",
+    "suggested_fix": "Re-create m_dclist alongside m_ulist_r/m_dYlm_* in the 'if (delta > 0)' block of spectrum_dxdr, or simply call init_arrays(nlocal, ncoefs) at the top of spectrum_dxdr the way spectrum() does."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_gran_old.cpp",
+    "line": 534,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "init() increments roll_history_index / twist_history_index before they are ever assigned when the corresponding history is disabled, reading uninitialized members.",
+    "evidence": "src/KOKKOS/fix_wall_gran_old.cpp:519-541: roll_history_index is only assigned inside 'if (roll_history) {...}' and twist_history_index only inside 'if (twist_history) {...}', but lines 533-537 do 'if (normal_model == JKR) { tangential_history_index += 1; roll_history_index += 1; twist_history_index += 1; }' and lines 538-541 do the same for MINDLIN_RESCALE unconditionally. Neither index is initialized in the constructor (header src/KOKKOS/fix_wall_gran_old.h:80-82 declares them plain ints).",
+    "failure_scenario": "fix wall/gran/old granular jkr ... tangential linear_history ... (no rolling/twisting): roll_history_index and twist_history_index are read while indeterminate; harmless today only because granular() guards their use with roll_model/twist_model, but it is undefined behaviour and trips MemorySanitizer/valgrind.",
+    "suggested_fix": "Initialize normal_history_index/tangential_history_index/roll_history_index/twist_history_index to 0 in the constructor (or at the top of init()) before the conditional increments."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_gran_old.cpp",
+    "line": 89,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "roll_model and twist_model are left uninitialized when pairstyle is not GRANULAR.",
+    "evidence": "src/KOKKOS/fix_wall_gran_old.cpp:87-90 initializes 'normal_model = NORMAL_NONE; tangential_model = TANGENTIAL_NONE; damping_model = DAMPING_NONE;' but roll_model/twist_model are assigned only in the GRANULAR branch at line 127 ('roll_model = twist_model = NONE;'). For pairstyle HOOKE/HOOKE_HISTORY/HERTZ_HISTORY they stay indeterminate; the header src/KOKKOS/fix_wall_gran_old.h:70 declares them without initializer.",
+    "failure_scenario": "Any derived/accelerated variant or future code that queries roll_model/twist_model outside the GRANULAR branch (e.g. FixWallGranKokkos) reads garbage; with the CPU code path it is currently latent only because granular() is not called.",
+    "suggested_fix": "Set 'roll_model = ROLL_NONE; twist_model = TWIST_NONE;' next to the other model defaults at line 88 so they are always defined."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_gran_old.cpp",
+    "line": 481,
+    "severity": "low",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "array_atom allocated by grow_arrays() when the 'contacts' keyword is used is never freed in the destructor.",
+    "evidence": "grow_arrays (src/KOKKOS/fix_wall_gran_old.cpp:1567-1572) does 'if (peratom_flag) memory->grow(array_atom,nmax,size_peratom_cols,\"fix_wall_gran_old:array_atom\");' but the destructor (lines 476-491) only frees idregion, history_one and mass_rigid.",
+    "failure_scenario": "'fix ... wall/gran/old ... contacts' followed by 'unfix' (or repeated fix/unfix in a loop) leaks nmax*8 doubles per instance.",
+    "suggested_fix": "Add 'memory->destroy(array_atom);' to ~FixWallGranOld() (after the copymode guard)."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_piston_kokkos.cpp",
+    "line": 38,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The Kokkos random pool is seeded from the base-class member tseed, which is left uninitialized whenever the optional 'temp' keyword is not used.",
+    "evidence": "src/KOKKOS/fix_wall_piston_kokkos.cpp:35-41 'FixWallPistonKokkos<DeviceType>::FixWallPistonKokkos(LAMMPS *lmp, int narg, char **arg) : FixWallPiston(lmp, narg, arg), ... rand_pool(tseed + comm->me)'. tseed is declared as a plain int in src/SHOCK/fix_wall_piston.h:40 ('int tempflag, tseed;') and is assigned ONLY inside the 'temp' keyword branch of the base constructor (src/SHOCK/fix_wall_piston.cpp:82-99: 'tseed = utils::inumeric(FLERR,arg[iarg+3],false,lmp);'); the constructor initializes tempflag/roughflag/... at lines 44-55 but never tseed. The CPU style avoids the issue because it only constructs RanMars inside that branch (line 96).",
+    "failure_scenario": "'fix p all wall/piston/kk zlo pos 0.0 vel 0.5' (no temp keyword): rand_pool is constructed with an indeterminate seed value; the read of the uninitialized tseed is undefined behaviour and is flagged by valgrind/MemorySanitizer. It also unconditionally allocates a full RNG state pool sized by device concurrency even when no thermostat is requested.",
+    "suggested_fix": "Initialize tseed (e.g. to 0) in the FixWallPiston constructor next to the other defaults, and/or only construct/seed rand_pool when tempflag is set."
+  },
+  {
+    "file": "src/KOKKOS/mliap_data_kokkos.cpp",
+    "line": 226,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "grow_neigharrays() declares an unused host mirror of cutsq, producing an unused-variable warning.",
+    "evidence": "src/KOKKOS/mliap_data_kokkos.cpp:225-227 'auto d_cutsq=k_pairmliap->k_cutsq.template view<DeviceType>(); auto h_cutsq=k_pairmliap->k_cutsq.view_host(); auto d_numneighs = ...' -- h_cutsq is never referenced again in the function; only d_cutsq is used inside the parallel_reduce at line 244.",
+    "failure_scenario": "No runtime effect; -Wunused-variable noise and a hint that a host/device cutsq mix-up was intended here.",
+    "suggested_fix": "Delete the h_cutsq line."
+  },
+  {
+    "file": "src/KOKKOS/mliap_model_python_kokkos.cpp",
+    "line": 130,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "The 'Loading python model complete' message is printed by every MPI rank because the comm->me == 0 guard of the CPU version was dropped.",
+    "evidence": "src/KOKKOS/mliap_model_python_kokkos.cpp:129-130 'model_loaded = 1; utils::logmesg(MLIAPModelKokkos<DeviceType>::lmp, \"Loading python model complete.\\n\");' versus src/ML-IAP/mliap_model_python.cpp:131-132 'model_loaded = 1; if (comm->me == 0) utils::logmesg(lmp, \"Loading python model complete.\\n\");'. The deferred-load message a few lines above (mliap_model_python_kokkos.cpp:106-107) does keep the guard, so the omission is clearly unintended.",
+    "failure_scenario": "'pair_style mliap/kk model mliappy ...' on N MPI ranks prints the line N times into the screen/log output.",
+    "suggested_fix": "Wrap the logmesg in 'if (MLIAPModelKokkos<DeviceType>::comm->me == 0)' like the CPU version and like the deferred-load branch above it."
+  },
+  {
+    "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+    "line": 698,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "The growth test for the 3-D k_dplist_r view compares the total element count against only its first extent, so the view is destroyed and reallocated on essentially every spectrum() call.",
+    "evidence": "src/KOKKOS/mliap_so3_kokkos.cpp:697-701 'totali = (bigint) totaln * ncoefs * 3; if ( totali > (bigint)k_dplist_r.extent(0)) { memoryKK->realloc_kokkos(k_dplist_r, \"MLIAP_SO3Kokkos:m_dplist_r\", (int)totaln, ncoefs, 3); ... }'. k_dplist_r is 'float_3d' (npairs x ncoefs x 3), so extent(0) is totaln, and the test is 'totaln*ncoefs*3 > totaln_prev', which is true for every realistic ncoefs. The neighbouring tests for the 1-D m_sbes_array (line 684) and m_rip_array (line 691) correctly compare against the flat length.",
+    "failure_scenario": "Every timestep that computes descriptors frees and re-allocates a npairs*ncoefs*3 double device array, adding an avoidable large allocation/deallocation per step.",
+    "suggested_fix": "Compare against the actual first extent, e.g. 'if (totaln > (int)k_dplist_r.extent(0) || ncoefs != (int)k_dplist_r.extent(1))'."
+  },
+  {
+    "file": "src/KOKKOS/mliap_descriptor_so3_kokkos.cpp",
+    "line": 90,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "compute_forces() unconditionally marks the pair style's per-atom virial dual view host-modified and copies it to the device every step, even when per-atom virial tallying is off.",
+    "evidence": "src/KOKKOS/mliap_descriptor_so3_kokkos.cpp:88-91 'auto d_vatom = data->k_pairmliap->k_vatom.template view<DeviceType>(); Kokkos::View<double[6], DeviceType> virial(\"virial\"); data->k_pairmliap->k_vatom.modify_host(); data->k_pairmliap->k_vatom.template sync<DeviceType>();' -- neither statement is guarded by vflag_atom, unlike the matching write-back at lines 132-135 'if (vflag_atom) { ... modify<DeviceType>(); ... sync_host(); }'. The pair style has already put a zeroed k_vatom on both sides just before (src/KOKKOS/pair_mliap_kokkos.cpp:99-108), so the extra host->device copy is redundant even when vflag_atom is set.",
+    "failure_scenario": "Every timestep copies the whole nmax x 6 vatom array host->device for nothing; on a GPU run without per-atom virial output this is a pure PCIe cost proportional to the atom count.",
+    "suggested_fix": "Wrap the modify_host()/sync<DeviceType>() pair in 'if (vflag_atom)', or drop it entirely since pair_mliap_kokkos.cpp already leaves both sides zeroed and current."
+  },
+  {
+    "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+    "line": 123,
+    "severity": "low",
+    "category": "memory",
+    "confidence": "confirmed",
+    "summary": "MLIAPDummyDescriptorKokkos::set_elements() forgets to set allocated_elements, so the per-element name strings it strdups are never freed.",
+    "evidence": "src/KOKKOS/mliap_unified_kokkos.cpp:122-128 'void MLIAPDummyDescriptorKokkos<DeviceType>::set_elements(char **elems, int nelems) { nelements = nelems; elements = new char *[nelems]; for (int i = 0; i < nelems; i++) { elements[i] = utils::strdup(elems[i]); } }' versus the CPU original src/ML-IAP/mliap_unified.cpp:108-114 which ends with 'allocated_elements = 1;'. The base destructor frees the strings only under that flag: src/ML-IAP/mliap_descriptor.cpp:36-40 'if (allocated_elements) for (int i = 0; i < nelements; i++) delete[] elements[i]; delete[] elements;'.",
+    "failure_scenario": "Every 'pair_style mliap/kk unified ...' leaks nelements strdup'd strings; repeated pair_style redefinition in a long script leaks steadily.",
+    "suggested_fix": "Add 'allocated_elements = 1;' at the end of MLIAPDummyDescriptorKokkos::set_elements()."
+  },
+  {
+    "file": "src/KOKKOS/fix_wall_harmonic_kokkos.cpp",
+    "line": 33,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "confirmed",
+    "summary": "Every FixWall-derived Kokkos style declares V_MASK in datamask_read although none of them reads atom velocities, forcing an unnecessary velocity sync to the device on each wall evaluation.",
+    "evidence": "'datamask_read = X_MASK | V_MASK | F_MASK | MASK_MASK;' appears identically in src/KOKKOS/fix_wall_harmonic_kokkos.cpp:33, fix_wall_harmonic_outside_kokkos.cpp:33, fix_wall_lj1043_kokkos.cpp:37, fix_wall_lj126_kokkos.cpp:33, fix_wall_lj93_kokkos.cpp:40, fix_wall_morse_kokkos.cpp:35 and fix_wall_region_kokkos.cpp:47, and wall_particle() syncs that whole mask ('atomKK->sync(execution_space, datamask_read);', e.g. fix_wall_harmonic_kokkos.cpp:100). The kernels only ever touch d_x, d_f and d_mask (fix_wall_harmonic_kokkos.cpp:101-103,137-158) -- no style in the family reads v.",
+    "failure_scenario": "On a GPU run where another style has left the velocities host-modified, each wall_particle() call triggers a full nlocal x 3 host-to-device copy of v that is never used; with several walls this repeats per wall per timestep.",
+    "suggested_fix": "Drop V_MASK from datamask_read in these seven constructors (fix_wall_reflect_kokkos.cpp:36 already lists only what it uses)."
+  },
+  {
+    "file": "src/KOKKOS/mliap_model_kokkos.h",
+    "line": 96,
+    "severity": "low",
+    "category": "memory",
+    "confidence": "possible",
+    "summary": "set_k_coeffelem() frees the previous coeffelem with memory->destroy(), which would corrupt the heap if it is ever called a second time on a model whose coeffelem is already Kokkos-backed.",
+    "evidence": "src/KOKKOS/mliap_model_kokkos.h:87-100 'memoryKK->create_kokkos(k_coeffelem, tmp, model->nelements, model->nparams, ...); ... memory->destroy(model->coeffelem); model->coeffelem = tmp;'. After the first call model->coeffelem is the array produced by create_kokkos, whose row pointers alias Kokkos-owned memory (src/KOKKOS/memory_kokkos.h:236-241 'array[i] = &data.view_host()(i,0);'), and the matching deallocator only frees the row-pointer block (memory_kokkos.h:272-281 destroy_kokkos, which does sfree(array) but never sfree(array[0])). Memory::destroy for a 2d array frees array[0] as well.",
+    "failure_scenario": "Today the only callers are one-shot constructor paths (mliap_model_linear_kokkos.cpp:30, mliap_model_python_kokkos.cpp:81), so it does not fire; a second call (e.g. reloading coefficients for a deferred python model) would free Kokkos-owned memory with sfree() and corrupt the heap.",
+    "suggested_fix": "Guard the swap, e.g. call memoryKK->destroy_kokkos(k_coeffelem, model->coeffelem) when k_coeffelem is already allocated, and only use memory->destroy() for the plain array from the first read_coeffs()."
+  },
+  {
+    "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+    "line": 597,
+    "severity": "low",
+    "category": "overflow",
+    "confidence": "possible",
+    "summary": "Pair-major offsets into the spherical-Bessel and radial-integral arrays are computed in int in three kernels, while the arrays themselves are sized with bigint and the CPU original uses bigint indices.",
+    "evidence": "src/KOKKOS/mliap_so3_kokkos.cpp:581,597 'int ipair = t_ij(ii); ... const int gindex = (ipair - 1) * findex;' (findex = m_Nmax*(m_lmax+1)), line 777 'int gindex = (ipair - 1) * findex;', and lines 659-667 '(ipair - 1) * m_Nmax * (m_lmax + 1) + (bigint) i * (m_lmax + 1) + l' / '(ipair - 1) * m_nmax * (m_lmax + 1) + ...' -- all int products. The CPU version keeps these in bigint: src/ML-IAP/mliap_so3.cpp:703-704 'bigint ipair = 0; bigint gindex;', line 722 'gindex = (ipair - 1) * findex;', lines 795-803. The allocation side already uses bigint (src/KOKKOS/mliap_so3_kokkos.cpp:683 'totali = (bigint) totaln * m_Nmax * (m_lmax + 1);'), and the sibling DXDR kernel gets it right at line 912 'bigint gindex = (bigint) (ipair - 1) * findex;', so this is an internal inconsistency.",
+    "failure_scenario": "npairs * m_Nmax * (lmax+1) above 2^31 wraps to a negative offset and the kernel reads/writes far outside m_sbes_array/m_rip_array. Note the arrays would then be tens of GB, so this is only reachable on very large unified-memory nodes; it is nevertheless a latent 32-bit truncation the CPU code explicitly avoids.",
+    "suggested_fix": "Declare ipair/gindex as bigint in the MLIAPSO3GetSBESArrayTag, MLIAPSO3GetRipArrayTag and MLIAPSO3SpectrumTag operators, matching line 912."
+  },
+  {
+    "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+    "line": 879,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "possible",
+    "summary": "m_chunk_size is never initialized in the constructor and is only set by init_arrays(), which spectrum_dxdr() does not call, so a first call to spectrum_dxdr() without a preceding spectrum() takes a modulus by an indeterminate value.",
+    "evidence": "src/KOKKOS/mliap_so3_kokkos.h:84 declares 'int m_chunk_size;' with no initializer and the constructor (src/KOKKOS/mliap_so3_kokkos.cpp:39-55) initializes m_rcut, m_alpha, m_lmax, m_nmax, m_Nmax, m_numYlms, m_init_arrays, m_dfac_l1/l2, m_pfac_l1/l2, m_idxu_count, m_idxy_count and alloc_* but not m_chunk_size. It is assigned only in init_arrays (line 223), which is called only from spectrum() (line 679). spectrum_dxdr() uses it at line 810 ('std::min(nlocal, m_chunk_size)') and its kernel at line 879 ('int ii_chunk = ii%m_chunk_size;') and line 859 ('start += m_chunk_size').",
+    "failure_scenario": "If compute_forces() ever runs before compute_descriptors() (a linear model on a step with eflag = 0, see pair_mliap_kokkos.cpp:113), the chunk loop divides by an indeterminate int -- integer division by zero on the device, or an arbitrary chunk index. In practice the setup step always has eflag = 1, so the field is set before it matters, but nothing enforces that.",
+    "suggested_fix": "Initialize m_chunk_size in the constructor (and ideally call init_arrays() at the top of spectrum_dxdr() as spectrum() does)."
+  },
+  {
+    "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+    "line": 272,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "possible",
+    "summary": "update_pair_energy zeroes the per-atom energy array over nlocal entries although it is allocated with nlistatoms (= list->inum) entries, unlike the CPU version which loops over nlistatoms.",
+    "evidence": "src/KOKKOS/mliap_unified_kokkos.cpp:271-274 'const auto nlocal = data->nlocal; Kokkos::parallel_for(nlocal, KOKKOS_LAMBDA(int ii) { d_eatoms[ii] = 0; });' versus src/ML-IAP/mliap_unified.cpp:244-245 'const auto nlistatoms = data->nlistatoms; for (int ii = 0; ii < nlistatoms; ii++) data->eatoms[ii] = 0;'. eatoms/k_eatoms is created with nlistatoms entries in src/KOKKOS/mliap_data_kokkos.cpp:101-102 'memoryKK->create_kokkos(k_eatoms, eatoms, nlistatoms, \"mliap_data:eatoms\");'. update_atom_energy (line 381) writes d_eatoms[i] over nlocal for the same reason.",
+    "failure_scenario": "Any configuration where list->inum is smaller than atom->nlocal (a pair_style hybrid sub-list, or a neighbor list restricted to a subset of the atoms) makes the zeroing kernel write past the end of the eatoms device allocation.",
+    "suggested_fix": "Loop over data->nlistatoms in the zeroing kernel (and bound update_atom_energy the same way), matching the CPU implementation and the allocation size."
+  }
+]
+
+COVERAGE: all files read completely

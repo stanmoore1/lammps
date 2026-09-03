@@ -16,3 +16,17 @@ Confirmed: NPair::execution_space defaults to Host (src/npair.cpp:44); only half
   kokkos ctors override it; trim does not.
 atomKK is a Pointers reference (pointers.h:131) so not assigning it in the trim ctor is harmless.
 Remaining: npair_kokkos.cpp/.h, npair_ssa_kokkos.cpp/.h, pppm_kokkos, pppm_tip4p_kokkos.
+[npair_kokkos] done. 3 findings.
+Verified OK (do not re-check): stencil[0]==0 for HALF&&!TRI (nstencil_bin.cpp:50) so the
+  'ibin==jbin continue' guard exactly matches the CPU 'k==0 -> bin_start = bins[i]';
+  newton-off requests get a FULL stencil (neighbor.cpp:2103-2106) so 'j<=i' over the whole
+  stencil is right; NBinStandard linked lists are in increasing index order so 'j>i'
+  == CPU 'j after i in list'.  TransposeHelperKokkos(dst,src) arg order at
+  npair_kokkos.cpp:363 is CORRECT (writes transpose -> d_neighbors).
+  ChunkSize(0) on the CUDA/HIP RangePolicy fallback (npair_kokkos.cpp:322) is harmless
+  (chunk size unused by the Cuda range backend).
+Minor not reported: NPairKokkos<*,1,1,1,0,0> is explicitly instantiated (npair_kokkos.cpp:1594,
+  :1606) but no NPairStyle registers it -> dead code.  npair_kokkos.h:37/57 etc register
+  duplicate style NAMES (ortho + tri variants) - harmless, registration is array based
+  (neighbor.cpp:783-786), only the "pair build:" info line is affected.
+  transpose_helper_kokkos.h:78 assert compares d_dst.extent(1) with itself (typo) - not my file.
