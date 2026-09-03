@@ -936,7 +936,7 @@ runtime bounds checking on Kokkos data structures.  As to be expected,
 enabling this option will negatively impact the performance and thus is
 only recommended when developing a Kokkos-enabled style in LAMMPS.
 
-.. versionchanged:: TBD
+.. versionchanged:: 2Sep2026
 
 The CMake option ``-D Kokkos_ENABLE_IMPL_CUDA_UNIFIED_MEMORY=on`` makes
 Kokkos allocate all GPU memory as CUDA managed memory, which the host can
