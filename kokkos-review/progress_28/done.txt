@@ -1,0 +1,10 @@
+pair_soft_kokkos.cpp
+pair_soft_kokkos.h
+pair_sw_kokkos.cpp
+pair_sw_kokkos.h
+pair_sw_mod_kokkos.cpp
+pair_sw_mod_kokkos.h
+pair_table_kokkos.cpp
+pair_table_kokkos.h
+pair_table_rx_kokkos.cpp
+pair_table_rx_kokkos.h

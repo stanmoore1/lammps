@@ -1,1 +1,30 @@
 lj96_cut: clean; base EXTRA-PAIR/pair_lj96_cut.cpp; canonical template used for comparison
+charmm/coul/charmm: matches MOLECULE/pair_lj_charmm_coul_charmm.cpp. Note package-wide idiom
+"if (eflag) { eng_vdwl += ...; eng_coul += ...; }" instead of "if (eflag_global)" -- present in
+~30 kokkos coul pair styles; minor (eng_vdwl not reset when eflag_global==0). Decide once at end
+whether to report as a single low finding.
+pair_kokkos.h functor: CoulTag branch uses d_cut_ljsq/d_cut_coulsq 2d views + m_cut_* stack arrays.
+implicit: math matches MOLECULE/pair_lj_charmm_coul_charmm_implicit.cpp (2.0*qqrd2e*q*q*r2inv,
+switch1+0.5*switch2 for force; ecoul without factor 2). Unused dead members k_cut_ljsq/k_cut_coulsq
+in header lines ~97-100 (cleanup only).
+charmm/coul/long: clean vs KSPACE/pair_lj_charmm_coul_long.cpp. tabinnersq_kk set only in init_tables (called only when ncoultablebits) - consistent with DoTable branch.
+INVESTIGATED AND DISMISSED: 13 kokkos pair styles omit "copymode = 1" around pair_compute<>
+(incl. lj_charmm_coul_long_soft, lj_class2, lj_cut_coul_cut, lj_cut_coul_cut_soft).
+NOT a bug: ~PairComputeFunctor (pair_kokkos.h:102) does "c.copymode = 1; list.copymode = 1;"
+before the copy's destructor runs, and pair_virial_fdotr_compute makes no style copy.
+Do NOT report.
+charmm/coul/long/soft: math matches FEP/pair_lj_charmm_coul_long_soft.cpp exactly.
+charmmfsw/coul/charmmfsh: clean vs MOLECULE base.
+charmmfsw/coul/long: clean vs KSPACE base.
+lj/class2: clean vs CLASS2/pair_lj_class2.cpp (9-6 form r6inv*(lj1*r3inv-lj2)).
+lj/class2/coul/cut: clean; per-typepair k_cut_ljsq/k_cut_coulsq dual views correctly created/modified/synced.
+lj/class2/coul/long: clean vs CLASS2 base.
+class2/coul/long/cs: B-series erfc + EWALD_P_CS correctly separated from EwaldConst EWALD_P.
+Minor known divergence (NOT reported, ~1e-12 relative): CPU CORESHELL/pair_lj_class2_coul_long_cs.cpp
+lines 55-106 reassigns r2inv=1/(rsq+EPS_EWALD_SQR) inside the coul branch and then uses that same
+r2inv for the LJ term and the final fpair; the kokkos split compute_fpair uses only rsq+EPSILON.
+lj/class2/soft: clean vs FEP/pair_lj_class2_soft.cpp (denlj^-2.5 -> 1/(denlj*denlj*sqrt(denlj))).
+lj/cubic: clean vs EXTRA-PAIR/pair_lj_cubic.cpp. NOTE: CPU base nests 'if (evflag) ev_tally' inside 'if (eflag)' (line ~78 of compute) so CPU skips virial tally when eflag==0; kokkos framework tallies whenever vflag_either -- CPU-side quirk, not a kokkos bug (global virial comes from fdotr anyway).
+lj/cut/coul/cut: clean vs src/pair_lj_cut_coul_cut.cpp.
+lj/cut/coul/cut/soft: clean vs FEP base.
+lj/cut/coul/debye: clean vs EXTRA-PAIR/pair_lj_cut_coul_debye.cpp.

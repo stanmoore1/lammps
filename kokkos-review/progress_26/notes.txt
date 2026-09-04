@@ -1,0 +1,24 @@
+Group 26 = pair_nm_cut{,_coul_long,_split}_kokkos, pair_pace{,_extrapolation}_kokkos, pair_pedone_kokkos.
+Bases: src/EXTRA-PAIR/pair_nm_cut*.cpp, src/ML-PACE/pair_pace*.cpp, src/EXTRA-PAIR/pair_pedone.cpp (verify).
+All added by commit 23ff94c81 "KOKKOS: port eight remaining Tier 1 pair styles" (nm/cut, nm/cut/split, pedone) - new code, scrutinize.
+pair_nm_cut_kokkos: reviewed fully, formulas match base (forcenm/evdwl/offset), dtor guard ok, base has virtual allocate(), docs+Install.sh ok. No findings.
+pair_nm_cut_coul_long_kokkos: reviewed fully. Math matches base (fpair, fcoul, evdwl, ecoul, cut_ljsq/cut_coulsq split, offset). Only issue: no CoulLongTable support (reported, low).
+  Note: 'if (eflag) { eng_vdwl += ...; eng_coul += ...; }' at line 127 instead of 'if (eflag_global)' -- package-wide pattern in all coul kokkos styles, NOT reported.
+pair_nm_cut_split_kokkos: reviewed fully. fpair/evdwl branches match base src/EXTRA-PAIR/pair_nm_cut_split.cpp:87-118 exactly (r<r0 generalized n-m, else 12-6 LJ with e0/6 prefactor). Base dtor/allocate inherited from PairNMCut (guarded/virtual). No findings.
+Next: pair_pedone_kokkos, then pair_pace_kokkos (3375 lines), pair_pace_extrapolation_kokkos (2194).
+pair_pedone_kokkos: reviewed fully. fpair/evdwl match base src/EXTRA-PAIR/pair_pedone.cpp:65-132 (pedone1*(dexp^2-dexp)/r + pedone2*r6inv^2*r2inv; d0*(dexp^2-2dexp)+c0*r12inv-offset). Base has copymode guard (line 46) + virtual allocate (h:52). No findings.
+Remaining: pair_pace_kokkos.{cpp,h}, pair_pace_extrapolation_kokkos.{cpp,h}
+pair_pace_kokkos: read all 3375 lines of .cpp and 530 of .h.
+ - Verified: batched CPU derivative (pace_batched_derivative) reproduces the scalar compute_derivative_one for m=0/m=1/m>1 (dylm construction, wscale 1 vs 2, idx_sph ordering, alm/blm/cl/dl use, tail-lane padding). SNAComplex is {re,im} alignas(2*sizeof) so the reinterpret_cast to KK_FLOAT* with stride*2 is layout-safe.
+ - Verified: compute_rho_one_cpu leave-one-out dB products == rank-3 fast path == device ComputeWeights recompute; wm_off low-bit (-1)^m factor matches device (m_t%2) incl. negative m.
+ - Verified: ComputeForce/ v_tally_xyz match base ev_tally_full(2*evdwl)/ev_tally_xyz sign conventions (r_hat = (x_j-x_i)/r, delx_kk = x_i-x_j).
+ - Verified: A/weights trash-row indexing (idx_sph_max), fr flat index n*(lmax+1)+l, spline function counts, dB_off prefix bounds, host_fallback eatom/vatom ownership in the dtor.
+ - Pre-existing (not reported): ComputeNeigh per-team-rank scratch slice with one team per atom (same in upstream aacefd12e); unqualified pow/exp/abs in device fns (resolved via `using namespace std` from ACE headers); header typo "aE-AC04" line 8.
+ - Reported: corerep_factor ilist indexing (low), dead d_num_ms_combs (low).
+Next: pair_pace_extrapolation_kokkos.{cpp,h}
+pair_pace_extrapolation_kokkos: read all 2194 lines of .cpp and 357 of .h.
+ - host_flag => full delegation to PairPACEExtrapolation::compute (base ev_init alloc=1); dtor guards destroy_kokkos accordingly. nelements left unset in that path but every use is guarded.
+ - Kernels mirror the pre-split pace/kk device kernels (interleaved A_sph/weights, dB_flatten stored). Rho/Weights/Derivative/Force/v_tally all match pair_pace_kokkos and the base sign conventions.
+ - ODR: local redeclaration of struct ACEALImpl at the top of the file lists only {basis_set, ace}; the real one (src/ML-PACE/pair_pace_extrapolation.cpp:46-58) is {basis_set, ace, ctilde_basis_set, rec_ace}. First two members line up so it works; same pattern in pace/kk. NOT reported (pre-existing).
+ - Reported: scale(itype,itype) vs base scale[itype][jtype] (medium); unscaled core-repulsion/ZBL force term in both pace styles (low); pedone doc ordering (low).
+ALL ASSIGNED FILES DONE.

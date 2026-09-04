@@ -1,0 +1,20 @@
+GROUP 27: pair_pod_kokkos, pair_reaxff_kokkos, pair_snap_kokkos(.cpp/.h only; _impl.h is group 28).
+POD base class: src/ML-POD/pair_pod.cpp + src/ML-POD/eapod.cpp (EAPOD::peratomenergyforce2 is the LIVE
+reference; PairPOD::blockatom_* is dead code, blockMode==0 hardcoded at pair_pod.cpp:187).
+Checked & NOT bugs for POD: nl23 layout omission (nrbf23/nabf23 are hardcoded 0 in eapod.cpp:67-68 so
+nl23==0 always); missing K4<K3 guard (EAPOD:1274 has no guard either, only the dead PairPOD copy does);
+vatom ghost tally (matches ev_tally_xyz); virial double count (vflag_global==0 when VIRIAL_FDOTR);
+Kokkos::Max reducer with uninitialized scalar (reducer inits it); transposed rbf/abf layout consistent;
+threebody_forcecoeff/fourbody_forcecoeff race-free (thread==(i,m) owns its fb3/fb4 slice);
+crossdesc/crossdesc_reduction/allbody_forces/angularbasis/radialbasis/matrixMultiply all match base math;
+EMPTY_MASK datamask matches pace/snap convention.
+SNAP: pair_snap_kokkos.cpp is only explicit template instantiations (31 lines) - checked, correct
+(PairSNAPKokkosDevice<LMPDeviceType> always; PairSNAPKokkosHost<LMPHostType> under LMP_KOKKOS_GPU, and
+the header maps snap/kk/host to PairSNAPKokkosDevice<LMPHostType> on non-GPU builds == already
+instantiated).  pair_snap_kokkos.h is declarations only; verified name[24]='1'/'2' index trick
+(:243-257) is correct for both "ComputeFusedDeidrjLarge<0>" and "...Small<0>"; DAT:: uses are
+self-allocated dual views / array_layout idiom used package-wide (cf. pair_eam_kokkos.h:166-171);
+base class src/ML-SNAP/pair_snap.cpp:62 has 'if (copymode) return;' and pair_snap.h:45 has
+'virtual void allocate()' -> rules 1 and 2 OK.  All kernel bodies live in pair_snap_kokkos_impl.h
+(group 28).
+NEXT: pair_reaxff_kokkos.cpp/.h (base src/REAXFF/pair_reaxff.cpp + reaxff_*.cpp).

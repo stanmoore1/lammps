@@ -1,0 +1,29 @@
+group 20 = pair styles buck6d*, buck*, colloid, cosine_squared, coul_cut*, coul_debye, coul_diel, coul_dsf, coul_long*
+Base classes: buck6d* -> src/MOFFF/; buck* -> src/; colloid -> src/COLLOID/; cosine_squared -> src/EXTRA-PAIR/(check); coul_diel -> src/DIELECTRIC? (check); coul_*_soft -> src/FEP/
+pair_kokkos.h CoulTag compute_item: fpair = factor_lj*compute_fpair (if rsq<cut_ljsq) + compute_fcoul (if rsq<cut_coulsq); ev uses scale 0.5 for FULL.
+buck6d dsf: verified math matches src/MOFFF/pair_buck6d_coul_gauss_dsf.cpp lines 138-207. rules 1&2 OK in base header.
+buck6d long: math verified vs src/MOFFF/pair_buck6d_coul_gauss_long.cpp:84-217 (compute). c*_c/rsmooth_sq_c set in base init_style -> copy after base call OK. g_ewald read each compute(). No findings.
+buck_coul_cut: verified vs src/pair_buck_coul_cut.cpp compute()/init_one(). OK, no findings.
+base class rule check (virtual allocate / copymode): all bases OK or inherit from an OK parent (buck_coul_long_cs<-PairBuckCoulLong, coul_cut_global<-PairCoulCut, coul_debye<-PairCoulCut, coul_long_cs<-PairCoulLong). pair_coul_dsf.h has NO virtual allocate - check if kokkos overrides allocate().
+buck_coul_long: verified vs src/KSPACE/pair_buck_coul_long.cpp:132-200. tables OK. no findings.
+buck_coul_long_cs: verified vs src/CORESHELL/pair_buck_coul_long_cs.cpp:52-191. B-series + EWALD_P_CS correct, ecoul/fcoul special path matches. Only divergence: EPSILON vs EPS_EWALD_SQR for the buck part (reported, low).
+pair_buck: standard, verified vs src/pair_buck.cpp. no findings.
+buck_mdf: verified vs src/EXTRA-PAIR/pair_buck_mdf.cpp compute()/init_one(); cutone==cut[i][j]; no findings.
+colloid: checked the a1/a2 swap for LARGE_LARGE. CPU init_one swaps a1/a2 for (j,i) (src/COLLOID/pair_colloid.cpp:346-347) while the kokkos init_one copies params(i,j) verbatim to (j,i) -- verified analytically that the LARGE_LARGE force+energy expressions are INVARIANT under c1<->c2 (K2->-K2 maps K5<->-K6, g2<->-g3, h2<->-h3, g2m<->g3m), so this is NOT a bug. Do not report.
+powint comes from MathSpecialKokkos (KOKKOS_INLINE_FUNCTION) - OK.
+cosine_squared: verified vs src/EXTRA-PAIR/pair_cosine_squared.cpp:377-429 and init_one:185-207. lj*_e/f guarded by wca (base leaves them uninit otherwise) - good. no findings.
+BIG FINDING: k_cut_ljsq/k_cut_coulsq self-allocated dual views with only (i,j) written.
+ - pair_coul_cut_kokkos.cpp:230,232  -> BUG (reported)
+ - pair_coul_debye_kokkos.cpp:253,255 -> SAME BUG (report when reviewing that file)
+ - coul_cut_soft(232-234), coul_diel(278-280), coul_long_soft(263-265) set both -> OK
+ - coul_long / coul_long_cs use deep_copy of scalar cut_coulsq -> OK
+copymode=1 missing in: coul_cut, coul_debye, coul_cut_soft, coul_long_soft (benign, functor dtor sets it)
+coul_cut_global: trivial subclass of PairCoulCutKokkos, matches src/EXTRA-PAIR/pair_coul_cut_global.cpp exactly. Inherits the coul_cut cut_coulsq(j,i) bug. Install.sh: all 18 cpp registered OK.
+coul_cut_soft: verified vs src/FEP/pair_coul_cut_soft.cpp:109-130,231-249. fpair is force/r already. sets (j,i) correctly. no findings except missing copymode=1 (grouped).
+global scans done: no DAT:: per-atom misuse, no std:: math in kernels, no alternative logical tokens.
+coul_debye: math verified vs src/pair_coul_debye.cpp:83-105. same (j,i) bug as coul_cut -> reported.
+coul_diel: verified vs src/EXTRA-PAIR/pair_coul_diel.cpp:105-131,232-254. (j,i) set correctly. no findings.
+coul_dsf: HIGH finding - special-bonds convention mismatch (factor_coul folded into prefactor vs CPU subtract). Same defect in src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:223,248 (not in group 20 - mention only).
+coul_dsf other checks: e_self tally equivalent to CPU ev_tally(i,i,nlocal,0,...); ev_tally 0.5 factors OK; no allocate() override needed (kernel uses scalar cut_coulsq); fuse_force_clear_flag stays 0 (custom kernel, not pair_compute<>).
+coul_long: scale[][] missing (reported, medium). Rest verified vs src/KSPACE/pair_coul_long.cpp:113-158. init_one returns cut_coul+2*qdist -> outer cutsq looser, inner d_cut_coulsq exact: OK.
+coul_long_cs: verified vs src/CORESHELL/pair_coul_long_cs.cpp:103-165. EPSILON/EPS_EWALD/EPS_EWALD_SQR handling correct (no vdW term so no cross-contamination). B-series + EWALD_P_CS correct. Only scale missing.

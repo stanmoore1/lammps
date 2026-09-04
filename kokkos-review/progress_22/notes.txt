@@ -1,1 +1,11 @@
 gauss_cut: clean; base src/EXTRA-PAIR/pair_gauss_cut.cpp, virtual allocate OK, dtor copymode OK, formula matches.
+gauss: clean; nextra/pvector disabled deliberately (occ count unavailable in /kk) - possible low finding, check doc.
+harmonic_cut: clean.
+lennard_mdf: clean. NOTE cpu base has ev_tally nested inside if(eflag) (misses vatom when eflag=0) - CPU-side quirk, kokkos correct.
+gran/hooke: fix_rigid missing (high), int special_lj truncation (medium). Check same in hooke/history and hertz/history.
+gran/hooke/history done. 4 findings. Next: hertz/history (should be near-identical).
+hertz/history verified identical to hooke/history apart from polyhertz (matches CPU incl. limit_damping ordering). Findings mirrored.
+pair_kokkos.h read fully. Notes: PairComputeFunctor dtor sets copymode; ZEROFLAG only zeroes f(i) for ilist atoms (fuse_check excludes torque/extra/includegroup); ev_tally factors verified correct for FULL/HALF/HALFTHREAD; team ev has no ev race (per-thread stack). fuse_force_clear_flag set inside pair_compute, consumed next step by VerletKokkos::fuse_check.
+pair_hybrid_kokkos: matches CPU PairHybrid::compute + device sync/modify + device fdotr. No findings.
+hybrid_overlay: only divergence is stale error msg; init_svector/copy_svector identical to CPU.
+hybrid_scaled done. Remaining: pair_exp6_rx_kokkos.{cpp,h} (2597+233 lines).

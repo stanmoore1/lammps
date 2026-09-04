@@ -61,3 +61,4 @@ Phase log:
 - 2026-09-04 (new window): USER: limit reset, "continue from where you left off". Resuming the sweep. Ban on new launches from 23:20 UTC is treated as superseded by this resume instruction (same wording as the two earlier resets). Wave 5 launched: 18 (resume, 12/16 done), 19, 20, 21, 22, 23. Remaining after this wave: 24-29.
 - Wave 5 (new window, agent ban lifted by user): in flight 18(resume,pppm only), 20, 22, 23, 24, 25, 26, 27, 28, 29. Groups 19 and 21 already COMPLETE.
 - Orchestrator verified 5 pair-style highs directly: dpd/ext/tstat sign error + missing sigmaT ramp, brownian ctor seed + missing eatom alloc, born/coul/{dsf,wolf}{,/cs} host-q self-energy (4 files).
+- Group 26 COMPLETE (6 findings; medium pace/extrapolation d_scale(i,i) for force, verified; lows: nm/cut/coul/long/kk missing coul table path, PACE corerep_factor indexed by list position, PACE core-repulsion/ZBL terms unscaled, dead d_num_ms_combs, pedone doc ordering).

@@ -10,3 +10,7 @@ npair_kokkos.cpp
 npair_kokkos.h
 npair_ssa_kokkos.cpp
 npair_ssa_kokkos.h
+pppm_kokkos.cpp
+pppm_kokkos.h
+pppm_tip4p_kokkos.cpp
+pppm_tip4p_kokkos.h

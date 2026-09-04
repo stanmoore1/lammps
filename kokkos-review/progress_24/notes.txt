@@ -1,1 +1,19 @@
 base pair_lj_cut.cpp: copymode guard OK, virtual allocate OK. lj/cut/kk clean (reference template).
+lj/cut/coul/long/kk: clean. base KSPACE/pair_lj_cut_coul_long.cpp copymode OK, virtual allocate OK.
+NOTE (package-wide idiom, NOT reported): many kk pair styles do `if (eflag) eng_vdwl += ...` instead of `if (eflag_global)`. Benign because ev_setup zeroes eng_vdwl whenever eflag_global is set.
+pair_kokkos.h compute_item: ev.evdwl accumulated under c.eflag_either.
+lj/cut/coul/long/cs/kk: EWALD_P_CS/B0..B5 series match CPU CORESHELL style. Table vs analytic branch matches. Only divergence found: r2inv EPS_EWALD_SQR not applied to LJ term (reported, low).
+pair_kokkos.h: PairComputeFunctor holds `PairStyle c;` BY VALUE (line 64), so host scalar members (g_ewald, tabinnersq) are captured correctly.
+lj/cut/coul/long/soft/kk: math matches FEP/pair_lj_cut_coul_long_soft.cpp exactly (fpair = forcecoul + factor_lj*forcelj, no r2inv). base has copymode guard + virtual allocate. Only finding: missing copymode=1.
+pair_kokkos.h:103 ~PairComputeFunctor sets c.copymode=1 -> missing copymode in compute() is not an actual double-free today.
+lj/cut/coul/wolf/kk: pair math matches EXTRA-PAIR/pair_lj_cut_coul_wolf.cpp exactly (dvdrr, v_sh, f_shift, e_shift). Self-energy: CPU loops ii<inum & guards with `if (eflag)`; KK loops i<nlocal unconditionally (benign: ev_init zeroes eng_coul on eflag_global steps; inum==nlocal except with neigh_modify include group). Reported host-q staleness.
+k_eatom is style-private everywhere (grep) -> host-side eatom edits without modify_host() are safe.
+lj/cut/dipole/cut/kk: 3 findings recorded (LJ force inside coul cutoff; eflag_global vs eflag_either; missing Kokkos::single in team kernel). CPU base DIPOLE/pair_lj_cut_dipole_cut.cpp init_one: cut = MAX(cut_lj,cut_coul) so cut_coul<cut_lj is reachable.
+lj/cut/soft/kk: clean, matches FEP/pair_lj_cut_soft.cpp.
+lj/cut/sphere/kk: clean; mixing (GEOMETRIC 2*sqrt(ri*rj) / ARITHMETIC ri+rj) matches Pair::mix_distance*2; offset matches; SIXTHPOWER rejected in base init_style.
+lj/cut/tip4p/cut/kk: derives from shared PairTIP4PKokkos<DeviceType,PairLJCutTIP4PCut> in pair_tip4p_kokkos.h (NOT in group 24 but read for context: prepare()/finalize()/ev_tally/ev_tally_tip4p/apply_site_force). Math matches MOLECULE/pair_lj_cut_tip4p_cut.cpp. newton pair on is required by base init_style so unconditional f(j) update is correct. base dtor has copymode guard.
+Minor gap (not reported): the KK newsite kernel omits the CPU's "TIP4P hydrogen has incorrect atom type" check (typeH).
+lj/cut/tip4p/long/kk: clean. coul_long() in pair_tip4p_kokkos.h matches KSPACE/pair_lj_cut_tip4p_long.cpp analytic+table branches; ev_tally_tip4p matches Pair::ev_tally_tip4p exactly (keys 0..3, alphaO=1-alpha, alphaH=0.5*alpha). apply_site_force sign conventions verified.
+lj/expand/kk: clean.
+lj/expand/sphere/kk: faithful transcription of EXTRA-PAIR/pair_lj_expand_sphere.cpp INCLUDING the suspicious `* rshift / r` (vs `/ rshift / r` in lj/expand). git show 23ff94c81 confirms the porting commit only added the copymode guard to the CPU file, so the expression is upstream. Reported low.
+Offset term, cutoff (rshift < cut), radius handling all match CPU.

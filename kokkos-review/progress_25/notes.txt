@@ -1,0 +1,12 @@
+lj/smooth: base = src/EXTRA-PAIR/pair_lj_smooth.cpp; math matches, virtual allocate present, copymode guard present. No findings.
+lj/smooth/linear: base src/EXTRA-PAIR/pair_lj_smooth_linear.cpp, matches. No findings.
+lj/spica: base src/CG-SPICA/pair_lj_spica.cpp. fpair/evdwl algebra verified for all 4 lj types. Found eflag vs eflag_global issue (same pattern also in pair_lj_class2, lj_cut_sphere, lj_expand, table, table_rx - not my group).
+DROPPED the 'if (eflag) eng_vdwl' finding: it is a deliberate codebase-wide KOKKOS convention (pair_lj_cut_coul_long_kokkos.cpp:137 etc.) and has no observable effect since compute pe errors out if eflag_global was not set. Not a bug.
+lj/spica/coul/long: base src/CG-SPICA/pair_lj_spica_coul_long.cpp; verified lj+coul math, table branch, cut_ljsq/cut_coulsq, init_tables. No findings.
+lj/switch3/coulgauss/long: base src/YAFF/pair_lj_switch3_coulgauss_long.cpp. Found cut_coulsq-gating bug for gaussian correction. Also noted: KK ignores ncoultablebits table path (uses analytic erfc always) - precision-only divergence, not reported. mm3/switch3 variant likely has the SAME bug - check next.
+mm3/switch3/coulgauss/long: base src/YAFF/pair_mm3_switch3_coulgauss_long.cpp; identical structure to lj/switch3 variant; same cut_coulsq gating finding. Headers diff only by lj1 field.
+meam: base src/MEAM/pair_meam.cpp + MEAM lib. comm_forward=38(+23), comm_reverse=30(+23) verified against KK pack/unpack. offsets scan verified. Findings: d_scale int type, d_scale never refreshed, meam_force_kokkos.h scaleij bugs. Also noted (not reported): d_offset reallocated every step (efficiency); d_rho member unused.
+meam/ms/kk: trivial wrapper, matches CPU PairMEAMMS. No findings.
+mie/cut: base src/EXTRA-PAIR/pair_mie_cut.cpp, matches (special_mie==special_lj). No findings.
+mliap: base src/ML-IAP/pair_mliap.cpp. x/f members ARE set (mliap_data_kokkos.cpp:120-122) so fdotr is fine. dtor has no copymode guard but no *this functors are used - OK. Finding: maxeatom used for k_vatom.
+momb: base src/EXTRA-PAIR/pair_momb.cpp; math matches exactly. No findings.

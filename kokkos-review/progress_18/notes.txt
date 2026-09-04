@@ -40,3 +40,30 @@ Verified OK: moltemplate paths are unreachable - NeighborKokkos errors out for
   match the CPU compacted gnum, but the only consumer (fix_shardlow_kokkos.cpp:693,703)
   iterates via ssa_itemLoc/ssa_gitemLoc, so not reported.
 NEXT: pppm_kokkos.cpp/.h, pppm_tip4p_kokkos.cpp/.h.
+[pppm_kokkos] done. 7 findings. Verified OK (do not re-check):
+  - slabcorr(), compute_gf_ik(), compute_gf_ik_triclinic(), setup(), setup_triclinic(),
+    poisson_ik()/_triclinic, poisson_peratom, compute_rho_coeff index mapping,
+    d_rho1d/d_rho_coeff index arithmetic for even+odd order: all match the CPU base.
+  - x2lamdaT_kokkos matches KSpace::x2lamdaT (kspace.cpp:380) including the slab_volfactor divide.
+  - no atomKK->sync/modified in PPPMKokkos::compute() is OK: VerletKokkos does it
+    (verlet_kokkos.cpp:187-189, 277-279, 502-505).
+  - TeamPolicy make_rho writes d_rho1d(i,..) from several teams but always the same
+    values -> benign; thread grid partition covers [0,ngrid) fully.
+  - fieldforce_ik reuses d_rho1d from make_rho (per-atom rows) - correct.
+  - pack/unpack double-division index trick is exact for realistic grid sizes.
+  - stagger_flag is always 0 for pppm/kk (only PPPMStagger sets it) - not a bug.
+NEXT: pppm_tip4p_kokkos.cpp/.h (base src/KSPACE/pppm_tip4p.cpp).
+[pppm_tip4p_kokkos] done. 1 finding. Verified OK (do not re-check):
+  - findM M-site formula == CPU find_M (algebraically identical), closest_image_kokkos
+    (atom_kokkos.h:172-187) == Domain::closest_image (domain.cpp).
+  - fieldforce_ik / fieldforce_peratom / slabcorr O->O+2H (1-alpha):(alpha/2):(alpha/2)
+    splits all match src/KSPACE/pppm_tip4p.cpp exactly, including the slabflag!=2 guards.
+  - atomic_add is correctly used for the H (possibly ghost) updates; f/eatom/vatom are
+    sized atom->nmax >= nlocal+nghost; newton-on is enforced in init().
+  - k_map_array/k_map_hash/k_sametag sync pattern matches pair_tip4p_kokkos.h:426-430.
+  - object slicing of *this in base-class parallel_for launches is intended and safe
+    (destructor has the copymode guard; base kernels only touch base members).
+  - triclinic rejected outright in init(), so the CPU lamda-space find_M branch is N/A.
+  - pppm_tip4p_kokkos inherits the reset_grid()/compute_rho_coeff() defect already
+    reported against pppm_kokkos.h:486 - not duplicated here.
+ALL ASSIGNED FILES DONE.
