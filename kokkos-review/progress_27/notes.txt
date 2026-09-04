@@ -33,3 +33,14 @@ v_tally3_atom (:4029) is dead code (no call site) and writes d_vatom non-atomica
 TODO next: lines 1520-3860 (allocate_array, BuildLists*, BondOrder1/2/3, UpdateBond, Bond1/2, Multi1/2,
 CountAngularTorsion, Angular, Torsion, Hydrogen, ev_tally) and 4180-4415 (FindBond/PackBondBuffer/
 FindBondSpecies + template instantiation).
+REAXFF fully read (all 4415 lines of .cpp + 637 of .h).  Verified as MATCHING the CPU reference:
+compute_bo/BOp, BondOrder2 vs BO() incl. the Cf1_ij/Cf1_ji symmetry (algebraically equal when i<->j
+swapped), Multi1/Multi2 vs reaxff_multi_body.cpp, valence-angle dcos formulas and e_ang/e_pen/e_coa,
+torsion omega (htra..hnhe, tel, poem) and all four dcos_omega with the (i,j,k,l)->(k,i,j,l) index
+remap, hydrogen bonds, Bond1, Add_dBond_to_Forces == ComputeBond2 (incl. the v_tally sign and the
+tmpvec = -(delki+delkj) trick), ev_tally, UpdateBond's complementary half-flag logic, LJ/Coulomb
+ghost dedup (tag parity is equivalent to the CPU orig_id rule), and the neighbor list being
+HALF+GHOST+NEWTON_OFF (pair_reaxff.cpp:370) so the half-list force accumulation is right.
+Also checked and NOT bugs: thbp prm[0]-only use (thbp is memset to 0, reaxff_ffield.cpp:150);
+hblist[MAX_BONDS] unbounded (identical in the CPU base); k_params_* sync (done in compute());
+d_s re-fetched from the ACKS2 fix every compute() so no stale view.

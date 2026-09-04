@@ -769,5 +769,23 @@
   "confidence": "confirmed",
   "summary": "datamask_read carries ELLIPSOID_MASK but not BONUS_MASK, although the kernel dereferences bonus(ibnum).quat and bonus(jbnum).quat. atomKK->sync() therefore never brings the ellipsoid bonus array to the device, so stale or never-uploaded quaternions are used.",
   "verified_by": "orchestrator (src/KOKKOS/pair_ylz_kokkos.cpp:52 vs the reads at :228 and :269; grep BONUS_MASK over the file returns nothing. AtomVecEllipsoidKokkos syncs k_bonus only under 'mask & BONUS_MASK'. Styles that get it right: compute_erotate_asphere_kokkos.cpp:35, fix_nve_asphere_kokkos.cpp:64.)"
+ },
+ {
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "line": 1260,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "In the non-shielded vdW branch the derivative term is MULTIPLIED by rij where it must be divided by it, so the vdW force is wrong by a factor r^2 for force fields with vdw_type 2 when the tabulated path is off. Energies stay correct, which hides the defect.",
+  "verified_by": "orchestrator, three-way comparison: src/KOKKOS/pair_reaxff_kokkos.cpp:1260 '...*(exp1-exp2)*rij' vs the CPU reference src/REAXFF/reaxff_nonbonded.cpp:164-165 '...*(exp1-exp2)/r_ij' AND the table generator in the very same KOKKOS file, LR_vdW_Coulomb at :669-670, which also divides. dTap already carries the 1/r (see :1228-1233), so the second term needs it too."
+ },
+ {
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "line": 1596,
+  "severity": "high",
+  "category": "memory",
+  "confidence": "confirmed",
+  "summary": "TagPairReaxZero writes d_hb_num(n) unconditionally, but that view is allocated only when cut_hbsq > 0. A control file with 'hbond_cutoff 0.0' - the documented way to switch H-bonds off - leaves it default-constructed, so the first kernel launch writes through a null data pointer.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_reaxff_kokkos.cpp:1596 unguarded vs the conditional allocation at :1530-1533; every other use of d_hb_num in the file sits behind a 'cut_hbsq > 0.0' test)."
  }
 ]
