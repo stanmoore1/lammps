@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 539,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "possible",
+ "summary": "The ellipsoid border-bonus functors index the communication buffer with the raw view's own extent(1) instead of the packing stride size_border(+size_velocity), which disagrees with AtomVecKokkos_UnpackBorderVel when the receive buffer was allocated with the narrower shape.",
+ "evidence": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:469 (_buf(buf)) and 539 (_buf(buf)) take buf.view_host()/view_device() unchanged, so the row stride is whatever extent(1) the DualView happens to have.  AtomVecKokkos_UnpackBorderVel instead re-views it (src/KOKKOS/atom_vec_kokkos.cpp:2045-2047):\n    const size_t elements = atomKK->avecKK->size_border + atomKK->avecKK->size_velocity;\n    _buf = typename AT::t_double_2d_lr_const_um(buf.data(),maxsend,elements);\nand CommKokkos::grow_recv_kokkos (src/KOKKOS/comm_kokkos.cpp:1906-1909) always allocates k_buf_recv with extent(1) = size_border, never size_border+size_velocity, while grow_send_kokkos (1877-1894) does widen k_buf_send under ghost_velocity.  The two therefore disagree for the remote-receive path with ghost velocities.",
+ "failure_scenario": "'atom_style ellipsoid/kk' + 'comm_modify vel yes' with more than one MPI rank: unpack_border_bonus_kokkos reads the bonus flag/shape/quat at row-stride 15 from a buffer that unpack_border_vel_kokkos treated as row-stride 21 -> ghost ellipsoid shapes and orientations come from the wrong atom.",
+ "suggested_fix": "Build an explicit unmanaged view with elements = size_border + (vel_flag ? size_velocity : 0) inside the bonus border functors (and fix grow_recv_kokkos to allocate the wider row when ghost_velocity is set).",
+ "_src": "findings_02.json",
+ "_dupes": [],
+ "_id": "F0037"
+}

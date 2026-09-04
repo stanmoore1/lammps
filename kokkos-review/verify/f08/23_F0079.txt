@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/compute_composition_atom_kokkos.cpp",
+ "line": 9,
+ "severity": "low",
+ "category": "cleanup",
+ "confidence": "confirmed",
+ "summary": "Corrupted GPL license header text: 'the GNU Gdirectoryeneral Public License.'",
+ "evidence": "src/KOKKOS/compute_composition_atom_kokkos.cpp:9 '   the GNU Gdirectoryeneral Public License.' vs src/EXTRA-COMPUTE/compute_composition_atom.cpp:9 '   the GNU General Public License.'",
+ "failure_scenario": "No runtime effect, but the shipped source carries a mangled license notice.",
+ "suggested_fix": "Restore the standard header line 'the GNU General Public License.'",
+ "_src": "findings_04.json",
+ "_dupes": [],
+ "_id": "F0079"
+}

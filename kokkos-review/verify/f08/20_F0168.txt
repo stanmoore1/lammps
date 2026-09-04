@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/dihedral_spherical_kokkos.cpp",
+ "line": 475,
+ "severity": "medium",
+ "category": "sync-modify",
+ "confidence": "likely",
+ "summary": "allocate_kokkos() grows the 2d coefficient DualViews with resize() while host and device are in sync; on a GPU build that resizes the device view and replaces the host mirror with a fresh zero-filled allocation, wiping the coefficients of all previously defined dihedral types.",
+ "evidence": "src/KOKKOS/dihedral_spherical_kokkos.cpp:473-485 `} else { k_nterms.resize(n+1); k_Ccoeff.resize(n+1,nterms_max); ... }`; coeff() at :524-538 only refills rows ilo..ihi of the host mirrors before k_*.modify_host() at :540-550.  lib/kokkos/containers/src/Kokkos_DualView.hpp:1027-1029 `if (modified_flags(1) >= modified_flags(0)) resize_on_device(...)` and :1044 `h_view = create_mirror_view(typename t_host::memory_space(), d_view);` -- a new, zero-initialized host allocation with no copy from the old host data.  compute() line 95-105 syncs all views to the device, which equalizes the flags and makes the next resize take the device branch.",
+ "failure_scenario": "dihedral_style spherical/kk; dihedral_coeff 1 1 <10 args>; run 100; dihedral_coeff 2 2 <20 args>  -> nterms_max grows 1->2, all k_* 2d views resize on device, their host mirrors are zeroed, only row 2 is refilled, and the following sync<DeviceType>() pushes zeros for type 1: type-1 dihedrals silently contribute zero energy and force.",
+ "suggested_fix": "After a resize, refill the complete host mirror for all types 1..ndihedraltypes from the CPU-side arrays (as read_restart already does), or sync the DualViews to host before resizing so resize takes the host-preserving branch.",
+ "_src": "findings_10.json",
+ "_dupes": [],
+ "_id": "F0168"
+}

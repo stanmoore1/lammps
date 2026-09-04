@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 726,
+ "severity": "medium",
+ "category": "rule",
+ "confidence": "confirmed",
+ "summary": "Source file contains a non-ASCII character (U+2019 RIGHT SINGLE QUOTATION MARK) in a comment, violating the project's 7-bit US-ASCII rule and failing the style CI check.",
+ "evidence": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:726:\n    // if atom J has bonus data, reset J\\u2019s bonus.ilocal to loc I\n`LC_ALL=C grep -n '[^ -~\\t]' src/KOKKOS/atom_vec_*_kokkos.{cpp,h}` reports exactly this one line.  .github/copilot-instructions.md: '7-bit US-ASCII everywhere (sources, docs, scripts); Unicode is forbidden (security policy) and fails CI.'",
+ "failure_scenario": "`cd src && make check` / the style-check.yml GitHub workflow fails on this file before the release.",
+ "suggested_fix": "Replace the typographic apostrophe with a plain ASCII apostrophe (J's).",
+ "_src": "findings_02.json",
+ "_dupes": [],
+ "_id": "F0031"
+}

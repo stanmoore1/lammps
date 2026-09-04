@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/pair_coul_long_cs_kokkos.cpp",
+ "line": 229,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "summary": "The per-type-pair scale[i][j] prefactor of the CPU core/shell style is missing in the KOKKOS port, so 'fix adapt ... pair coul/long/cs scale ...' has no effect with coul/long/cs/kk.",
+ "evidence": "src/CORESHELL/pair_coul_long_cs.cpp:107 'prefactor = qqrd2e * scale[itype][jtype] * qtmp*q[j];', :138 'forcecoul = scale[itype][jtype] * qtmp*q[j] * table;', :141 and :162 all apply scale (inherited PairCoulLong::extract exposes it to fix adapt).  'grep -n scale src/KOKKOS/pair_coul_long_cs_kokkos.{cpp,h}' returns no hits; compute_fcoul (:229, :244) and compute_ecoul (:294) build prefactor as 'qqrd2e * qtmp*q[j] / reps' with no scale, and params_coul (pair_coul_long_cs_kokkos.h:48-55) stores only cut_coulsq.",
+ "failure_scenario": "pair_style coul/long/cs/kk with 'fix adapt ... pair coul/long/cs scale ...': the scaling factor is silently ignored and the /kk run diverges from the CPU run.",
+ "suggested_fix": "Store scale[i][j] in params_coul (filled in init_one) and multiply it into prefactor/forcecoul/ecoul in both branches, as the CPU style does.",
+ "_src": "findings_20.json",
+ "_dupes": [],
+ "_id": "F0319"
+}

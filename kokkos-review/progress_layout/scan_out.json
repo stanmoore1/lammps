@@ -1,0 +1,10 @@
+[
+ {
+  "file": "fix_shardlow_kokkos.cpp",
+  "line": 208,
+  "var": "h_v",
+  "field": "k_v",
+  "declared": "double_1d_3_lr",
+  "expected": "kkfloat_1d_3"
+ }
+]

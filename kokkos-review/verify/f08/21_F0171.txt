@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/dihedral_spherical_kokkos.cpp",
+ "line": 248,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "possible",
+ "summary": "The Kokkos kernel does not apply the minimum-image convention to the three bond vectors, while the CPU base style does.",
+ "evidence": "src/KOKKOS/dihedral_spherical_kokkos.cpp:248-252 `for (int d = 0; d < g_dim; ++d) { vb12[d] = x(i2,d) - x(i1,d); vb23[d] = ...; vb34[d] = ...; }` with no remapping.  src/EXTRA-MOLECULE/dihedral_spherical.cpp:111-120 does the same subtraction and then `domain->minimum_image(FLERR, vb12[0], vb12[1], vb12[2]); domain->minimum_image(FLERR, vb23[...]); domain->minimum_image(FLERR, vb34[...]);`",
+ "failure_scenario": "A configuration in which a dihedral bond vector computed from the stored (ghost) coordinates is longer than half a box length: the CPU style remaps it, the /kk style does not, so the two give different phi/theta and different forces.",
+ "suggested_fix": "Either replicate the minimum-image remapping in the device kernel (using the domain data already exported to Kokkos, cf. other styles), or document/confirm that ghost coordinates make the remapping a no-op and drop it from the CPU style as well.",
+ "_src": "findings_10.json",
+ "_dupes": [],
+ "_id": "F0171"
+}

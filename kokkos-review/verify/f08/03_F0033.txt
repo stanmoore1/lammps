@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 664,
+ "severity": "medium",
+ "category": "race",
+ "confidence": "possible",
+ "summary": "AtomVecEllipsoidKokkos_PackExchangeBonus reads the bonus array through _bonus while concurrently writing the same memory through the _bonusw alias in the same parallel_for, so a compacted bonus entry can be read after another thread has overwritten it.",
+ "evidence": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:631-634 aliases the same DualView twice:\n      _bonus(bonus.template view<DeviceType>()),\n      ...\n      _bonusw(bonus.template view<DeviceType>()),\nand operator() at lines 655-677 first reads `_bonus(j).shape[0] ... _bonus(j).quat[3]` for j = _ellipsoid[i] and then writes\n        _ellipsoidw[_bonus[j_bonus].ilocal] = i_bonus;\n        _bonusw[i_bonus] = _bonus[j_bonus];\nNothing orders these across threads.  The authors were aware of the hazard - lines 756-757 say 'must backfill ellipsoid after pack exchange bonus in a separate functor to prevent race conditions' - but the bonus compaction itself was left in the packing kernel.",
+ "failure_scenario": "Two atoms leaving the sub-domain in the same exchange whose copylist_bonus tail entry for one is the i_bonus slot of the other: the second thread reads a slot the first has already overwritten -> the ellipsoid that stays behind gets the wrong shape/quaternion.  Requires a specific ordering, so it is intermittent.",
+ "suggested_fix": "Move the bonus compaction (the `_bonusw[i_bonus] = _bonus[j_bonus]` block) into its own parallel_for after the packing kernel, exactly as was done for AtomVecEllipsoidKokkos_BackfillEllipsoid, or verify and document that copylist_bonus can never alias a sent i_bonus.",
+ "_src": "findings_02.json",
+ "_dupes": [],
+ "_id": "F0033"
+}

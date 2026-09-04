@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/pair_lj_cut_coul_long_cs_kokkos.cpp",
+ "line": 202,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "For a special-bonded pair the CPU core/shell style rescales r2inv with EPS_EWALD_SQR and uses that rescaled r2inv for the LJ force/energy as well; the Kokkos compute_fpair/compute_evdwl only add EPSILON, so the LJ term diverges from the CPU style at very small separations.",
+ "evidence": "src/CORESHELL/pair_lj_cut_coul_long_cs.cpp:126 sets `r2inv = 1.0/(rsq + EPS_EWALD_SQR);` inside the `factor_coul < 1.0` branch, and lines 153-157 then use exactly that r2inv for `r6inv = r2inv*r2inv*r2inv; forcelj = r6inv*(lj1*r6inv - lj2);` and `fpair = (forcecoul + factor_lj*forcelj) * r2inv`. src/KOKKOS/pair_lj_cut_coul_long_cs_kokkos.cpp:200-210 instead always uses `const KK_FLOAT rsq = rsq_in + EPSILON; const KK_FLOAT r2inv = 1.0/rsq;` (EPSILON = 1e-20, EPS_EWALD_SQR = 1e-12) and the same in compute_evdwl at lines 296-299.",
+ "failure_scenario": "A core/shell pair at r ~ 0 with a non-zero special_lj factor: CPU evaluates r6inv from 1/(rsq+1e-12) while the Kokkos style evaluates it from 1/(rsq+1e-20), producing LJ forces/energies that differ by ~24 orders of magnitude (and overflow to inf/NaN under a KK_FLOAT=float build).",
+ "suggested_fix": "Pass factor_coul into the LJ helpers (or precompute) so compute_fpair/compute_evdwl use 1/(rsq+EPS_EWALD_SQR) when factor_coul < 1.0 and rsq < cut_coulsq, matching the CPU style.",
+ "_src": "findings_24.json",
+ "_dupes": [],
+ "_id": "F0363"
+}

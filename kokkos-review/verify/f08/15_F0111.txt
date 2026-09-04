@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/comm_kokkos.cpp",
+ "line": 1273,
+ "severity": "low",
+ "category": "efficiency",
+ "confidence": "confirmed",
+ "summary": "k_exchange_copylist_bonus is marked modified on the host and synced to the device on every dimension of every exchange, even when there is no bonus data (bonus_flag == 0).",
+ "evidence": "src/KOKKOS/comm_kokkos.cpp:1240-1275: the whole bonus back-fill is inside 'if (bonus_flag) { ... }', but the two lines that publish it sit after the closing brace:\n      }\n\n      k_exchange_copylist_bonus.modify_host();\n      k_exchange_copylist_bonus.sync<DeviceType>();\nEvery other bonus operation in the function (realloc, sort, deep_copy(-1)) is guarded by bonus_flag.",
+ "failure_scenario": "Any non-bonus atom style: three needless host->device copies of k_exchange_copylist_bonus per exchange() call (once per dimension), plus a modify/sync flag toggle on a view nothing reads.",
+ "suggested_fix": "Move the modify_host()/sync<DeviceType>() pair inside the 'if (bonus_flag)' block.",
+ "_src": "findings_06.json",
+ "_dupes": [],
+ "_id": "F0111"
+}

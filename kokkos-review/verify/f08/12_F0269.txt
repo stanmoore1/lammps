@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+ "line": 272,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "possible",
+ "summary": "update_pair_energy zeroes the per-atom energy array over nlocal entries although it is allocated with nlistatoms (= list->inum) entries, unlike the CPU version which loops over nlistatoms.",
+ "evidence": "src/KOKKOS/mliap_unified_kokkos.cpp:271-274 'const auto nlocal = data->nlocal; Kokkos::parallel_for(nlocal, KOKKOS_LAMBDA(int ii) { d_eatoms[ii] = 0; });' versus src/ML-IAP/mliap_unified.cpp:244-245 'const auto nlistatoms = data->nlistatoms; for (int ii = 0; ii < nlistatoms; ii++) data->eatoms[ii] = 0;'. eatoms/k_eatoms is created with nlistatoms entries in src/KOKKOS/mliap_data_kokkos.cpp:101-102 'memoryKK->create_kokkos(k_eatoms, eatoms, nlistatoms, \"mliap_data:eatoms\");'. update_atom_energy (line 381) writes d_eatoms[i] over nlocal for the same reason.",
+ "failure_scenario": "Any configuration where list->inum is smaller than atom->nlocal (a pair_style hybrid sub-list, or a neighbor list restricted to a subset of the atoms) makes the zeroing kernel write past the end of the eatoms device allocation.",
+ "suggested_fix": "Loop over data->nlistatoms in the zeroing kernel (and bound update_atom_energy the same way), matching the CPU implementation and the allocation size.",
+ "_src": "findings_16.json",
+ "_dupes": [],
+ "_id": "F0269"
+}

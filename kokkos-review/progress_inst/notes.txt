@@ -1,0 +1,28 @@
+AXIS SWEEP: host vs device instantiation. Ground truth read: kokkos_type.h (LMPDeviceType=DefaultExecutionSpace,
+LMPHostType=HostSpace::execution_space; ArrayTypes<LMPHostType> only exists #ifdef LMP_KOKKOS_GPU;
+ExecutionSpaceFromDevice<LMPHostType>=HostKK, <Cuda/HIP/SYCL/OpenMPTarget>=Device; DAT=ArrayTypes<LMPDeviceType>).
+Base classes default execution_space=Host (pair.cpp:128 fix.cpp:109 compute.cpp:96 npair.cpp:44 neigh_list.cpp:86
+bond/angle/dihedral/improper/kspace).
+Scripts: scan_reg.py (style registration), scan_dat.py -> dat_raw.txt (DAT::/LMPDeviceType in templated files),
+scan_es.py (execution_space set?).
+Step 1 DONE: registration sweep - all /kk/host registrations correct (pace/snap/sna-grid use #ifdef LMP_KOKKOS_GPU guard).
+Step 2 DONE: hardcoded LMPDeviceType views in DeviceType-templated class -> ONLY pair_uf3_kokkos.h (confirmed).
+  All other DAT:: hits are ::array_layout extraction (layout identical for host/device ArrayTypes) or non-templated classes
+  (atom_vec_ellipsoid_kokkos.h, pair_hybrid_scaled_kokkos.h) - OK.
+  Sorter.sort(LMPDeviceType(),...) in fix *_kokkos sort_kokkos is CORRECT (AtomKokkos::sort() BinSorts on device only, atom_kokkos.cpp:425).
+Step 3 IN PROGRESS: execution_space sweep. npair_trim_kokkos.cpp:27 CONFIRMED missing (cf npair_halffull_kokkos.cpp:33, npair_skip_kokkos.cpp:28).
+Step 3 DONE (execution_space): only npair_trim_kokkos.cpp misses it (scan_es2.py/es2.txt). fix_nh_sphere/fix_rigid_nh_small/
+pppm_tip4p/pair_hybrid_scaled inherit it from their templated parent. fix_acks2_reaxff_kokkos.cpp:343 has "|| 1" dead GPU branch.
+Step 4 DONE (registration/instantiation completeness): scan_inst.py + scan_inst2.py -> only the 3 #ifdef-guarded XKokkosDevice
+classes, which are fine.
+NEW FINDING: compute_temp_deform_kokkos.cpp:186 x2lamda ordering (cf correct compute_temp_profile_kokkos.cpp:82-91).
+TODO next: (a) other DomainKokkos device-only calls in templated classes (fix_press_langevin, fix_rigid_nh_small, fix_nh done=OK),
+(b) more host_flag fallbacks, (c) DAT:: vs typename AT:: for per-atom views (rule 3) re-audit.
+NEW FINDING: pair_kokkos.h:874 GetMaxNeighs bare lambda -> DefaultExecutionSpace with host neigh list.
+Checked and OK (no finding): npair_kokkos.cpp GPU #ifdefs (guarded by ExecutionSpaceFromDevice<DeviceType>::space==Device +
+explicit NPairKokkosBuildFunctor<LMPHostType,...> specialization); fix_qeq_reaxff (execution_space==HostKK guards);
+pair_pace / pair_pace_extrapolation (host_flag returns before neighflag read); fix_nh_kokkos / fix_press_langevin /
+fix_rigid_nh_small remap x2lamda ordering; compute_coord_atom_kokkos dispatch on c_orientorder->execution_space;
+fix_rigid_small_kokkos DualView<...,DeviceType>::view_device() (correct); comm_kokkos forward/reverse_comm_device<LMPHostType>
+explicitly instantiated. pppm_kokkos.cpp:1328 + pppm_tip4p:218 + pair_exp6_rx 205/249: build-config #ifdef LMP_KOKKOS_GPU picks
+atomics vs duplicated-array path -> host instantiation on GPU build gets the atomics path: correct but suboptimal, NOT reported.

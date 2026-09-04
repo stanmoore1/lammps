@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/compute_composition_atom_kokkos.cpp",
+ "line": 141,
+ "severity": "low",
+ "category": "cleanup",
+ "confidence": "confirmed",
+ "summary": "Local variable 'size_peratom_cols' shadows the Compute base-class member of the same name inside compute_peratom().",
+ "evidence": "src/KOKKOS/compute_composition_atom_kokkos.cpp:141 'int size_peratom_cols = 1 + atom->ntypes;' shadows Compute::size_peratom_cols, which the base sets in src/EXTRA-COMPUTE/compute_composition_atom.cpp:60 'size_peratom_cols = 1 + ntypes;'; the device kernel at line 226 uses the member, the allocation at line 145 uses the local.",
+ "failure_scenario": "Harmless today because both hold 1+atom->ntypes, but any future divergence between the two silently allocates a result array of one width and iterates it with another.",
+ "suggested_fix": "Delete the local declaration and use the inherited member; likewise drop 'int count = 1.0;' (line 197) in favour of 'int count = 1;'.",
+ "_src": "findings_04.json",
+ "_dupes": [],
+ "_id": "F0080"
+}

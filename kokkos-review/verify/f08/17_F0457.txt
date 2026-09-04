@@ -1,0 +1,15 @@
+{
+ "file": "src/KOKKOS/comm_kokkos.cpp",
+ "line": 1114,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "verified_by": "orchestrator (read code directly); found by group 06",
+ "summary": "With the device atom map, exchange_device() skips map_clear() (guarded by atom_map_legacy) and map_set_device() clears only the hash, so a MAP_ARRAY map keeps stale local indices for atom IDs no longer on this rank instead of -1.",
+ "evidence": "comm_kokkos.cpp:1114-1115; atom_map_kokkos.cpp:219-220 clears only d_map_hash; the array branch only writes d_map_array(tag_i)=i for present atoms; src/comm_brick.cpp calls map_clear unconditionally.",
+ "failure_scenario": "An atom migrates off the rank; a bonded partner lookup for its ID returns a stale index (possibly now a different atom) instead of -1, so 'Bond atoms missing' is not detected and a bond is built to the wrong atom -> silent wrong forces instead of an error.",
+ "suggested_fix": "Drop the atom_map_legacy guard around map_clear() or deep_copy(k_map_array.view_device(),-1) at the start of map_set_device().",
+ "_src": "findings_orchestrator.json",
+ "_dupes": [],
+ "_id": "F0457"
+}

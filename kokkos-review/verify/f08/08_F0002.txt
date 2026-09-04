@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/angle_gaussian_kokkos.cpp",
+ "line": 222,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "The sum_g_i underflow guard uses SMALLG = 2.3e-308 cast to KK_FLOAT, which becomes exactly 0.0f in single/mixed-precision KOKKOS builds and therefore never fires.",
+ "evidence": "src/KOKKOS/angle_gaussian_kokkos.cpp:31 `static constexpr double SMALLG = 2.3e-308;` and :221-223 `// avoid overflow` / `if (sum_g_i < sum_numerator * static_cast<KK_FLOAT>(SMALLG))` / `sum_g_i = sum_numerator * static_cast<KK_FLOAT>(SMALLG);`. KK_FLOAT is `float` for LMP_KOKKOS_SINGLE_SINGLE and LMP_KOKKOS_SINGLE_DOUBLE (src/KOKKOS/kokkos_type.h:399-408), and static_cast<float>(2.3e-308) underflows to 0.0f, so the test degenerates to `if (sum_g_i < 0.0f)`. sum_g_i is then used at :228 `eangle = -kbt * Kokkos::log(sum_g_i);` and :230 `a = -4.0*kbt*(sum_numerator/sum_g_i)*s;`. The CPU base performs the identical guard in double: src/EXTRA-MOLECULE/angle_gaussian.cpp:32 and :135-136.",
+ "failure_scenario": "Build with -DLMP_KOKKOS_SINGLE_SINGLE (or SINGLE_DOUBLE) and run angle_style gaussian/kk with an angle far from every theta0 (all exponents very negative): every g_i underflows, sum_g_i == 0.0f, the guard does not fire, log(0) gives -inf energy and sum_numerator/sum_g_i gives inf/NaN forces -> NaN trajectory. The double-precision default build is unaffected.",
+ "suggested_fix": "Evaluate the guard in double (or use a KK_FLOAT-appropriate floor such as Kokkos::Experimental::norm_min_v<KK_FLOAT> / std::numeric_limits<KK_FLOAT>::min()) instead of casting a double-denormal constant to KK_FLOAT.",
+ "_src": "findings_00.json",
+ "_dupes": [],
+ "_id": "F0002"
+}

@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/fix_temp_csld_kokkos.cpp",
+ "line": 46,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "summary": "fix temp/csld/kk draws its random velocities from a Kokkos random pool but inherits the base class write_restart/restart, which save and restore only the unused RanMars generator - so a restarted run replays the same random-velocity sequence from the beginning instead of continuing the stream.",
+ "evidence": "fix_temp_csld_kokkos.cpp:45-49 seeds 'rand_pool(utils::inumeric(FLERR, arg[6], false, lmp) + comm->me)' and the kernel draws from it (fix_temp_csld_kokkos.cpp:211-215 'rand_type rand_gen = rand_pool.get_state(); ... rand_gen.normal() ...').  The class overrides only the constructor, destructor, init(), end_of_step() and temp_scalar() (fix_temp_csld_kokkos.h:42-56), so src/EXTRA-FIX/fix_temp_csld.cpp:294-329 remain in force: write_restart does 'random->get_state(state); MPI_Gather(...)' and restart does 'random->set_state(list+2+comm->me*103)' on the RanMars object that the Kokkos path never advances.  Nothing re-seeds or restores rand_pool, which is reconstructed from arg[6]+comm->me on every read_restart.",
+ "failure_scenario": "run 10000 steps with 'fix temp/csld/kk', write_restart, read_restart and continue: the thermostat's gaussian velocity draws restart at the head of the same stream the first run used, so the two segments of the trajectory share identical noise, unlike the CPU 'fix temp/csld' whose RanMars state is restored.  (A second, smaller inconsistency: restart() reads 'list+2+comm->me*103' while write_restart strides by PRNGSIZE = 103, so the two agree only by coincidence of that constant.)",
+ "suggested_fix": "Override write_restart()/restart() to save and restore the Kokkos pool state (or at minimum document in doc/src/fix_temp_csld.rst that the /kk variant does not restore its random-number state).",
+ "_src": "findings_15.json",
+ "_dupes": [],
+ "_id": "F0243"
+}

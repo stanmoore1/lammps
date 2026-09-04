@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/comm_kokkos.cpp",
+ "line": 1114,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "With the device atom map and MAP_ARRAY, the global->local map array is never cleared: exchange_device() skips map_clear() and map_set_device() only clears the hash, so map() returns stale local indices for atom IDs that have migrated off this rank instead of -1.",
+ "evidence": "src/KOKKOS/comm_kokkos.cpp:1110-1115:\n  // clear global->local map for owned and ghost atoms\n  // b/c atoms migrate to new procs in exchange() and new ghosts are created in borders()\n  // map_set() is done at end of borders()\n  if (lmp->kokkos->atom_map_legacy)\n    if (map_style != Atom::MAP_NONE) atom->map_clear();\nThe CPU base has no such guard, src/comm_brick.cpp:614: 'if (map_style != Atom::MAP_NONE) atom->map_clear();'.  The device rebuild in src/KOKKOS/atom_map_kokkos.cpp:217-256 clears only the hash:\n  auto& d_map_hash = k_map_hash.view_device();\n  if (!map_style_array) d_map_hash.clear();\n  ... if (map_style_array) d_map_array(tag_i) = i;\nso entries of d_map_array whose tag is no longer owned or ghosted on this rank keep the value written at an earlier map_set().  Consumers rely on -1, e.g. src/KOKKOS/neigh_bond_kokkos.cpp:313-317:\n  int atom1 = AtomKokkos::map_kokkos<DeviceType>(bond_atom(i,m),map_style,k_map_array,k_map_hash);\n  if (atom1 == -1) { nmissing++; ... }",
+ "failure_scenario": "GPU run with the defaults (ngpus>0 => atom_map_legacy=0, exchange_comm_legacy=0) and an atom-ID range small enough that map_style is MAP_ARRAY.  An atom whose ID once lived on this rank migrates away; a bonded partner lookup for that ID then returns the stale local index instead of -1, so 'Bond/Angle atom missing' is not detected and neigh_bond builds a bond to an unrelated atom -> silently wrong forces instead of a hard error.",
+ "suggested_fix": "Either drop the atom_map_legacy guard around map_clear() in exchange_device()/CommTiledKokkos, or add a device-side clear of k_map_array (deep_copy(view_device(),-1)) at the start of AtomKokkos::map_set_device() the way the hash branch already clears d_map_hash.",
+ "_src": "findings_06.json",
+ "_dupes": [],
+ "_id": "F0110"
+}

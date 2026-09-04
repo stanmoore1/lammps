@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/grid3d_kokkos.cpp",
+ "line": 643,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "possible",
+ "summary": "Grid3dKokkos::forward_comm()/reverse_comm() select the brick vs tiled path from the live comm->layout, while the matching data structures were built from the snapshot Grid3d::layout_grid taken at construction, so a layout change during a run makes the two disagree.",
+ "evidence": "src/KOKKOS/grid3d_kokkos.cpp:642-648:\n  if (caller == KSPACE) {\n    if (comm->layout != Comm::LAYOUT_TILED)\n    forward_comm_kspace_brick(...);\n  else\n    forward_comm_kspace_tiled(...);\nand the same at lines 787-793 in reverse_comm().  Every dispatch in the base class uses the snapshot instead: src/grid3d.cpp:1316 'if (layout_grid != Comm::LAYOUT_TILED) {' in Grid3d::forward_comm(), :1421 in reverse_comm(), :741 'if (layout_grid != Comm::LAYOUT_TILED) setup_comm_brick(nbuf1,nbuf2);' -- the same setup_comm() that fills the KOKKOS swap/send/recv/copy lists.  src/grid3d.h:62-64 documents why: 'int layout_grid; // how this grid instance is distributed across procs ... load balancing can create a new Grid with new layout_grid', and it is assigned once per instance (src/grid3d.cpp:103 and :179).  comm->layout does change at run time: src/fix_balance.cpp:300-303 sets it to LAYOUT_NONUNIFORM/LAYOUT_TILED, src/balance.cpp:290-333 likewise.",
+ "failure_scenario": "Any sequence where comm->layout flips to LAYOUT_TILED after this Grid3dKokkos was set up but before it is destroyed (e.g. a balance/rcb between the grid setup and the next kspace comm): forward_comm() then takes the tiled branch while nsend/nrecv/ncopy are all still 0 from setup_comm_brick(), so no ghost grid data is exchanged at all and PPPM silently uses stale/zero ghost planes.  Currently masked because fix balance calls kspace->reset_grid() immediately after changing comm->layout.",
+ "suggested_fix": "Use the inherited layout_grid member in both dispatchers (and fix the misleading indentation of the if/else while there).",
+ "_src": "findings_06.json",
+ "_dupes": [],
+ "_id": "F0119"
+}

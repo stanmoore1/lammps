@@ -1,0 +1,15 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 217,
+ "severity": "high",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "verified_by": "orchestrator (read code directly); found by group 02",
+ "summary": "The ellipsoid bonus forward-comm functors build their buffer view with row stride size_forward even when called from the velocity comm path, whose buffer stride is size_forward+size_velocity and whose offset already includes size_velocity, so quaternions land in / are read from the wrong rows.",
+ "evidence": "atom_vec_ellipsoid_kokkos.cpp:215-218 (elements = size_forward), 239-240 (offset += size_velocity when vel_flag); atom_vec_kokkos.cpp:824-826 uses size_forward + size_velocity for the velocity path.",
+ "failure_scenario": "atom_style ellipsoid/kk + comm_modify vel yes on a GPU: garbage ghost quaternions and neighboring atoms' x/v overwritten.",
+ "suggested_fix": "Pass vel_flag into the bonus functors and size the buffer view with size_forward + (vel_flag ? size_velocity : 0).",
+ "_src": "findings_orchestrator.json",
+ "_dupes": [],
+ "_id": "F0465"
+}

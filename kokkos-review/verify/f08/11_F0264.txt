@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+ "line": 123,
+ "severity": "low",
+ "category": "memory",
+ "confidence": "confirmed",
+ "summary": "MLIAPDummyDescriptorKokkos::set_elements() forgets to set allocated_elements, so the per-element name strings it strdups are never freed.",
+ "evidence": "src/KOKKOS/mliap_unified_kokkos.cpp:122-128 'void MLIAPDummyDescriptorKokkos<DeviceType>::set_elements(char **elems, int nelems) { nelements = nelems; elements = new char *[nelems]; for (int i = 0; i < nelems; i++) { elements[i] = utils::strdup(elems[i]); } }' versus the CPU original src/ML-IAP/mliap_unified.cpp:108-114 which ends with 'allocated_elements = 1;'. The base destructor frees the strings only under that flag: src/ML-IAP/mliap_descriptor.cpp:36-40 'if (allocated_elements) for (int i = 0; i < nelements; i++) delete[] elements[i]; delete[] elements;'.",
+ "failure_scenario": "Every 'pair_style mliap/kk unified ...' leaks nelements strdup'd strings; repeated pair_style redefinition in a long script leaks steadily.",
+ "suggested_fix": "Add 'allocated_elements = 1;' at the end of MLIAPDummyDescriptorKokkos::set_elements().",
+ "_src": "findings_16.json",
+ "_dupes": [],
+ "_id": "F0264"
+}

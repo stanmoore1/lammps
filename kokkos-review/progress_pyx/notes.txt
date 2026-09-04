@@ -1,0 +1,15 @@
+[pyx group] Confirmed by cythonizing the real .pyx (cython 3.3, scratchpad/cy/):
+ - `cdef public object mliap_unified_connect_kokkos` returns a NEW reference
+   (generated code: __Pyx_INCREF(unified_int); __pyx_r = unified_int; __Pyx_XGIVEREF(__pyx_r)).
+   => build_unified's comment "Borrowed references must be manually incremented"
+   (mliap_unified_kokkos.cpp:251, mliap_unified.cpp:223) is wrong; C++ takes 3 refs
+   (returned one never released + 2 explicit INCREF).  KOKKOS decrefs 3x
+   (model kokkos dtor + model base dtor + descriptor base dtor) => BALANCED.
+   Non-KOKKOS decrefs 2x => leaks 1.  So the existing "confirmed high" finding at
+   mliap_unified_kokkos.cpp:144 (double release) is NOT an active double free.
+ - generated code calls `unified_int->descriptor->set_elements(...)` with descriptor
+   typed LAMMPS_NS::MLIAPDummyDescriptor* and set_elements non-virtual =>
+   MLIAPDummyDescriptorKokkos::set_elements (mliap_unified_kokkos.cpp:123) is DEAD CODE,
+   so the existing "allocated_elements leak" finding there cannot trigger.
+ - numneighs in MLIAPDataKokkosDevice is a HOST pointer (memory_kokkos.h:38-43
+   create_kokkos sets array = data.view_host().data()), all other arrays are device.

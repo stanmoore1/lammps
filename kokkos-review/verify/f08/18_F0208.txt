@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/fix_reaxff_species_kokkos.cpp",
+ "line": 161,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "summary": "Wrong logical operator in the tmpid skip guard: '(j == 0) && (j < i)' instead of the base class's '(j == 0) || (j < i)', so empty bond slots are no longer skipped and lower-index partners would be processed a second time.",
+ "evidence": "src/KOKKOS/fix_reaxff_species_kokkos.cpp:158-162:\n        for (jj = 0; jj < MAXSPECBOND; jj++) {\n          j = reaxff->tmpid[i][jj];\n\n          if ((j == 0) && (j < i)) continue;\nvs src/REAXFF/fix_reaxff_species.cpp (FixReaxFFSpecies::FindMolecule, the line 42 of that function):\n          if ((j == 0) || (j < i)) continue;\nEverything else in the two loops is identical.",
+ "failure_scenario": "For the local atom with index i == 0 the sentinel value j == 0 that marks an unused tmpid slot is no longer skipped, so up to MAXSPECBOND(=24) spurious self-pair iterations run per outer pass (currently caught by the following clusterID/x0 equality test, so no wrong numbers today). The guard is also the only protection against double-processing a bond if PairReaxFFKokkos::FindBondSpecies ever stored both directions -- it currently stores only j > i (src/KOKKOS/pair_reaxff_kokkos.cpp, TagPairReaxFindBondSpecies: 'if (j < i) continue;'), which is what masks the defect.",
+ "suggested_fix": "Change '&&' to '||' so the guard matches FixReaxFFSpecies::FindMolecule().",
+ "_src": "findings_13.json",
+ "_dupes": [],
+ "_id": "F0208"
+}

@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 187,
+ "severity": "low",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "AtomVecEllipsoidKokkos::sort_kokkos applies the per-atom bin permutation to the bonus array, which is indexed by ellipsoid[i] rather than by atom index, and it uses the d_bonus member that is never assigned anywhere.",
+ "evidence": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:186-187:\n  Sorter.sort(LMPDeviceType(), d_ellipsoid);\n  Sorter.sort(LMPDeviceType(), d_bonus);\nSorting d_ellipsoid moves the bonus *indices* along with their atoms, which is already correct; additionally permuting d_bonus by the same atom permutation destroys the ellipsoid[i] -> bonus mapping (bonus is a compacted array of nlocal_bonus <= nlocal entries) and no bonus[k].ilocal is updated afterwards.  `d_bonus` is declared in atom_vec_ellipsoid_kokkos.h:118 but never assigned - grow_bonus() (lines 157-168) only calls memoryKK->grow_kokkos(k_bonus,bonus).  The code is currently unreachable because AtomKokkos::sort (src/KOKKOS/atom_kokkos.cpp:345-353) forces sort_legacy = true for any bonus style.",
+ "failure_scenario": "If the bonus guard in AtomKokkos::sort is ever relaxed, an on-device atom sort scrambles shapes/quaternions and leaves stale bonus.ilocal values -> silently wrong aspherical dynamics.",
+ "suggested_fix": "Remove the `Sorter.sort(..., d_bonus)` call (and the unused d_bonus/h_bonus members), or implement a proper bonus re-index + ilocal fixup before enabling device sorting for bonus styles.",
+ "_src": "findings_02.json",
+ "_dupes": [],
+ "_id": "F0036"
+}

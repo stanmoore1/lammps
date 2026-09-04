@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/bond_quartic_exp_kokkos.cpp",
+ "line": 243,
+ "severity": "low",
+ "category": "cleanup",
+ "confidence": "confirmed",
+ "summary": "coeff() and read_restart() build the coefficient DualViews as function-local temporaries whose host mirrors die at the end of the function, and they copy r0/k2/k3/k4/A/B for ALL types including ones whose coefficients are still uninitialized.",
+ "evidence": "src/KOKKOS/bond_quartic_exp_kokkos.cpp:243-256 'DAT::tdual_kkfloat_1d k_r0(\"BondQuarticExp::r0\",n+1); ... d_r0 = k_r0.template view<DeviceType>();' - the class (src/KOKKOS/bond_quartic_exp_kokkos.h:85-88) only keeps the d_* device views, no k_* members, and compute() (:84-90) syncs nothing. The same pattern is repeated in read_restart() at :292-304. The fill loop at :257-264 runs 'for (int i = 1; i <= n; i++)' over every type, but BondQuarticExp::allocate() (src/EXTRA-MOLECULE/bond_quartic_exp.cpp:129-134) leaves r0/k2/.../B uninitialized until each type's bond_coeff, unlike every other style in this group which loops only ilo..ihi (cf. bond_class2_kokkos.cpp:252).",
+ "failure_scenario": "'bond_coeff 1 ...' with nbondtypes = 2 reads uninitialized heap doubles for type 2 and static_cast<KK_FLOAT>s them; harmless today because type 2 is unusable, but it is undefined behaviour and can raise FP exceptions under -ffpe-trap. It also makes the style unmaintainable: the host mirrors are gone, so a later k_*.sync/modify cannot be added.",
+ "suggested_fix": "Declare k_r0/k_k2/k_k3/k_k4/k_A/k_B as class members allocated in allocate() (as bond_class2_kokkos does), and restrict the coeff() fill loop to ilo..ihi.",
+ "_src": "findings_03.json",
+ "_dupes": [],
+ "_id": "F0045"
+}

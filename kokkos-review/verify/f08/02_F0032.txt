@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 39,
+ "severity": "medium",
+ "category": "correctness",
+ "confidence": "likely",
+ "summary": "AtomVecEllipsoidKokkos silently accepts the 'superellipsoid' sub-style argument but is hard-wired to the plain-ellipsoid bonus layout and never allocates atom->radius, so ellipsoid/kk superellipsoid is broken rather than rejected.",
+ "evidence": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:39 hard-codes `size_exchange_bonus = 8;` and the pack/unpack bonus functors move exactly shape[3]+quat[4] (lines 483-489, 557-563, 655-661), matching src/atom_vec_ellipsoid.cpp:46-48 size_border_bonus/size_restart_bonus_one = 8.  AtomVecEllipsoid::process_args (src/atom_vec_ellipsoid.cpp:1095-1114) raises those to 13, switches the bonus storage to bonus_super, and appends \"radius\" to fields_grow/copy/border/border_vel/exchange/restart/create.  AtomVecEllipsoidKokkos does not override process_args, and its grow() (lines 87-99) grows tag,type,mask,image,x,v,f,rmass,angmom,torque,ellipsoid - never atomKK->k_radius - while set_atom_masks() will put RADIUS_MASK into datamask_border, so AtomVecKokkos_PackBorder (atom_vec_kokkos.cpp:1534-1535) reads _radius(j) from an unallocated view.",
+ "failure_scenario": "'atom_style ellipsoid/kk superellipsoid' -> null/empty radius view dereferenced during the first borders() call, and blockiness parameters are never communicated -> crash or silently wrong superquadric shapes.",
+ "suggested_fix": "Override process_args in AtomVecEllipsoidKokkos to error out on 'superellipsoid' (or implement it: grow k_radius, use the 13-wide bonus layout and the Bonus_Super struct).",
+ "_src": "findings_02.json",
+ "_dupes": [],
+ "_id": "F0032"
+}

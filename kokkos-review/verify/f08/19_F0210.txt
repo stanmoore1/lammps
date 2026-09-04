@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/fix_reaxff_species_kokkos.cpp",
+ "line": 94,
+ "severity": "medium",
+ "category": "sync-modify",
+ "confidence": "likely",
+ "summary": "datamask_read/datamask_modify are narrowed from the Fix defaults (ALL_MASK/ALL_MASK) although the inherited post_integrate() can delete atoms via FixReaxFFSpecies::DeleteSpecies(), which rewrites every per-atom array on the host; only DVECTOR_MASK is marked modified, leaving the device copies of x/v/tag/type/image stale.",
+ "evidence": "src/KOKKOS/fix_reaxff_species_kokkos.cpp:94-95: 'datamask_read = X_MASK | V_MASK | Q_MASK | MASK_MASK | DVECTOR_MASK | TYPE_MASK | RMASS_MASK | TAG_MASK; datamask_modify = DVECTOR_MASK;' (src/fix.cpp:110-111 defaults are 'datamask_read = ALL_MASK; datamask_modify = ALL_MASK;'). src/KOKKOS/modify_kokkos.cpp:266-278 ModifyKokkos::post_integrate() does only 'atomKK->sync(fix->execution_space, fix->datamask_read); ... fix->post_integrate(); ... atomKK->modified(fix->execution_space, fix->datamask_modify);'. FixReaxFFSpecies::post_integrate() -> Output_ReaxFF_Bonds() -> 'if (delflag != NONE && nvalid != -1) DeleteSpecies(Nmole, Nspec);' and DeleteSpecies does 'avec->copy(atom->nlocal - 1, i, 1); atom->nlocal--; ... atom->natoms -= ndel; ... atom->nghost = 0; atom->map_init(); atom->map_set();' (src/REAXFF/fix_reaxff_species.cpp). AtomVecKokkos does not override AtomVec::copy() (src/atom_vec.cpp:269), so the compaction is a pure host-side rewrite of every registered per-atom field.",
+ "failure_scenario": "fix 1 all reaxff/species/kk 1 1 100 species.out delete del.out masslimit 0 50  under -k on -sf kk: after the first deletion step the device still holds the pre-compaction x/v/tag/type/image (and the old nlocal worth of data), so the next device kernel integrates the wrong atoms -- silently wrong trajectories or a crash.",
+ "suggested_fix": "Leave datamask_read/datamask_modify at ALL_MASK for this (deliberately kokkosable = 0) fix, or at least add every mask that AtomVec::copy() touches and set datamask_modify = ALL_MASK whenever delflag != NONE.",
+ "_src": "findings_13.json",
+ "_dupes": [],
+ "_id": "F0210"
+}

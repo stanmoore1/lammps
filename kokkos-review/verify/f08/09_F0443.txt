@@ -1,0 +1,15 @@
+{
+ "file": "src/KOKKOS/angle_gaussian_kokkos.cpp",
+ "line": 301,
+ "severity": "high",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "verified_by": "orchestrator (read code directly); found by group 00",
+ "summary": "coeff() bounds the angle type with atom->ndihedraltypes instead of atom->nangletypes (base and every sibling use nangletypes); dual views are sized nangletypes+1.",
+ "evidence": "angle_gaussian_kokkos.cpp:301 vs src/EXTRA-MOLECULE/angle_gaussian.cpp coeff().",
+ "failure_scenario": "Angle-only system (ndihedraltypes=0): bogus 'out of bounds (1-0)' error; ndihedraltypes>nangletypes: host-mirror overflow; fewer: types silently left with nterms=0 -> log(0)/NaN.",
+ "suggested_fix": "Use atom->nangletypes.",
+ "_src": "findings_orchestrator.json",
+ "_dupes": [],
+ "_id": "F0443"
+}

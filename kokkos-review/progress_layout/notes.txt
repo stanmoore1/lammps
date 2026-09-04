@@ -1,0 +1,36 @@
+=== GROUND TRUTH (layout axis) ===
+cmake/Modules/Packages/KOKKOS.cmake:33-40  KOKKOS_LAYOUT = legacy|default -> -DLMP_KOKKOS_LAYOUT_LEGACY / _DEFAULT
+src/KOKKOS/kokkos_type.h:177-186:
+  #if !defined LEGACY && !defined DEFAULT -> define LEGACY   (legacy is the fallback)
+  LEGACY  : typedef Kokkos::LayoutRight LMPDeviceLayout;
+  DEFAULT : typedef LMPDeviceType::array_layout LMPDeviceLayout;  (LayoutLeft on CUDA/HIP/SYCL/OMPTarget;
+            LayoutRight on Serial/OpenMP/Threads)
+=> layout differences ONLY manifest with KOKKOS_LAYOUT=default AND a GPU backend.
+Note KOKKOS.cmake:269 forces legacy for PKG_ML-IAP.
+
+ALWAYS LayoutRight (never change): all *_lr suffixed types; all scalar and 1-D types
+  (int_1d, double_1d, kkfloat_1d, kkacc_1d, tagint_1d, ...); double_2d_lr, kkfloat_2d_lr,
+  int_2d_lr, kkfloat_1d_3_lr, double_1d_{2,3,4,6}_lr, int_3d_lr, double_3d_lr, double_4d_lr.
+FOLLOW LMPDeviceLayout (flip): int_2d, tagint_2d, double_2d, kkfloat_2d, int_1d_3,
+  kkfloat_1d_{2,3,4,6}, kkacc_1d_{3,6,9}, int_3d, kkfloat_3d, kkfloat_4d + ttransform_* of same.
+ALWAYS LMPDeviceType::array_layout (LayoutLeft on GPU in BOTH modes): *_dl types =
+  int_2d_dl / kkfloat_2d_dl -> tdual_neighbors_2d (d_neighbors!).
+
+atom_kokkos.h:34-36  k_x = ttransform_kkfloat_1d_3_LR  (x is ALWAYS LayoutRight)
+                     k_v = ttransform_kkfloat_1d_3     (flips)
+                     k_f = ttransform_kkacc_1d_3       (flips)
+  also flipping: k_omega,k_angmom,k_torque,k_mu,k_sp,k_fm,k_fm_long,k_dvector,
+  k_nspecial,k_special,k_bond_*,k_angle_*,k_dihedral_*,k_improper_*
+  k_ivector is int_2d_LR (fixed)
+TransformView<KKType,LegacyType,KKLayout>: NEED_TRANSFORM unless (same type && LayoutRight)
+  -> view_host() is ALWAYS a LayoutRight legacy double** mirror; view_hostkk()/view_device()
+     carry KKLayout.
+
+=== SWEEP LOG ===
+[min_*] REFUTED main-review candidate min_linesearch_kokkos.cpp:391. xvec/x0 flat alias
+ of atomKK->k_x.view_device().data() is SAFE because k_x is ttransform_kkfloat_1d_3_LR
+ (LayoutRight in both modes). fvec (k_f, layout-flipping) IS aliased flat at
+ min_linesearch_kokkos.cpp:109, min_quickmin:88, min_fire:96 -- but every *use* of fvec is
+ guarded by `if constexpr (F_LAYOUTRIGHT)` (min_kokkos.h:27) with an (i,0..2) fallback:
+ min_cg 68/125/178, min_kokkos 624/661/698, min_linesearch 191/286/442, min_sd 51.
+ min_fire/min_quickmin assign fvec but never use it. => min_* is layout-clean.

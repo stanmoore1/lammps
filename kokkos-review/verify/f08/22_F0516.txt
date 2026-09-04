@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/fix_wall_region_kokkos.cpp",
+ "line": 98,
+ "severity": "high",
+ "category": "sync-modify",
+ "confidence": "confirmed",
+ "summary": "fix wall/region/kk reads atom radius on the device for the colloid wall style but RADIUS_MASK is not in datamask_read, so the device radius array is never synced.",
+ "evidence": "src/KOKKOS/fix_wall_region_kokkos.cpp:47 `datamask_read = X_MASK | V_MASK | F_MASK | MASK_MASK;`.  post_force() line 78 syncs only `datamask_read`, then line 98 `if (style == COLLOID) d_radius = atomKK->k_radius.template view<DeviceType>();`.  The kernel reads it at line 164 `tooclose = d_radius(i);` and line 195 `else if (style == COLLOID) engKK = colloid(r,d_radius(i),fwallKK);`.  No other sync in this file covers RADIUS_MASK (only sync call is line 78).  Compare the base FixWallRegion::post_force in src/fix_wall_region.cpp which uses the host `atom->radius` directly.",
+ "failure_scenario": "`fix wall/region ... colloid ... /kk` on a GPU: radius is filled on the host by read_data/`set diameter`/a non-kk fix and is only copied to the device by an explicit RADIUS_MASK sync.  Without it d_radius contains zeros (or stale values), so `tooclose` is 0 and the colloid wall energy/force uses a wrong particle radius -- wrong forces, and the 'Particle outside surface of region used in fix wall/region' check no longer fires.",
+ "suggested_fix": "Add RADIUS_MASK to datamask_read (at least when style == COLLOID), e.g. in the constructor after parsing style, or sync it explicitly in post_force before assigning d_radius.",
+ "_src": "findings_rules_C.json",
+ "_dupes": [],
+ "_id": "F0516"
+}

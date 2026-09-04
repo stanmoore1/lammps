@@ -1,0 +1,330 @@
+angle_charmm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_class2_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+angle_class2_p6_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_class2xe_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cosine_delta_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cosine_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+angle_cosine_periodic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cosine_shift_exp_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cosine_shift_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cosine_squared_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cosine_squared_restricted_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_cross_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_dipole_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_fourier_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_fourier_simple_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_gaussian_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+angle_hybrid_kokkos.cpp SET= ['Device', '= HostKK)\n      lmp->kokkos->allow_overlap = 0'] USES= 2
+angle_mm3_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_mwlc_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_quartic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+angle_spica_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+angle_table_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+bond_class2_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+bond_fene_expand_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_fene_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_fene_nm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_gaussian_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_gromos_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_harmonic_restrain_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_harmonic_shift_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_harmonic_shift_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_hybrid_kokkos.cpp SET= ['Device', '= HostKK)\n      lmp->kokkos->allow_overlap = 0'] USES= 2
+bond_mm3_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_morse_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_nonlinear_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_quartic_exp_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+bond_quartic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 4
+bond_table_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+comm_kokkos.cpp SET= ['= Host || fix->execution_space == HostKK ||\n      !fix->forward_comm_device || forward_fix_comm_legacy) {\n    k_sendlist.sync_host()', '= Host || fix->execution_space == HostKK ||\n      !fix->reverse_comm_device || reverse_fix_comm_legacy) {\n    k_sendlist.sync_host()', '= Host || compute->execution_space == HostKK ||\n      !compute->forward_comm_device || forward_compute_comm_legacy) {\n    k_sendlist.sync_host()', '= Host || pair->execution_space == HostKK ||\n      forward_pair_comm_legacy || !pairKKBase) {\n    k_sendlist.sync_host()', '= Host || pair->execution_space == HostKK || !pair->reverse_comm_device || reverse_pair_comm_legacy) {\n    k_sendlist.sync_host()'] USES= 5
+comm_tiled_kokkos.cpp SET= ['= Host || pair->execution_space == HostKK ||\n      forward_pair_comm_legacy || !pairKKBase) {\n    k_sendlist.sync_host()', '= Host || pair->execution_space == HostKK ||\n      !pair->reverse_comm_device || reverse_pair_comm_legacy) {\n    k_sendlist.sync_host()'] USES= 2
+compute_ave_sphere_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 4
+compute_centro_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_com_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+compute_composition_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_coord_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) {\n      ComputeOrientOrderAtomKokkos<LMPHostType>* c_orientorder_kk'] USES= 1
+compute_entropy_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_erotate_asphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_erotate_sphere_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_erotate_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_gaussian_grid_local_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)'] USES= 1
+compute_gyration_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+compute_hexorder_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_inertia_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+compute_ke_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_ke_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+compute_orientorder_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)'] USES= 1
+compute_reaxff_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= Device)\n    device_pair()->FindBond_kokkos(maxnumbonds, groupbit)', '= Device)\n    device_pair()->PackReducedBondBuffer(k_buf, nbuf_local, store_bonds)'] USES= 0
+compute_temp_com_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+compute_temp_deform_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 18
+compute_temp_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+compute_temp_partial_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 8
+compute_temp_profile_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+compute_temp_ramp_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+compute_temp_region_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+compute_temp_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 14
+dihedral_charmm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_charmmfsw_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_class2_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+dihedral_class2xe_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_cosine_shift_exp_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_cosine_squared_restricted_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_fourier_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_helix_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_hybrid_kokkos.cpp SET= ['Device', '= HostKK)\n      lmp->kokkos->allow_overlap = 0'] USES= 2
+dihedral_multi_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_nharmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_opls_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_quadratic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_spherical_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+dihedral_table_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+dihedral_table_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+dynamical_matrix_kokkos.cpp SET= ['=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true'] USES= 17
+fft3d_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)\n    lmp->error->all(FLERR,"Cannot use the MKL library with Kokkos on the host CPUs in a GPU build")', '= Device)\n    lmp->error->all(FLERR,"Cannot use the MKL library with Kokkos on GPUs")', '= Device)\n    lmp->error->all(FLERR,"Cannot use the FFTW library with Kokkos on GPUs")', '= Device)\n    lmp->error->all(FLERR,"Cannot use the NVPL FFT library with Kokkos on GPUs")', '= HostKK)\n    lmp->error->all(FLERR,"Cannot use the cuFFT library with Kokkos on the host CPUs")', '= HostKK)\n    lmp->error->all(FLERR,"Cannot use the hipFFT library with Kokkos on the host CPUs")'] USES= 0
+fix_acks2_reaxff_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) { // CPU\n    if (neighflag == FULL) {\n      FixACKS2ReaxFFKokkosComputeHFunctor<DeviceType, FULL> computeH_functor(this)', '= HostKK || 1) { // CPU\n    if (neighflag == FULL) {\n      FixACKS2ReaxFFKokkosComputeXFunctor<DeviceType, FULL> computeX_functor(this)', '= HostKK) teamsize = 1'] USES= 3
+fix_addforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_addtorque_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_addtorque_group_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_aveforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_baoab_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 4
+fix_brownian_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_cmap_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+fix_damping_cundall_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_dpd_energy_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 4
+fix_drag_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_dt_reset_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+fix_efield_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_electron_stopping_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_enforce2d_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_eos_table_rx_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 14
+fix_external_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_flow_gauss_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_freeze_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_gjf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 7
+fix_gravity_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_halt_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+fix_heat_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_langevin_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 16
+fix_lineforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_momentum_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space'] USES= 7
+fix_neigh_history_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+fix_nh_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 52
+fix_nh_sphere_kokkos.cpp SET= [] USES= 6
+fix_nve_asphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+fix_nve_asphere_noforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_nve_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+fix_nve_limit_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+fix_nve_noforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_nve_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 10
+fix_nvk_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_nvt_sllod_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 23
+fix_oneway_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_planeforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_press_berendsen_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+fix_press_langevin_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+fix_propel_self_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_qeq_reaxff_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) {\n    teamsize = 1'] USES= 5
+fix_reaxff_bonds_kokkos.cpp SET= ['= Device)\n    ((PairReaxFFKokkos<LMPDeviceType>*) reaxff)->FindBond_kokkos(numbonds)', '= Device)\n    ((PairReaxFFKokkos<LMPDeviceType>*) reaxff)->PackBondBuffer(k_buf,nbuf_local)'] USES= 0
+fix_reaxff_species_kokkos.cpp SET= ['= HostKK) {\n    NeighListKokkos<LMPHostType>* k_list = static_cast<NeighListKokkos<LMPHostType>*>(reaxff->list)'] USES= 0
+fix_recenter_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_rigid_nh_small_kokkos.cpp SET= [] USES= 20
+fix_rigid_small_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 15
+fix_rx_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+fix_setforce_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_settorque_atom_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_shake_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 10
+fix_shardlow_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+fix_spring_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+fix_spring_rg_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_spring_self_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_store_force_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+fix_temp_berendsen_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 11
+fix_temp_csld_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+fix_temp_csvr_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 11
+fix_temp_rescale_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 11
+fix_ti_spring_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_viscous_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_viscous_nonlinear_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_viscous_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_flow_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+fix_wall_gran_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_harmonic_outside_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_lj1043_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_lj126_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_lj93_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_morse_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_piston_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_reflect_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+fix_wall_region_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+improper_class2_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_cossq_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_cvff_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_distance_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_distharm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_fourier_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_hybrid_kokkos.cpp SET= ['Device', '= HostKK)\n      lmp->kokkos->allow_overlap = 0'] USES= 2
+improper_inversion_harmonic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_ring_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_sqdistharm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+improper_umbrella_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+kokkos.cpp SET= ['= HostKK) {\n    NeighListKokkos<LMPHostType>* nlistKK = (NeighListKokkos<LMPHostType>*) nk->lists[m]', '= Device) {\n    NeighListKokkos<LMPDeviceType>* nlistKK = (NeighListKokkos<LMPDeviceType>*) nk->lists[m]', '= Device))\n    refuse(fmt::format("pair style {}", force->pair_style))', '= Device))\n    refuse(fmt::format("bond style {}", force->bond_style))', '= Device))\n    refuse(fmt::format("angle style {}", force->angle_style))', '= Device))\n    refuse(fmt::format("dihedral style {}", force->dihedral_style))', '= Device))\n    refuse(fmt::format("improper style {}", force->improper_style))', '= Device))\n    refuse(fmt::format("kspace style {}", force->kspace_style))', '= Device) refuse(fmt::format("fix {} ({})", fix->id, fix->style))', '= Device)\n      refuse(fmt::format("compute {} ({})", compute->id, compute->style))'] USES= 0
+min_kokkos.cpp SET= [] USES= 38
+mliap_data_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+modify_kokkos.cpp SET= [] USES= 100
+neigh_bond_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 12
+neigh_list_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+neighbor_kokkos.cpp SET= ['= Host)\n    k_bondlist.sync_host()', '= Host)\n    k_anglelist.sync_host()', '= Host)\n    k_dihedrallist.sync_host()', '= Host)\n    k_improperlist.sync_host()'] USES= 0
+npair_halffull_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+npair_skip_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+npair_trim_kokkos.cpp SET= [] USES= 1
+pair_adp_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_beck_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_bondval_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_bondval_vec_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_coul_dsf_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_coul_dsf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_coul_long_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_coul_wolf_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_coul_wolf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_gauss_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_born_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_brownian_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck6d_coul_gauss_dsf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck6d_coul_gauss_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck_coul_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck_coul_long_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_buck_mdf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_colloid_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_cosine_squared_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_cut_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_debye_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_diel_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_dsf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_long_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_long_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_shield_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_slater_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_slater_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_wolf_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_coul_wolf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_dpd_ext_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_dpd_ext_tstat_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_dpd_fdt_energy_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 4
+pair_dpd_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_dpd_tstat_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_eam_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_exp6_rx_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_gauss_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_gauss_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_gran_hertz_history_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= Device)\n      cmd += "NEIGH_HISTORY/KK/DEVICE 3"'] USES= 3
+pair_gran_hooke_history_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= Device)\n      cmd += "NEIGH_HISTORY/KK/DEVICE 3"'] USES= 3
+pair_gran_hooke_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_harmonic_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_hybrid_kokkos.cpp SET= ['Device', '= Host || styles[m]->execution_space == HostKK)\n      lmp->kokkos->allow_overlap = 0'] USES= 3
+pair_hybrid_scaled_kokkos.cpp SET= [] USES= 3
+pair_lennard_mdf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj96_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_charmm_coul_charmm_implicit_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_charmm_coul_charmm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_charmm_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_charmm_coul_long_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_charmmfsw_coul_charmmfsh_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_charmmfsw_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_class2_coul_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_class2_coul_long_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_class2_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_class2_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_class2_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cubic_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_cut_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_debye_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_dsf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_long_cs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_long_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_coul_wolf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_dipole_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_cut_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_expand_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_expand_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_expand_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_gromacs_coul_gromacs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_gromacs_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_mdf_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_pirani_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_relres_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_smooth_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_smooth_linear_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_spica_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_spica_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_lj_switch3_coulgauss_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_meam_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_mie_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_mliap_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 6
+pair_mm3_switch3_coulgauss_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_momb_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_morse_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_morse_smooth_linear_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_morse_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_multi_lucy_rx_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 8
+pair_nm_cut_coul_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_nm_cut_coul_long_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_nm_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_nm_cut_split_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_pace_extrapolation_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)'] USES= 2
+pair_pace_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+pair_pedone_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_pod_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)'] USES= 2
+pair_reaxff_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) list_blocking_flag = 1', '= HostKK) {\n      auto k_s = ((FixACKS2ReaxFFKokkos<LMPHostType>*) ifix)->get_s()', '= HostKK) {\n      auto k_s = ((FixACKS2ReaxFFKokkos<LMPHostType>*) ifix)->get_s()', '= HostKK) { // CPU\n      if (neighflag == HALF)\n        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxBuildListsHalfBlocking<HALF>>(0,ignum),*this)'] USES= 6
+pair_soft_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_sw_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_sw_mod_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_table_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_table_rx_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_tersoff_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) {\n        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairTersoffCompute<HALFTHREAD,0> >(0,inum),*this)'] USES= 3
+pair_tersoff_mod_c_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) {\n        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairTersoffMODCCompute<HALFTHREAD,0> >(0,inum),*this)'] USES= 3
+pair_tersoff_mod_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) {\n        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairTersoffMODCompute<HALFTHREAD,0> >(0,inum),*this)'] USES= 3
+pair_tersoff_zbl_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK) {\n        Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairTersoffZBLCompute<HALFTHREAD,0> >(0,inum),*this)'] USES= 3
+pair_uf3_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_ufm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_vashishta_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_wf_cut_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_ylz_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_yukawa_colloid_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_yukawa_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pair_zbl_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 3
+pppm_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 0
+pppm_tip4p_kokkos.cpp SET= [] USES= 1
+region_block_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+region_cone_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+region_cylinder_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+region_ellipsoid_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+region_plane_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+region_prism_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+region_sphere_kokkos.cpp SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 1
+third_order_kokkos.cpp SET= ['=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true', '=Host) {\n      execute_on_host  = true'] USES= 17
+verlet_kokkos.cpp SET= [] USES= 40
+atom_vec_kokkos.h SET= [] USES= 2
+compute_sna_grid_kokkos_impl.h SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)'] USES= 1
+compute_sna_grid_local_kokkos_impl.h SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= HostKK)'] USES= 1
+fix_rigid_nh_small_kokkos.h SET= [] USES= 1
+group_kokkos.h SET= ['ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space', 'ExecutionSpaceFromDevice<DeviceType>::space'] USES= 14
+kokkos_type.h SET= [] USES= 5
+mliap_data_kokkos.h SET= [] USES= 1
+neigh_bond_kokkos.h SET= [] USES= 1
+pair_snap_kokkos_impl.h SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+pair_tip4p_kokkos.h SET= ['ExecutionSpaceFromDevice<DeviceType>::space'] USES= 2
+sna_kokkos.h SET= ['ExecutionSpaceFromDevice<DeviceType>::space', '= LAMMPS_NS::HostKK)'] USES= 0

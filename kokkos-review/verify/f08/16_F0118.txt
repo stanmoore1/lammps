@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/comm_kokkos.cpp",
+ "line": 1898,
+ "severity": "low",
+ "category": "overflow",
+ "confidence": "possible",
+ "summary": "grow_send_kokkos() sizes the send buffer with the constant Comm::BUFEXTRA instead of the Comm::bufextra member, so the extra headroom the legacy CommBrick::exchange() relies on (maxexchange + BUFEXTRA) is not provided.",
+ "evidence": "src/KOKKOS/comm_kokkos.cpp:1895-1899:\n  maxsend = static_cast<int> (BUFFACTOR * n);\n  int maxsend_border = (maxsend+Comm::BUFEXTRA)/atomKK->avecKK->size_border;\nversus src/comm_brick.cpp:1426-1437, which allocates 'maxsend+bufextra' where src/comm.cpp:272 sets 'bufextra = maxexchange + BUFEXTRA'.  CommBrick::exchange() packs one atom (up to maxexchange doubles) past the point where it last checked 'if (nsend > maxsend) grow_send(nsend,1)', so the headroom must be >= maxexchange, not the fixed 1000 of BUFEXTRA (further reduced by the integer division by size_border).",
+ "failure_scenario": "Legacy exchange path (package kokkos comm no, or gpu/aware off with >1 rank) with a style whose per-atom exchange size is large (many bonds/angles per atom, or fixes contributing a large maxexchange_fix): AtomVec::pack_exchange writes past the end of k_buf_send's host allocation.",
+ "suggested_fix": "Use the Comm::bufextra member (kept up to date by Comm::init_exchange()) instead of Comm::BUFEXTRA, and round the row count up rather than down when dividing by size_border.",
+ "_src": "findings_06.json",
+ "_dupes": [],
+ "_id": "F0118"
+}

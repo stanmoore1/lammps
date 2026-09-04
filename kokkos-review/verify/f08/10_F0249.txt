@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+ "line": 144,
+ "severity": "high",
+ "category": "memory",
+ "confidence": "confirmed",
+ "summary": "MLIAPDummyModelKokkos's destructor decrements the Python unified_interface reference that its base class destructor also decrements, so the object is released twice for a single incref.",
+ "evidence": "src/KOKKOS/mliap_unified_kokkos.cpp:140-145 '~MLIAPDummyModelKokkos() { // manually decrement borrowed reference from Python\\n  Py_DECREF(unified_interface); }' -- and the base destructor, which always runs afterwards, does exactly the same: src/ML-IAP/mliap_unified.cpp:123-127 'MLIAPDummyModel::~MLIAPDummyModel() { Py_DECREF(unified_interface); }'. build_unified takes exactly one reference per object: src/KOKKOS/mliap_unified_kokkos.cpp:251-255 'model->unified_interface = unified_interface; Py_INCREF(unified_interface); descriptor->unified_interface = unified_interface; Py_INCREF(unified_interface);'. The sibling Kokkos descriptor gets this right and deliberately leaves the DECREF to the base: lines 41-45 '~MLIAPDummyDescriptorKokkos() { // done in base class\\n  // Py_DECREF(unified_interface); }'.",
+ "failure_scenario": "'pair_style mliap/kk unified <module>' followed by redefining pair_style, or simply shutting LAMMPS down: three Py_DECREFs are issued against two Py_INCREFs, dropping the interface object's refcount to zero (or below) while the descriptor still holds a pointer to it -- a use-after-free/abort in CPython, or 'Fatal Python error: deallocating None'-style corruption.",
+ "suggested_fix": "Delete the Py_DECREF from ~MLIAPDummyModelKokkos() and let MLIAPDummyModel's destructor release the reference, mirroring the descriptor.",
+ "_src": "findings_16.json",
+ "_dupes": [],
+ "_id": "F0249"
+}

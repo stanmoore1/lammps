@@ -1,0 +1,14 @@
+{
+ "file": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp",
+ "line": 215,
+ "severity": "high",
+ "category": "correctness",
+ "confidence": "confirmed",
+ "summary": "The ellipsoid bonus forward-comm functors always build their buffer view with a row stride of size_forward, but when called from pack_comm_vel_kokkos/unpack_comm_vel_kokkos the buffer stride is size_forward+size_velocity and the offset already includes size_velocity, so the quaternions are written into and read from the wrong buffer rows.",
+ "evidence": "src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:215-218 (AtomVecEllipsoidKokkos_PackCommBonus ctor) and 276-279 (UnpackCommBonus ctor):\n    const int size_forward = atomKK->avecKK->size_forward;\n    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/size_forward;\n    const size_t elements = size_forward;\n    buffer_view<DeviceType>(_buf,buf,maxsend,elements);\nwhile the offset is computed as (lines 239-240 / 299-300)\n    int offset = size_forward - size_forward_bonus;\n    if (vel_flag) offset += size_velocity;\nand the caller AtomVecKokkos_PackCommVel (src/KOKKOS/atom_vec_kokkos.cpp:824-826) uses\n    const size_t elements = atomKK->avecKK->size_forward + atomKK->avecKK->size_velocity;\nFor ellipsoid size_forward = 3+4 = 7 (src/atom_vec_ellipsoid.cpp:45 size_forward_bonus=4, src/atom_vec.cpp:2483-2491) and size_velocity = 3+3 = 6 (fields_comm_vel={\"angmom\"}), so with vel_flag=1 the functor indexes _buf(i,9..12) on a view that is only 7 columns wide - i.e. it writes into row i+1, columns 2..5, which pack_comm_vel_kokkos filled with x/v of the next atom.",
+ "failure_scenario": "'atom_style ellipsoid/kk' with 'comm_modify vel yes' on a GPU build: the ghost quaternions are garbage and the neighbouring atom's communicated x/v are overwritten -> completely wrong aspherical forces, likely blow-up.",
+ "suggested_fix": "Pass the vel_flag (or the already-computed stride) into the bonus functors and build the buffer view with elements = size_forward + (vel_flag ? size_velocity : 0), matching AtomVecKokkos_PackCommVel.",
+ "_src": "findings_02.json",
+ "_dupes": [],
+ "_id": "F0027"
+}

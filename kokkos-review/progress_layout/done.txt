@@ -1,0 +1,1 @@
+dynamical_matrix_kokkos.cpp third_order_kokkos.cpp verlet_kokkos.cpp min_*_kokkos.cpp memory_kokkos.h comm_kokkos.cpp comm_tiled_kokkos.cpp atom_vec_kokkos.cpp kokkos_type.h
