@@ -10,3 +10,6 @@ meam/ms/kk: trivial wrapper, matches CPU PairMEAMMS. No findings.
 mie/cut: base src/EXTRA-PAIR/pair_mie_cut.cpp, matches (special_mie==special_lj). No findings.
 mliap: base src/ML-IAP/pair_mliap.cpp. x/f members ARE set (mliap_data_kokkos.cpp:120-122) so fdotr is fine. dtor has no copymode guard but no *this functors are used - OK. Finding: maxeatom used for k_vatom.
 momb: base src/EXTRA-PAIR/pair_momb.cpp; math matches exactly. No findings.
+morse: base src/pair_morse.cpp. FOUND missing offset in compute_evdwl. Note: pair_morse_kokkos::compute does NOT set copymode=1, but that is safe because ~PairComputeFunctor sets c.copymode=1 (pair_kokkos.h:103) - NOT a bug.
+morse/smooth/linear: base src/EXTRA-PAIR/pair_morse_smooth_linear.cpp; matches incl. offset and der_at_cutoff. No findings.
+morse/soft: base src/FEP/pair_morse_soft.cpp; bs/vs folding of lambda verified algebraically for both branches; init_one is re-run by Pair::reinit so fix adapt lambda works. CPU compute() also ignores offset[][], KK matches. No findings.

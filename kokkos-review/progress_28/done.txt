@@ -8,3 +8,7 @@ pair_table_kokkos.cpp
 pair_table_kokkos.h
 pair_table_rx_kokkos.cpp
 pair_table_rx_kokkos.h
+pair_tersoff_kokkos.cpp
+pair_tersoff_kokkos.h
+pair_tersoff_mod_c_kokkos.cpp
+pair_tersoff_mod_c_kokkos.h

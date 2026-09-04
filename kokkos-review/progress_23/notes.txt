@@ -28,3 +28,6 @@ lj/cubic: clean vs EXTRA-PAIR/pair_lj_cubic.cpp. NOTE: CPU base nests 'if (evfla
 lj/cut/coul/cut: clean vs src/pair_lj_cut_coul_cut.cpp.
 lj/cut/coul/cut/soft: clean vs FEP base.
 lj/cut/coul/debye: clean vs EXTRA-PAIR/pair_lj_cut_coul_debye.cpp.
+lj/cut/coul/dsf: 4 findings recorded. Cross-style: same factor_coul defect in
+pair_coul_dsf_kokkos.cpp:260 (not in group 23). pair_born_coul_dsf_kokkos.cpp is the correct
+reference for both the factor_coul form and the eatom self-energy.

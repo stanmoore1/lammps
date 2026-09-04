@@ -17,3 +17,9 @@ lj/cut/tip4p/long/kk: clean. coul_long() in pair_tip4p_kokkos.h matches KSPACE/p
 lj/expand/kk: clean.
 lj/expand/sphere/kk: faithful transcription of EXTRA-PAIR/pair_lj_expand_sphere.cpp INCLUDING the suspicious `* rshift / r` (vs `/ rshift / r` in lj/expand). git show 23ff94c81 confirms the porting commit only added the copymode guard to the CPU file, so the expression is upstream. Reported low.
 Offset term, cutoff (rshift < cut), radius handling all match CPU.
+lj/expand/coul/long/kk: clean (matches EXTRA-PAIR/pair_lj_expand_coul_long.cpp incl. forcelj/rshift/r).
+lj/gromacs/kk: math matches EXTRA-PAIR/pair_lj_gromacs.cpp exactly. Dead code only: 'eng_coul += 0.0;' (line 120), unused q/qqrd2e/d_*table members, unused m_cut_inner/m_cut_inner_sq (declared double, not KK_FLOAT), Q_MASK in datamask_read though COUL_FLAG=0. Not reported (cleanup).
+lj/gromacs/coul/gromacs/kk: clean. cut_ljsq/cut_coulsq are set in base init_style (EXTRA-PAIR/pair_lj_gromacs_coul_gromacs.cpp:279-283) BEFORE the KK deep_copy, so d_cut_ljsq/d_cut_coulsq are correct. Unused d_*table members (style has no tables but overrides init_tables).
+lj/mdf/kk: clean, matches EXTRA-PAIR/pair_lj_mdf.cpp (tt/dt taper). Note: CPU wraps ev_tally inside 'if (eflag)' so it skips vatom when eflag==0; KK (via pair_kokkos) tallies whenever vflag_either||eflag_atom -> KK is the more correct one; not reported.
+lj/pirani/kk: clean, exact match to EXTRA-PAIR/pair_lj_pirani.cpp (filj1..6, ilj1/ilj2); uses Kokkos::pow/log correctly.
+lj/relres/kk: clean, all 4 branches + offsets match EXTRA-PAIR/pair_lj_relres.cpp. All base classes in group have copymode guard + virtual allocate.

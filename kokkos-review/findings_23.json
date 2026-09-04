@@ -1,0 +1,58 @@
+[
+  {
+    "file": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp",
+    "line": 223,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "special_coul is applied by scaling the whole damped-shifted-force Coulomb term by factor_coul instead of subtracting (1-factor_coul)*prefactor as the CPU style does, so forces and Coulomb energies on special-bonded pairs are wrong.",
+    "evidence": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:223-229 compute_fcoul: 'const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);' ... 'return prefactor * (erfcc/r + 2.0*alpha_kk/MY_PIS * erfcd + r*f_shift_kk) * r2inv;' and :248-253 compute_ecoul: 'const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);' ... 'return prefactor * (erfcc - r*e_shift_kk - rsq*f_shift_kk) / r;'. CPU base src/EXTRA-PAIR/pair_lj_cut_coul_dsf.cpp:137-143 'prefactor = qqrd2e*qtmp*q[j]/r; forcecoul = prefactor * (erfcc/r + 2.0*alpha/MY_PIS * erfcd + r*f_shift) * r; if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;' and :164-165 'ecoul = prefactor * (erfcc - r*e_shift - rsq*f_shift); if (factor_coul < 1.0) ecoul -= (1.0-factor_coul)*prefactor;'. Algebraically CPU gives A*S - (1-fc)*A/r while the kokkos style gives fc*A*S (A = qqrd2e*qi*qj, S = erfcc/r + 2a/sqrt(pi)*erfcd + r*f_shift); they agree only when factor_coul == 1. The correctly ported sibling src/KOKKOS/pair_born_coul_dsf_kokkos.cpp:205-215 and :258-262 uses the CPU form.",
+    "failure_scenario": "Any molecular system with special_bonds coul != 1.0 (the LAMMPS default 0.0 0.0 0.0) run with 'pair_style lj/cut/coul/dsf/kk': every 1-2/1-3/1-4 pair inside cut_coul gets a Coulomb force and energy different from pair_style lj/cut/coul/dsf, e.g. with factor_coul = 0 the kk style returns exactly 0 while the CPU style returns -A*(S-1/r).",
+    "suggested_fix": "Set prefactor = qqrd2e*qtmp*q(j)/r (no factor_coul), form forcecoul/ecoul as in the CPU style and then apply 'if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;' (same for ecoul), mirroring pair_born_coul_dsf_kokkos.cpp. The same defect is in src/KOKKOS/pair_coul_dsf_kokkos.cpp:260-266 and should be fixed together."
+  },
+  {
+    "file": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp",
+    "line": 129,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The DSF self-energy is added only to the global eng_coul and never to the per-atom energy array, so eatom/compute pe/atom is missing the self term that the CPU style tallies.",
+    "evidence": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:129-133 'for (int ii = 0; ii < inum; ii ++) { double qtmp = atom->q[ii]; eng_coul += -(e_shift/2.0 + alpha/MY_PIS) * qtmp*qtmp*static_cast<double>(qqrd2e); }' -- there is no corresponding d_eatom/eatom update anywhere in the file (the only eatom handling is the sync at :151-154). CPU base src/EXTRA-PAIR/pair_lj_cut_coul_dsf.cpp:110-112 'if (eflag) { double e_self = -(e_shift/2.0 + alpha/MY_PIS) * qtmp*qtmp*qqrd2e; ev_tally(i,i,nlocal,0,0.0,e_self,0.0,0.0,0.0,0.0); }', and Pair::ev_tally with i==j and newton_pair==0 adds 0.5*e_self twice, i.e. the full e_self, to eatom[i]. The correctly ported sibling src/KOKKOS/pair_born_coul_dsf_kokkos.cpp:145-153 does 'if (eflag_atom) { ... for (int i = 0; i < nlocal; i++) eatom[i] += -(e_shift/2.0 + alpha/MY_PIS) * qisq * force->qqrd2e; }'.",
+    "failure_scenario": "'pair_style lj/cut/coul/dsf/kk' + 'compute pe/atom' (or a dump with c_pe): the sum over per-atom energies does not equal the reported global potential energy and differs from the CPU style by -(e_shift/2 + alpha/sqrt(pi))*qqrd2e*sum(q_i^2), which for a charged system is a large fraction of the Coulomb energy.",
+    "suggested_fix": "After 'k_eatom.sync_host()' add a loop that adds the per-atom self-energy to eatom[i] for i < nlocal, guarded by eflag_atom, exactly as pair_born_coul_dsf_kokkos.cpp does."
+  },
+  {
+    "file": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp",
+    "line": 131,
+    "severity": "medium",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "The host-side self-energy loop reads the host charge array atom->q without ever calling atomKK->sync(Host,Q_MASK), so on a GPU build it reads charges that are stale after the device-side atom exchange/sort.",
+    "evidence": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:96 only does 'atomKK->sync(execution_space,datamask_read)' (execution_space is Device for the /kk and /kk/device variants), and then :131 reads the host raw pointer 'double qtmp = atom->q[ii];'. atom->q is the host mirror of atomKK->k_q (src/KOKKOS/atom_vec_charge_kokkos.cpp:73 'memoryKK->grow_kokkos(atomKK->k_q,atomKK->q,nmax,\"atom:q\")'). Both AtomVecKokkos::unpack_exchange_kokkos (src/KOKKOS/atom_vec_kokkos.cpp:2852 'atomKK->modified(space,datamask_exchange);') and AtomVecChargeKokkos::sort_kokkos (src/KOKKOS/atom_vec_charge_kokkos.cpp:122-134, Sorter.sort(...,d_q) then 'atomKK->modified(Device, ALL_MASK & ~F_MASK)') mark q modified on the device, and nothing in the /kk force path syncs it back to the host.",
+    "failure_scenario": "Multi-rank GPU run where atoms migrate: after comm->exchange() the host q array still holds the previous step's atom set and count, so the self-energy sum uses wrong charges (and reads past the previously valid nlocal entries), corrupting the reported Coulomb energy.",
+    "suggested_fix": "Either call atomKK->sync(Host,Q_MASK) before the loop, or (better) compute the self-energy in a Kokkos parallel_reduce over the device view q, adding to ev.ecoul / d_eatom."
+  },
+  {
+    "file": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp",
+    "line": 129,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The self-energy loop is not guarded by eflag and indexes the charge array with the neighbor-list slot ii instead of list->ilist[ii], and it uses list->inum instead of nlocal.",
+    "evidence": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:127-133 'int inum = list->inum; for (int ii = 0; ii < inum; ii ++) { //int i = list->ilist[ii];\\n  double qtmp = atom->q[ii]; eng_coul += ...; }' -- the correct index line is commented out. CPU base src/EXTRA-PAIR/pair_lj_cut_coul_dsf.cpp:110 wraps the self term in 'if (eflag)' and uses qtmp = q[i] with i = ilist[ii]. The sibling src/KOKKOS/pair_born_coul_dsf_kokkos.cpp:119-123 loops 'for (int i = 0; i < nlocal; i++)'.",
+    "failure_scenario": "Currently benign because NPairKokkos sets d_ilist(i)=i and inum=nlocal (src/KOKKOS/npair_kokkos.cpp:593,:356), and eng_coul is reset by ev_init on every eflag_global step; but the unconditional accumulation dirties eng_coul on non-energy steps and the ii indexing silently breaks if a future neighbor build ever produces a non-identity ilist.",
+    "suggested_fix": "Guard the loop with 'if (eflag)' (splitting the eflag_global and eflag_atom contributions), and loop 'for (int i = 0; i < nlocal; i++)' as pair_born_coul_dsf_kokkos.cpp does."
+  },
+  {
+    "file": "src/KOKKOS/pair_lj_charmm_coul_charmm_implicit_kokkos.h",
+    "line": 98,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "Dead DualView members k_cut_ljsq and k_cut_coulsq are declared but never allocated, filled, modified or synced anywhere in the style.",
+    "evidence": "src/KOKKOS/pair_lj_charmm_coul_charmm_implicit_kokkos.h:98 'DAT::tdual_kkfloat_2d k_cut_ljsq;' and :100 'DAT::tdual_kkfloat_2d k_cut_coulsq;'. grep for k_cut_ljsq/k_cut_coulsq over pair_lj_charmm_coul_charmm_implicit_kokkos.{cpp,h} returns only these two declarations. The device views actually used, d_cut_ljsq/d_cut_coulsq, are created directly in allocate() (pair_lj_charmm_coul_charmm_implicit_kokkos.cpp:298-300) and filled by Kokkos::deep_copy in init_style() (:413-415). The sibling style pair_lj_charmm_coul_charmm_kokkos.h has no such members.",
+    "failure_scenario": "No runtime effect; a reader can mistake them for the buffers backing d_cut_ljsq/d_cut_coulsq and add a sync/modify call against the wrong (empty) view.",
+    "suggested_fix": "Delete the two unused declarations."
+  }
+]
+COVERAGE: all files read completely

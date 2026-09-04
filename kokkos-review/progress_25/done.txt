@@ -20,3 +20,9 @@ pair_mliap_kokkos.cpp
 pair_mliap_kokkos.h
 pair_momb_kokkos.cpp
 pair_momb_kokkos.h
+pair_morse_kokkos.cpp
+pair_morse_kokkos.h
+pair_morse_smooth_linear_kokkos.cpp
+pair_morse_smooth_linear_kokkos.h
+pair_morse_soft_kokkos.cpp
+pair_morse_soft_kokkos.h

@@ -27,3 +27,4 @@ coul_dsf: HIGH finding - special-bonds convention mismatch (factor_coul folded i
 coul_dsf other checks: e_self tally equivalent to CPU ev_tally(i,i,nlocal,0,...); ev_tally 0.5 factors OK; no allocate() override needed (kernel uses scalar cut_coulsq); fuse_force_clear_flag stays 0 (custom kernel, not pair_compute<>).
 coul_long: scale[][] missing (reported, medium). Rest verified vs src/KSPACE/pair_coul_long.cpp:113-158. init_one returns cut_coul+2*qdist -> outer cutsq looser, inner d_cut_coulsq exact: OK.
 coul_long_cs: verified vs src/CORESHELL/pair_coul_long_cs.cpp:103-165. EPSILON/EPS_EWALD/EPS_EWALD_SQR handling correct (no vdW term so no cross-contamination). B-series + EWALD_P_CS correct. Only scale missing.
+coul_long_soft: verified vs src/FEP/pair_coul_long_soft.cpp:116-148,226-263. scale[][] is unused by the CPU compute too -> no finding. (j,i) set correctly.
