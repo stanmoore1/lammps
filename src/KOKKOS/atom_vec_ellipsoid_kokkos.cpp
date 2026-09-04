@@ -56,6 +56,20 @@ AtomVecEllipsoidKokkos::~AtomVecEllipsoidKokkos()
   }
 }
 
+/* ----------------------------------------------------------------------
+   process sub-style args
+   the KOKKOS version does not implement the superellipsoid extension
+------------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::process_args(int narg, char **arg)
+{
+  for (int iarg = 0; iarg < narg; iarg++)
+    if (strcmp(arg[iarg], "superellipsoid") == 0)
+      error->all(FLERR, "Atom style ellipsoid/kk does not support the superellipsoid option");
+
+  AtomVecEllipsoid::process_args(narg, arg);
+}
+
 /* ---------------------------------------------------------------------- */
 
 void AtomVecEllipsoidKokkos::init()
@@ -208,8 +222,8 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &list,
     const int &offset):
-      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _list(list.view<DeviceType>()),
       _offset(offset) {
     const int size_forward = atomKK->avecKK->size_forward;
@@ -332,8 +346,8 @@ struct AtomVecEllipsoidKokkos_PackCommSelfBonus {
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const int &nfirst,
     const typename DAT::tdual_int_1d &list):
-      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
     _nfirst(nfirst),_list(list.view<DeviceType>()) {}
 
   KOKKOS_INLINE_FUNCTION
@@ -393,8 +407,8 @@ struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus {
     const typename DAT::tdual_int_1d &firstrecv,
     const typename DAT::tdual_int_1d &sendnum_scan,
     const typename DAT::tdual_int_1d &g2l):
-      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _list(list.view<DeviceType>()),
       _firstrecv(firstrecv.view<DeviceType>()),
       _sendnum_scan(sendnum_scan.view<DeviceType>()),
@@ -466,9 +480,10 @@ struct AtomVecEllipsoidKokkos_PackBorderBonus {
     const typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d &bonus,
     const typename AT::t_int_1d_const &list,
     const int &offset):
-    _buf(buf),_list(list),_offset(offset),
+    _buf(buf),_list(list),
     _bonus(bonus),
-    _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()) {};
+    _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+    _offset(offset) {};
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
@@ -536,10 +551,10 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
     const int &nlocal_bonus,
     const typename AT::t_int_scalar &nghost_bonus):
       _buf(buf),
-      _first(first),
-      _offset(offset),
       _bonus(bonus),
       _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _first(first),
+      _offset(offset),
       _nlocal_bonus(nlocal_bonus),
       _nghost_bonus(nghost_bonus) {};
 
@@ -632,9 +647,9 @@ struct AtomVecEllipsoidKokkos_PackExchangeBonus {
       _bonusw(bonus.template view<DeviceType>()),
       _ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),
 
-      _size_exchange(atomKK->avecKK->size_exchange),
       _sendlist(sendlist.template view<DeviceType>()),
       _copylist_bonus(copylist_bonus.template view<DeviceType>()),
+      _size_exchange(atomKK->avecKK->size_exchange),
       _offset(offset) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;
@@ -709,9 +724,9 @@ struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
       _bonusw(bonus.template view<DeviceType>()),
       _ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),
 
-      _size_exchange(atomKK->avecKK->size_exchange),
       _sendlist(sendlist.template view<DeviceType>()),
       _copylist(copylist.template view<DeviceType>()),
+      _size_exchange(atomKK->avecKK->size_exchange),
       _offset(offset) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;
@@ -722,7 +737,7 @@ struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
   void operator() (const int &mysend) const {
     const int i = _sendlist(mysend);
 
-    // if atom J has bonus data, reset J’s bonus.ilocal to loc I
+    // if atom J has bonus data, reset J's bonus.ilocal to loc I
 
     int j = _copylist(mysend);
     if (j > -1) {
@@ -806,9 +821,9 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeBonus {
       _bonus(bonus.view<DeviceType>()),
       _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
 
-      _size_exchange(atomKK->avecKK->size_exchange),
-      _nlocal_bonus(nlocal_bonus.template view<DeviceType>()),
       _indices(indices.template view<DeviceType>()),
+      _nlocal_bonus(nlocal_bonus.template view<DeviceType>()),
+      _size_exchange(atomKK->avecKK->size_exchange),
       _offset(offset) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;

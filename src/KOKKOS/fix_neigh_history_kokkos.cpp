@@ -139,6 +139,13 @@ void FixNeighHistoryKokkos<DeviceType>::pre_exchange_no_newton()
       maxpartner += 8;
       memoryKK->grow_kokkos(k_partner,partner,atom->nmax,maxpartner,"neighbor_history:partner");
       memoryKK->grow_kokkos(k_valuepartner,valuepartner,atom->nmax,dnum*maxpartner,"neighbor_history:valuepartner");
+
+      // grow_kokkos() reallocates the dual views, so the device views cached in
+      // this class are stale and must be refreshed before the loop runs again,
+      // otherwise the retry writes past the end of the old, narrower rows
+
+      d_partner = k_partner.template view<DeviceType>();
+      d_valuepartner = k_valuepartner.template view<DeviceType>();
     }
   }
 
@@ -258,7 +265,7 @@ void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryPostNeighbo
     if (use_bit_flag) {
       rflag = histmask(j) | beyond_contact;
       j &= HISTMASK;
-      d_firstflag(i,jj) = j;
+      d_neighbors(i,jj) = j;
     } else {
       rflag = 1;
     }
@@ -388,7 +395,7 @@ void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryPackExchang
     for (int p = 0; p < n; p++) {
       d_buf(m++) = d_ubuf(d_partner(i,p)).d;
       for (int v = 0; v < dnum; v++) {
-        d_buf(m++) = d_valuepartner(i,dnum*p+v);
+        d_buf(m++) = static_cast<double>(d_valuepartner(i,dnum*p+v));
       }
     }
     if (mysend == nsend-1) d_count() = m;
@@ -468,7 +475,7 @@ void FixNeighHistoryKokkos<DeviceType>::operator()(TagFixNeighHistoryUnpackExcha
     for (int p = 0; p < n; p++) {
       d_partner(index,p) = (tagint) d_ubuf(d_buf(m++)).i;
       for (int v = 0; v < dnum; v++) {
-        d_valuepartner(index,dnum*p+v) = d_buf(m++);
+        d_valuepartner(index,dnum*p+v) = static_cast<KK_FLOAT>(d_buf(m++));
       }
     }
   }

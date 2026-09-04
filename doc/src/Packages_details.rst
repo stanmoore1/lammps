@@ -57,6 +57,7 @@ gives those details.
    * :ref:`EXTRA-FIX <PKG-EXTRA-FIX>`
    * :ref:`EXTRA-MOLECULE <PKG-EXTRA-MOLECULE>`
    * :ref:`EXTRA-PAIR <PKG-EXTRA-PAIR>`
+   * :ref:`FENIX <PKG-FENIX>`
    * :ref:`FEP <PKG-FEP>`
    * :ref:`GPU <PKG-GPU>`
    * :ref:`GRAPHICS <PKG-GRAPHICS>`
@@ -103,6 +104,7 @@ gives those details.
    * :ref:`PYTHON <PKG-PYTHON>`
    * :ref:`QEQ <PKG-QEQ>`
    * :ref:`QMMM <PKG-QMMM>`
+   * :ref:`QMMM-XTB <PKG-QMMM-XTB>`
    * :ref:`QTB <PKG-QTB>`
    * :ref:`RHEO <PKG-RHEO>`
    * :ref:`REACTION <PKG-REACTION>`
@@ -984,7 +986,7 @@ Additional dump styles that are less commonly used.  This includes the
 `VTK format <vtk_>`_ for visualization by `ParaView <paraview_>`_ or
 other tools that read it.
 
-.. versionchanged:: TBD
+.. versionchanged:: 2Sep2026
 
 The *vtk* dump style used to be a package of its own and required the
 VTK library to be installed.  It now writes the files itself and does
@@ -1055,6 +1057,37 @@ Additional pair styles that are less commonly used.
 * ``src/EXTRA-PAIR``: filenames -> commands
 * :doc:`pair_style <pair_style>`
 * ``examples/PACKAGES/dispersion``
+
+----------
+
+.. _PKG-FENIX:
+
+FENIX package
+-------------
+
+**Contents:**
+
+Fenix is a tool for online process recovery of MPI applications. This package
+provides methods for continuing a distributed simulation after one or more MPI
+processes is lost, without requiring the relaunch of all existing MPI ranks.
+This is accomplished with the :doc:`fenix <fenix>` command.
+
+**Author:** Matthew Whitlock (Sandia)
+
+.. versionadded:: 2Sep2026
+
+**Install:**
+
+This package has :ref:`specific installation instructions <fenix_build>` on the
+:doc:`Build extras <Build_extras>` page.
+
+**Supporting info:**
+
+* ``src/FENIX``: filenames -> commands
+* ``src/FENIX/README``
+* :doc:`fenix <fenix>`
+* ``examples/PACKAGES/fenix``
+* :doc:`Howto fenix <Howto_fenix>`
 
 ----------
 
@@ -2636,6 +2669,37 @@ on the :doc:`Build extras <Build_extras>` page.
 
 ----------
 
+.. _PKG-QMMM-XTB:
+
+QMMM-XTB package
+----------------
+
+**Contents:**
+
+The :doc:`fix qmmm/xtb <fix_qmmm_xtb>` command implements
+electrostatically embedded GFN1-xTB and GFN2-xTB QM/MM.  The package's
+:doc:`pppm/xtb and pppm/tip4p/xtb <kspace_style>` styles provide the periodic
+MM potential and converged periodic forces, while a small direct-Ewald
+response updates the QM-image potential during each xTB SCC iteration.  Both
+ordinary point-charge PPPM and implicit TIP4P virtual charge sites are
+supported.
+
+**Install:**
+
+This package requires libxtb 6.7 or newer, its installed Fortran module files,
+mctc-lib, and BLAS.  It supports only the CMake build.  See
+:ref:`QMMM-XTB build instructions <qmmm-xtb>` for details.
+
+**Supporting info:**
+
+* ``src/QMMM-XTB``: filenames -> commands
+* ``src/QMMM-XTB/README``
+* :doc:`fix qmmm/xtb <fix_qmmm_xtb>`
+* :doc:`kspace styles pppm/xtb and pppm/tip4p/xtb <kspace_style>`
+* ``examples/PACKAGES/qmmm-xtb``
+
+----------
+
 .. _PKG-QTB:
 
 QTB package
@@ -3065,7 +3129,7 @@ VORONOI package
 
 **Contents:**
 
-A compute command which calculates the Voronoi tesselation of a
+A compute command which calculates the Voronoi tessellation of a
 collection of atoms by wrapping the `Voro++ library
 <https://math.lbl.gov/voro++/>`_.  This can be used to calculate the
 local volume of atoms or their near neighbors.

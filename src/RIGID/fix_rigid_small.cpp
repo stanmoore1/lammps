@@ -480,6 +480,8 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
 
 FixRigidSmall::~FixRigidSmall()
 {
+  if (copymode) return;
+
   // unregister callbacks to this fix from Atom class
 
   if (modify->get_fix_by_id(id)) atom->delete_callback(id,Atom::GROW);
@@ -551,7 +553,7 @@ void FixRigidSmall::init()
   //   and gravity is not applied correctly
 
   if ((inpfile || onemols) && !id_gravity) {
-    if (modify->get_fix_by_style("^gravity").size() > 0)
+    if (!modify->get_fix_by_style("^gravity").empty())
       if (comm->me == 0)
         error->warning(FLERR,"Gravity may not be correctly applied to rigid "
                        "bodies if they consist of overlapped particles");
@@ -646,7 +648,15 @@ void FixRigidSmall::setup(int vflag)
     memory->destroy(langextra);
     maxlang = nlocal_body + nghost_body;
     memory->create(langextra,maxlang,6,"rigid/small:langextra");
+    // memory->create() does not zero: post_force() only fills the rows of bodies
+    // it thermostats, but setup() and compute_forces_and_torques() fold every
+    // row into the body forces, so the untouched rows have to start at zero.
+    memset(&langextra[0][0],0,(size_t)maxlang*6*sizeof(double));
   }
+
+  // note langextra is zeroed where it is allocated: it holds the Langevin
+  // force/torque that compute_forces_and_torques() adds to every body, but
+  // apply_langevin_thermostat() does not run until the first post_force().
 
   compute_forces_and_torques();
 
@@ -896,6 +906,10 @@ void FixRigidSmall::apply_langevin_thermostat()
     memory->destroy(langextra);
     maxlang = nlocal_body + nghost_body;
     memory->create(langextra,maxlang,6,"rigid/small:langextra");
+    // memory->create() does not zero: post_force() only fills the rows of bodies
+    // it thermostats, but setup() and compute_forces_and_torques() fold every
+    // row into the body forces, so the untouched rows have to start at zero.
+    memset(&langextra[0][0],0,(size_t)maxlang*6*sizeof(double));
   }
 
   double delta = update->ntimestep - update->beginstep;
@@ -3533,12 +3547,8 @@ int FixRigidSmall::modify_param(int narg, char **arg)
     // must do here and not in init,
     // since Modify::init() uses fix masks before calling fix::init()
 
-    for (int i = 0; i < modify->nfix; i++)
-      if (strcmp(modify->fix[i]->id,id) == 0) {
-        if (earlyflag) modify->fmask[i] |= POST_FORCE;
-        else if (!langflag) modify->fmask[i] &= ~POST_FORCE;
-        break;
-      }
+    if (earlyflag) modify->set_fix_mask(this, POST_FORCE);
+    else if (!langflag) modify->clear_fix_mask(this, POST_FORCE);
 
     return 2;
   }

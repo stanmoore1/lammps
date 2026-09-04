@@ -59,9 +59,11 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::copy_neighbor_info()
   // general params
 
   k_cutneighsq = neighborKK->k_cutneighsq;
+  k_cutneighghostsq = neighborKK->k_cutneighghostsq;
 
   // overwrite per-type Neighbor cutoffs with custom value set by requestor
   // only works for style = BIN (checked by Neighbor class)
+  // the ghost cutoffs are left alone, same as in NPair::copy_neighbor_info()
 
   if (cutoff_custom > 0.0) {
     int n = atom->ntypes;
@@ -73,6 +75,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::copy_neighbor_info()
   }
 
   k_cutneighsq.modify_host();
+  k_cutneighghostsq.modify_host();
 
   // exclusion info
 
@@ -168,6 +171,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
   NeighborKokkosExecute<DeviceType>
     data(*list,
          k_cutneighsq.view<DeviceType>(),
+         k_cutneighghostsq.view<DeviceType>(),
          k_bincount.view<DeviceType>(),
          k_bins.view<DeviceType>(),
          k_atom2bin.view<DeviceType>(),
@@ -203,6 +207,7 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
          skin,d_resize,h_resize,d_new_maxneighs,h_new_maxneighs);
 
   k_cutneighsq.sync<DeviceType>();
+  k_cutneighghostsq.sync<DeviceType>();
   k_ex1_type.sync<DeviceType>();
   k_ex2_type.sync<DeviceType>();
   k_ex_type.sync<DeviceType>();
@@ -224,6 +229,14 @@ void NPairKokkos<DeviceType,HALF,NEWTON,GHOST,TRI,SIZE>::build(NeighList *list_)
     if (exclude) {
       uint64_t mask = X_MASK|RADIUS_MASK|TYPE_MASK|MASK_MASK;
       if (nex_mol) {
+        // molecule IDs can come from fix property/atom with a non-molecular
+        // atom style, where the host copy is written without the DualView being
+        // marked, so the sync below would not carry it to the device.  Retire
+        // any outstanding device claim first: sync_host() is a no-op when the
+        // device has nothing newer, and pulls the newer copy down when it does,
+        // so the modify_host() cannot collide with a device claim (which would
+        // abort) and cannot push a stale host copy over a newer device one.
+        atomKK->k_molecule.sync_host();
         atomKK->k_molecule.modify_host();
         mask |= MOLECULE_MASK;
       }
@@ -430,9 +443,9 @@ void NeighborKokkosExecute<DeviceType>::
 
   const AtomNeighbors neighbors_i = neigh_transpose ?
     neigh_list.get_neighbors_transpose(i) : neigh_list.get_neighbors(i);
-  const double xtmp = x(i, 0);
-  const double ytmp = x(i, 1);
-  const double ztmp = x(i, 2);
+  const double xtmp = static_cast<double>(x(i, 0));
+  const double ytmp = static_cast<double>(x(i, 1));
+  const double ztmp = static_cast<double>(x(i, 2));
   const int itype = type(i);
   tagint itag;
   if (HalfNeigh && Newton && Tri) itag = tag(i);
@@ -452,22 +465,22 @@ void NeighborKokkosExecute<DeviceType>::
 
     if (j <= i) continue;
     if (j >= nlocal) {
-      if (x(j,2) < ztmp) continue;
-      if (x(j,2) == ztmp) {
-        if (x(j,1) < ytmp) continue;
-        if (x(j,1) == ytmp && x(j,0) < xtmp) continue;
+      if (static_cast<double>(x(j,2)) < ztmp) continue;
+      if (static_cast<double>(x(j,2)) == ztmp) {
+        if (static_cast<double>(x(j,1)) < ytmp) continue;
+        if (static_cast<double>(x(j,1)) == ytmp && static_cast<double>(x(j,0)) < xtmp) continue;
       }
     }
 
     const int jtype = type(j);
     if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-    const double delx = xtmp - x(j, 0);
-    const double dely = ytmp - x(j, 1);
-    const double delz = ztmp - x(j, 2);
+    const double delx = xtmp - static_cast<double>(x(j, 0));
+    const double dely = ytmp - static_cast<double>(x(j, 1));
+    const double delz = ztmp - static_cast<double>(x(j, 2));
     const double rsq = delx*delx + dely*dely + delz*delz;
 
-    if (rsq <= cutneighsq(itype,jtype)) {
+    if (rsq <= static_cast<double>(cutneighsq(itype,jtype))) {
       if (molecular != Atom::ATOMIC) {
         if (!moltemplate)
           which = find_special(i,j);
@@ -522,12 +535,12 @@ void NeighborKokkosExecute<DeviceType>::
             } else if (itag < jtag) {
               if ((itag+jtag) % 2 == 1) continue;
             } else {
-              if (fabs(x(j,2)-ztmp) > delta) {
-                if (x(j,2) < ztmp) continue;
-              } else if (fabs(x(j,1)-ytmp) > delta) {
-                if (x(j,1) < ytmp) continue;
+              if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {
+                if (static_cast<double>(x(j,2)) < ztmp) continue;
+              } else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {
+                if (static_cast<double>(x(j,1)) < ytmp) continue;
               } else {
-                if (x(j,0) < xtmp) continue;
+                if (static_cast<double>(x(j,0)) < xtmp) continue;
               }
             }
           }
@@ -536,12 +549,12 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type(j);
         if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const double delx = xtmp - x(j, 0);
-        const double dely = ytmp - x(j, 1);
-        const double delz = ztmp - x(j, 2);
+        const double delx = xtmp - static_cast<double>(x(j, 0));
+        const double dely = ytmp - static_cast<double>(x(j, 1));
+        const double delz = ztmp - static_cast<double>(x(j, 2));
         const double rsq = delx*delx + dely*dely + delz*delz;
 
-        if (rsq <= cutneighsq(itype,jtype)) {
+        if (rsq <= static_cast<double>(cutneighsq(itype,jtype))) {
           if (molecular != Atom::ATOMIC) {
             if (!moltemplate)
               which = NeighborKokkosExecute<DeviceType>::find_special(i,j);
@@ -677,10 +690,10 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
 
         if (j <= i) continue;
         if (j >= nlocal) {
-          if (x(j,2) < ztmp) continue;
-          if (x(j,2) == ztmp) {
-            if (x(j,1) < ytmp) continue;
-            if (x(j,1) == ytmp && x(j,0) < xtmp) continue;
+          if (static_cast<double>(x(j,2)) < ztmp) continue;
+          if (static_cast<double>(x(j,2)) == ztmp) {
+            if (static_cast<double>(x(j,1)) < ytmp) continue;
+            if (static_cast<double>(x(j,1)) == ytmp && static_cast<double>(x(j,0)) < xtmp) continue;
           }
         }
 
@@ -692,7 +705,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
         const double delz = ztmp - other_x[m + 2 * atoms_per_bin];
         const double rsq = delx*delx + dely*dely + delz*delz;
 
-        if (rsq <= cutneighsq(itype,jtype)) {
+        if (rsq <= static_cast<double>(cutneighsq(itype,jtype))) {
           if (molecular != Atom::ATOMIC) {
             int which = 0;
             if (!moltemplate)
@@ -769,12 +782,12 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
               } else if (itag < jtag) {
                 if ((itag+jtag) % 2 == 1) continue;
               } else {
-                if (fabs(x(j,2)-ztmp) > delta) {
-                  if (x(j,2) < ztmp) continue;
-                } else if (fabs(x(j,1)-ytmp) > delta) {
-                  if (x(j,1) < ytmp) continue;
+                if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {
+                  if (static_cast<double>(x(j,2)) < ztmp) continue;
+                } else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {
+                  if (static_cast<double>(x(j,1)) < ytmp) continue;
                 } else {
-                  if (x(j,0) < xtmp) continue;
+                  if (static_cast<double>(x(j,0)) < xtmp) continue;
                 }
               }
             }
@@ -788,7 +801,7 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGPU(typename Kokkos::TeamPolic
           const double delz = ztmp - other_x[m + 2 * atoms_per_bin];
           const double rsq = delx*delx + dely*dely + delz*delz;
 
-          if (rsq <= cutneighsq(itype,jtype)) {
+          if (rsq <= static_cast<double>(cutneighsq(itype,jtype))) {
             if (molecular != Atom::ATOMIC) {
               int which = 0;
               if (!moltemplate)
@@ -851,9 +864,9 @@ void NeighborKokkosExecute<DeviceType>::
 
   const AtomNeighbors neighbors_i = neigh_transpose ?
     neigh_list.get_neighbors_transpose(i) : neigh_list.get_neighbors(i);
-  const double xtmp = x(i, 0);
-  const double ytmp = x(i, 1);
-  const double ztmp = x(i, 2);
+  const double xtmp = static_cast<double>(x(i, 0));
+  const double ytmp = static_cast<double>(x(i, 1));
+  const double ztmp = static_cast<double>(x(i, 2));
   const int itype = type(i);
 
   const typename AT::t_int_1d_const_um stencil
@@ -879,12 +892,12 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type[j];
         if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const double delx = xtmp - x(j,0);
-        const double dely = ytmp - x(j,1);
-        const double delz = ztmp - x(j,2);
+        const double delx = xtmp - static_cast<double>(x(j,0));
+        const double dely = ytmp - static_cast<double>(x(j,1));
+        const double delz = ztmp - static_cast<double>(x(j,2));
         const double rsq = delx*delx + dely*dely + delz*delz;
 
-        if (rsq <= cutneighsq(itype,jtype)) {
+        if (rsq <= static_cast<double>(cutneighsq(itype,jtype))) {
           if (molecular != Atom::ATOMIC) {
             if (!moltemplate)
               which = find_special(i,j);
@@ -934,12 +947,12 @@ void NeighborKokkosExecute<DeviceType>::
         const int jtype = type[j];
         if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-        const double delx = xtmp - x(j,0);
-        const double dely = ytmp - x(j,1);
-        const double delz = ztmp - x(j,2);
+        const double delx = xtmp - static_cast<double>(x(j,0));
+        const double dely = ytmp - static_cast<double>(x(j,1));
+        const double delz = ztmp - static_cast<double>(x(j,2));
         const double rsq = delx*delx + dely*dely + delz*delz;
 
-        if (rsq <= cutneighsq(itype,jtype)) {
+        if (rsq <= static_cast<double>(cutneighghostsq(itype,jtype))) {
           if (n < neigh_list.maxneighs) neighbors_i(n++) = j;
           else n++;
         }
@@ -1083,7 +1096,8 @@ void NeighborKokkosExecute<DeviceType>::build_ItemGhostGPU(typename Kokkos::Team
           const double delz = ztmp - other_x[m + 2 * atoms_per_bin];
           const double rsq = delx*delx + dely*dely + delz*delz;
 
-          if (rsq <= cutneighsq(itype,jtype)) {
+          if (rsq <= (ghost ? static_cast<double>(cutneighghostsq(itype,jtype))
+                            : static_cast<double>(cutneighsq(itype,jtype)))) {
             if (molecular != Atom::ATOMIC && !ghost) {
               if (!moltemplate)
                 which = NeighborKokkosExecute<DeviceType>::find_special(i,j);
@@ -1141,10 +1155,10 @@ void NeighborKokkosExecute<DeviceType>::
 
   const AtomNeighbors neighbors_i = neigh_transpose ?
     neigh_list.get_neighbors_transpose(i) : neigh_list.get_neighbors(i);
-  const double xtmp = x(i, 0);
-  const double ytmp = x(i, 1);
-  const double ztmp = x(i, 2);
-  const double radi = radius(i);
+  const double xtmp = static_cast<double>(x(i, 0));
+  const double ytmp = static_cast<double>(x(i, 1));
+  const double ztmp = static_cast<double>(x(i, 2));
+  const double radi = static_cast<double>(radius(i));
   const int itype = type(i);
   tagint itag;
   if (HalfNeigh && Newton && Tri) itag = tag(i);
@@ -1167,21 +1181,21 @@ void NeighborKokkosExecute<DeviceType>::
 
     if (j <= i) continue;
     if (j >= nlocal) {
-      if (x(j,2) < ztmp) continue;
-      if (x(j,2) == ztmp) {
-        if (x(j,1) < ytmp) continue;
-        if (x(j,1) == ytmp && x(j,0) < xtmp) continue;
+      if (static_cast<double>(x(j,2)) < ztmp) continue;
+      if (static_cast<double>(x(j,2)) == ztmp) {
+        if (static_cast<double>(x(j,1)) < ytmp) continue;
+        if (static_cast<double>(x(j,1)) == ytmp && static_cast<double>(x(j,0)) < xtmp) continue;
       }
     }
 
     const int jtype = type(j);
     if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-    const double delx = xtmp - x(j, 0);
-    const double dely = ytmp - x(j, 1);
-    const double delz = ztmp - x(j, 2);
+    const double delx = xtmp - static_cast<double>(x(j, 0));
+    const double dely = ytmp - static_cast<double>(x(j, 1));
+    const double delz = ztmp - static_cast<double>(x(j, 2));
     const double rsq = delx*delx + dely*dely + delz*delz;
-    const double radsum = radi + radius(j);
+    const double radsum = radi + static_cast<double>(radius(j));
     const double cutsq = (radsum + skin) * (radsum + skin);
 
     if (rsq <= cutsq) {
@@ -1247,12 +1261,12 @@ void NeighborKokkosExecute<DeviceType>::
           } else if (itag < jtag) {
             if ((itag+jtag) % 2 == 1) continue;
           } else {
-            if (fabs(x(j,2)-ztmp) > delta) {
-              if (x(j,2) < ztmp) continue;
-            } else if (fabs(x(j,1)-ytmp) > delta) {
-              if (x(j,1) < ytmp) continue;
+            if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {
+              if (static_cast<double>(x(j,2)) < ztmp) continue;
+            } else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {
+              if (static_cast<double>(x(j,1)) < ytmp) continue;
             } else {
-              if (x(j,0) < xtmp) continue;
+              if (static_cast<double>(x(j,0)) < xtmp) continue;
             }
           }
         }
@@ -1261,11 +1275,11 @@ void NeighborKokkosExecute<DeviceType>::
       const int jtype = type(j);
       if (exclude && exclusion(i,j,itype,jtype)) continue;
 
-      const double delx = xtmp - x(j, 0);
-      const double dely = ytmp - x(j, 1);
-      const double delz = ztmp - x(j, 2);
+      const double delx = xtmp - static_cast<double>(x(j, 0));
+      const double dely = ytmp - static_cast<double>(x(j, 1));
+      const double delz = ztmp - static_cast<double>(x(j, 2));
       const double rsq = delx*delx + dely*dely + delz*delz;
-      const double radsum = radi + radius(j);
+      const double radsum = radi + static_cast<double>(radius(j));
       const double cutsq = (radsum + skin) * (radsum + skin);
 
       if (rsq <= cutsq) {
@@ -1395,10 +1409,10 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeGPU(typename Kokkos::TeamP
 
         if (j <= i) continue;
         if (j >= nlocal) {
-          if (x(j,2) < ztmp) continue;
-          if (x(j,2) == ztmp) {
-            if (x(j,1) < ytmp) continue;
-            if (x(j,1) == ytmp && x(j,0) < xtmp) continue;
+          if (static_cast<double>(x(j,2)) < ztmp) continue;
+          if (static_cast<double>(x(j,2)) == ztmp) {
+            if (static_cast<double>(x(j,1)) < ytmp) continue;
+            if (static_cast<double>(x(j,1)) == ytmp && static_cast<double>(x(j,0)) < xtmp) continue;
           }
         }
 
@@ -1496,12 +1510,12 @@ void NeighborKokkosExecute<DeviceType>::build_ItemSizeGPU(typename Kokkos::TeamP
               } else if (itag < jtag) {
                 if ((itag+jtag) % 2 == 1) continue;
               } else {
-                if (fabs(x(j,2)-ztmp) > delta) {
-                  if (x(j,2) < ztmp) continue;
-                } else if (fabs(x(j,1)-ytmp) > delta) {
-                  if (x(j,1) < ytmp) continue;
+                if (fabs(static_cast<double>(x(j,2))-ztmp) > delta) {
+                  if (static_cast<double>(x(j,2)) < ztmp) continue;
+                } else if (fabs(static_cast<double>(x(j,1))-ytmp) > delta) {
+                  if (static_cast<double>(x(j,1)) < ytmp) continue;
                 } else {
-                  if (x(j,0) < xtmp) continue;
+                  if (static_cast<double>(x(j,0)) < xtmp) continue;
                 }
               }
             }
@@ -1585,7 +1599,7 @@ template class NPairKokkos<LMPDeviceType,1,1,0,0,1>;
 template class NPairKokkos<LMPDeviceType,1,0,0,0,1>;
 template class NPairKokkos<LMPDeviceType,1,1,0,1,1>;
 template class NPairKokkos<LMPDeviceType,1,0,0,1,1>;
-#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
+#ifdef LMP_KOKKOS_GPU
 template class NPairKokkos<LMPHostType,0,0,0,0,0>;
 template class NPairKokkos<LMPHostType,0,0,1,0,0>;
 template class NPairKokkos<LMPHostType,1,1,0,0,0>;

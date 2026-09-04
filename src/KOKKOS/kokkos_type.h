@@ -650,9 +650,9 @@ struct BinOp3DLAMMPS {
   template <class ViewType>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION int bin(ViewType& keys, const int& i) const {
-    int ix = static_cast<int> ((keys(i, 0) - min_[0]) * mul_[0]);
-    int iy = static_cast<int> ((keys(i, 1) - min_[1]) * mul_[1]);
-    int iz = static_cast<int> ((keys(i, 2) - min_[2]) * mul_[2]);
+    int ix = static_cast<int> ((static_cast<double>(keys(i, 0)) - min_[0]) * mul_[0]);
+    int iy = static_cast<int> ((static_cast<double>(keys(i, 1)) - min_[1]) * mul_[1]);
+    int iz = static_cast<int> ((static_cast<double>(keys(i, 2)) - min_[2]) * mul_[2]);
     ix = MAX(ix,0);
     iy = MAX(iy,0);
     iz = MAX(iz,0);
@@ -1699,7 +1699,7 @@ struct alignas(2*sizeof(real_type_)) SNAComplex
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
-  const real_type real_part_product(const complex &cm2) { return re * cm2.re - im * cm2.im; }
+  const real_type real_part_product(const complex &cm2) const { return re * cm2.re - im * cm2.im; }
 
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION

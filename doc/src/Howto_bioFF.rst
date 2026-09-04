@@ -269,8 +269,8 @@ removed.  On the other hand, :doc:`fix bond/react <fix_bond_react>` can
 relax high-energy configurations via the ``stabilization`` keyword,
 whereby a small local group of atoms involved in the discontinuity are
 integrated with :doc:`fix nve/limit <fix_nve_limit>`.  `LUNAR
-<https://www.lammps.org/prepost.html>`_ can also be used to assist with
-setting up simulations that include :doc:`fix bond/react
+<https://www.lammps.org/ecosystem/prepost/>`_ can also be used to assist
+with setting up simulations that include :doc:`fix bond/react
 <fix_bond_react>`.
 
 DREIDING
@@ -326,7 +326,7 @@ OPLS
 OPLS (Optimized Potentials for Liquid Simulations) is a general force
 field for atomistic simulation of organic molecules in solvent.  It was
 developed by the `Jorgensen group
-<https://traken.chem.yale.edu/oplsaam.html>`_ at Purdue University and
+<https://zarbi.chem.yale.edu/oplsaam.html>`_ at Purdue University and
 later at Yale University.  Multiple versions of the OPLS parameters
 exist for united atom representations (OPLS-UA) and for all-atom
 representations (OPLS-AA).

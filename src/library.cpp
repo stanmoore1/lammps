@@ -835,7 +835,7 @@ void lammps_commands_string(void *handle, const char *str)
           }
         }
         // stop processing when quit command is found
-        if (words.size() && (words[0] == "quit")) {
+        if (!words.empty() && (words[0] == "quit")) {
           if (lmp->comm->me == 0)
             utils::logmesg(lmp, "Encountered a 'quit' command. Stopping ...\n");
           break;
@@ -6482,10 +6482,13 @@ void NeighProxy::command(int narg, char **arg)
   neigh_idx = -1;
   if (narg != 3) return;
   auto *req = neighbor->add_request(this, arg[0]);
-  int flags = atoi(arg[1]);
-  double cutoff = atof(arg[2]);
+  int flags = utils::inumeric(FLERR, arg[1], false, lmp);
+  double cutoff = utils::numeric(FLERR, arg[2], false, lmp);
   req->apply_flags(flags);
-  if (cutoff > 0.0) req->set_cutoff(cutoff);
+  if (cutoff > 0.0) {
+    // library-requested cutoff applies to all types
+    req->set_cutoff_fixed(cutoff);
+  }
   lmp->init();
 
   // setup domain, communication and neighboring

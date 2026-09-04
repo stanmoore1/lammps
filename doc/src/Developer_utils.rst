@@ -259,6 +259,24 @@ Convenience functions
 .. doxygenfunction:: print(FILE *fp, const std::string &mesg)
    :project: progguide
 
+.. doxygenfunction:: sprintf(const std::string &format, Args&&... args)
+   :project: progguide
+
+.. doxygenfunction:: check_format(const std::string &format, const std::vector<FmtArg> &expect)
+   :project: progguide
+
+.. doxygenfunction:: check_format(const std::string &format, FmtArg expect)
+   :project: progguide
+
+.. doxygenfunction:: adjust_format(const std::string &format, const std::vector<FmtArg> &expect)
+   :project: progguide
+
+.. doxygenfunction:: adjust_format(const std::string &format, FmtArg expect)
+   :project: progguide
+
+.. doxygenenum:: FmtArg
+   :project: progguide
+
 .. doxygenfunction:: errorurl
    :project: progguide
 

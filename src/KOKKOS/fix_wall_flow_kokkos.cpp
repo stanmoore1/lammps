@@ -29,7 +29,12 @@ using namespace LAMMPS_NS;
 
 template <class DeviceType>
 FixWallFlowKokkos<DeviceType>::FixWallFlowKokkos(LAMMPS *lmp, int narg, char **arg) :
-    FixWallFlow(lmp, narg, arg), rand_pool(rndseed + comm->me)
+    FixWallFlow(lmp, narg, arg),
+#ifdef LMP_KOKKOS_DEBUG_RNG
+    rand_pool(rndseed + comm->me, lmp)
+#else
+    rand_pool(rndseed + comm->me)
+#endif
 {
   kokkosable = 1;
   exchange_comm_device = sort_device = 1;
@@ -44,7 +49,7 @@ FixWallFlowKokkos<DeviceType>::FixWallFlowKokkos(LAMMPS *lmp, int narg, char **a
 
   d_walls = d_walls_t("FixWallFlowKokkos::walls", walls.size());
   auto h_walls = Kokkos::create_mirror_view(d_walls);
-  for (int i = 0; i < (int) walls.size(); ++i) h_walls(i) = walls[i];
+  for (int i = 0; i < (int) walls.size(); ++i) h_walls(i) = static_cast<KK_FLOAT>(walls[i]);
   Kokkos::deep_copy(d_walls, h_walls);
 }
 
@@ -52,10 +57,17 @@ template <class DeviceType> FixWallFlowKokkos<DeviceType>::~FixWallFlowKokkos()
 {
   if (copymode) return;
   memoryKK->destroy_kokkos(k_current_segment, current_segment);
+#ifdef LMP_KOKKOS_DEBUG_RNG
+  rand_pool.destroy();
+#endif
 }
 
 template <class DeviceType> void FixWallFlowKokkos<DeviceType>::init()
 {
+#ifdef LMP_KOKKOS_DEBUG_RNG
+  rand_pool.init(random, rndseed + comm->me);
+#endif
+
   atomKK->sync(execution_space, datamask_read);
   k_current_segment.template sync<DeviceType>();
   d_x = atomKK->k_x.template view<DeviceType>();
@@ -85,6 +97,7 @@ template <class DeviceType> void FixWallFlowKokkos<DeviceType>::end_of_step()
   d_v = atomKK->k_v.template view<DeviceType>();
   d_type = atomKK->k_type.template view<DeviceType>();
   d_mask = atomKK->k_mask.template view<DeviceType>();
+  atomKK->k_mass.template sync<DeviceType>();
   d_mass = atomKK->k_mass.template view<DeviceType>();
   d_rmass = atomKK->k_rmass.template view<DeviceType>();
 
@@ -122,29 +135,31 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(
 {
   const int newton_iteration_count = 10;
   KK_FLOAT mass = get_mass(MTag(), atom_i);
-  const KK_FLOAT gamma = 1.0 / std::sqrt(2.0 * kT / mass);
-  KK_FLOAT delta = gamma * flowvel;
+  const KK_FLOAT kT_kk = static_cast<KK_FLOAT>(kT);
+  const KK_FLOAT flowvel_kk = static_cast<KK_FLOAT>(flowvel);
+  const KK_FLOAT gamma = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(static_cast<KK_FLOAT>(2.0) * kT_kk / mass);
+  KK_FLOAT delta = gamma * flowvel_kk;
 
-  const KK_FLOAT edd = std::exp(-delta * delta) / MathConst::MY_PIS + delta * std::erf(delta);
-  const KK_FLOAT probability_threshold = 0.5 * (1. + delta / edd);
+  const KK_FLOAT edd = Kokkos::exp(-delta * delta) / static_cast<KK_FLOAT>(MathConst::MY_PIS) + delta * Kokkos::erf(delta);
+  const KK_FLOAT probability_threshold = static_cast<KK_FLOAT>(0.5) * (static_cast<KK_FLOAT>(1.) + delta / edd);
 
   KK_FLOAT direction = 1.0;
 
   rand_type_t rand_gen = rand_pool.get_state();
 
-  if (/*random->uniform()*/ rand_gen.drand() > probability_threshold) {
+  if (/*random->uniform()*/ static_cast<KK_FLOAT>(rand_gen.drand()) > probability_threshold) {
     delta = -delta;
     direction = -direction;
   }
 
-  const KK_FLOAT xi_0 = rand_gen.drand();    //random->uniform();
+  const KK_FLOAT xi_0 = static_cast<KK_FLOAT>(rand_gen.drand());    //random->uniform();
   const KK_FLOAT F_inf = edd + delta;
   const KK_FLOAT xi = xi_0 * F_inf;
-  const KK_FLOAT x_0 = (std::sqrt(delta * delta + 2) - delta) * 0.5;
+  const KK_FLOAT x_0 = (Kokkos::sqrt(delta * delta + 2) - delta) * static_cast<KK_FLOAT>(0.5);
   KK_FLOAT x = x_0;
   for (int i = 0; i < newton_iteration_count; ++i) {
-    x -= (std::exp(x * x) * MathConst::MY_PIS * (xi - delta * std::erfc(x)) - 1.0) / (x + delta) *
-        0.5;
+    x -= (Kokkos::exp(x * x) * static_cast<KK_FLOAT>(MathConst::MY_PIS) * (xi - delta * Kokkos::erfc(x)) - static_cast<KK_FLOAT>(1.0)) / (x + delta) *
+        static_cast<KK_FLOAT>(0.5);
   }
 
   const KK_FLOAT nu = x + delta;
@@ -152,9 +167,9 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::generate_velocity_kk(
 
   d_v(atom_i, flowax) = v * direction;
   d_v(atom_i, (flowax + 1) % 3) =
-      /*random->gaussian()*/ rand_gen.normal() / (gamma * MathConst::MY_SQRT2);
+      /*random->gaussian()*/ static_cast<KK_FLOAT>(rand_gen.normal()) / (gamma * static_cast<KK_FLOAT>(MathConst::MY_SQRT2));
   d_v(atom_i, (flowax + 2) % 3) =
-      /*random->gaussian()*/ rand_gen.normal() / (gamma * MathConst::MY_SQRT2);
+      /*random->gaussian()*/ static_cast<KK_FLOAT>(rand_gen.normal()) / (gamma * static_cast<KK_FLOAT>(MathConst::MY_SQRT2));
 
   rand_pool.free_state(rand_gen);
 }
@@ -218,7 +233,7 @@ KOKKOS_INLINE_FUNCTION void FixWallFlowKokkos<DeviceType>::operator()(TagFixWall
 {
   const int send_i = d_sendlist(mysend);
   const int segment = d_current_segment(send_i);
-  d_buf(mysend) = static_cast<KK_FLOAT>(segment);
+  d_buf(mysend) = static_cast<double>(segment);
 
   const int copy_i = d_copylist(mysend);
   if (copy_i > -1) { d_current_segment(send_i) = d_current_segment(copy_i); }

@@ -303,8 +303,14 @@ void CommKokkos::reverse_comm_device()
   for (int iswap = nswap-1; iswap >= 0; iswap--) {
     if (sendproc[iswap] != me) {
       if (comm_f_only && !atomKK->k_f.NEED_TRANSFORM) {
-        if (size_reverse_recv[iswap]) {
+
+        // one fence covers both MPI calls: no Kokkos work is launched between
+        // them, so a second fence would have nothing left to wait on
+
+        if ((size_reverse_recv[iswap]) || (size_reverse_send[iswap]))
           DeviceType().fence();
+
+        if (size_reverse_recv[iswap]) {
           MPI_Irecv(k_buf_recv.view<DeviceType>().data(),size_reverse_recv[iswap],MPI_DOUBLE,
                     sendproc[iswap],0,world,&request);
         }
@@ -312,7 +318,6 @@ void CommKokkos::reverse_comm_device()
           buf = (double *)atomKK->k_f.view<DeviceType>().data() +
             firstrecv[iswap]*atomKK->k_f.view<DeviceType>().extent(1);
 
-          DeviceType().fence();
           MPI_Send(buf,size_reverse_send[iswap],MPI_DOUBLE,
                    recvproc[iswap],0,world);
         }
@@ -424,13 +429,16 @@ void CommKokkos::forward_comm_device(Fix *fix, int size)
         buf_recv_fix = k_buf_recv_fix.view_host().data();
       }
 
-      if (recvnum[iswap]) {
+      // the buffer is packed before the MPI calls, so one fence covers both
+
+      if ((recvnum[iswap]) || (sendnum[iswap]))
         DeviceType().fence();
+
+      if (recvnum[iswap]) {
         MPI_Irecv(buf_recv_fix,nsize*recvnum[iswap],MPI_DOUBLE,
                   recvproc[iswap],0,world,&request);
       }
       if (sendnum[iswap]) {
-        DeviceType().fence();
         MPI_Send(buf_send_fix,n,MPI_DOUBLE,sendproc[iswap],0,world);
       }
 
@@ -523,13 +531,16 @@ void CommKokkos::reverse_comm_device(Fix *fix, int size)
         buf_recv_fix = k_buf_recv_fix.view_host().data();
       }
 
-      if (sendnum[iswap]) {
+      // the buffer is packed before the MPI calls, so one fence covers both
+
+      if ((sendnum[iswap]) || (recvnum[iswap]))
         DeviceType().fence();
+
+      if (sendnum[iswap]) {
         MPI_Irecv(buf_recv_fix,nsize*sendnum[iswap],MPI_DOUBLE,
                   sendproc[iswap],0,world,&request);
       }
       if (recvnum[iswap]) {
-        DeviceType().fence();
         MPI_Send(buf_send_fix,n,MPI_DOUBLE,recvproc[iswap],0,world);
       }
       if (sendnum[iswap]) {
@@ -635,13 +646,16 @@ void CommKokkos::forward_comm_device(Compute *compute, int size)
         buf_recv_compute = k_buf_recv_compute.view_host().data();
       }
 
-      if (recvnum[iswap]) {
+      // the buffer is packed before the MPI calls, so one fence covers both
+
+      if ((recvnum[iswap]) || (sendnum[iswap]))
         DeviceType().fence();
+
+      if (recvnum[iswap]) {
         MPI_Irecv(buf_recv_compute,nsize*recvnum[iswap],MPI_DOUBLE,
                   recvproc[iswap],0,world,&request);
       }
       if (sendnum[iswap]) {
-        DeviceType().fence();
         MPI_Send(buf_send_compute,n,MPI_DOUBLE,sendproc[iswap],0,world);
       }
 
@@ -719,7 +733,14 @@ void CommKokkos::reverse_comm(Compute *compute, int size)
 
 void CommKokkos::forward_comm(Pair *pair, int size)
 {
-  if (pair->execution_space == Host || pair->execution_space == HostKK || forward_pair_comm_legacy) {
+  // a pair style that runs on the device but does not implement the KOKKOS
+  // packing (e.g. pair hybrid/scaled, which communicates its scale factors
+  // through the plain buffers) has to take the host path as well
+
+  KokkosBase *pairKKBase = dynamic_cast<KokkosBase *>(pair);
+
+  if (pair->execution_space == Host || pair->execution_space == HostKK ||
+      forward_pair_comm_legacy || !pairKKBase) {
     k_sendlist.sync_host();
     CommBrick::forward_comm(pair, size);
   } else {
@@ -782,13 +803,16 @@ void CommKokkos::forward_comm_device(Pair *pair, int size)
         buf_recv_pair = k_buf_recv_pair.view_host().data();
       }
 
-      if (recvnum[iswap]) {
+      // the buffer is packed before the MPI calls, so one fence covers both
+
+      if ((recvnum[iswap]) || (sendnum[iswap]))
         DeviceType().fence();
+
+      if (recvnum[iswap]) {
         MPI_Irecv(buf_recv_pair,nsize*recvnum[iswap],MPI_DOUBLE,
                   recvproc[iswap],0,world,&request);
       }
       if (sendnum[iswap]) {
-        DeviceType().fence();
         MPI_Send(buf_send_pair,n,MPI_DOUBLE,sendproc[iswap],0,world);
       }
 
@@ -918,12 +942,15 @@ void CommKokkos::reverse_comm_device(Pair *pair, int size)
     }
 
     if (sendproc[iswap] != me) {
-      if (sendnum[iswap]) {
+      // the buffer is packed before the MPI calls, so one fence covers both
+
+      if ((sendnum[iswap]) || (recvnum[iswap]))
         DeviceType().fence();
+
+      if (sendnum[iswap]) {
         MPI_Irecv(buf_recv_pair,nsize*sendnum[iswap],MPI_DOUBLE,sendproc[iswap],0,world,&request);
       }
       if (recvnum[iswap]) {
-        DeviceType().fence();
         MPI_Send(buf_send_pair,n,MPI_DOUBLE,recvproc[iswap],0,world);
       }
       if (sendnum[iswap]) {
@@ -1051,7 +1078,7 @@ struct BuildExchangeListFunctor {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (int i) const {
-    if (_x(i,_dim) < _lo || _x(i,_dim) >= _hi) {
+    if (static_cast<double>(_x(i,_dim)) < _lo || static_cast<double>(_x(i,_dim)) >= _hi) {
       const int mysend = Kokkos::atomic_fetch_add(&_nsend(0),1);
       if (mysend < (int)_sendlist.extent(0))
         _sendlist(mysend) = i;
@@ -1296,12 +1323,13 @@ void CommKokkos::exchange_device()
         }
         if (nrecv > maxrecv) grow_recv_kokkos(nrecv);
 
+        // the buffer is packed before the MPI calls, so one fence covers both
+
         DeviceType().fence();
         MPI_Irecv(k_buf_recv.view<DeviceType>().data(),nrecv1,
                   MPI_DOUBLE,procneigh[dim][1],0,
                   world,&request);
 
-        DeviceType().fence();
         MPI_Send(k_buf_send.view<DeviceType>().data(),nsend,
                  MPI_DOUBLE,procneigh[dim][0],0,world);
 
@@ -1366,12 +1394,13 @@ void CommKokkos::exchange_device()
 
             if (nextrarecv > maxrecv) grow_recv_kokkos(nextrarecv);
 
+            // the buffer is packed before the MPI calls, one fence covers both
+
             DeviceType().fence();
             MPI_Irecv(k_buf_recv.view<DeviceType>().data(),nextrarecv1,
                       MPI_DOUBLE,procneigh[dim][1],0,
                       world,&request);
 
-            DeviceType().fence();
             MPI_Send(k_buf_send.view<DeviceType>().data(),nextrasend,
                      MPI_DOUBLE,procneigh[dim][0],0,world);
 
@@ -1492,14 +1521,14 @@ struct BuildBorderListFunctor {
     const int teamend = (teamstart + chunk) < nlast?(teamstart + chunk):nlast;
     int mysend = 0;
     for (int i=teamstart + dev.team_rank(); i<teamend; i+=dev.team_size()) {
-      if (x(i,dim) >= lo && x(i,dim) <= hi) mysend++;
+      if (static_cast<double>(x(i,dim)) >= lo && static_cast<double>(x(i,dim)) <= hi) mysend++;
     }
     const int my_store_pos = dev.team_scan(mysend,&nsend());
 
     if (my_store_pos+mysend < maxsendlist) {
     mysend = my_store_pos;
       for (int i=teamstart + dev.team_rank(); i<teamend; i+=dev.team_size()) {
-        if (x(i,dim) >= lo && x(i,dim) <= hi) {
+        if (static_cast<double>(x(i,dim)) >= lo && static_cast<double>(x(i,dim)) <= hi) {
           sendlist(iswap,mysend++) = i;
         }
       }
@@ -1682,14 +1711,17 @@ void CommKokkos::borders_device() {
         MPI_Sendrecv(&nsend,1,MPI_INT,sendproc[iswap],0,
                      &nrecv,1,MPI_INT,recvproc[iswap],0,world,MPI_STATUS_IGNORE);
         if (nrecv*size_border > maxrecv) grow_recv_kokkos(nrecv*size_border);
+
+        // the buffer is packed before the MPI calls, so one fence covers both
+
+        if ((nrecv) || (n)) DeviceType().fence();
+
         if (nrecv) {
-          DeviceType().fence();
           MPI_Irecv(k_buf_recv.view<DeviceType>().data(),
                     nrecv*size_border,MPI_DOUBLE,
                     recvproc[iswap],0,world,&request);
         }
         if (n) {
-          DeviceType().fence();
           MPI_Send(k_buf_send.view<DeviceType>().data(),n,
                    MPI_DOUBLE,sendproc[iswap],0,world);
         }
@@ -1952,6 +1984,8 @@ void CommKokkos::forward_comm_array(int nsize, double **array)
 
 #if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 namespace LAMMPS_NS {
+template void CommKokkos::forward_comm_device<LMPDeviceType>(Fix *, int);
+template void CommKokkos::reverse_comm_device<LMPDeviceType>(Fix *, int);
 template void CommKokkos::forward_comm_device<LMPHostType>(Fix *, int);
 template void CommKokkos::reverse_comm_device<LMPHostType>(Fix *, int);
 }

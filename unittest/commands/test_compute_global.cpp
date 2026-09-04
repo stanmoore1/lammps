@@ -20,6 +20,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <cmath>
+
 #include <cstdio>
 #include <mpi.h>
 
@@ -61,6 +63,17 @@ protected:
     {
         return (double **)lammps_extract_compute(lmp, id, LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY);
     }
+
+    // compare a global scalar of a compute.  an accelerator package sums the
+    // per-atom contributions in a different order, so the last digits of the
+    // result may differ from the reference value of the plain styles
+    void EXPECT_SCALAR_EQ(const char *id, double expected)
+    {
+        if (lmp->suffix_enable)
+            EXPECT_NEAR(get_scalar(id), expected, std::fabs(expected) * 1.0e-13);
+        else
+            EXPECT_DOUBLE_EQ(get_scalar(id), expected);
+    }
 };
 
 TEST_F(ComputeGlobalTest, Energy)
@@ -95,14 +108,14 @@ TEST_F(ComputeGlobalTest, Energy)
     command("run 0 post no");
     END_HIDE_OUTPUT();
 
-    EXPECT_DOUBLE_EQ(get_scalar("ke1"), 2.3405256449146168);
-    EXPECT_DOUBLE_EQ(get_scalar("ke2"), 1.192924237073665);
-    EXPECT_DOUBLE_EQ(get_scalar("pe1"), 24155.155261642241);
-    EXPECT_DOUBLE_EQ(get_scalar("pe2"), 361.37528652881286);
-    EXPECT_DOUBLE_EQ(get_scalar("pe3"), 0.0);
+    EXPECT_SCALAR_EQ("ke1", 2.3405256449146168);
+    EXPECT_SCALAR_EQ("ke2", 1.192924237073665);
+    EXPECT_SCALAR_EQ("pe1", 24155.155261642241);
+    EXPECT_SCALAR_EQ("pe2", 361.37528652881286);
+    EXPECT_SCALAR_EQ("pe3", 0.0);
     EXPECT_NEAR(get_scalar("pr1"), 1956948.4735454607, 0.000000005);
     EXPECT_NEAR(get_scalar("pr2"), 1956916.7725807722, 0.000000005);
-    EXPECT_DOUBLE_EQ(get_scalar("pr3"), 0.0);
+    EXPECT_SCALAR_EQ("pr3", 0.0);
     auto *pr1 = get_vector("pr1");
     auto *pr2 = get_vector("pr2");
     auto *pr3 = get_vector("pr3");
@@ -269,7 +282,7 @@ TEST_F(ComputeGlobalTest, Reduction)
     auto *ave = get_vector("ave");
     auto *rep = get_vector("rep");
 
-    EXPECT_DOUBLE_EQ(get_scalar("chg"), 0.51000000000000001);
+    EXPECT_SCALAR_EQ("chg", 0.51000000000000001);
 
     EXPECT_DOUBLE_EQ(min[0], -2.7406520384725965);
     EXPECT_DOUBLE_EQ(min[1], -20385.448391361348);
@@ -386,6 +399,218 @@ TEST_F(ComputeGlobalTest, Counts)
     EXPECT_DOUBLE_EQ(icnt[0], 1.0);
     EXPECT_DOUBLE_EQ(icnt[1], 1.0);
 }
+
+// finite-size particles must contribute their own moment of inertia
+// (issue #3710). Build small standalone systems so the expected inertia
+// tensor can be computed analytically.
+
+class ComputeInertiaTest : public ComputeGlobalTest {
+protected:
+    void SetUp() override
+    {
+        testbinary = "ComputeInertiaTest";
+        LAMMPSTest::SetUp();
+    }
+};
+
+TEST_F(ComputeInertiaTest, Ellipsoid)
+{
+    if (!info->has_style("atom", "ellipsoid")) GTEST_SKIP();
+
+    // two axis-aligned ellipsoids, semi-axes a=1,b=2,c=3 (set shape uses diameters)
+    // m1=1 at (0,0,0), m2=3 at (5,0,0); COM at x=3.75
+    // orbital: Ixx=0, Iyy=Izz=18.75; spin: Ixx=10.4, Iyy=8.0, Izz=4.0
+
+    BEGIN_HIDE_OUTPUT();
+    command("units lj");
+    command("atom_style ellipsoid");
+    command("boundary f f f");
+    command("region box block -20 20 -20 20 -20 20");
+    command("create_box 1 box");
+    command("create_atoms 1 single 0.0 0.0 0.0 units box");
+    command("create_atoms 1 single 5.0 0.0 0.0 units box");
+    command("set group all shape 2.0 4.0 6.0");
+    command("set atom 1 mass 1.0");
+    command("set atom 2 mass 3.0");
+    command("pair_style zero 5.0");
+    command("pair_coeff * *");
+    command("compute iner all inertia");
+    command("variable ixx equal inertia(all,xx)");
+    command("variable iyy equal inertia(all,yy)");
+    command("variable izz equal inertia(all,zz)");
+    command("variable ixy equal inertia(all,xy)");
+    command("variable iyz equal inertia(all,yz)");
+    command("variable ixz equal inertia(all,xz)");
+    command("thermo_style custom c_iner[*]");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+
+    auto *iner = get_vector("iner");
+    EXPECT_NEAR(iner[0], 10.4, 1.0e-12);
+    EXPECT_NEAR(iner[1], 26.75, 1.0e-12);
+    EXPECT_NEAR(iner[2], 22.75, 1.0e-12);
+    EXPECT_NEAR(iner[3], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[4], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[5], 0.0, 1.0e-12);
+
+    // the inertia() variable function shares the same code path (Group::inertia)
+    EXPECT_NEAR(get_variable_value("ixx"), 10.4, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("iyy"), 26.75, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("izz"), 22.75, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("ixy"), 0.0, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("iyz"), 0.0, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("ixz"), 0.0, 1.0e-12);
+}
+
+TEST_F(ComputeInertiaTest, Sphere)
+{
+    if (!info->has_style("atom", "sphere")) GTEST_SKIP();
+
+    // two finite spheres of radius 1, mass 1, at (0,0,0) and (4,0,0); COM at x=2
+    // orbital: Ixx=0, Iyy=Izz=8.0; spin: 0.4*m*r^2 = 0.4 each, 0.8 per diagonal
+
+    BEGIN_HIDE_OUTPUT();
+    command("units lj");
+    command("atom_style sphere");
+    command("boundary f f f");
+    command("region box block -20 20 -20 20 -20 20");
+    command("create_box 1 box");
+    command("create_atoms 1 single 0.0 0.0 0.0 units box");
+    command("create_atoms 1 single 4.0 0.0 0.0 units box");
+    command("set group all diameter 2.0");
+    command("set group all mass 1.0");
+    command("pair_style zero 5.0");
+    command("pair_coeff * *");
+    command("compute iner all inertia");
+    command("thermo_style custom c_iner[*]");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+
+    auto *iner = get_vector("iner");
+    EXPECT_NEAR(iner[0], 0.8, 1.0e-12);
+    EXPECT_NEAR(iner[1], 8.8, 1.0e-12);
+    EXPECT_NEAR(iner[2], 8.8, 1.0e-12);
+    EXPECT_NEAR(iner[3], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[4], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[5], 0.0, 1.0e-12);
+}
+
+TEST_F(ComputeInertiaTest, Body)
+{
+    if (!lammps_config_has_package("BODY")) GTEST_SKIP();
+
+    // single body/nparticle at the origin with a known diagonal inertia
+    // tensor (2,3,4); compute inertia must return it unchanged (the orbital
+    // term is zero at the COM). Exercises the body-particle branch, which
+    // rotates the stored per-particle principal moments to the space frame.
+
+    const char *datafile = "compute_inertia_body.data";
+    FILE *fp = fopen(datafile, "w");
+    ASSERT_NE(fp, nullptr);
+    fputs("LAMMPS body nparticle test\n\n"
+          "1 atoms\n1 bodies\n1 atom types\n"
+          "-10 10 xlo xhi\n-10 10 ylo yhi\n-10 10 zlo zhi\n\n"
+          "Atoms\n\n"
+          "1 1 1 1.0 0.0 0.0 0.0 0 0 0\n\n"
+          "Bodies\n\n"
+          "1 1 9\n1\n2.0 3.0 4.0 0.0 0.0 0.0\n0.0 0.0 0.0\n",
+          fp);
+    fclose(fp);
+
+    BEGIN_HIDE_OUTPUT();
+    command("units lj");
+    command("atom_style body nparticle 1 1");
+    command("read_data " + std::string(datafile));
+    command("pair_style zero 5.0");
+    command("pair_coeff * *");
+    command("compute iner all inertia");
+    command("thermo_style custom c_iner[*]");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+
+    auto *iner = get_vector("iner");
+    EXPECT_NEAR(iner[0], 2.0, 1.0e-12);
+    EXPECT_NEAR(iner[1], 3.0, 1.0e-12);
+    EXPECT_NEAR(iner[2], 4.0, 1.0e-12);
+    EXPECT_NEAR(iner[3], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[4], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[5], 0.0, 1.0e-12);
+
+    remove(datafile);
+}
+
+TEST_F(ComputeInertiaTest, Superellipsoid)
+{
+    // atom style ellipsoid/kk does not support the superellipsoid option
+    if (lmp->suffix_enable) GTEST_SKIP() << "superellipsoid is not supported with an accelerator suffix";
+    if (!info->has_style("atom", "ellipsoid")) GTEST_SKIP();
+
+    // same configuration as the Ellipsoid test, but with atom_style
+    // "ellipsoid superellipsoid".  With the default blockiness (2,2) a
+    // superellipsoid reduces to a regular ellipsoid, so the analytic result
+    // is identical: tensor (10.4, 26.75, 22.75, 0, 0, 0).  This exercises
+    // the superellipsoid branch, which reads the per-particle principal
+    // moments stored in bonus_super.  Note the mass must be set before the
+    // shape, since the stored inertia is computed when the shape is set.
+
+    BEGIN_HIDE_OUTPUT();
+    command("units lj");
+    command("atom_style ellipsoid superellipsoid");
+    command("boundary f f f");
+    command("region box block -20 20 -20 20 -20 20");
+    command("create_box 1 box");
+    command("create_atoms 1 single 0.0 0.0 0.0 units box");
+    command("create_atoms 1 single 5.0 0.0 0.0 units box");
+    command("set atom 1 mass 1.0");
+    command("set atom 2 mass 3.0");
+    command("set group all shape 2.0 4.0 6.0");
+    command("pair_style zero 5.0");
+    command("pair_coeff * *");
+    command("compute iner all inertia");
+    command("thermo_style custom c_iner[*]");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+
+    auto *iner = get_vector("iner");
+    EXPECT_NEAR(iner[0], 10.4, 1.0e-12);
+    EXPECT_NEAR(iner[1], 26.75, 1.0e-12);
+    EXPECT_NEAR(iner[2], 22.75, 1.0e-12);
+    EXPECT_NEAR(iner[3], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[4], 0.0, 1.0e-12);
+    EXPECT_NEAR(iner[5], 0.0, 1.0e-12);
+}
+
+TEST_F(ComputeInertiaTest, Angmom)
+{
+    if (!info->has_style("atom", "sphere")) GTEST_SKIP();
+
+    // two finite spheres (r=1, m=1) spinning at omega=(0,0,5), otherwise at
+    // rest -> total angular momentum is pure spin (0,0,4). exercises the
+    // angmom() variable function (Group::angmom + Group::angmom_extended).
+
+    BEGIN_HIDE_OUTPUT();
+    command("units lj");
+    command("atom_style sphere");
+    command("boundary f f f");
+    command("region box block -20 20 -20 20 -20 20");
+    command("create_box 1 box");
+    command("create_atoms 1 single 0.0 0.0 0.0 units box");
+    command("create_atoms 1 single 2.0 0.0 0.0 units box");
+    command("set group all diameter 2.0");
+    command("set group all mass 1.0");
+    command("set group all omega 0.0 0.0 5.0");
+    command("pair_style zero 5.0");
+    command("pair_coeff * *");
+    command("variable lx equal angmom(all,x)");
+    command("variable ly equal angmom(all,y)");
+    command("variable lz equal angmom(all,z)");
+    command("run 0 post no");
+    END_HIDE_OUTPUT();
+
+    EXPECT_NEAR(get_variable_value("lx"), 0.0, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("ly"), 0.0, 1.0e-12);
+    EXPECT_NEAR(get_variable_value("lz"), 4.0, 1.0e-12);
+}
 } // namespace LAMMPS_NS
 
 int main(int argc, char **argv)
@@ -406,6 +631,13 @@ int main(int argc, char **argv)
     if ((argc > 1) && (strcmp(argv[1], "-v") == 0)) verbose = true;
 
     int rv = RUN_ALL_TESTS();
+
+    // finalize the KOKKOS package explicitly: otherwise Kokkos is torn down by
+    // static destructors at program exit, leading to segfaults in some cases
+    // same workaround as the force-style and FFT3d test drivers
+
+    lammps_kokkos_finalize();
+
     MPI_Finalize();
     return rv;
 }

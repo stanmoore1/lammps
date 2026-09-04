@@ -27,6 +27,7 @@
 #include "fix.h"
 #include "force.h"
 #include "info.h"
+#include "utils.h"
 #include "input.h"
 #include "modify.h"
 
@@ -39,6 +40,36 @@ using ::testing::HasSubstr;
 using ::testing::StartsWith;
 
 using namespace LAMMPS_NS;
+
+// the "kokkos_omp_full" and "kokkos_serial_full" test cases select "newton off"
+// through the newton_pair and newton_bond index variables on the command line.
+// several YAML files redefine those variables in their pre_commands (a
+// convention taken over from the GPU package tests), which discards the command
+// line setting, so the override has to be re-applied after the pre_commands
+// have been processed and before the input template is read.
+
+static bool kokkos_full_neigh = false;
+
+static void enforce_kokkos_full_neigh(LAMMPS *lmp)
+{
+    if (!kokkos_full_neigh) return;
+    lmp->input->one("variable newton_pair delete");
+    lmp->input->one("variable newton_pair index off");
+    lmp->input->one("variable newton_bond delete");
+    lmp->input->one("variable newton_bond index off");
+}
+
+// styles that require "newton on" or a half neighbor list cannot run in the
+// full neighbor list configuration of the KOKKOS package.  those are
+// documented restrictions of the style, so the corresponding test case is
+// skipped instead of failed when the setup stops with such an error.
+
+static bool full_neigh_unsupported(const std::string &errmsg)
+{
+    if (!kokkos_full_neigh) return false;
+    return (LAMMPS_NS::utils::strmatch(errmsg, "newton") ||
+            LAMMPS_NS::utils::strmatch(errmsg, "half neighbor list"));
+}
 
 void cleanup_lammps(LAMMPS *&lmp, const TestConfig &cfg)
 {
@@ -97,6 +128,7 @@ LAMMPS *init_lammps(LAMMPS::argv &args, const TestConfig &cfg, const bool newton
     for (const auto &pre_command : cfg.pre_commands) {
         command(pre_command);
     }
+    enforce_kokkos_full_neigh(lmp);
 
     std::string input_file = platform::path_join(INPUT_FOLDER, cfg.input_file);
     parse_input_script(input_file);
@@ -162,7 +194,7 @@ void restart_lammps(LAMMPS *lmp, const TestConfig &cfg)
     command("run 0 post no");
 }
 
-void data_lammps(LAMMPS *lmp, const TestConfig &cfg)
+void data_lammps(LAMMPS *lmp, const TestConfig &cfg, const bool newton = true)
 {
     // utility lambdas to improve readability
     auto command = [&](const std::string &line) {
@@ -176,11 +208,15 @@ void data_lammps(LAMMPS *lmp, const TestConfig &cfg)
     command("variable angle_style delete");
     command("variable data_file  delete");
     command("variable newton_bond delete");
-    command("variable newton_bond index on");
+    if (newton)
+        command("variable newton_bond index on");
+    else
+        command("variable newton_bond index off");
 
     for (const auto &pre_command : cfg.pre_commands) {
         command(pre_command);
     }
+    enforce_kokkos_full_neigh(lmp);
 
     command("variable angle_style index '" + cfg.angle_style + "'");
     command("variable data_file index " + cfg.basename + ".data");
@@ -306,6 +342,7 @@ TEST(AngleStyle, plain)
     } catch (std::exception &e) {
         std::string output = ::testing::internal::GetCapturedStdout();
         if (verbose) std::cout << output;
+        if (full_neigh_unsupported(e.what())) GTEST_SKIP() << e.what();
         FAIL() << e.what();
     }
     std::string output = ::testing::internal::GetCapturedStdout();
@@ -435,6 +472,7 @@ TEST(AngleStyle, omp)
     } catch (std::exception &e) {
         std::string output = ::testing::internal::GetCapturedStdout();
         if (verbose) std::cout << output;
+        if (full_neigh_unsupported(e.what())) GTEST_SKIP() << e.what();
         FAIL() << e.what();
     }
     std::string output = ::testing::internal::GetCapturedStdout();
@@ -541,7 +579,11 @@ static std::string kokkos_precision()
     return "double";
 }
 
-static void run_kokkos_test(LAMMPS::argv &args)
+// the "newton" argument must match the newton setting the command line
+// arguments select: with "-pk kokkos neigh full" the KOKKOS package rejects
+// "newton on", so the run re-reading the data file must use newton off as well
+
+static void run_kokkos_test(LAMMPS::argv &args, bool newton = true)
 {
     ::testing::internal::CaptureStdout();
     LAMMPS *lmp = nullptr;
@@ -550,6 +592,7 @@ static void run_kokkos_test(LAMMPS::argv &args)
     } catch (std::exception &e) {
         std::string output = ::testing::internal::GetCapturedStdout();
         if (verbose) std::cout << output;
+        if (full_neigh_unsupported(e.what())) GTEST_SKIP() << e.what();
         FAIL() << e.what();
     }
     std::string output = ::testing::internal::GetCapturedStdout();
@@ -655,7 +698,7 @@ static void run_kokkos_test(LAMMPS::argv &args)
     if (print_stats) std::cerr << "restart_energy stats:" << stats << std::endl;
 
     if (!verbose) ::testing::internal::CaptureStdout();
-    data_lammps(lmp, test_config);
+    data_lammps(lmp, test_config, newton);
     if (!verbose) ::testing::internal::GetCapturedStdout();
 
     angle = lmp->force->angle;
@@ -679,6 +722,11 @@ TEST(AngleStyle, kokkos_omp)
     // e.g. "kokkos_omp_single" skips only single precision KOKKOS builds
     if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
         GTEST_SKIP();
+    // skip entries qualified with "_devicerng" apply only to builds where the
+    // KOKKOS styles use the device random number generator
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count(std::string(test_info_->name()) + "_devicerng"))
+        GTEST_SKIP();
     // this test requires the OpenMP backend of KOKKOS
     if (!Info::has_accelerator_feature("KOKKOS", "api", "openmp"))
         GTEST_SKIP() << "KOKKOS OpenMP backend not enabled";
@@ -694,6 +742,54 @@ TEST(AngleStyle, kokkos_omp)
     run_kokkos_test(args);
 };
 
+TEST(AngleStyle, kokkos_omp_full)
+{
+    if (!Info::has_package("KOKKOS")) GTEST_SKIP();
+    if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
+    // skip entries may also be qualified by the KOKKOS package precision,
+    // e.g. "kokkos_omp_full_single" skips only single precision KOKKOS builds
+    if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // skip entries qualified with "_devicerng" apply only to builds where the
+    // KOKKOS styles use the device random number generator
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count(std::string(test_info_->name()) + "_devicerng"))
+        GTEST_SKIP();
+    // a style that cannot be tested with KOKKOS at all cannot be tested
+    // with a full neighbor list either, so the plain "kokkos_omp"
+    // skip entries apply here as well
+    if (test_config.skip_tests.count("kokkos_omp")) GTEST_SKIP();
+    if (test_config.skip_tests.count("kokkos_omp_" + kokkos_precision()))
+        GTEST_SKIP();
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count("kokkos_omp_devicerng"))
+        GTEST_SKIP();
+    // this test requires the OpenMP backend of KOKKOS
+    if (!Info::has_accelerator_feature("KOKKOS", "api", "openmp"))
+        GTEST_SKIP() << "KOKKOS OpenMP backend not enabled";
+    // if KOKKOS has GPU support enabled, it *must* be used. We cannot test OpenMP only.
+    if (Info::has_accelerator_feature("KOKKOS", "api", "cuda") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "hip") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
+        GTEST_SKIP() << "Cannot test KOKKOS/OpenMP with GPU support enabled";
+
+    // exercise the NEIGHFLAG == FULL kernels of the KOKKOS package.  those are
+    // what the GPU backends select by default, but they are never reached in a
+    // CPU only test build, which always uses a half neighbor list with newton
+    // on.  the KOKKOS package requires "newton off" with "neigh full", so the
+    // newton settings of the input template must be overridden as well: an
+    // index style variable defined with -var on the command line takes
+    // precedence over the "variable ... index" definition inside the template
+    LAMMPS::argv args = {"AngleStyle", "-log", "none", "-echo", "screen", "-nocite",
+                         "-k", "on", "t", "4", "-sf", "kk",
+                         "-pk", "kokkos", "neigh", "full", "newton", "off",
+                         "-var", "newton_pair", "off", "-var", "newton_bond", "off"};
+
+    kokkos_full_neigh = true;
+    run_kokkos_test(args, false);
+    kokkos_full_neigh = false;
+};
+
 TEST(AngleStyle, kokkos_serial)
 {
     if (!Info::has_package("KOKKOS")) GTEST_SKIP();
@@ -701,6 +797,11 @@ TEST(AngleStyle, kokkos_serial)
     // skip entries may also be qualified by the KOKKOS package precision,
     // e.g. "kokkos_serial_single" skips only single precision KOKKOS builds
     if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // skip entries qualified with "_devicerng" apply only to builds where the
+    // KOKKOS styles use the device random number generator
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count(std::string(test_info_->name()) + "_devicerng"))
         GTEST_SKIP();
     // this test requires the KOKKOS package compiled with only the Serial backend: when the
     // OpenMP (or a GPU) backend is enabled, the host execution space is not Serial
@@ -720,6 +821,57 @@ TEST(AngleStyle, kokkos_serial)
     run_kokkos_test(args);
 };
 
+TEST(AngleStyle, kokkos_serial_full)
+{
+    if (!Info::has_package("KOKKOS")) GTEST_SKIP();
+    if (test_config.skip_tests.count(test_info_->name())) GTEST_SKIP();
+    // skip entries may also be qualified by the KOKKOS package precision,
+    // e.g. "kokkos_serial_full_single" skips only single precision KOKKOS builds
+    if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // skip entries qualified with "_devicerng" apply only to builds where the
+    // KOKKOS styles use the device random number generator
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count(std::string(test_info_->name()) + "_devicerng"))
+        GTEST_SKIP();
+    // a style that cannot be tested with KOKKOS at all cannot be tested
+    // with a full neighbor list either, so the plain "kokkos_serial"
+    // skip entries apply here as well
+    if (test_config.skip_tests.count("kokkos_serial")) GTEST_SKIP();
+    if (test_config.skip_tests.count("kokkos_serial_" + kokkos_precision()))
+        GTEST_SKIP();
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count("kokkos_serial_devicerng"))
+        GTEST_SKIP();
+    // this test requires the KOKKOS package compiled with only the Serial backend: when the
+    // OpenMP (or a GPU) backend is enabled, the host execution space is not Serial
+    if (!Info::has_accelerator_feature("KOKKOS", "api", "serial"))
+        GTEST_SKIP() << "KOKKOS Serial backend not enabled";
+    if (Info::has_accelerator_feature("KOKKOS", "api", "openmp") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "pthreads"))
+        GTEST_SKIP() << "Cannot test KOKKOS/Serial with threading support enabled";
+    if (Info::has_accelerator_feature("KOKKOS", "api", "cuda") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "hip") ||
+        Info::has_accelerator_feature("KOKKOS", "api", "sycl"))
+        GTEST_SKIP() << "Cannot test KOKKOS/Serial with GPU support enabled";
+
+    // exercise the NEIGHFLAG == FULL kernels of the KOKKOS package.  those are
+    // what the GPU backends select by default, but they are never reached in a
+    // CPU only test build, which always uses a half neighbor list with newton
+    // on.  the KOKKOS package requires "newton off" with "neigh full", so the
+    // newton settings of the input template must be overridden as well: an
+    // index style variable defined with -var on the command line takes
+    // precedence over the "variable ... index" definition inside the template
+    LAMMPS::argv args = {"AngleStyle", "-log", "none", "-echo", "screen", "-nocite",
+                         "-k", "on", "t", "1", "-sf", "kk",
+                         "-pk", "kokkos", "neigh", "full", "newton", "off",
+                         "-var", "newton_pair", "off", "-var", "newton_bond", "off"};
+
+    kokkos_full_neigh = true;
+    run_kokkos_test(args, false);
+    kokkos_full_neigh = false;
+};
+
 TEST(AngleStyle, kokkos_gpu)
 {
     if (!Info::has_package("KOKKOS")) GTEST_SKIP();
@@ -727,6 +879,11 @@ TEST(AngleStyle, kokkos_gpu)
     // skip entries may also be qualified by the KOKKOS package precision,
     // e.g. "kokkos_gpu_single" skips only single precision KOKKOS builds
     if (test_config.skip_tests.count(std::string(test_info_->name()) + "_" + kokkos_precision()))
+        GTEST_SKIP();
+    // skip entries qualified with "_devicerng" apply only to builds where the
+    // KOKKOS styles use the device random number generator
+    if (Info::has_accelerator_feature("KOKKOS", "rng", "device") &&
+        test_config.skip_tests.count(std::string(test_info_->name()) + "_devicerng"))
         GTEST_SKIP();
     // this test requires a GPU backend of the KOKKOS package
     if (!Info::has_accelerator_feature("KOKKOS", "api", "cuda") &&
@@ -761,6 +918,7 @@ TEST(AngleStyle, numdiff)
     } catch (std::exception &e) {
         std::string output = ::testing::internal::GetCapturedStdout();
         if (verbose) std::cout << output;
+        if (full_neigh_unsupported(e.what())) GTEST_SKIP() << e.what();
         FAIL() << e.what();
     }
     std::string output = ::testing::internal::GetCapturedStdout();

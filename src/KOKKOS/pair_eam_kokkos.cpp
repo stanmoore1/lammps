@@ -599,7 +599,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMKernelA<NEIGHFLAG,NEWTON_PA
     const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq_kk) {
-      KK_FLOAT p = sqrt(rsq)*rdr_kk + static_cast<KK_FLOAT>(1.0);
+      KK_FLOAT p = Kokkos::sqrt(rsq)*rdr_kk + static_cast<KK_FLOAT>(1.0);
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= static_cast<KK_FLOAT>(m);
@@ -693,7 +693,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMKernelAB<EFLAG>, const int 
     const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq_kk) {
-      KK_FLOAT p = sqrt(rsq)*rdr_kk + static_cast<KK_FLOAT>(1.0);
+      KK_FLOAT p = Kokkos::sqrt(rsq)*rdr_kk + static_cast<KK_FLOAT>(1.0);
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
       p -= static_cast<KK_FLOAT>(m);
@@ -773,7 +773,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMKernelC<NEIGHFLAG,NEWTON_PA
     const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
     if (rsq < cutforcesq_kk) {
-      const KK_FLOAT r = sqrt(rsq);
+      const KK_FLOAT r = Kokkos::sqrt(rsq);
       KK_FLOAT p = r*rdr_kk + static_cast<KK_FLOAT>(1.0);
       int m = static_cast<int> (p);
       m = MIN(m,nr-1);
@@ -898,7 +898,7 @@ void PairEAMKokkos<DeviceType>::operator()(TagPairEAMKernelAB<EFLAG>,
       const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
 
       if (rsq < cutforcesq_kk) {
-        KK_FLOAT p = sqrt(rsq)*rdr_kk + static_cast<KK_FLOAT>(1.0);
+        KK_FLOAT p = Kokkos::sqrt(rsq)*rdr_kk + static_cast<KK_FLOAT>(1.0);
         int m = static_cast<int> (p);
         m = MIN(m,nr-1);
         p -= m;
@@ -1173,15 +1173,15 @@ struct PairEAMKokkos<DeviceType>::policyInstance {
 #ifdef KOKKOS_ENABLE_HIP
 template<>
 template<class TAG>
-struct PairEAMKokkos<Kokkos::Experimental::HIP>::policyInstance {
+struct PairEAMKokkos<Kokkos::HIP>::policyInstance {
 
   static auto get(int inum) {
     static_assert(t_kkfloat_2d_n7::static_extent(2) == 7,
                   "Breaking assumption of spline dim for KernelAB and KernelC scratch caching");
 
-    auto policy = Kokkos::TeamPolicy<Kokkos::Experimental::HIP,TAG>((inum+1023)/1024, 1024)
+    auto policy = Kokkos::TeamPolicy<Kokkos::HIP,TAG>((inum+1023)/1024, 1024)
                            .set_scratch_size(0,
-                                Kokkos::PerTeam(MAX_CACHE_ROWS*7*sizeof(double)));
+                                Kokkos::PerTeam(MAX_CACHE_ROWS*7*sizeof(KK_FLOAT)));
     return policy;
   }
 };
