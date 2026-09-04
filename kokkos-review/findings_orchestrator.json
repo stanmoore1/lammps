@@ -535,5 +535,41 @@
   "confidence": "confirmed",
   "summary": "~FixPropertyAtomKokkos() calls atomKK->update_property_atom(), which rebuilds fix_prop_atom[] from modify->get_fix_by_style(\"^property/atom\") while the dying fix is still in Modify's list, leaving a dangling pointer that every later atomKK->sync()/modified() dereferences.",
   "verified_by": "orchestrator (Modify::delete_fix src/modify.cpp:1075 deletes the object BEFORE removing it from fix[]/fix_list at :1078-1081; AtomKokkos::update_property_atom src/KOKKOS/atom_kokkos.cpp:162-174 repopulates from that list)."
+ },
+ {
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "line": 758,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The per-element weight is read into an 'int' (also at :893 and :933) although wjelem is a double array, truncating any non-integer element weight and zeroing weights below 1 in both the descriptor and its derivative.",
+  "verified_by": "orchestrator (src/KOKKOS/mliap_so3_kokkos.cpp:758/:893/:933 'int weight = t_wjelem[jelem];' vs src/ML-IAP/mliap_so3.cpp:819 and :952 'double weight;')."
+ },
+ {
+  "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
+  "line": 144,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "~MLIAPDummyModelKokkos() calls Py_DECREF(unified_interface) and its base ~MLIAPDummyModel() does the same, so the Python object is released twice for one incref.",
+  "verified_by": "orchestrator (src/KOKKOS/mliap_unified_kokkos.cpp:144 vs src/ML-IAP/mliap_unified.cpp:126). Note the sibling descriptor destructor at mliap_unified_kokkos.cpp:44 has exactly this call commented out, which is the intended fix."
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_gran_kokkos.cpp",
+  "line": 371,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "TagFixWallGranPackExchange computes the send-buffer offset as i*size_history from the atom's LOCAL index instead of the send-list slot mysend, while the buffer is only nsend*size_history long: the transmitted bytes are uninitialized and the write can run past the end of d_buf.",
+  "verified_by": "orchestrator (src/KOKKOS/fix_wall_gran_kokkos.cpp:368-373; buffer length is nsend*size_history at :410. The correct convention is in fix_neigh_history_kokkos.cpp:378-391, which derives the offset from mysend/an explicit offset)."
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_gran_kokkos.cpp",
+  "line": 424,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "TagFixWallGranUnpackExchange looks up index = d_indices(i) but then writes d_history_one(i,v) instead of d_history_one(index,v), so received shear history lands on the wrong atoms and the migrated atoms keep stale history.",
+  "verified_by": "orchestrator (src/KOKKOS/fix_wall_gran_kokkos.cpp:418-425 vs the correct sibling fix_neigh_history_kokkos.cpp:459-471, which writes d_npartner(index)/d_partner(index,p)/d_valuepartner(index,...))."
  }
 ]
