@@ -26,3 +26,7 @@ pair_morse_smooth_linear_kokkos.cpp
 pair_morse_smooth_linear_kokkos.h
 pair_morse_soft_kokkos.cpp
 pair_morse_soft_kokkos.h
+pair_multi_lucy_rx_kokkos.cpp
+pair_multi_lucy_rx_kokkos.h
+pair_nm_cut_coul_cut_kokkos.cpp
+pair_nm_cut_coul_cut_kokkos.h

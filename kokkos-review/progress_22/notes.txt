@@ -9,3 +9,4 @@ pair_kokkos.h read fully. Notes: PairComputeFunctor dtor sets copymode; ZEROFLAG
 pair_hybrid_kokkos: matches CPU PairHybrid::compute + device sync/modify + device fdotr. No findings.
 hybrid_overlay: only divergence is stale error msg; init_svector/copy_svector identical to CPU.
 hybrid_scaled done. Remaining: pair_exp6_rx_kokkos.{cpp,h} (2597+233 lines).
+exp6_rx done: getMixingWeights/getMixingWeightsVect/ev_tally/scaling fns all verified against CPU base; formulas match. 4 findings.

@@ -13,3 +13,5 @@ momb: base src/EXTRA-PAIR/pair_momb.cpp; math matches exactly. No findings.
 morse: base src/pair_morse.cpp. FOUND missing offset in compute_evdwl. Note: pair_morse_kokkos::compute does NOT set copymode=1, but that is safe because ~PairComputeFunctor sets c.copymode=1 (pair_kokkos.h:103) - NOT a bug.
 morse/smooth/linear: base src/EXTRA-PAIR/pair_morse_smooth_linear.cpp; matches incl. offset and der_at_cutoff. No findings.
 morse/soft: base src/FEP/pair_morse_soft.cpp; bs/vs folding of lambda verified algebraically for both branches; init_one is re-run by Pair::reinit so fix adapt lambda works. CPU compute() also ignores offset[][], KK matches. No findings.
+multi/lucy/rx: base src/DPD-REACT/pair_multi_lucy_rx.cpp. getMixingWeights identical, computeLocalDensity identical, ev_tally virial factors match Pair::ev_tally. Findings: newton-off 0.5 factor on self energy; update_table not reset in coeff.
+nm/cut/coul/cut: base src/EXTRA-PAIR/pair_nm_cut_coul_cut.cpp; matches. No findings.

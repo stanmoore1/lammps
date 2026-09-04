@@ -12,3 +12,4 @@ pair_tersoff_kokkos.cpp
 pair_tersoff_kokkos.h
 pair_tersoff_mod_c_kokkos.cpp
 pair_tersoff_mod_c_kokkos.h
+pair_snap_kokkos_impl.h

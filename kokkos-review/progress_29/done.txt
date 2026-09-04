@@ -11,3 +11,7 @@ pair_uf3_kokkos.cpp
 pair_uf3_kokkos.h
 pair_ufm_kokkos.cpp
 pair_ufm_kokkos.h
+pair_vashishta_kokkos.cpp
+pair_vashishta_kokkos.h
+pair_wf_cut_kokkos.cpp
+pair_wf_cut_kokkos.h

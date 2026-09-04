@@ -19,3 +19,5 @@ pair_hybrid_overlay_kokkos.cpp
 pair_hybrid_overlay_kokkos.h
 pair_hybrid_scaled_kokkos.cpp
 pair_hybrid_scaled_kokkos.h
+pair_exp6_rx_kokkos.cpp
+pair_exp6_rx_kokkos.h

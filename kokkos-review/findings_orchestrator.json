@@ -688,5 +688,23 @@
   "confidence": "confirmed",
   "summary": "evdwl and ecoul are computed only under eflag_global, but ev_tally_xyz is called under (eflag_atom || vflag_either), so on a per-atom-energy-only timestep every per-atom pair energy is tallied as zero. Same family as the confirmed pair_dpd_kokkos.cpp:370 defect.",
   "verified_by": "orchestrator (guards at src/KOKKOS/pair_lj_cut_dipole_cut_kokkos.cpp:307 and :423 vs the call at :436-437; the CPU style guards with eflag (=eflag_either) at src/DIPOLE/pair_lj_cut_dipole_cut.cpp:238)."
+ },
+ {
+  "file": "src/KOKKOS/pair_mliap_kokkos.cpp",
+  "line": 100,
+  "severity": "high",
+  "category": "memory",
+  "confidence": "confirmed",
+  "summary": "The per-atom virial block sizes and size-checks k_vatom with maxeatom instead of maxvatom (and labels the allocation 'pair:eatom'). When per-atom stress is requested without per-atom energy, maxeatom stays 0, the test '0 < 0' is false, k_vatom/vatom are never allocated, and the first v_tally writes through a null pointer / a zero-extent view.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_mliap_kokkos.cpp:99-108 vs the correct eatom block at :88-97; Pair::ev_setup only raises maxeatom under eflag_atom and maxvatom under vflag_atom)."
+ },
+ {
+  "file": "src/KOKKOS/pair_morse_kokkos.cpp",
+  "line": 177,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "compute_evdwl returns d0*dexp*(dexp-2.0) without subtracting the stored energy offset, so 'pair_modify shift yes' has no effect on morse/kk and both the global and per-atom pair energies differ from the CPU style.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_morse_kokkos.cpp:165-178 never reads params(...).offset although init_one stores it at :238 and the header declares it at :54; the CPU base subtracts it at src/pair_morse.cpp:119)."
  }
 ]
