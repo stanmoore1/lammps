@@ -490,5 +490,50 @@
   "confidence": "confirmed",
   "summary": "datamask_read and datamask_modify are both EMPTY_MASK although the style reads x, v, type, tag and writes f, so the integrator-level sync/modify bookkeeping is disabled for this style.",
   "verified_by": "orchestrator (src/KOKKOS/pair_dpd_kokkos.cpp:96-97)."
+ },
+ {
+  "file": "src/KOKKOS/fix_gravity_kokkos.cpp",
+  "line": 43,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "FixGravityKokkos::post_force() has no 'if (disable) return;' guard, so 'fix gravity/kk ... disable' still applies the gravitational force.",
+  "verified_by": "orchestrator (src/fix_gravity.cpp:274-276 returns early on disable; grep 'disable' over src/KOKKOS/fix_gravity_kokkos.cpp returns nothing)."
+ },
+ {
+  "file": "src/KOKKOS/fix_langevin_kokkos.cpp",
+  "line": 73,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The KOKKOS constructor deletes and re-creates ratio[] and then resets every entry to 1.0 AFTER the base constructor already stored the user's 'scale <type> <value>' values, so the scale keyword is silently ignored under -sf kk.",
+  "verified_by": "orchestrator (src/fix_langevin.cpp:87-91 allocates and defaults ratio, :119 stores the user value; src/KOKKOS/fix_langevin_kokkos.cpp:60-74 re-creates it and re-defaults every entry)."
+ },
+ {
+  "file": "src/KOKKOS/fix_nh_kokkos.cpp",
+  "line": 354,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "FixNHKokkos::remap() overrides FixNH::remap() but drops the whole isochoric branch, so 'fix npt/kk ... isochoric' silently runs as ordinary NPT and does not conserve the reference volume.",
+  "verified_by": "orchestrator (remap override at src/KOKKOS/fix_nh_kokkos.h:66 / .cpp:354; grep 'isochoric' over fix_nh_kokkos.cpp returns nothing, while FixNH::remap in src/fix_nh.cpp has isofac/isochoric logic in five places)."
+ },
+ {
+  "file": "src/KOKKOS/fix_nve_sphere_kokkos.cpp",
+  "line": 115,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "FixNVESphereKokkos has no dlm handling at all: it only tests 'extra == DIPOLE', so 'fix nve/sphere/kk ... update dipole/dlm' silently uses the plain cross-product dipole integrator instead of the DLM integrator the CPU style selects.",
+  "verified_by": "orchestrator (src/fix_nve_sphere.cpp:31/46/54-56 define and set dlm, :141-143 branch on it; grep 'dlm' over src/KOKKOS/fix_nve_sphere_kokkos.cpp returns nothing)."
+ },
+ {
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "line": 84,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "~FixPropertyAtomKokkos() calls atomKK->update_property_atom(), which rebuilds fix_prop_atom[] from modify->get_fix_by_style(\"^property/atom\") while the dying fix is still in Modify's list, leaving a dangling pointer that every later atomKK->sync()/modified() dereferences.",
+  "verified_by": "orchestrator (Modify::delete_fix src/modify.cpp:1075 deletes the object BEFORE removing it from fix[]/fix_list at :1078-1081; AtomKokkos::update_property_atom src/KOKKOS/atom_kokkos.cpp:162-174 repopulates from that list)."
  }
 ]
