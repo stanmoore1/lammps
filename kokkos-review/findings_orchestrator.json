@@ -571,5 +571,23 @@
   "confidence": "confirmed",
   "summary": "TagFixWallGranUnpackExchange looks up index = d_indices(i) but then writes d_history_one(i,v) instead of d_history_one(index,v), so received shear history lands on the wrong atoms and the migrated atoms keep stale history.",
   "verified_by": "orchestrator (src/KOKKOS/fix_wall_gran_kokkos.cpp:418-425 vs the correct sibling fix_neigh_history_kokkos.cpp:459-471, which writes d_npartner(index)/d_partner(index,p)/d_valuepartner(index,...))."
+ },
+ {
+  "file": "src/KOKKOS/fix_wall_gran_kokkos.cpp",
+  "line": 107,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "post_force's if/else chain covers only HOOKE (error), HOOKE_HISTORY and HERTZ_HISTORY (error); pairstyle GRANULAR falls through with neither a kernel nor an error, so the wall exerts no force at all. The HOOKE_HISTORY branch likewise has no REGION case, so wallstyle 'region' is silently a no-op.",
+  "verified_by": "orchestrator (src/KOKKOS/fix_wall_gran_kokkos.cpp:105-119; the enums are fix_wall_gran_old.h:29 {HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,GRANULAR} and fix_wall_gran_old.cpp:53 {...,ZCYLINDER,REGION}, both reachable from the parser at :84 and :379)."
+ },
+ {
+  "file": "src/KOKKOS/fix_spring_self_kokkos.cpp",
+  "line": 105,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "post_force unconditionally calls k_xoriginal.modify_host() followed by sync<DeviceType>(), so the never-updated host mirror is declared newer and overwrites the device copy that the exchange kernels just wrote - the reference coordinates of migrated atoms are silently reverted.",
+  "verified_by": "orchestrator (src/KOKKOS/fix_spring_self_kokkos.cpp:105-106; the exchange kernels write d_xoriginal at :189-199 and :261-263 and correctly claim k_xoriginal.modify<DeviceType>() at :240 and :294)."
  }
 ]
