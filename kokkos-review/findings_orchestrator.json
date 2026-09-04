@@ -706,5 +706,41 @@
   "confidence": "confirmed",
   "summary": "compute_evdwl returns d0*dexp*(dexp-2.0) without subtracting the stored energy offset, so 'pair_modify shift yes' has no effect on morse/kk and both the global and per-atom pair energies differ from the CPU style.",
   "verified_by": "orchestrator (src/KOKKOS/pair_morse_kokkos.cpp:165-178 never reads params(...).offset although init_one stores it at :238 and the header declares it at :54; the CPU base subtracts it at src/pair_morse.cpp:119)."
+ },
+ {
+  "file": "src/KOKKOS/pair_gran_hooke_kokkos.cpp",
+  "line": 280,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "All three KOKKOS granular pair styles (gran/hooke, gran/hooke/history, gran/hertz/history) compute the effective mass from rmass alone and never substitute the rigid-body mass, so combining them with fix rigid gives different damping and friction forces than the CPU styles, silently.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_gran_hooke_kokkos.cpp:280 and pair_gran_{hooke,hertz}_history_kokkos.cpp:350 'meff = imass*jmass/(imass+jmass)'; the CPU base substitutes mass_rigid at src/GRANULAR/pair_gran_hooke.cpp:149-162 and refreshes/forward-communicates it at :66-73. grep for fix_rigid or mass_rigid over src/KOKKOS/pair_gran*.{cpp,h} returns nothing, and the /kk init_style adds no guard.)"
+ },
+ {
+  "file": "src/pair.h",
+  "line": 247,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "Pair::special_lj is declared 'int special_lj[4]' (commented 'copied from force->special_lj for Kokkos'). Most KOKKOS pair styles shadow it with a KK_FLOAT member, but four do not - pair_gran_hooke_kokkos, pair_gran_hooke_history_kokkos, pair_gran_hertz_history_kokkos and pair_table_kokkos - so those styles truncate every fractional special-bonds weight (0.5 -> 0) and drop the pair entirely where the CPU style would scale it.",
+  "verified_by": "orchestrator. Swept every src/KOKKOS/*.cpp that assigns force->special_lj into special_lj and checked its header for a floating-point shadow; exactly those four lack one (pair_gauss_cut_kokkos.h:89 is a correct example). pair_table_kokkos dispatches through PairComputeFunctor (pair_table_kokkos.cpp:150-174), whose factor is read at pair_kokkos.h:156/232 as 'c.special_lj[sbmask(j)]', so the truncated int is what reaches the kernel. Independently confirmed for pair_table by the group 28 reviewer, which additionally found pair_table_rx_kokkos.cpp:679 using a Few<int,4> for the same purpose."
+ },
+ {
+  "file": "src/KOKKOS/pair_snap_kokkos_impl.h",
+  "line": 554,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "pair snap/kk never strips the special-bond bits from a neighbour index: there is no 'j &= NEIGHMASK' anywhere in the file. In a molecular system whose neighbour entries carry SBBITS the style reads x/type far past the end of the per-atom views and later writes forces at the same bogus index.",
+  "verified_by": "orchestrator (grep NEIGHMASK over src/KOKKOS/pair_snap_kokkos_impl.h returns nothing; the read is at :554 and :581. The CPU base masks at src/ML-SNAP/pair_snap.cpp:143, and the sibling KOKKOS manybody style does too at src/KOKKOS/pair_sw_kokkos.cpp:234. The bits really are set: src/KOKKOS/npair_kokkos.cpp:500 stores 'j ^ (which << SBBITS)', and src/neighbor.cpp:557-558 forces special_flag[1..3]=2 whenever a kspace style is defined.)"
+ },
+ {
+  "file": "src/KOKKOS/pair_table_rx_kokkos.cpp",
+  "line": 671,
+  "severity": "high",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "On steps with eflag==0 && vflag==0 the style claims only F_MASK as modified, although the kernel writes uCG/uCGnew unconditionally. The next host sync therefore discards those device updates. Both sibling RX pair styles keep UCG_MASK|UCGNEW_MASK in the same else branch.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_table_rx_kokkos.cpp:669-670 'else atomKK->modified(execution_space,F_MASK);' vs src/KOKKOS/pair_exp6_rx_kokkos.cpp:152 and src/KOKKOS/pair_multi_lucy_rx_kokkos.cpp:239, both 'F_MASK | UCG_MASK | UCGNEW_MASK')."
  }
 ]

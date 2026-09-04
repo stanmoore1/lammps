@@ -165,3 +165,4 @@
     "suggested_fix": "Add the `&& rsq > 1e-20` condition to the cutoff test in both TagPairSNAPComputeNeigh and TagPairSNAPComputeNeighCPU."
   }
 ]
+COVERAGE: all files read completely
