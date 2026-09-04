@@ -1,0 +1,6 @@
+GROUND TRUTH (kokkos_type.h):
+- CMake: -D KOKKOS_PREC=double|mixed|single -> -DLMP_KOKKOS_DOUBLE_DOUBLE / SINGLE_DOUBLE / SINGLE_SINGLE (cmake/Modules/Packages/KOKKOS.cmake:15-30)
+- kokkos_type.h:400-408: single => KK_FLOAT=float, KK_ACC_FLOAT=float; double => both double; mixed => KK_FLOAT=float, KK_ACC_FLOAT=double.
+- EV_FLOAT / EV_FLOAT_REAX / FEV_FLOAT members are KK_ACC_FLOAT (kokkos_type.h:411-487) -> float only in SINGLE_SINGLE.
+- s_KK_double2 (kokkos_type.h:492) is double v[2] (already double). s_KK_FLOAT2 (517) is KK_FLOAT.
+- x/f/v per-atom views: check atom_kokkos.h typedefs.
