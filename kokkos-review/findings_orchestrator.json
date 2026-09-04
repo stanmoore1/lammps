@@ -418,5 +418,50 @@
   "evidence": "improper_cvff_kokkos.cpp:278 'if (sign[type] == -1)' inside the KOKKOS_INLINE_FUNCTION operator(); line 247 correctly uses d_multiplicity[type]; k_sign synced at :92.",
   "failure_scenario": "improper_style cvff/kk on CUDA/HIP: illegal memory access, or garbage sign -> wrong improper energies/forces for sign=-1 types. CPU-only Kokkos builds hide it.",
   "suggested_fix": "Use d_sign[type]."
+ },
+ {
+  "file": "src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp",
+  "line": 302,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "Sign error in the parallel dissipative force: KOKKOS has fpair = gamma*wdPar^2*dot*rinv (then *= factor_dpd), the CPU style has fpair = -factor_dpd*gamma*wdPar^2*dot*rinv. The drag term becomes an anti-drag that pumps energy into the system.",
+  "verified_by": "orchestrator (read src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp:301-303 vs src/DPD-BASIC/pair_dpd_ext_tstat.cpp:147). Note the sibling pair_dpd_ext_kokkos.cpp:301 uses 'fpair -= ...' which is correct there because a conservative term was accumulated first; the tstat variant has no conservative term so it needs the explicit minus."
+ },
+ {
+  "file": "src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp",
+  "line": 119,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "Temperature-ramp block updates only params.sigma; the CPU style updates sigma AND sigmaT. The perpendicular random force stays at the initial temperature for the whole ramp.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp:111-122 vs src/DPD-BASIC/pair_dpd_ext_tstat.cpp:63-73)."
+ },
+ {
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "line": 50,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "rand_pool is seeded in the constructor member-initializer list from PairBrownian::seed, which is only assigned later in settings(); the user seed is ignored and an indeterminate value is used. init_style() never re-initializes the pool.",
+  "verified_by": "orchestrator (ctor at :49-51, init_style at :80-82 does not touch rand_pool; contrast the correct idiom in pair_dpd_kokkos.cpp:129/134 and pair_dpd_ext_tstat_kokkos.cpp:83/88 which init the pool in init_style once seed is known)."
+ },
+ {
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "line": 114,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "compute() calls ev_init(eflag,vflag,0) and only ever allocates k_vatom, so with eflag_atom set Pair::eatom stays nullptr while ev_setup still raises maxeatom; compute pe/atom then dereferences it unguarded.",
+  "verified_by": "orchestrator (Pair::ev_setup src/pair.cpp:989-995 skips the allocation when alloc==0; src/compute_pe_atom.cpp:131-133 reads force->pair->eatom without a null check; pair_brownian_kokkos.cpp allocates only k_vatom at :165-167, whereas e.g. pair_dpd_ext_tstat_kokkos.cpp:124-130 allocates eatom itself)."
+ },
+ {
+  "file": "src/KOKKOS/pair_born_coul_dsf_kokkos.cpp",
+  "line": 121,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The DSF self-energy is accumulated on the host from atom->q[i] (also at :150 for eatom) although compute() syncs only the device copy. On a GPU build with device-resident sorting/exchange the host q array is stale, so eng_coul and the per-atom energy use the wrong charges.",
+  "verified_by": "orchestrator (:88 syncs execution_space only; :121 and :150 read atom->q[i]). The intended KOKKOS idiom computes the self-energy inside the kernel from the device q view - see pair_coul_dsf_kokkos.cpp:231-235. Same defect in pair_born_coul_dsf_cs_kokkos.cpp:126, pair_born_coul_wolf_kokkos.cpp:121 and pair_born_coul_wolf_cs_kokkos.cpp:126."
  }
 ]
