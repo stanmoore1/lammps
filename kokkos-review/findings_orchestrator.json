@@ -742,5 +742,32 @@
   "confidence": "confirmed",
   "summary": "On steps with eflag==0 && vflag==0 the style claims only F_MASK as modified, although the kernel writes uCG/uCGnew unconditionally. The next host sync therefore discards those device updates. Both sibling RX pair styles keep UCG_MASK|UCGNEW_MASK in the same else branch.",
   "verified_by": "orchestrator (src/KOKKOS/pair_table_rx_kokkos.cpp:669-670 'else atomKK->modified(execution_space,F_MASK);' vs src/KOKKOS/pair_exp6_rx_kokkos.cpp:152 and src/KOKKOS/pair_multi_lucy_rx_kokkos.cpp:239, both 'F_MASK | UCG_MASK | UCGNEW_MASK')."
+ },
+ {
+  "file": "src/KOKKOS/pair_vashishta_kokkos.cpp",
+  "line": 510,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "TagPairVashishtaComputeFullB indexes the short 3-body neighbour list with the slot counter jj instead of the neighbour atom j: 'const int j_jnum = d_numneigh_short_3body[jj];' and 'int k = d_neighbors_short_3body(jj,kk);'. jj only runs over 0..jnum-1, so the kernel walks the 3-body lists of atoms 0,1,2,... instead of j's, and the triplet legs (delr1 = xi-xj, delr2 = xk-xj, both measured from j) are formed with an unrelated k.",
+  "verified_by": "orchestrator (the short lists are built per ilist slot at src/KOKKOS/pair_vashishta_kokkos.cpp:222-227 'd_neighbors_short_3body(ii,inside_3body) = j'; the FullB kernel takes i = d_ilist[ii] and jnum = d_numneigh_short_3body[ii] at :482-489, then switches to jj at :510-512. The local name j_jnum and the geometry both show the intent is j. This path is only reached with neighflag FULL, which the CPU-only CI does not exercise.)"
+ },
+ {
+  "file": "src/KOKKOS/pair_uf3_kokkos.cpp",
+  "line": 1622,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "PairUF3Kokkos::single() runs the knot search BEFORE any cutoff guard and then gates on 'r < d_cutsq(itype,jtype)', comparing a distance against a squared cutoff. For r beyond the cutoff the while loop walks off the end of d_n2b_knot, and the admitted range extends to cut^2.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_uf3_kokkos.cpp:1617-1622 vs src/ML-UF3/pair_uf3.cpp:1845-1846, which guards first with 'if (r < cut[itype][jtype])' and only then looks up the starting knot index)."
+ },
+ {
+  "file": "src/KOKKOS/pair_ylz_kokkos.cpp",
+  "line": 52,
+  "severity": "high",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "datamask_read carries ELLIPSOID_MASK but not BONUS_MASK, although the kernel dereferences bonus(ibnum).quat and bonus(jbnum).quat. atomKK->sync() therefore never brings the ellipsoid bonus array to the device, so stale or never-uploaded quaternions are used.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_ylz_kokkos.cpp:52 vs the reads at :228 and :269; grep BONUS_MASK over the file returns nothing. AtomVecEllipsoidKokkos syncs k_bonus only under 'mask & BONUS_MASK'. Styles that get it right: compute_erotate_asphere_kokkos.cpp:35, fix_nve_asphere_kokkos.cpp:64.)"
  }
 ]

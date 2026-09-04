@@ -1,2 +1,4 @@
 ufm: reviewed, no substantiated findings (matches src/EXTRA-PAIR/pair_ufm.cpp; scale in fpair not evdwl matches CPU)
 wf/cut: reviewed, matches src/EXTRA-PAIR/pair_wf_cut.cpp; no findings
+yukawa/kk: reviewed, matches src/pair_yukawa.cpp; copymode not set in compute() but ~PairComputeFunctor sets c.copymode=1 (pair_kokkos.h:103) so that is fine; no findings
+uf3 spline constants: mechanically diffed get_constants/get_dnconstants against uf3_bspline_basis3/2 with cmp2.py -> 0 mismatches

@@ -15,3 +15,9 @@ pair_vashishta_kokkos.cpp
 pair_vashishta_kokkos.h
 pair_wf_cut_kokkos.cpp
 pair_wf_cut_kokkos.h
+pair_ylz_kokkos.cpp
+pair_ylz_kokkos.h
+pair_yukawa_kokkos.cpp
+pair_yukawa_kokkos.h
+pair_yukawa_colloid_kokkos.cpp
+pair_yukawa_colloid_kokkos.h

@@ -1,0 +1,146 @@
+[
+  {
+    "file": "src/KOKKOS/pair_uf3_kokkos.cpp",
+    "line": 1622,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "PairUF3Kokkos::single() gates on `r < d_cutsq(itype,jtype)`, comparing a distance against a SQUARED cutoff, and runs the knot search before the gate, so calls with r past the cutoff walk off the end of d_n2b_knot and evaluate the spline with a bogus index.",
+    "evidence": "src/KOKKOS/pair_uf3_kokkos.cpp:1617-1622 `double r = sqrt(rsq);\\n  int interaction_id = map2b(itype, jtype);\\n  int start_index = 3;\\n  while (r > static_cast<double>(d_n2b_knot(interaction_id, start_index + 1))) start_index++;\\n\\n  if (r < static_cast<double>(d_cutsq(itype, jtype))) {` -- the CPU base src/ML-UF3/pair_uf3.cpp:1845-1846 gates first and on the plain cutoff: `if (r < cut[itype][jtype]) {\\n    int knot_start_index = (this->*get_starting_index_2b)(itype, jtype, r);`. d_cutsq holds cut*cut (set in PairUF3Kokkos::init_one, line 178), so for a typical 5 A cutoff the KOKKOS gate admits r up to 25 A.",
+    "failure_scenario": "`pair_style uf3 2` (single_enable stays 1, see src/ML-UF3/pair_uf3.cpp:122-125) plus `pair_write 1 1 500 r 0.5 8.0 out.txt`: for every r >= cut the while-loop indexes d_n2b_knot past its last knot (extent max_num_knots_2b), reading out of bounds and/or looping until it happens to find a larger value, then constants_2b(...) is read at that bogus start_index; uf3/kk returns garbage (or crashes) where plain uf3 returns 0.",
+    "suggested_fix": "Move the knot search inside the guard and compare rsq against d_cutsq (or r against cut[itype][jtype]), exactly as PairUF3::single does."
+  },
+  {
+    "file": "src/KOKKOS/pair_vashishta_kokkos.cpp",
+    "line": 510,
+    "severity": "high",
+    "category": "correctness",
+    "confidence": "likely",
+    "summary": "TagPairVashishtaComputeFullB indexes the short 3-body neighbor list with the loop counter `jj` (a slot index inside i's own list) instead of the neighbor atom id `j`, so the kernel walks the neighbor list of an unrelated atom when adding the leg force on i.",
+    "evidence": "src/KOKKOS/pair_vashishta_kokkos.cpp:495-513 `for (int jj = 0; jj < jnum; jj++) {\\n    int j = d_neighbors_short_3body(ii,jj);\\n    j &= NEIGHMASK;\\n    if (j >= nlocal) continue;\\n    ...\\n    const int j_jnum = d_numneigh_short_3body[jj];\\n\\n    for (int kk = 0; kk < j_jnum; kk++) {\\n      int k = d_neighbors_short_3body(jj,kk);`. The variable name j_jnum (\"j's jnum\") shows the intent; the short lists are filled per ilist slot in the ShortNeigh kernel (`d_neighbors_short_3body(ii,inside_3body) = j; ... d_numneigh_short_3body(ii) = inside_3body;`, lines 222-227) and for the FULL+GHOST kokkos list d_ilist is the identity, so the correct index is `j`, not `jj`. jj only ranges over 0..jnum-1 (a handful of slots), so the kernel repeatedly reads the 3-body lists of atoms 0,1,2,... .",
+    "failure_scenario": "`pair_style vashishta/kk` with `-pk kokkos neigh full` (the default on a GPU build): FullA supplies only the centre-atom part of each 3-body term and FullB is supposed to add the leg force on i from triplets centred on its neighbours j. With the wrong index, FullB evaluates threebody() for triplets (j; i, k) where k comes from an unrelated atom's list, so rsq2 = |x(k)-x(j)|^2 is arbitrary; the resulting forces are wrong and non-conservative (and can be enormous when |x(k)-x(j)| happens to fall just outside r0, where exp(gamma/(r-r0)) blows up).",
+    "suggested_fix": "Use `d_numneigh_short_3body[j]` and `d_neighbors_short_3body(j,kk)`. Note the same code is present in stanmoore1/lammps develop, so this looks like a latent upstream defect (the FULL path is not exercised by the CPU-only CI, which runs neighflag=HALF)."
+  },
+  {
+    "file": "src/KOKKOS/pair_ylz_kokkos.cpp",
+    "line": 52,
+    "severity": "high",
+    "category": "sync-modify",
+    "confidence": "likely",
+    "summary": "PairYLZKokkos reads the ellipsoid bonus (quaternion) array on device but leaves BONUS_MASK out of datamask_read, so atomKK->sync() never brings k_bonus to the device and stale quaternions are used.",
+    "evidence": "src/KOKKOS/pair_ylz_kokkos.cpp:52 `datamask_read = X_MASK | F_MASK | TORQUE_MASK | TYPE_MASK | ELLIPSOID_MASK | ENERGY_MASK | VIRIAL_MASK;` (no BONUS_MASK), line 95 `atomKK->sync(execution_space,datamask_read);`, line 106 `bonus = avecKK->k_bonus.view<DeviceType>();` and the kernel dereferences `bonus(ibnum).quat` at lines 228 and 269. src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:908/921 shows k_bonus is only synced when `mask & BONUS_MASK`. Every other KOKKOS style that reads bonus data includes it: compute_erotate_asphere_kokkos.cpp:35 `datamask_read = ... | ELLIPSOID_MASK | BONUS_MASK;`, fix_langevin_kokkos.cpp:618 `atomKK->sync(execution_space,BONUS_MASK|TORQUE_MASK|ANGMOM_MASK|ELLIPSOID_MASK);`, fix_nve_asphere_kokkos.cpp:64/84.",
+    "failure_scenario": "GPU build: any host-side update of the bonus array marks it host-modified without a matching device sync -- e.g. AtomVecEllipsoidKokkos::unpack_border_bonus / unpack_comm_bonus (src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:307/364/440 `atomKK->modified(HostKK,datamask_bonus);`) when comm runs on the host, or a non-KOKKOS asphere integrator. pair ylz/kk then evaluates quat_to_mat() on stale (or never-uploaded) ghost quaternions and returns wrong forces and torques with no error. Invisible on CPU-only builds where host and device share memory.",
+    "suggested_fix": "Add BONUS_MASK to datamask_read in the PairYLZKokkos constructor (and to datamask_modify only if the style ever wrote bonus data, which it does not)."
+  },
+  {
+    "file": "src/KOKKOS/pair_tip4p_kokkos.h",
+    "line": 106,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The KOKKOS M-site pre-kernel drops the CPU styles' check that the two atoms found by tag+1/tag+2 really are of type typeH, so a mis-ordered water topology silently produces wrong M sites instead of an error.",
+    "evidence": "src/KOKKOS/pair_tip4p_kokkos.h:104-114 `int iH1 = AtomKokkos::map_kokkos<DeviceType>(tag(i)+1,...); int iH2 = ...(tag(i)+2,...);\\n    if (iH1 < 0 || iH2 < 0) { d_hneigh(i,0) = -1; return; }\\n    iH1 = closest_image(i,iH1); ...` -- the CPU bases both perform an extra type check: src/MOLECULE/pair_tip4p_cut.cpp:134-135 and src/KSPACE/pair_tip4p_long.cpp:138-139 `if (atom->type[iH1] != typeH || atom->type[iH2] != typeH)\\n            error->one(FLERR,\"TIP4P hydrogen has incorrect atom type\");` (repeated for jH1/jH2 at lines 184-185 / 188-189). m_typeH is cached in prepare() (line 419) but never used anywhere in the KOKKOS code.",
+    "failure_scenario": "A data file where an O atom's tag+1 / tag+2 are not its two H atoms (e.g. water mixed with other molecules, or ions numbered between the water atoms): tip4p/cut and tip4p/long abort with a clear error, tip4p/cut/kk and tip4p/long/kk build M sites from the wrong atoms and silently return wrong forces and energies.",
+    "suggested_fix": "In the TagPairTIP4PNewsite kernel, also set d_hneigh(i,0) = -1 (or a separate error flag) when type(iH1) != m_typeH || type(iH2) != m_typeH, and report the distinct 'incorrect atom type' error from finalize()."
+  },
+  {
+    "file": "src/KOKKOS/pair_uf3_kokkos.cpp",
+    "line": 1648,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "PairUF3Kokkos::single() does not scale the returned force by factor_lj, so special-bond scaled pairs get an unscaled force while the energy is scaled.",
+    "evidence": "src/KOKKOS/pair_uf3_kokkos.cpp:1648 `fforce = static_cast<double>(dnconstants_2b(interaction_id, start_index - 1, 0));` ... line 1659 `return factor_lj * value;` -- the CPU base src/ML-UF3/pair_uf3.cpp:1857 does `fforce = factor_lj * force_2b;` before `return factor_lj * value;` (line 1878).",
+    "failure_scenario": "Any caller of single() with factor_lj != 1 (special_bonds scaling, e.g. `compute group/group` style callers or a tabulation over bonded pairs) gets fforce too large by 1/factor_lj from uf3/kk while plain uf3 returns the scaled value.",
+    "suggested_fix": "Multiply the accumulated fforce by factor_lj, matching PairUF3::single."
+  },
+  {
+    "file": "src/KOKKOS/pair_vashishta_kokkos.cpp",
+    "line": 528,
+    "severity": "medium",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "In TagPairVashishtaComputeFullB the cheap threebodyj() variant is chosen on vflag_atom alone, so when eflag_atom is on but vflag_atom is off the three-body energy is never computed and ev_tally3_atom() adds a hard zero to d_eatom.",
+    "evidence": "src/KOKKOS/pair_vashishta_kokkos.cpp:480 `KK_FLOAT evdwl = 0.0;` ... 525-530 `if (vflag_atom)\\n          threebody(d_params[jiparam],...,eflag,evdwl);\\n        else\\n          threebodyj(d_params[jiparam],...,fj);` (threebodyj, line 744, has no eng argument and never writes evdwl) ... 536-537 `if (EVFLAG)\\n          if (vflag_atom || eflag_atom) ev_tally3_atom(ev,i,evdwl,0.0,fj,fk,delr1,delr2);`, and ev_tally3_atom (line 953) does `epairthird = THIRD*(evdwl+ecoul); d_eatom[i] += epairthird;`. In the FULL path ev_tally3 only credits the centre atom (`if (NEIGHFLAG != FULL)` guards j and k at lines 892-895), so the two leg thirds must come from FullB.",
+    "failure_scenario": "`pair_style vashishta/kk` + `-pk kokkos neigh full` + `compute pe/atom` without any per-atom stress: every atom gets only the 1/3 of each three-body energy for triplets it centres, losing the 2/3 it should receive as a leg; the per-atom energies no longer sum to the (correct) global eng_vdwl.",
+    "suggested_fix": "Select threebody() when `vflag_atom || eflag_atom` (and keep threebodyj() only for the no-tally case), or give threebodyj an energy output."
+  },
+  {
+    "file": "src/KOKKOS/pair_uf3_kokkos.h",
+    "line": 91,
+    "severity": "medium",
+    "category": "rule",
+    "confidence": "likely",
+    "summary": "All UF3 spline coefficient/knot views are hardcoded to LMPDeviceType instead of the class's DeviceType template parameter, yet they are read from KOKKOS_INLINE_FUNCTION kernels that are instantiated for LMPHostType as well (uf3/kk/host).",
+    "evidence": "src/KOKKOS/pair_uf3_kokkos.h:88-108 declares e.g. `Kokkos::View<KK_FLOAT **, LMPDeviceLayout, LMPDeviceType> d_coefficients_2b;`, `Kokkos::View<int **, LMPDeviceLayout, LMPDeviceType> map2b;`, `Kokkos::View<KK_FLOAT **[16], LMPDeviceLayout, LMPDeviceType> constants_2b;` (and 10 more). These are read in the device kernels: src/KOKKOS/pair_uf3_kokkos.cpp:560 `int interaction_id = map2b(itype, jtype);` and 562/573 inside `twobody()`, and 619/636/647 inside `threebody()`, which run under `Kokkos::RangePolicy<DeviceType,...>` (lines 796/800). src/KOKKOS/pair_uf3_kokkos.cpp:1664-1666 explicitly instantiates `PairUF3Kokkos<LMPHostType>` under LMP_KOKKOS_GPU. This is the same defect class the KOKKOS rules describe for `DAT::` per-atom views (.github/instructions/kokkos.instructions.md rule 3).",
+    "failure_scenario": "On a CUDA/HIP build, `pair_style uf3/kk/host` (or `-k on ... -sf kk` with the host back end selected) runs the kernels on the host while these views live in device memory: Kokkos' memory-space access check aborts at the first `map2b(itype,jtype)`. On a CPU-only build both spaces coincide, so the defect is invisible.",
+    "suggested_fix": "Change the memory space of these views (and d_cut_3b_list) from LMPDeviceType to the class template parameter DeviceType, as the neighbor-short views at lines 179-180 already do."
+  },
+  {
+    "file": "src/KOKKOS/pair_tersoff_mod_kokkos.cpp",
+    "line": 121,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "Error message in PairTersoffMODKokkos::init_style names the wrong pair style (\"pair tersoff/kk\" instead of tersoff/mod/kk), a copy-paste leftover from pair_tersoff_kokkos.cpp.",
+    "evidence": "src/KOKKOS/pair_tersoff_mod_kokkos.cpp:120-121 `if (neighflag == FULL)\\n    error->all(FLERR,\"Must use half neighbor list style with pair tersoff/kk\");` -- identical string to src/KOKKOS/pair_tersoff_kokkos.cpp:134-135.",
+    "failure_scenario": "User runs `pair_style tersoff/mod/kk` with `-pk kokkos neigh full`; the error names a style they are not using, sending them to the wrong input line.",
+    "suggested_fix": "Change the string to name tersoff/mod/kk (and check the same copy in pair_tersoff_zbl_kokkos.cpp / pair_tersoff_mod_c_kokkos.cpp)."
+  },
+  {
+    "file": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp",
+    "line": 407,
+    "severity": "low",
+    "category": "rule",
+    "confidence": "confirmed",
+    "summary": "Device kernel calls the host math function pow() unqualified instead of Kokkos::pow(), violating KOKKOS rule 4 (all other math in the same block uses Kokkos::).",
+    "evidence": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp:406-407 `const KK_FLOAT a_ij = (static_cast<KK_FLOAT>(0.8854)*global_a_0) /\\n        static_cast<KK_FLOAT>(pow(d_params(iparam_ij).Z_i,0.23) + pow(d_params(iparam_ij).Z_j,0.23));` inside KOKKOS_INLINE_FUNCTION tersoff_zbl_compute; contrast line 405 `Kokkos::pow(global_e,...)` and lines 411-416 which all use Kokkos::exp. .github/instructions/kokkos.instructions.md rule 4 requires Kokkos:: math in device kernels.",
+    "failure_scenario": "Compiling tersoff/zbl/kk for a backend whose device math library does not provide an unqualified ::pow overload (SYCL/HIP variants) fails to compile or silently falls back to the host implementation.",
+    "suggested_fix": "Replace both calls with Kokkos::pow(...); better still, precompute a_ij and premult once per param in setup_params instead of per pair."
+  },
+  {
+    "file": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp",
+    "line": 134,
+    "severity": "low",
+    "category": "cleanup",
+    "confidence": "confirmed",
+    "summary": "Error message in PairTersoffZBLKokkos::init_style names the wrong pair style (\"pair tersoff/kk\" instead of tersoff/zbl/kk).",
+    "evidence": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp:133-134 `if (neighflag == FULL)\\n    error->all(FLERR,\"Must use half neighbor list style with pair tersoff/kk\");` -- copy-paste from src/KOKKOS/pair_tersoff_kokkos.cpp:134-135.",
+    "failure_scenario": "User runs pair_style tersoff/zbl/kk with `-pk kokkos neigh full` and gets an error naming a style not in the input.",
+    "suggested_fix": "Name the actual style in the message."
+  },
+  {
+    "file": "src/KOKKOS/pair_ylz_kokkos.cpp",
+    "line": 220,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "confirmed",
+    "summary": "The KOKKOS ylz kernel silently skips atoms that are not ellipsoids, dropping the CPU style's \"All atoms for pair style ylz must be ellipsoids\" error.",
+    "evidence": "src/KOKKOS/pair_ylz_kokkos.cpp:219-220 `const int ibnum = d_ellipsoid(i);\\n  if (ibnum < 0) return;   // skip non-ellipsoid atoms` and 247-248 `const int jbnum = d_ellipsoid(j);\\n    if (jbnum < 0) continue;`. The CPU base counts these (src/ASPHERE/pair_ylz.cpp:124-127 and 150-153 `++flag; continue;`) and aborts after the loop (lines 202-204 `MPI_Allreduce(&flag,&flag_all,...); if (flag_all) error->all(FLERR, \"All atoms for pair style ylz must be ellipsoids\");`).",
+    "failure_scenario": "A system mixing point particles and ellipsoids: pair_style ylz errors out and tells the user what is wrong; pair_style ylz/kk silently omits every interaction involving a point particle and reports plausible-looking but wrong energies and forces.",
+    "suggested_fix": "Set a device flag when a non-ellipsoid atom is skipped, MPI_Allreduce it after the kernel and raise the same error message."
+  },
+  {
+    "file": "src/KOKKOS/pair_uf3_kokkos.cpp",
+    "line": 54,
+    "severity": "low",
+    "category": "efficiency",
+    "confidence": "likely",
+    "summary": "`kokkosable = 1;` is commented out in the PairUF3Kokkos constructor, so VerletKokkos treats uf3/kk as a non-KOKKOS pair style and turns on auto_sync for the whole pair compute.",
+    "evidence": "src/KOKKOS/pair_uf3_kokkos.cpp:52-58 `respa_enable = 0;\\n\\n  //kokkosable = 1;\\n  atomKK = (AtomKokkos *) atom;` -- every other KOKKOS pair style sets it (e.g. src/KOKKOS/pair_tersoff_mod_kokkos.cpp:60). src/KOKKOS/verlet_kokkos.cpp:431-440 `if (!force->pair->kokkosable) lmp->kokkos->auto_sync = 1;` around the `force->pair->compute()` call.",
+    "failure_scenario": "Every uf3/kk step forces a full host/device round trip of x/f/energy/virial through auto_sync, negating the point of the port; also src/force.cpp:208's kokkosable sanity check is bypassed.",
+    "suggested_fix": "Uncomment `kokkosable = 1;` (and verify the style really keeps its data device-resident) or document why it must stay off."
+  },
+  {
+    "file": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp",
+    "line": 422,
+    "severity": "low",
+    "category": "correctness",
+    "confidence": "possible",
+    "summary": "Local `eng` is left uninitialized when eflag==0 but is still passed to ev_tally() when only vflag_either is set.",
+    "evidence": "src/KOKKOS/pair_tersoff_zbl_kokkos.cpp:422-440: `KK_FLOAT frep, eng;` ... `if (eflag)\\n      eng = (1.0 - fermi_k(...)) * eng_z + fermi_k(...) * eng_t;` ... `if (vflag_either || eflag_atom) this->template ev_tally<NEIGHFLAG>(ev,i,j,eng,frep,delx,dely,delz);`. The equivalent code in pair_tersoff_mod_kokkos.cpp:386 computes `eng` unconditionally.",
+    "failure_scenario": "`compute pressure` without any energy output: EVFLAG=1, eflag=0, vflag_global=1 -> ev_tally is called with an indeterminate `eng`. ev_tally only reads epair under `if (eflag_atom)` (which implies eflag), so no wrong numbers today, but the read of an indeterminate value is fragile and warns under -Wmaybe-uninitialized.",
+    "suggested_fix": "Initialize `KK_FLOAT eng = 0.0;` (or compute it unconditionally as tersoff/mod does)."
+  }
+]
+COVERAGE: all files read completely
