@@ -463,5 +463,32 @@
   "confidence": "confirmed",
   "summary": "The DSF self-energy is accumulated on the host from atom->q[i] (also at :150 for eatom) although compute() syncs only the device copy. On a GPU build with device-resident sorting/exchange the host q array is stale, so eng_coul and the per-atom energy use the wrong charges.",
   "verified_by": "orchestrator (:88 syncs execution_space only; :121 and :150 read atom->q[i]). The intended KOKKOS idiom computes the self-energy inside the kernel from the device q view - see pair_coul_dsf_kokkos.cpp:231-235. Same defect in pair_born_coul_dsf_cs_kokkos.cpp:126, pair_born_coul_wolf_kokkos.cpp:121 and pair_born_coul_wolf_cs_kokkos.cpp:126."
+ },
+ {
+  "file": "src/KOKKOS/pair_eam_kokkos.cpp",
+  "line": 815,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The KOKKOS EAM styles never reference the per-type-pair scale[][] factor. The CPU PairEAM applies it to fpair, evdwl and the embedding energy, so 'fix adapt ... pair eam* scale ...' silently has no effect under -sf kk.",
+  "verified_by": "orchestrator (grep 'scale' over src/KOKKOS/pair_eam_kokkos.{cpp,h} returns only the license header; src/MANYBODY/pair_eam.cpp:295, :306, :361 apply it). Same family as the confirmed meam/kk d_scale defect."
+ },
+ {
+  "file": "src/KOKKOS/pair_dpd_kokkos.cpp",
+  "line": 370,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "evdwl is computed under 'if (EVFLAG && eflag_global)'; on a timestep where per-atom energy is requested but global energy is not, evdwl stays 0 and the following ev_tally writes zeros into eatom.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_dpd_kokkos.cpp:370-379; the guard should be eflag_either as in the sibling pair styles)."
+ },
+ {
+  "file": "src/KOKKOS/pair_dpd_kokkos.cpp",
+  "line": 97,
+  "severity": "low",
+  "category": "kokkos-rules",
+  "confidence": "confirmed",
+  "summary": "datamask_read and datamask_modify are both EMPTY_MASK although the style reads x, v, type, tag and writes f, so the integrator-level sync/modify bookkeeping is disabled for this style.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_dpd_kokkos.cpp:96-97)."
  }
 ]
