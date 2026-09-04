@@ -1,0 +1,1 @@
+gauss_cut: clean; base src/EXTRA-PAIR/pair_gauss_cut.cpp, virtual allocate OK, dtor copymode OK, formula matches.

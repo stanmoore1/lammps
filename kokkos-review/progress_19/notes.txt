@@ -1,0 +1,92 @@
+G=19. Base classes:
+ pair_adp -> src/MANYBODY/pair_adp.cpp
+ pair_beck -> src/EXTRA-PAIR/pair_beck.cpp
+ pair_bondval, pair_bondval_vec -> src/EXTRA-PAIR/
+ pair_born_coul_dsf -> src/EXTRA-PAIR/; _cs -> src/CORESHELL/
+ pair_born_coul_long -> src/KSPACE/; _cs -> src/CORESHELL/
+ pair_born_coul_wolf -> src/EXTRA-PAIR/; _cs -> src/CORESHELL/
+ pair_born_gauss -> src/EXTRA-PAIR/
+ pair_born -> src/pair_born.cpp
+ pair_brownian -> src/COLLOID/pair_brownian.cpp
+Verified facts:
+ - Kokkos create_scatter_view(orig) allocates a FRESH internal view and reset()s all
+   duplicates to 0; contribute(dest,sv) uses start=0 (dest.data()!=internal.data()) so
+   dest += sum(dups). Therefore writing directly into d_eatom/d_rho and also using the
+   scatter view is CORRECT (both add). (lib/kokkos/.../Kokkos_ScatterView.hpp:930-1025)
+ - KokkosLMP::need_dup<>() returns 1 ONLY when neighflag==HALFTHREAD (kokkos.h:98-108),
+   so empty ndup_* views under need_dup==1 are never used. Not a bug.
+ - Pair::ev_setup (src/pair.cpp:966-983): vflag_global = vflag & VIRIAL_PAIR;
+   no double count between ev_tally vflag_global branch and virial_fdotr.
+ - fuse_force_clear_flag defaults 0 (pair.cpp:133) and is set ONLY inside pair_compute<>
+   (pair_kokkos.h:989/992). Styles with their own kernels (adp) are unaffected.
+ADP: reviewed fully (cpp+h) vs src/MANYBODY/pair_adp.cpp. No substantiated findings.
+BECK: reviewed fully vs src/EXTRA-PAIR/pair_beck.cpp. Math matches (term1..term6, powint
+ from math_special_kokkos.h is KOKKOS_INLINE_FUNCTION). factor_lj applied by
+ PairComputeFunctor (pair_kokkos.h:166,181). k_cutsq/k_params synced in compute(),
+ modify_host() in init_one. base allocate() is virtual (pair_beck.h:47), base dtor has
+ copymode guard (pair_beck.cpp:45). No findings.
+TransformView semantics (kokkos_type.h:698-1172): view_host()/modify_host()/sync_host()
+ act on the LEGACY double array; view<D>()/modify<D>()/sync<D>() act on KK/device.
+BONDVAL: reviewed fully vs src/EXTRA-PAIR/pair_bondval.cpp. Physics matches (s0 accumulation,
+ fp = sparam*power_global*s, Aij force, ev_tally with evdwl==0). comm_forward/reverse = 1
+ matches pack sizes. 2 findings recorded (settings() arg check; NOLINTNEXTLINE).
+ Candidate NOT reported: `if (eflag) eng_vdwl += ev.evdwl` (line 196) instead of eflag_global
+ -- harmless because KernelB only adds under eflag_global. Same shape in pair_adp_kokkos.cpp:208.
+ Candidate NOT reported: m_params/m_cutsq declared but never used by any kernel (dead code).
+ Candidate NOT reported: `ev.evdwl += 0.0` at line 705 (no-op, mirrors base evdwl=0.0).
+BONDVAL_VEC: reviewed fully vs src/EXTRA-PAIR/pair_bondval_vec.cpp. fx/fy/fz formulas match
+ base lines 219-232 exactly; verified FULL-list variant is antisymmetric (fx(j<-i) = -fx(i<-j)).
+ comm_forward/reverse=3 matches pack sizes. 3 findings recorded.
+ Candidate NOT reported: pack_forward_comm_kokkos (line 399-402) resizes the caller's
+ k_buf_send_pair without updating CommKokkos::max_buf_pair or k_buf_recv_pair; dead in
+ practice because CommKokkos::forward_comm_device already sizes the buffer to
+ nsize*sendnum*BUFFACTOR (comm_kokkos.cpp:775-780).
+BORN: reviewed fully vs src/pair_born.cpp. compute_fpair/compute_evdwl match base lines
+ 118-137 (born2=6c, born3=8d recovered by /6 and /8). base allocate() virtual (pair_born.h:52),
+ dtor copymode guard (pair_born.cpp:50). No findings.
+BORN_COUL_DSF: reviewed fully vs src/EXTRA-PAIR/pair_born_coul_dsf.cpp. compute_fpair/
+ fcoul/evdwl/ecoul match base 135-176 (erfcx*expmsq == erfc). 1 HIGH finding: host-side
+ self-energy reads atom->q without a host sync (same defect in born_coul_dsf_cs,
+ born_coul_wolf, born_coul_wolf_cs -- all in this group -- and in
+ pair_lj_cut_coul_dsf_kokkos.cpp:131 / pair_lj_cut_coul_wolf_kokkos.cpp:121,150, which
+ are NOT in group 19).
+ NOTE pair_lj_cut_coul_dsf_kokkos.cpp:129-133 additionally uses atom->q[ii] with ii the
+ list index instead of ilist[ii] (out of group, mention only).
+ Candidate NOT reported: `if (eflag)` instead of `if (eflag_global)` at line 132 when
+ adding ev.evdwl/ev.ecoul; ev_setup only zeroes eng_* under eflag_global so eng_vdwl is
+ polluted on eflag_atom-only steps but always re-zeroed before it is read.
+ Candidate NOT reported: params_born_wolf::cutsq is never assigned in init_one (unused;
+ the functor uses m_cutsq/d_cutsq).
+BORN_COUL_DSF_CS: reviewed .cpp fully vs src/CORESHELL/pair_born_coul_dsf_cs.cpp. EPSILON is
+ applied inside each compute_* (base applies it once before the cut_coulsq/cut_ljsq tests --
+ difference is 1e-20 in a cutoff comparison, negligible). 2 findings. .h skimmed: identical
+ to pair_born_coul_dsf_kokkos.h modulo names.
+BORN_COUL_WOLF: reviewed .cpp+.h fully vs src/EXTRA-PAIR/pair_born_coul_wolf.cpp.
+ dvdrr/forcecoul/ecoul/forceborn all match base 139-179. 1 HIGH finding (host q).
+ Candidate NOT reported: f_shift computed from the already-narrowed KK_FLOAT e_shift
+ (line 97-99) -> extra rounding vs base double math in single precision only.
+BORN_COUL_WOLF_CS: diffed against pair_born_coul_wolf_kokkos.cpp -- identical except the
+ EPSILON add in the four compute_* functions, matching src/CORESHELL/pair_born_coul_wolf_cs.cpp:102.
+ 1 HIGH finding (host q). The float-overflow EPSILON issue is already filed once against
+ pair_born_coul_dsf_cs_kokkos.cpp and referenced there.
+BORN_COUL_LONG: reviewed .cpp+.h fully vs src/KSPACE/pair_born_coul_long.cpp. Table and
+ analytic Ewald branches, factor_coul handling, born2/6==c, born3/8==d (init_one lines
+ 314-315) all match. CoulLongTable<1>/<0> selection matches ncoultablebits. init_tables is
+ virtual in pair.h:195. No findings.
+BORN_COUL_LONG_CS: diffed vs pair_born_coul_long_kokkos.cpp; only differences are the
+ EPSILON/EPS_EWALD/EPS_EWALD_SQR handling and the B0..B5 erfc series with EWALD_P_CS
+ (=9.95473818e-1, correctly separate from EwaldConst::EWALD_P), all matching
+ src/CORESHELL/pair_born_coul_long_cs.cpp:29-40 and 110-135. 1 LOW finding recorded.
+ Verified PairComputeFunctor stores `PairStyle c;` BY VALUE (pair_kokkos.h:64,91), so the
+ CS kernels reading the plain double members g_ewald/tabinnersq on device is safe (they
+ shadow the KK_FLOAT members, redundant but harmless).
+BORN_GAUSS: reviewed .cpp+.h fully vs src/EXTRA-PAIR/pair_born_gauss.cpp. fpair/evdwl match
+ base 110-127. base allocate() virtual (pair_born_gauss.h:52), dtor copymode guard. No findings.
+BROWNIAN: reviewed .cpp+.h fully vs src/COLLOID/pair_brownian.cpp. Force/torque math
+ (a_sq/a_sh/a_pu, xl cross F, opposite-sign a_pu torque) matches base 185-323.
+ 3 findings recorded (uninitialized RNG seed; missing eatom allocation; FULL list breaks
+ pairwise antisymmetry). base allocate() virtual (pair_brownian.h:58), dtor copymode guard.
+ Candidate NOT reported: FLAGFLD==1 branch selects VFLAG on `vflag_either` while FLAGFLD==0
+ selects on `evflag` (line 200 vs 224) -- inconsistent but harmless since ev_tally_xyz
+ re-checks vflag_global/vflag_atom and the style has no energy.
+ Candidate NOT reported: PairBrownianKokkos::coeff() is a pure pass-through override.

@@ -1,0 +1,2 @@
+pair_gauss_cut_kokkos.cpp
+pair_gauss_cut_kokkos.h

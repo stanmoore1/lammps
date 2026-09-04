@@ -1,0 +1,1 @@
+lj96_cut: clean; base EXTRA-PAIR/pair_lj96_cut.cpp; canonical template used for comparison

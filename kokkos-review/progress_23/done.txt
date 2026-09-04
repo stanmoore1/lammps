@@ -1,0 +1,2 @@
+pair_lj96_cut_kokkos.cpp
+pair_lj96_cut_kokkos.h

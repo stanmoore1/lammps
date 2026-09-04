@@ -1,0 +1,25 @@
+group_21 notes
+- base classes: coul/shield -> src/INTERLAYER/pair_coul_shield.cpp (virtual allocate OK, copymode guard OK)
+- coul/shield reviewed: taper Horner polys verified correct (20r^7-70r^6+84r^5-35r^4+1 ; dTap=(140r^6-420r^5+420r^4-140r^3)/Rcut). No findings.
+- pair_kokkos.h CoulTag compute_item: compute_fcoul receives factor_coul and must apply it itself; compute_fpair is multiplied by factor_lj by the caller.
+- coul/slater/cut base: src/EXTRA-PAIR/pair_coul_slater_cut.cpp (parent PairCoulCut in src/, virtual allocate OK, copymode guard OK). Formulas match. No findings.
+- Note: PairComputeFunctor dtor sets c.copymode=1, so pair styles need not set copymode in compute().
+- coul/slater/long base: src/EXTRA-PAIR/pair_coul_slater_long.cpp (virtual allocate OK; dtor uses if(!copymode){...} form). Formulas (erfc series, slater_term, factor_coul<1 correction) match CPU exactly. No findings.
+- coul/wolf base: src/pair_coul_wolf.cpp. Custom kernel (not pair_compute). self-energy handling matches ev_tally(i,i,nlocal,0,...) semantics. No findings.
+- Pair::fuse_force_clear_flag is only set inside pair_compute<>(); styles with custom kernels leave it 0 -> no fused force clear.
+- coul/wolf/cs base: src/CORESHELL/pair_coul_wolf_cs.cpp. KK file is identical to coul/wolf KK except rsq_in/EPSILON handling which matches CPU (rsq += EPSILON after cutoff test). No findings.
+- dpd base: src/DPD-BASIC/pair_dpd.cpp (virtual allocate OK, copymode guard OK). special_lj on cons+drag, sqrt(special_lj) on random: KK matches CPU.
+- dpd/kk findings: (a) eflag_global vs eflag_either guard for evdwl (lines 370, 488); (b) TAG_MASK not synced but tag read in team kernel; (c) EMPTY_MASK datamasks; (d) two different RNGs (rand_pool.normal vs SARU) depending on evflag.
+- Considered and REJECTED: redundant a_f(j) writes by vector lanes in the TeamThreadRange body. Team path only runs when neighflag==HALF, and kokkos.cpp:345-365,534-539 guarantee HALF only when ngpus==0 && nthreads==1, so no real vector lanes.
+- CHECK dpd_ext line 336 for the same eflag_global bug.
+- dpd/ext base: src/DPD-BASIC/pair_dpd_ext.cpp. All formulas (P matrix, wdPar/wdPerp, prefactor_g/s) match CPU exactly. Uses correct `if (EVFLAG && eflag)` guard for evdwl (unlike dpd/kk). Only issue: datamask_read/modify = EMPTY_MASK (line 56-57), same rule violation as dpd/kk.
+- dpd/tstat base: src/DPD-BASIC/pair_dpd_tstat.cpp. Force formula matches. Kernel dispatched on vflag_either (correct, style tallies no energy); eatom is host-allocated+memset each step. Minor divergences (not reported): host sigma[][] array not updated during the T ramp (only k_params), k_params.modify_host() every step, error message text says "pair dpd/kk", init_style calls PairDPD::init_style not PairDPDTstat::.
+- ENERGY_MASK/VIRIAL_MASK are no-ops in AtomKokkos::sync/modified.
+- dpd/ext/tstat/kk: TWO CONFIRMED HIGH BUGS: (1) line 302 missing minus sign on parallel drag; (2) lines 117-121 T-ramp does not update sigmaT. Base src/DPD-BASIC/pair_dpd_ext_tstat.cpp:146-150 and :68-73.
+- Everything else in dpd_ext_tstat matches dpd_tstat/dpd_ext structure exactly (verified by diff).
+- dpd/fdt/energy base: src/DPD-REACT/pair_dpd_fdt_energy.cpp. Split/NoSplit kernels match CPU math (theta_ij, gamma_ij, uTmp for uMech and uCond incl. the antisymmetric duCond[j] -= uTmp). duCond/duMech re-created+zeroed each step at nlocal+nghost (CPU grows to nmax) - equivalent. reverse_comm goes through CommBrick host path (reverse_comm_device==0) and the sync_host/modify_host bracketing is correct. fix_dpd_energy_kokkos syncs k_duCond itself.
+- Minor (not reported): member c_x declared in pair_dpd_fdt_energy_kokkos.h:140 is never assigned/used (pair_virial_fdotr_compute uses fpair->x). datamask EMPTY_MASK deliberate (comment at lines 340-344).
+- eam/alloy|fs|he KK are thin ctor-only subclasses of PairEAMKokkos setting fileformat/one_coeff/he_flag; they match src/MANYBODY/pair_eam_alloy.cpp, pair_eam_fs.cpp, pair_eam_he.cpp exactly. No findings.
+- eam/kk base: src/MANYBODY/pair_eam.cpp. Verified: embedding_index_kk matches PairEAM::embedding_index<HE>; kernelA/AB/C spline math, m/p clamping, rho zeroing (nall vs nlocal), reverse_comm(rho)/forward_comm(fp) sync-modify bracketing, HIP scratch caching bounds (MAX_CACHE_ROWS guard) all correct. z2p recomputed from spline cols 3/4/5 * rdr == cols 0/1/2 (equivalent).
+- eam/kk findings: scale[][] ignored; atomic_energy_enable=1 with null host spline arrays; unqualified sqrt at line 1005; missing rhomax warning.
+- Also noted but not reported: numforce[] never filled (single_enable=0 so unreachable); extract_peratom("rho"/"fp") returns nullptr for kk (FixPair errors cleanly).

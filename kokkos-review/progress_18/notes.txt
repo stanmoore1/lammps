@@ -30,3 +30,13 @@ Minor not reported: NPairKokkos<*,1,1,1,0,0> is explicitly instantiated (npair_k
   duplicate style NAMES (ortho + tri variants) - harmless, registration is array based
   (neighbor.cpp:783-786), only the "pair build:" info line is affected.
   transpose_helper_kokkos.h:78 assert compares d_dst.extent(1) with itself (typo) - not my file.
+[ssa] done. 2 findings.
+Verified OK: moltemplate paths are unreachable - NeighborKokkos errors out for
+  Atom::TEMPLATE (neighbor_kokkos.cpp:86-88), so the commented-out molecule-template
+  branches in npair_kokkos/npair_ssa_kokkos are not a live bug.
+  NPairSSAKokkosExecute::coord2bin matches NPair::coord2bin (npair.cpp:280-313).
+  find_special(j,i) in build_ghosts_onePhase matches CPU npair_half_bin_newton_ssa.cpp:285.
+  list->gnum for SSA is computed from the preflight gitemLoc (includes gaps) and does not
+  match the CPU compacted gnum, but the only consumer (fix_shardlow_kokkos.cpp:693,703)
+  iterates via ssa_itemLoc/ssa_gitemLoc, so not reported.
+NEXT: pppm_kokkos.cpp/.h, pppm_tip4p_kokkos.cpp/.h.

@@ -8,3 +8,5 @@ npair_trim_kokkos.cpp
 npair_trim_kokkos.h
 npair_kokkos.cpp
 npair_kokkos.h
+npair_ssa_kokkos.cpp
+npair_ssa_kokkos.h
