@@ -1,0 +1,1 @@
+ufm: reviewed, no substantiated findings (matches src/EXTRA-PAIR/pair_ufm.cpp; scale in fpair not evdwl matches CPU)

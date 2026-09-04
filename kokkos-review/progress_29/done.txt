@@ -7,3 +7,7 @@ pair_tip4p_cut_kokkos.cpp
 pair_tip4p_cut_kokkos.h
 pair_tip4p_long_kokkos.cpp
 pair_tip4p_long_kokkos.h
+pair_uf3_kokkos.cpp
+pair_uf3_kokkos.h
+pair_ufm_kokkos.cpp
+pair_ufm_kokkos.h

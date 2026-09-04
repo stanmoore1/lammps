@@ -18,3 +18,18 @@ base class src/ML-SNAP/pair_snap.cpp:62 has 'if (copymode) return;' and pair_sna
 'virtual void allocate()' -> rules 1 and 2 OK.  All kernel bodies live in pair_snap_kokkos_impl.h
 (group 28).
 NEXT: pair_reaxff_kokkos.cpp/.h (base src/REAXFF/pair_reaxff.cpp + reaxff_*.cpp).
+REAXFF progress: read .h fully, .cpp lines 1-1520 and 3860-4180 (ev_setup, tallies, FindBond start).
+Verified NOT bugs: k_params_* modify_host without sync in setup() is fine (synced in compute():719-723);
+force sign convention (CPU pair_reaxff.cpp:692 does atom->f += -workspace->f, so kokkos ftotal == +CE);
+ev_tally fpair -ftotal matches CPU f_tmp = -(CEvd+CEclmb); shielded vdW branch and dfn13 match CPU exactly;
+dTap includes the 1/r factor (verified by expansion).
+FRAGILE (not currently a bug, do not report as high): `ev` is reused across all kernel dispatches in
+compute() and `ev_all += ev` runs even when the section used parallel_for (no reduce), e.g. :923, :941,
+:1056.  Currently harmless because ev.v[] is only filled when vflag_global, and reaxff's custom
+ev_setup (:4100-4105) forces vflag_global = 0 whenever VIRIAL_FDOTR (always for reaxff, newton on),
+and evdwl/ecoul are guarded by eflag_global which implies eflag_either.  Any future change that fills
+ev.evdwl in ComputeHydrogen/Torsion would silently double count.
+v_tally3_atom (:4029) is dead code (no call site) and writes d_vatom non-atomically.
+TODO next: lines 1520-3860 (allocate_array, BuildLists*, BondOrder1/2/3, UpdateBond, Bond1/2, Multi1/2,
+CountAngularTorsion, Angular, Torsion, Hydrogen, ev_tally) and 4180-4415 (FindBond/PackBondBuffer/
+FindBondSpecies + template instantiation).
