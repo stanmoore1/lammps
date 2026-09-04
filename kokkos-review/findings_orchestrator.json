@@ -661,5 +661,32 @@
   "confidence": "confirmed",
   "summary": "The DSF self-energy is added to eng_coul only and never to the per-atom energy array, so per-atom energies are missing the self term the CPU style tallies through ev_tally(i,i,...). The same loop is also unguarded by eflag and indexes atom->q by the neighbour-list slot ii rather than ilist[ii].",
   "verified_by": "orchestrator (src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:127-133 vs src/EXTRA-PAIR/pair_lj_cut_coul_dsf.cpp:110-112; the correct sibling pair_born_coul_dsf_kokkos.cpp:145-153 adds the self term to eatom under eflag_atom)."
+ },
+ {
+  "file": "src/KOKKOS/pair_lj_cut_dipole_cut_kokkos.cpp",
+  "line": 401,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The total force (fq/fx/fy/fz) and the whole force+torque accumulation sit INSIDE the 'if (rsq < cut_coulsq_ij)' block, which closes only at :434. For any pair with cut_coul <= r < cut_lj the LJ force is computed and then silently discarded, while the LJ energy is still tallied and ev_tally_xyz is called with fx=fy=fz=0 (so the virial is lost too). Repeated in the team kernel (block :561-:669, accumulation at :642-644).",
+  "verified_by": "orchestrator (src/KOKKOS/pair_lj_cut_dipole_cut_kokkos.cpp:303-306 computes forcelj in its own cut_ljsq block, :400-421 do the total force and accumulation inside the coul block, :436-437 call ev_tally_xyz outside it. The CPU style src/DIPOLE/pair_lj_cut_dipole_cut.cpp:206-210 closes the LJ block with 'else forcelj = 0.0;' and only then, at :215-236, computes fq/fx/fy/fz and accumulates - unconditionally.)"
+ },
+ {
+  "file": "src/EXTRA-PAIR/pair_lj_expand_sphere.cpp",
+  "line": 122,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "UPSTREAM CPU DEFECT, faithfully mirrored by the KOKKOS port. The pair force is formed as 'forcelj * rshift / r' where the analytic gradient of the tallied energy requires 'forcelj / rshift / r', so every force is off by a factor rshift^2 and does not match the energy. The sibling style lj/expand gets it right.",
+  "verified_by": "orchestrator. With lj1=48*eps*sigma^12, lj2=24*eps*sigma^6 (pair_lj_expand_sphere.cpp:266-267) and r6inv=1/rshift^6, forcelj = -rshift*dE/drshift, so the scalar multiplying del must be forcelj/(rshift*r). src/pair_lj_expand.cpp:115 and :409 use exactly 'forcelj / rshift / r' for the identical energy form, while src/EXTRA-PAIR/pair_lj_expand_sphere.cpp:122 (compute) and :396 (single) use 'forcelj * rshift / r'. src/KOKKOS/pair_lj_expand_sphere_kokkos.cpp:154 copies the base, and src/KOKKOS/pair_lj_expand_kokkos.cpp:158 copies the correct one. NOTE: the force-style YAML fixtures for lj/expand/sphere were generated from the current code and must be regenerated with the fix."
+ },
+ {
+  "file": "src/KOKKOS/pair_lj_cut_dipole_cut_kokkos.cpp",
+  "line": 307,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "evdwl and ecoul are computed only under eflag_global, but ev_tally_xyz is called under (eflag_atom || vflag_either), so on a per-atom-energy-only timestep every per-atom pair energy is tallied as zero. Same family as the confirmed pair_dpd_kokkos.cpp:370 defect.",
+  "verified_by": "orchestrator (guards at src/KOKKOS/pair_lj_cut_dipole_cut_kokkos.cpp:307 and :423 vs the call at :436-437; the CPU style guards with eflag (=eflag_either) at src/DIPOLE/pair_lj_cut_dipole_cut.cpp:238)."
  }
 ]
