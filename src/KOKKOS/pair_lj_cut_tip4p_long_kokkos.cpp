@@ -209,7 +209,7 @@ void PairLJCutTIP4PLongKokkos<DeviceType>::operator()(TagPairLJCutTIP4PLongCompu
 
 namespace LAMMPS_NS {
 template class PairLJCutTIP4PLongKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJCutTIP4PLongKokkos<LMPHostType>;
 #endif
 }

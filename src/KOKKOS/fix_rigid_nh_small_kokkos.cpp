@@ -1459,7 +1459,7 @@ void FixRigidNHSmallKokkos<DeviceType>::deallocate_order()
 
 namespace LAMMPS_NS {
 template class FixRigidNHSmallKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixRigidNHSmallKokkos<LMPHostType>;
 #endif
 }

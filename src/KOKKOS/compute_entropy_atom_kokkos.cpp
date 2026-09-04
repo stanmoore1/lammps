@@ -276,7 +276,7 @@ void ComputeEntropyAtomKokkos<DeviceType>::operator()(TagComputeEntropyAtomAvg, 
 
 namespace LAMMPS_NS {
 template class ComputeEntropyAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeEntropyAtomKokkos<LMPHostType>;
 #endif
 }

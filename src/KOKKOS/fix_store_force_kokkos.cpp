@@ -112,7 +112,7 @@ void FixStoreForceKokkos<DeviceType>::operator()(TagFixStoreForce, const int &i)
 
 namespace LAMMPS_NS {
 template class FixStoreForceKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixStoreForceKokkos<LMPHostType>;
 #endif
 }

@@ -379,7 +379,7 @@ void BondTableKokkos<DeviceType>::ev_tally(EV_FLOAT &ev, const int &i, const int
 
 namespace LAMMPS_NS {
 template class BondTableKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class BondTableKokkos<LMPHostType>;
 #endif
 }

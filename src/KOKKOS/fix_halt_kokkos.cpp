@@ -97,7 +97,7 @@ void FixHaltKokkos<DeviceType>::operator()(TagFixHaltBondmax, const int &n, KK_F
 
 namespace LAMMPS_NS {
 template class FixHaltKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixHaltKokkos<LMPHostType>;
 #endif
 }

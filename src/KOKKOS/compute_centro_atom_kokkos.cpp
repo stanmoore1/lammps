@@ -394,7 +394,7 @@ void ComputeCentroAtomKokkos<DeviceType>::select2_kk(int k, int n, int ii) const
 
 namespace LAMMPS_NS {
 template class ComputeCentroAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeCentroAtomKokkos<LMPHostType>;
 #endif
 }

@@ -100,7 +100,7 @@ void ComputeErotateSphereAtomKokkos<DeviceType>::operator()(TagComputeErotateSph
 
 namespace LAMMPS_NS {
 template class ComputeErotateSphereAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeErotateSphereAtomKokkos<LMPHostType>;
 #endif
 }

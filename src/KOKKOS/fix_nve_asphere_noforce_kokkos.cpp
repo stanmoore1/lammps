@@ -145,7 +145,7 @@ void FixNVEAsphereNoforceKokkos<DeviceType>::initial_integrate_item(const int i)
 
 namespace LAMMPS_NS {
 template class FixNVEAsphereNoforceKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNVEAsphereNoforceKokkos<LMPHostType>;
 #endif
 }

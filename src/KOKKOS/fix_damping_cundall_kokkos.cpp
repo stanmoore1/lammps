@@ -172,7 +172,7 @@ void FixDampingCundallKokkos<DeviceType>::operator()(TagFixDampingCundall<SCALE>
 
 namespace LAMMPS_NS {
 template class FixDampingCundallKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixDampingCundallKokkos<LMPHostType>;
 #endif
 }

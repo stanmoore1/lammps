@@ -66,7 +66,7 @@ void RegCylinderKokkos<DeviceType>::operator()(TagRegCylinderMatchAll, const int
 
 namespace LAMMPS_NS {
 template class RegCylinderKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class RegCylinderKokkos<LMPHostType>;
 #endif
 }

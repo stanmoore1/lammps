@@ -376,7 +376,7 @@ double PairBornCoulWolfCSKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairBornCoulWolfCSKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairBornCoulWolfCSKokkos<LMPHostType>;
 #endif
 }

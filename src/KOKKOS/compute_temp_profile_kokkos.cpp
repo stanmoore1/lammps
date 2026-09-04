@@ -463,7 +463,7 @@ void ComputeTempProfileKokkos<DeviceType>::operator()(TagComputeTempProfileResto
 
 namespace LAMMPS_NS {
 template class ComputeTempProfileKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeTempProfileKokkos<LMPHostType>;
 #endif
 }

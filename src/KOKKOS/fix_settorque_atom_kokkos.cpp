@@ -202,7 +202,7 @@ void FixSetTorqueAtomKokkos<DeviceType>::operator()(TagFixSetTorqueAtomNonConsta
 
 namespace LAMMPS_NS {
 template class FixSetTorqueAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixSetTorqueAtomKokkos<LMPHostType>;
 #endif
 }

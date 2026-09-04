@@ -139,7 +139,7 @@ void PairTIP4PLongKokkos<DeviceType>::operator()(TagPairTIP4PLongCompute<EVFLAG>
 
 namespace LAMMPS_NS {
 template class PairTIP4PLongKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairTIP4PLongKokkos<LMPHostType>;
 #endif
 }

@@ -171,7 +171,7 @@ void FixWallHarmonicOutsideKokkos<DeviceType>::v_tally(value_type result, int n,
 
 namespace LAMMPS_NS {
 template class FixWallHarmonicOutsideKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixWallHarmonicOutsideKokkos<LMPHostType>;
 #endif
 }

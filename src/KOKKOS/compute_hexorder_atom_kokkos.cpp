@@ -258,7 +258,7 @@ void ComputeHexOrderAtomKokkos<DeviceType>::select2_kk(int k, int n, int ii) con
 
 namespace LAMMPS_NS {
 template class ComputeHexOrderAtomKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeHexOrderAtomKokkos<LMPHostType>;
 #endif
 }

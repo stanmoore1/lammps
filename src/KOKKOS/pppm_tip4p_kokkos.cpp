@@ -616,7 +616,7 @@ void PPPMTIP4PKokkos<DeviceType>::operator()(TagPPPMTIP4P_slabcorr4, const int &
 
 namespace LAMMPS_NS {
 template class PPPMTIP4PKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PPPMTIP4PKokkos<LMPHostType>;
 #endif
 }

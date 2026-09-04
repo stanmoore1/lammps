@@ -3150,7 +3150,7 @@ void FixRigidSmallKokkos<DeviceType>::v_tally(EV_FLOAT &ev, int i, double vtot[6
 
 namespace LAMMPS_NS {
 template class FixRigidSmallKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixRigidSmallKokkos<LMPHostType>;
 #endif
 }

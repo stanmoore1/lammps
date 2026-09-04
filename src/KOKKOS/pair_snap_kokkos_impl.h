@@ -1553,7 +1553,7 @@ double PairSNAPKokkosDevice<DeviceType>::memory_usage()
   return Base::memory_usage();
 }
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template<class DeviceType>
 PairSNAPKokkosHost<DeviceType>::PairSNAPKokkosHost(class LAMMPS *lmp)
    : PairSNAPKokkos<DeviceType, SNAP_KOKKOS_REAL, SNAP_KOKKOS_ACCUM, SNAP_KOKKOS_HOST_VECLEN>(lmp) { ; }

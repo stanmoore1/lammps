@@ -189,7 +189,7 @@ void FixPressLangevinKokkos<DeviceType>::pre_exchange()
 
 namespace LAMMPS_NS {
 template class FixPressLangevinKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixPressLangevinKokkos<LMPHostType>;
 #endif
 }

@@ -176,7 +176,7 @@ void FixNVKKokkos<DeviceType>::operator()(TagFixNVKUpdate<RMASS,XUPDATE>, const 
 
 namespace LAMMPS_NS {
 template class FixNVKKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixNVKKokkos<LMPHostType>;
 #endif
 }

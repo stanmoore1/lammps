@@ -188,7 +188,7 @@ void FixHeatKokkos<DeviceType>::operator()(TagFixHeatApply, const int &i) const
 
 namespace LAMMPS_NS {
 template class FixHeatKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixHeatKokkos<LMPHostType>;
 #endif
 }

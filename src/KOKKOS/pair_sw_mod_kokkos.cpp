@@ -724,7 +724,7 @@ void PairSWMODKokkos<DeviceType>::ev_tally3_atom(EV_FLOAT & /*ev*/, const int &i
 
 namespace LAMMPS_NS {
 template class PairSWMODKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairSWMODKokkos<LMPHostType>;
 #endif
 }

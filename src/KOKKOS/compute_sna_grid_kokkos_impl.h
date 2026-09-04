@@ -804,7 +804,7 @@ void ComputeSNAGridKokkosDevice<DeviceType>::compute_array()
   Base::compute_array();
 }
 
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template<class DeviceType>
 ComputeSNAGridKokkosHost<DeviceType>::ComputeSNAGridKokkosHost(class LAMMPS *lmp, int narg, char **arg)
    : ComputeSNAGridKokkos<DeviceType, SNAP_KOKKOS_REAL, SNAP_KOKKOS_ACCUM, SNAP_KOKKOS_HOST_VECLEN>(lmp, narg, arg) { ; }

@@ -349,7 +349,7 @@ PairPACEKokkos<DeviceType>::PairPACEKokkos(LAMMPS *lmp) : PairPACE(lmp)
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
-  host_flag = HostBackendFromDevice<DeviceType>::value;
+  // host_flag is a compile-time constant of the class now, see the header
   host_fallback = 0;
 
   neigh_scratch_level = 0;

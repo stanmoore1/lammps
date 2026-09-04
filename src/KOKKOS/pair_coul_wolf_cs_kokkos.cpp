@@ -421,7 +421,7 @@ int PairCoulWolfCSKokkos<DeviceType>::sbmask(const int& j) const {
 
 namespace LAMMPS_NS {
 template class PairCoulWolfCSKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairCoulWolfCSKokkos<LMPHostType>;
 #endif
 }
