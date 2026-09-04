@@ -589,5 +589,77 @@
   "confidence": "confirmed",
   "summary": "post_force unconditionally calls k_xoriginal.modify_host() followed by sync<DeviceType>(), so the never-updated host mirror is declared newer and overwrites the device copy that the exchange kernels just wrote - the reference coordinates of migrated atoms are silently reverted.",
   "verified_by": "orchestrator (src/KOKKOS/fix_spring_self_kokkos.cpp:105-106; the exchange kernels write d_xoriginal at :189-199 and :261-263 and correctly claim k_xoriginal.modify<DeviceType>() at :240 and :294)."
+ },
+ {
+  "file": "src/KOKKOS/npair_kokkos.h",
+  "line": 261,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "xprd_half/yprd_half/zprd_half are declared 'const int' in NeighborKokkosExecute (and identically in NPairSSAKokkosExecute, npair_ssa_kokkos.h:175) but are initialized from domain->xprd_half etc., which are double. The truncated values are then used in the floating-point test of minimum_image_check(), which decides whether a pair gets special-bond coding.",
+  "verified_by": "orchestrator (src/KOKKOS/npair_kokkos.h:261 and src/KOKKOS/npair_ssa_kokkos.h:175 'const int xprd_half, yprd_half, zprd_half;' vs src/domain.h:50 'double xprd_half, ...' and the reference test at src/domain.h:200 'if (xperiodic && fabs(dx) > xprd_half) return 1;'). In a box with a non-integer half length the KOKKOS and CPU builds disagree on which pairs carry special-bond coding."
+ },
+ {
+  "file": "src/KOKKOS/npair_skip_kokkos.h",
+  "line": 106,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "cutsq_custom is declared as int in the skip functor ('int nlocal,num_skip,cutsq_custom;') although it is assigned cutoff_custom*cutoff_custom and compared against a double rsq, so the trim cutoff is truncated and neighbours are dropped (all of them when the cutoff is below 1.0).",
+  "verified_by": "orchestrator (src/KOKKOS/npair_skip_kokkos.h:106 vs the assignment at npair_skip_kokkos.cpp:50 and the test at :144; the sibling functors declare it double - npair_trim_kokkos.h:51 and npair_halffull_kokkos.h:366)."
+ },
+ {
+  "file": "src/KOKKOS/npair_skip_kokkos.cpp",
+  "line": 104,
+  "severity": "high",
+  "category": "sync-modify",
+  "confidence": "confirmed",
+  "summary": "NPairSkipKokkos::build() writes d_ilist in a device kernel but never claims k_ilist.modify<DeviceType>(), so the later k_ilist.sync_host() done by NPairCopyKokkos/NPairTrimKokkos/fix reaxff/species is a no-op and those consumers read a stale host ilist.",
+  "verified_by": "orchestrator (end of build() at src/KOKKOS/npair_skip_kokkos.cpp:90-104 has no modify call; every sibling has one - npair_kokkos.cpp:360, npair_halffull_kokkos.cpp:82, npair_trim_kokkos.cpp:84, npair_ssa_kokkos.cpp:520)."
+ },
+ {
+  "file": "src/KOKKOS/pppm_kokkos.cpp",
+  "line": 2418,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "In the per-atom forward-unpack kernel the u_brick read omits unpack_offset ('d_buf[7*i]') while all six virial reads on the next lines include it, so with comm_style tiled every receive after the first fills its ghost per-atom energy cells from the wrong stretch of the shared buffer.",
+  "verified_by": "orchestrator (src/KOKKOS/pppm_kokkos.cpp:2418 vs :2420-2425, and the sibling kernel at :2404-2406 which does include the offset)."
+ },
+ {
+  "file": "src/KOKKOS/pppm_kokkos.cpp",
+  "line": 913,
+  "severity": "medium",
+  "category": "memory",
+  "confidence": "confirmed",
+  "summary": "deallocate() sets fft1 = nullptr twice and never nulls fft2, so fft2 stays dangling after deletion and a second deallocate() without an intervening allocate() double-frees it (reachable through the error paths in init()).",
+  "verified_by": "orchestrator (src/KOKKOS/pppm_kokkos.cpp:910-915: 'delete fft1; fft1 = nullptr; delete fft2; fft1 = nullptr;')."
+ },
+ {
+  "file": "src/KOKKOS/pair_coul_cut_kokkos.cpp",
+  "line": 230,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "init_one() fills only the (i,j) element of the standalone k_cut_ljsq/k_cut_coulsq dual views (init_one is called with i<=j only), so with more than MAX_TYPES_STACKPARAMS=12 atom types the non-stack path tests rsq against 0 for every itype>jtype pair and drops the Coulomb interaction entirely. Same defect in pair_coul_debye_kokkos.cpp:253.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_coul_cut_kokkos.cpp:230-233 and pair_coul_debye_kokkos.cpp:253-256 assign only (i,j); the stack copies m_cut_ljsq/m_cut_coulsq right above DO set [j][i]. The correct sibling is pair_coul_cut_soft_kokkos.cpp:232-234, which assigns (i,j) and (j,i). k_cutsq itself is safe because it is aliased to the base cutsq array that Pair::init symmetrizes at src/pair.cpp:288.)"
+ },
+ {
+  "file": "src/KOKKOS/pair_coul_dsf_kokkos.cpp",
+  "line": 260,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "special_coul is applied by folding factor_coul into the prefactor instead of subtracting (1-factor_coul)*prefactor from forcecoul/ecoul as the CPU style does. With the LAMMPS default special_bonds coul 0 0 0 the KOKKOS style contributes exactly zero for 1-2/1-3/1-4 pairs while the CPU style contributes -prefactor. Identical defect in pair_lj_cut_coul_dsf_kokkos.cpp:223 and :248.",
+  "verified_by": "orchestrator (src/KOKKOS/pair_coul_dsf_kokkos.cpp:260-266 vs src/pair_coul_dsf.cpp:108-115; the correctly ported sibling is pair_born_coul_dsf_kokkos.cpp:205-215, which uses the CPU form)."
+ },
+ {
+  "file": "src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp",
+  "line": 129,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The DSF self-energy is added to eng_coul only and never to the per-atom energy array, so per-atom energies are missing the self term the CPU style tallies through ev_tally(i,i,...). The same loop is also unguarded by eflag and indexes atom->q by the neighbour-list slot ii rather than ilist[ii].",
+  "verified_by": "orchestrator (src/KOKKOS/pair_lj_cut_coul_dsf_kokkos.cpp:127-133 vs src/EXTRA-PAIR/pair_lj_cut_coul_dsf.cpp:110-112; the correct sibling pair_born_coul_dsf_kokkos.cpp:145-153 adds the self term to eatom under eflag_atom)."
  }
 ]
