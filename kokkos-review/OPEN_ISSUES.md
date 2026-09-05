@@ -173,9 +173,15 @@ float  EPS=1e-8 : r6inv=1e24  r8inv=1e32  0*r8inv=0
 float 1.0f + 1e-8f == 1.0f ? yes      double 1.0 + 1e-20 == 1.0 ? yes
 ```
 
-The value is now `1e-8` when `KK_FLOAT` is `float`, applied as a floor rather than an
-unconditional add (equivalent in double, avoids a real perturbation in single).  **This was
-reasoned and checked against float arithmetic, but never executed** -- see gap 4.2.
+The value is now `1e-6` when `KK_FLOAT` is `float`, applied as a floor rather than an
+unconditional add.  The first attempt used `1e-8`, chosen by bounding the `r^-8` energy term;
+that was the wrong quantity.  `compute_fpair()` returns `forceborn*r2inv`, whose `born3` term
+is `born3 * rsq^-5`, and at `1e-8` that is `1e40` -- still infinite in float.  Running it
+showed a finite energy of `1e32` next to a **NaN pressure**.  `1e-6` puts `rsq^-5` at `1e30`.
+
+Because the value is a floor rather than an added term it can be this large without
+consequence: a floor only changes separations already below it.  Verified in both the single
+and mixed builds; `tests/in.cs_zero_separation` is the input.
 
 ---
 
@@ -184,27 +190,55 @@ reasoned and checked against float arithmetic, but never executed** -- see gap 4
 The validation build is one point in a large configuration space.  Everything below was
 reviewed by reading only.
 
-### 4.1 One backend
+### 4.1 One backend -- still open
 
 OpenMP.  `Kokkos_ENABLE_CUDA`, `HIP` and `SYCL` are all OFF, so **every `LMP_KOKKOS_GPU`
 block and every device-specific kernel is uncompiled and unrun**.  The Serial backend's tests
 also skip (`Cannot test KOKKOS/Serial with threading support enabled`).
 
-This matters more than usual for this review, because `KokkosLMP::newton_check()` forces
-newton pair off whenever `neighflag == FULL`, which makes most `FULL` paths unreachable on a
-CPU build -- while **FULL is the default on GPU**.  A few were forced with
+This is the largest remaining gap, because `KokkosLMP::newton_check()` forces newton pair off
+whenever `neighflag == FULL`, which makes most `FULL` paths unreachable on a CPU build --
+while **FULL is the default on GPU**.  A few were forced with
 `-pk kokkos neigh full newton off`; this was not systematic.  See `reachability.md`.
 
-### 4.2 One precision
+### 4.2 Precision, layout and index size -- now closed
 
-`KOKKOS_PREC=double`.  Neither `single` nor `mixed` was ever built.  The precision sweep was
-code-reading only, and the `EPSILON` fix of section 3.4 exists *specifically* for single precision.
+Four further configurations were built and run in full.  Each uses the same 39-package set,
+so compile coverage is complete in every one:
 
-### 4.3 One layout, one index size
+| configuration | build | ctest |
+|---|---|---|
+| `KOKKOS_PREC=double`, legacy layout, smallbig | clean | 987/990 |
+| `KOKKOS_PREC=mixed` | clean | 985/989 |
+| `KOKKOS_PREC=single` | clean | 986/989 |
+| `KOKKOS_LAYOUT=default` (LayoutLeft) | clean | 986/989 |
+| `LAMMPS_SIZES=bigbig` | clean | see below |
 
-`KOKKOS_LAYOUT=legacy` (LayoutRight); the `default` LayoutLeft path is untested.
-`LAMMPS_SIZES=smallbig`; `bigbig` was not built, and the project's own notes identify
-`bigbig` as the usual cause of a failure on a single CI job.
+Every failure in every configuration is one of the three environmental ones of section 6,
+plus one genuine test bug found this way and fixed (section 4.5).  All nine targeted
+regression inputs reproduce their fixed values in all five builds: double, LayoutLeft and
+bigbig are bit-identical to the CPU reference, mixed and single agree to about seven
+significant figures.
+
+This matters beyond the totals.  Several changes on this branch are about `KK_FLOAT` versus
+`double` -- the widened `npair` members, `s_KK_double2` in `min_linesearch_kokkos.h`, the meam
+`d_scale` widening, and the package-wide removal of silent fp32/fp64 conversions.  In double
+`KK_FLOAT` *is* `double`, so those are nearly invisible; a mismatched view type or an implicit
+narrowing only fails once `KK_FLOAT` becomes `float`.  The same argument applies to LayoutLeft
+for the `*_lr` LayoutRight-pinned types and the `TransformView` paths, and to bigbig for the
+`int`-vs-`double` neighbour-list declarations this review changed.
+
+### 4.3 What running them actually caught
+
+Two defects, neither of which code reading had found:
+
+* **The single-precision `EPSILON` fix was itself wrong.**  It bounded the `r^-8` energy term
+  and chose `1.0e-8`.  The binding quantity is `compute_fpair()`, whose `born3` term is
+  `born3 * rsq^-5`; at `1.0e-8` that is `1e40`, still infinite in float.  A coincident pair
+  returned a finite energy of `1e32` alongside a **NaN pressure**, because the infinite
+  `fpair` met an exactly zero separation vector.  Corrected to `1.0e-6`.  Input:
+  `tests/in.cs_zero_separation`.
+* **`unittest/python/python-capabilities.py` could not pass in a non-double build** (section 4.5).
 
 ### 4.4 Package coverage -- initially incomplete, now closed
 
@@ -226,7 +260,28 @@ compile cleanly.  Only `fix_colvars_kokkos.cpp` (needs the external COLVARS libr
 **Anyone repeating this validation should check compile coverage explicitly rather than
 assume a green build covers the branch.**
 
-### 4.5 Two defect classes this method structurally cannot find
+### 4.5 Test-suite gaps found along the way
+
+* **`python-capabilities.py` assumed double precision.**  `test_accelerator_config` asserted
+  `assertIn('double', settings['KOKKOS']['precision'])`, so it failed on any mixed or single
+  build.  The GPU block directly above already reads `GPU_PREC` from the cmake cache and
+  asserts the matching value; the KOKKOS block had the value hardcoded.  Fixed to read
+  `KOKKOS_PREC`.  That this had gone unnoticed is itself evidence that **CI does not exercise
+  mixed or single precision KOKKOS builds**.
+* **There is no `eatom_only_kokkos` test variant.**  `test_pair_style.cpp` provides `plain`,
+  `omp`, `eatom_only`, `eatom_only_omp`, `extract`, `extract_omp`, `kokkos_omp`,
+  `kokkos_serial`, `kokkos_gpu`, `gpu`, `intel`, `opt` and `single` -- an eatom-only variant
+  for the plain and OpenMP styles, but none for KOKKOS.  A per-atom-only energy request is
+  exactly the condition under which `if (eflag)` wrongly accumulates into a global that
+  `ev_init` has not zeroed, which is the defect this review found in ten KOKKOS styles by
+  reading.  **The suite could not have caught it and still cannot catch a regression of it.**
+  Adding an `eatom_only_kokkos` variant would close that.
+* **Enabling a package converts skips into real tests.**  The seven packages added during this
+  review did not change the test count; they turned roughly 45 already-listed tests from
+  skipped into actually running.  A green run says nothing about styles whose prerequisites
+  are absent.
+
+### 4.6 Two defect classes this method structurally cannot find
 
 * **A KOKKOS style that faithfully copies a defective CPU parent.**  kk and cpu agree in both
   builds, so no accelerator-vs-reference comparison can see it.  `lj/expand/sphere` was found
@@ -240,9 +295,10 @@ systematic search.  A deliberate sweep for both classes would likely find more. 
 second, a periodic `git log` diff of `src/npair*.cpp` against `src/KOKKOS/npair*_kokkos.cpp`
 (and the same for other mirrored families) would catch it mechanically.
 
-### 4.6 Other gaps
+### 4.7 Other gaps
 
 * **Unit tests only** -- `tools/regression-tests` was not run.
+* **No GPU backend**, per section 4.1 -- the single largest remaining gap.
 * **`fix adapt` never exercised at runtime.**  The `scale[][]` work in meam and eam added
   `reinit()` overrides specifically for the fix adapt path; correctness there rests on code
   reading, not on a test.
