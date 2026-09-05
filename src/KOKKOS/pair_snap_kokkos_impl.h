@@ -930,6 +930,27 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
 }
 
 /* ----------------------------------------------------------------------
+  Look up the element of the central atom for each of the `yi_batch` atoms
+  that one ComputeBi thread handles. The bzero shift in `evaluate_bi` needs it.
+------------------------------------------------------------------------- */
+
+template<class DeviceType, typename real_type, typename accum_type, int vector_length>
+// NOLINTNEXTLINE
+KOKKOS_INLINE_FUNCTION
+auto PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::get_ielem_batch(const int& iatom) const -> Kokkos::Array<int, yi_batch>
+{
+  Kokkos::Array<int, yi_batch> ielem;
+  for (int n = 0; n < yi_batch; n++) {
+    // the trailing entries of a batch can reach past the end of a short final
+    // chunk; they only feed padded rows of blist, so clamping the lookup is safe
+    const int iatom_batch = iatom + n * vector_length;
+    const int i = d_ilist[(iatom_batch < chunk_size ? iatom_batch : chunk_size - 1) + chunk_offset];
+    ielem[n] = d_map[type[i]];
+  }
+  return ielem;
+}
+
+/* ----------------------------------------------------------------------
   Compute the energy triple products and store in the "blist" View.
   CPU and GPU.
 ------------------------------------------------------------------------- */
@@ -941,7 +962,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
   const int iatom = iatom_mod + yi_batch * iatom_div * vector_length;
   if (iatom >= chunk_size) return;
   if (jjb >= snaKK.idxb_max) return;
-  snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb);
+  snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb, get_ielem_batch(iatom));
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -955,7 +976,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
     iatom_shift = iatom_mod + yi_batch * iatom_div * vector_length;
   }
   if (iatom_shift >= chunk_size) return;
-  snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb);
+  snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb, get_ielem_batch(iatom));
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -969,8 +990,9 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
     iatom_shift = iatom_mod + yi_batch * iatom_div * vector_length;
   }
   if (iatom_shift >= chunk_size) return;
+  const Kokkos::Array<int, yi_batch> ielem = get_ielem_batch(iatom);
   for (int jjb = 0; jjb < snaKK.idxb_max; jjb++)
-    snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb);
+    snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb, ielem);
 }
 
 /* ----------------------------------------------------------------------

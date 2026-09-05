@@ -1004,7 +1004,7 @@ auto SNAKokkos<DeviceType, real_type, accum_type, vector_length>::evaluate_zi(co
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
 // NOLINTNEXTLINE
 template <bool chemsnap, int yi_batch> KOKKOS_INLINE_FUNCTION
-void SNAKokkos<DeviceType, real_type, accum_type, vector_length>::compute_bi(const int& iatom, const int& jjb) const
+void SNAKokkos<DeviceType, real_type, accum_type, vector_length>::compute_bi(const int& iatom, const int& jjb, const Kokkos::Array<int, yi_batch>& ielem) const
 {
   // for j1 = 0,...,twojmax
   //   for j2 = 0,twojmax
@@ -1027,7 +1027,7 @@ void SNAKokkos<DeviceType, real_type, accum_type, vector_length>::compute_bi(con
     for (int elem1 = 0; elem1 < nelements; elem1++) {
       for (int elem2 = 0; elem2 < nelements; elem2++) {
         for (int elem3 = 0; elem3 < nelements; elem3++) {
-          Kokkos::Array<real_type, yi_batch> bval = evaluate_bi<yi_batch>(j, jjz, jju, iatom, elem1, elem2, elem3);
+          Kokkos::Array<real_type, yi_batch> bval = evaluate_bi<yi_batch>(j, jjz, jju, iatom, elem1, elem2, elem3, ielem);
           register_loop<yi_batch>([&] (int n) -> void {
             blist(iatom + n * vector_length, itriple, jjb) = bval[n];
           });
@@ -1036,7 +1036,7 @@ void SNAKokkos<DeviceType, real_type, accum_type, vector_length>::compute_bi(con
       } // end loop over elem2
     } // end loop over elem1
   } else {
-    Kokkos::Array<real_type, yi_batch> bval = evaluate_bi<yi_batch>(j, jjz, jju, iatom, 0, 0, 0);
+    Kokkos::Array<real_type, yi_batch> bval = evaluate_bi<yi_batch>(j, jjz, jju, iatom, 0, 0, 0, ielem);
     register_loop<yi_batch>([&] (int n) -> void {
       blist(iatom + n * vector_length, 0, jjb) = bval[n];
     });
@@ -1051,7 +1051,7 @@ void SNAKokkos<DeviceType, real_type, accum_type, vector_length>::compute_bi(con
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
 // NOLINTNEXTLINE
 template <int yi_batch> KOKKOS_INLINE_FUNCTION
-auto SNAKokkos<DeviceType, real_type, accum_type, vector_length>::evaluate_bi(const int& j, const int& jjz, const int& jju, const int& iatom, const int& elem1, const int& elem2, const int& elem3) const
+auto SNAKokkos<DeviceType, real_type, accum_type, vector_length>::evaluate_bi(const int& j, const int& jjz, const int& jju, const int& iatom, const int& elem1, const int& elem2, const int& elem3, const Kokkos::Array<int, yi_batch>& ielem) const
 {
   // this computes the:
   //        b(j1,j2,j) = 0
@@ -1114,7 +1114,9 @@ auto SNAKokkos<DeviceType, real_type, accum_type, vector_length>::evaluate_bi(co
     bval[n] *= static_cast<accum_type>(2.0);
     if (bzero_flag) {
       if (!wselfall_flag) {
-        if (elem1 == elem2 && elem1 == elem3) {
+        // SNA::compute_bi() shifts only the triple built from the element of the
+        // central atom, so all three indices must match it, not just each other
+        if (!chem_flag || ((elem1 == ielem[n]) && (elem2 == ielem[n]) && (elem3 == ielem[n]))) {
           bval[n] -= static_cast<accum_type>(bzero[j]);
         }
       } else {

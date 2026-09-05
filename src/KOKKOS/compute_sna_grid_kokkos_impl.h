@@ -703,7 +703,10 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::ope
   const int iatom = iatom_mod + iatom_div * vector_length;
   if (iatom >= chunk_size) return;
   if (jjb >= snaKK.idxb_max) return;
-  snaKK.template compute_bi<chemsnap>(iatom, jjb);
+  // all grid points are type 1, see ComputeSNAGrid::compute_array()
+  const int itype = 1;
+  const Kokkos::Array<int, 1> ielem = {{ chemflag ? d_map[itype] : 0 }};
+  snaKK.template compute_bi<chemsnap>(iatom, jjb, ielem);
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -711,7 +714,10 @@ template<class DeviceType, typename real_type, typename accum_type, int vector_l
 template <bool chemsnap> KOKKOS_INLINE_FUNCTION
 void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::operator() (TagCSNAGridComputeBi<chemsnap>, const int& iatom, const int& jjb) const {
   if (iatom >= chunk_size) return;
-  snaKK.template compute_bi<chemsnap>(iatom, jjb);
+  // all grid points are type 1, see ComputeSNAGrid::compute_array()
+  const int itype = 1;
+  const Kokkos::Array<int, 1> ielem = {{ chemflag ? d_map[itype] : 0 }};
+  snaKK.template compute_bi<chemsnap>(iatom, jjb, ielem);
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -719,8 +725,11 @@ template<class DeviceType, typename real_type, typename accum_type, int vector_l
 template <bool chemsnap> KOKKOS_INLINE_FUNCTION
 void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::operator() (TagCSNAGridComputeBi<chemsnap>, const int& iatom) const {
   if (iatom >= chunk_size) return;
+  // all grid points are type 1, see ComputeSNAGrid::compute_array()
+  const int itype = 1;
+  const Kokkos::Array<int, 1> ielem = {{ chemflag ? d_map[itype] : 0 }};
   for (int jjb = 0; jjb < snaKK.idxb_max; jjb++)
-    snaKK.template compute_bi<chemsnap>(iatom, jjb);
+    snaKK.template compute_bi<chemsnap>(iatom, jjb, ielem);
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
