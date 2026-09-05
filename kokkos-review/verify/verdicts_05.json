@@ -1,0 +1,272 @@
+[
+ {
+  "id": "F0381",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 1260,
+  "reasoning": "Read both sides. KOKKOS TagPairReaxComputeLJCoulomb (pair_reaxff_kokkos.cpp:1255-1261, no-shielding 'else' branch) has 'fvdwl = dTap*etmp-Tap*epsilon*(alpha/r_vdw)*(exp1-exp2)*rij;'. The CPU reference vdW_Coulomb_Energy() in src/REAXFF/reaxff_nonbonded.cpp:163-165 has 'CEvd = dTap * e_vdW - Tap * twbp->D * (twbp->alpha / twbp->r_vdW) * (exp1 - exp2) / r_ij;'. Both files use the identical dTap convention: 'dTap += d_tap[1]/rij' (KOKKOS:1233) / 'dTap += workspace->Tap[1]/r_ij' (CPU:137), i.e. dTap is (1/r) dTap/dr, so every term in fvdwl/CEvd must carry a 1/r. The shielded branch confirms this: it uses dfn13 = pow(...)*pow(r,p-2), which is d(fn13)/dr divided by r, matching CPU exactly. The neighbouring inner-wall and lg terms in the same KOKKOS kernel also use '/rij' (lines 1270, 1281). The table generator in this same file, LR_vdW_Coulomb(), also divides ('(exp1-exp2)/r_ij'). So the '*rij' is a genuine typo, wrong by a factor r^2. The 'else' branch is taken when gp.vdw_type is not 1 or 3, i.e. vdw_type==2 (inner wall, no shielding), and the analytic kernel is used whenever control->tabulate == 0, which is the LAMMPS default.",
+  "severity_agreed": "high",
+  "fix": "In src/KOKKOS/pair_reaxff_kokkos.cpp, in the no-shielding else branch of operator()(TagPairReaxComputeLJCoulomb...) change 'fvdwl = dTap*etmp-Tap*epsilon*(alpha/r_vdw)*(exp1-exp2)*rij;' to '... *(exp1-exp2)/rij;' (line ~1260)."
+ },
+ {
+  "id": "F0382",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 1596,
+  "reasoning": "Read the kernel and the allocation. TagPairReaxZero (pair_reaxff_kokkos.cpp:1591-1599) writes 'd_hb_num(n) = 0;' with no guard, and it is dispatched unconditionally from compute() at line 855 'Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxZero>(0,nmax),*this);'. allocate_array() (line 1530-1533) only creates the view inside 'if (cut_hbsq > 0.0) { MemKK::realloc_kokkos(d_hb_num,...); MemKK::realloc_kokkos(d_hb_list,...); }'. d_hb_num is a plain t_int_1d (pair_reaxff_kokkos.h:527), so when unallocated its data pointer is null. cut_hbsq comes straight from the control file at line 360 'cut_hbsq = api->control->hbond_cut*api->control->hbond_cut;' and doc/src/pair_reaxff.rst:332-335 documents 'hbond_cutoff ... A value of 0.0 turns off hydrogen bonds'. Every other d_hb_num use in the file is guarded (lines 1629, 1764, 1851, 1900, 3327 via the 'cut_hbsq > 0.0' tests). The CPU style handles hbond_cut==0 everywhere (src/REAXFF/reaxff_forces.cpp:51,179; reaxff_init_md.cpp:56; reaxff_allocate.cpp:281). I could find no compensating guard.",
+  "severity_agreed": "high",
+  "fix": "Either guard the write in TagPairReaxZero ('if (cut_hbsq > 0.0) d_hb_num(n) = 0;') or, simpler and branch-free on device, unconditionally allocate d_hb_num with size nmax in allocate_array() (keeping d_hb_list conditional)."
+ },
+ {
+  "id": "F0385",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 366,
+  "reasoning": "pair_reaxff_kokkos.cpp:365-366 reads 'thb_cut = static_cast<KK_FLOAT>(api->control->thb_cut); thb_cutsq = static_cast<KK_FLOAT>(0.000010); //thb_cut*thb_cut;' - thb_cut is taken from the control struct but thb_cutsq is a hardcoded literal. src/REAXFF/reaxff_control.cpp:101-102 parses the documented keyword 'thb_cutoff_sq' into control->thb_cutsq (default 1e-5 at reaxff_control.cpp:73 and pair_reaxff.cpp:202), and the CPU valence-angle kernel uses it: src/REAXFF/reaxff_valence_angles.cpp:222 '(bo_ij->BO * bo_jk->BO > control->thb_cutsq)'. The KOKKOS angular screen at pair_reaxff_kokkos.cpp:2574 'if (bo_ij <= thb_cut || bo_ik <= thb_cut || bo_ij * bo_ik <= thb_cutsq) continue;' therefore uses the frozen 1e-5. The keyword is documented in doc/src/pair_reaxff.rst:346. Because the hardcoded value equals the default, the divergence only shows with a non-default 'thb_cutoff_sq' in the control file - but then reaxff and reaxff/kk select different valence-angle triplets and give different energies/forces with no warning.",
+  "severity_agreed": "medium",
+  "fix": "Replace the literal with 'thb_cutsq = static_cast<KK_FLOAT>(api->control->thb_cutsq);' in PairReaxFFKokkos::setup() (line 366) and drop the stale '//thb_cut*thb_cut;' comment."
+ },
+ {
+  "id": "F0386",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 4403,
+  "reasoning": "Read the kernel and the CPU original. KOKKOS operator()(TagPairReaxFindBondSpecies) (pair_reaxff_kokkos.cpp:4390-4407): 'if (bo_tmp >= 0.10) { d_tmpid(i,nj) = j; d_tmpbo(i,nj) = bo_tmp; nj++; if (nj > MAXSPECBOND) k_error_flag.view<DeviceType>()() = 1; }'. The views are nmax x MAXSPECBOND (line 4350-4351), so the valid indices are 0..MAXSPECBOND-1; the write happens before the test, and the test is 'nj > MAXSPECBOND' rather than '>=', so index MAXSPECBOND is written before the flag is even set, and after the flag is set the loop keeps writing MAXSPECBOND+1, +2, ... for every remaining bond of that atom. The flag is only inspected after the whole parallel_for completes (FindBondSpecies(), lines 4372-4374 'if (k_error_flag.view_host()()) error->all(FLERR,\"Increase MAXSPECBOND in reaxff_defs.h\");'). The CPU version src/REAXFF/pair_reaxff.cpp:786-791 has the identical off-by-one but calls error->all() inline, so it overruns by exactly one element and stops. Since the 2D views are contiguous, the KOKKOS overrun silently clobbers the following atoms' rows and runs off the allocation for the last atom. MAXSPECBOND is 24 (src/REAXFF/reaxff_defs.h:54).",
+  "severity_agreed": "medium",
+  "fix": "Bound-check before writing and stop the loop: replace the body with 'if (bo_tmp >= 0.10) { if (nj >= MAXSPECBOND) { k_error_flag.view<DeviceType>()() = 1; break; } d_tmpid(i,nj) = j; d_tmpbo(i,nj) = bo_tmp; nj++; }'. The same '>' -> '>=' / write-after-check fix should be applied to src/REAXFF/pair_reaxff.cpp:786-791 for consistency."
+ },
+ {
+  "id": "F0388",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 509,
+  "reasoning": "Read all three sides. PairReaxFFKokkos::Init_Lookup_Tables() (pair_reaxff_kokkos.cpp:508-566) loops 'for (i = 1; i <= num_atom_types; ++i) for (j = i; j <= num_atom_types; ++j)' with no map[] test and calls 'LR_vdW_Coulomb(i, j, r*dr, &(LR[i][j].y[r]))'; LR_vdW_Coulomb (line 626) does 'twbp = &(api->system->reax_param.tbp[map[i]][map[j]]);'. map[i] is -1 for a type given as NULL in pair_coeff (src/REAXFF/pair_reaxff.cpp:179 'map[i] = -1', :296 'map[i-2] = -1'), so tbp[-1] is an out-of-bounds pointer read followed by a dereference. Every other place in the KOKKOS file that touches map[] guards it: the k_LR copy loop at lines 426-429 ('if (map[i] == -1) continue;' for both i and j) and Deallocate_Lookup_Tables at line 591 ('if ((map[i] == -1) || (map[j] == -1)) continue;'). The CPU reference src/REAXFF/reaxff_lookup.cpp:195-258 restricts the loops to types actually present via the 'aggregated[i]' MPI_Allreduce and sets 'LR[i][j].n = 0' in the else branch. The asymmetry between Init (no guard, allocates 6 arrays per pair) and Deallocate (guarded) is also a genuine leak of the unmapped pairs' arrays. Only reachable with control->tabulate != 0 (not the default) together with a NULL entry in pair_coeff.",
+  "severity_agreed": "medium",
+  "fix": "In Init_Lookup_Tables() add 'if (map[i] == -1) { continue; }' after the i loop head and, inside the j loop, 'if (map[j] == -1) { LR[i][j].n = 0; continue; }' (mirroring reaxff_lookup.cpp). Correspondingly drop the map[] test from Deallocate_Lookup_Tables() so the existing 'if (LR[i][j].n)' guard alone decides what is freed."
+ },
+ {
+  "id": "F0396",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 2208,
+  "reasoning": "Read the kernel and traced the zeroing. operator()(TagPairReaxBondOrder2) ends its neighbour loop with 'd_Cdbo(i,j_index)=0.0; d_Cdbopi(i,j_index)=0.0; d_Cdbopi2(i,j_index)=0.0; d_CdDelta[j] = 0.0;' followed by 'd_CdDelta[i] = 0.0;' (pair_reaxff_kokkos.cpp:2205-2210). d_CdDelta[j] is indexed by the *neighbour*, so every thread whose atom has j as a neighbour writes it concurrently with the thread that owns j - an unsynchronised concurrent write (benign only because the stored value is always 0.0; still UB by the C++ memory model and flagged by TSan/compute-sanitizer racecheck). It is also dead: TagPairReaxZero already sets 'd_CdDelta(n) = 0;' for n in [0,nmax) (line 1594) and is dispatched at line 855, before BondOrder1/2/3 at lines 913-915; nmax >= atom->nmax >= nlocal+nghost (setup(), line 370-373), so all j and i indices reachable here are covered. I found no path in between that writes d_CdDelta.",
+  "severity_agreed": "low",
+  "fix": "Delete 'd_CdDelta[j] = 0.0;' from the neighbour loop and 'd_CdDelta[i] = 0.0;' after it in operator()(TagPairReaxBondOrder2); TagPairReaxZero already covers both."
+ },
+ {
+  "id": "F0397",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 4029,
+  "reasoning": "PairReaxFFKokkos<DeviceType>::v_tally3_atom() is defined at pair_reaxff_kokkos.cpp:4029-4050 and declared at pair_reaxff_kokkos.h:437; grep over src/ finds no call site anywhere (the only other v_tally3_atom symbols belong to the tersoff/tersoff_mod/tersoff_zbl KOKKOS styles). Its per-atom branch is 'if (vflag_atom) { for (int n = 0; n < 6; n++) d_vatom(i,n) += v[n]; }' - a plain non-atomic read-modify-write on the raw view, whereas the live helpers in the same file (v_tally, v_tally3, v_tally4 at lines ~3934, ~3952, ~4013) all obtain 'a_vatom' through ScatterViewHelper/access<AtomicDup_v<NEIGHFLAG,DeviceType>>. So it is dead code that would be racy under HALFTHREAD/GPU if wired up. It is also not templated on NEIGHFLAG, which is why it cannot use the scatter view as written.",
+  "severity_agreed": "low",
+  "fix": "Remove v_tally3_atom entirely (declaration in pair_reaxff_kokkos.h and definition in pair_reaxff_kokkos.cpp). If it is wanted for future use, template it on NEIGHFLAG and route the d_vatom accumulation through ScatterViewHelper like v_tally3/v_tally4."
+ },
+ {
+  "id": "F0398",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 2769,
+  "reasoning": "In operator()(TagPairReaxComputeAngularPreprocessed...) the atom indices are decoded at pair_reaxff_kokkos.cpp:2739-2741 'const int i = pack.i0; const int j = pack.i1; const int k = pack.i2;' and then line 2769 declares 'for (int j = 0; j < 3; j++) fitmp[j] = 0.0;' and line 2783 'for (int k = 0; k < 3; k++) fjtmp[k] = 0.0;'. Both loop counters shadow the outer atom indices. The current code is numerically correct because the atom-index uses (x(j,0) at 2771-2773, x(k,0) at 2785-2787) are outside the loop bodies, but the shadowing is a real maintenance hazard and inconsistent with the rest of the kernel, which uses other counter names.",
+  "severity_agreed": "low",
+  "fix": "Rename the two counters, e.g. 'for (int d = 0; d < 3; d++) fitmp[d] = 0.0;' and 'for (int d = 0; d < 3; d++) fjtmp[d] = 0.0;' in operator()(TagPairReaxComputeAngularPreprocessed...)."
+ },
+ {
+  "id": "F0403",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 775,
+  "reasoning": "The code shape is exactly as described: one 'EV_FLOAT_REAX ev;' declared at line 775 is reused by every section, each section is 'if (<flag>) parallel_reduce(...,ev); else parallel_for(...);' followed by an unconditional 'ev_all += ev;' (lines 790, 818, 924/931, 941/948, 992/998, 1011/1017, 1030/1036, 1057/1066). Kokkos::parallel_reduce overwrites the result variable, so after a parallel_for branch ev still holds the previous section's reduction. I tried to find a reachable miscount and could not: every write to ev.evdwl/ev.ecoul/ev.ereax[] inside the kernels is guarded by eflag_global (lines 1148, 1339-1340, 1493-1494, 2329, 2345, 2366, 2408, 2854, 2870, 2893, 3163, 3189, 3402, 3564, 3586), and eflag_global implies eflag_either/evflag, so whenever a section falls into its parallel_for branch the leftover ev necessarily has evdwl=ecoul=ereax=0. Every write to ev.v[] is guarded by vflag_global (lines 3842, 3924, 3964, 4003), and ev_setup() at lines 4100-4104 forces vflag_global = 0 on the VIRIAL_FDOTR path; since PairReaxFF::init_style errors out unless newton pair is on (src/REAXFF/pair_reaxff.cpp:364-365), virial_style is always VIRIAL_FDOTR, so vflag_global is always 0 here and ev.v[] is never written at all. ev_all.ereax[] is never read (only evdwl/ecoul/v are consumed at lines 1073-1082). So this is a real fragility/robustness defect but produces no wrong numbers today - the severity and the 'adds the previous section's reduction result a second time' phrasing should be softened to 'adds a provably-zero leftover'.",
+  "severity_agreed": "low",
+  "fix": "Reset the accumulator at the start of each section ('ev = EV_FLOAT_REAX();' before each dispatch block) or move each 'ev_all += ev;' (and the pvector assignments that read ev) inside the corresponding parallel_reduce branch in PairReaxFFKokkos::compute()."
+ },
+ {
+  "id": "F0404",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 1633,
+  "reasoning": "pair_reaxff_kokkos.h:118 'using blocking_t = unsigned short int;' and pair_reaxff_kokkos.cpp:1633/1768 'blocking_t selected_jj[blocksize];' with 'selected_jj[nnz] = jj_current;' (lines 1653, 1789), where jj_current runs over [0, jnum) and jnum = d_numneigh[i] (line 1621). So yes, a neighbor index >= 65536 would be silently truncated and the loop at line 1662 would then fetch the wrong neighbor. The stored quantity is a neighbor-list index, not a bounded block offset, so the type is genuinely too narrow in principle. However, reaching it requires an atom with 65536 entries in its ReaxFF neighbor list, whose cutoff is max(bond_cut, hbond_cut) <= nonb_cut (default 10 A); at a realistic ReaxFF density (~0.1 atom/A^3) that is a few hundred neighbours, and even a 50 A cutoff stays below the limit. I therefore downgrade this to a latent type-width issue with no practically reachable failure, not an overflow bug.",
+  "severity_agreed": "low",
+  "fix": "Either widen the buffer element type ('using blocking_t = int;' in pair_reaxff_kokkos.h:118 - the arrays are only 64 and 8 entries long, so there is no meaningful register/stack cost) or add a one-time check that d_numneigh[i] fits in blocking_t."
+ },
+ {
+  "id": "F0506",
+  "file": "src/KOKKOS/pair_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 1596,
+  "reasoning": "Read the kernel and the allocation. TagPairReaxZero (pair_reaxff_kokkos.cpp:1591-1599) writes 'd_hb_num(n) = 0;' with no guard, and it is dispatched unconditionally from compute() at line 855 'Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairReaxZero>(0,nmax),*this);'. allocate_array() (line 1530-1533) only creates the view inside 'if (cut_hbsq > 0.0) { MemKK::realloc_kokkos(d_hb_num,...); MemKK::realloc_kokkos(d_hb_list,...); }'. d_hb_num is a plain t_int_1d (pair_reaxff_kokkos.h:527), so when unallocated its data pointer is null. cut_hbsq comes straight from the control file at line 360 'cut_hbsq = api->control->hbond_cut*api->control->hbond_cut;' and doc/src/pair_reaxff.rst:332-335 documents 'hbond_cutoff ... A value of 0.0 turns off hydrogen bonds'. Every other d_hb_num use in the file is guarded (lines 1629, 1764, 1851, 1900, 3327 via the 'cut_hbsq > 0.0' tests). The CPU style handles hbond_cut==0 everywhere (src/REAXFF/reaxff_forces.cpp:51,179; reaxff_init_md.cpp:56; reaxff_allocate.cpp:281). I could find no compensating guard.",
+  "severity_agreed": "high",
+  "fix": "Either guard the write in TagPairReaxZero ('if (cut_hbsq > 0.0) d_hb_num(n) = 0;') or, simpler and branch-free on device, unconditionally allocate d_hb_num with size nmax in allocate_array() (keeping d_hb_list conditional)."
+ },
+ {
+  "id": "F0335",
+  "file": "src/KOKKOS/pair_gran_hooke_history_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 353,
+  "reasoning": "Read both sides. CPU PairGranHookeHistory::compute() refreshes body masses at src/GRANULAR/pair_gran_hooke_history.cpp:127-146 ('if (fix_rigid && neighbor->ago == 0) { body = fix_rigid->extract(\"body\"...); mass_body = fix_rigid->extract(\"masstotal\"...); ... comm->forward_comm(this); }') and uses them at :230-243 'mi = rmass[i]; mj = rmass[j]; if (fix_rigid) { if (mass_rigid[i] > 0.0) mi = mass_rigid[i]; if (mass_rigid[j] > 0.0) mj = mass_rigid[j]; } meff = mi*mj/(mi+mj);'. fix_rigid is discovered in PairGranHookeHistory::init_style() (:477-485), which the KOKKOS init_style does call. The KOKKOS kernel uses only the bare per-particle masses: 'const KK_FLOAT imass = rmass[i];' (line 274), 'const KK_FLOAT jmass = rmass[j];' (line 306), 'KK_FLOAT meff = imass*jmass / (imass+jmass);' (line 353). grep over all of src/KOKKOS finds no mass_rigid/fix_rigid use in any granular pair style, and PairGranHookeHistoryKokkos::init_style() (lines 63-93) adds no diagnostic - its only error is the FULL-neighbor-list check. So the divergence is real and silent. The same holds for pair_gran_hertz_history_kokkos.cpp and pair_gran_hooke_kokkos.cpp. This combination is realistic because KOKKOS fix rigid/small variants exist (src/KOKKOS/fix_rigid_*_small_kokkos).",
+  "severity_agreed": "high",
+  "fix": "Either (a) port mass_rigid: add a DualView filled in compute() when 'fix_rigid && neighbor->ago == 0' from fix_rigid->extract(\"body\")/extract(\"masstotal\"), forward-comm it, and apply 'if (mass_rigid[i] > 0.0) mi = mass_rigid[i];' before computing meff in the kernel; or (b) as a stop-gap, error->all() in PairGranHookeHistoryKokkos::init_style() when fix_rigid is non-null. Apply to pair_gran_hooke_history_kokkos, pair_gran_hertz_history_kokkos and pair_gran_hooke_kokkos alike."
+ },
+ {
+  "id": "F0338",
+  "file": "src/KOKKOS/pair_gran_hooke_history_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 142,
+  "reasoning": "Confirmed the type: src/pair.h:247 'int special_lj[4];  // copied from force->special_lj for Kokkos' while src/force.h:116 'double special_lj[4];'. pair_gran_hooke_history_kokkos.cpp:142-145 assigns the doubles into that int array, and pair_gran_hooke_history_kokkos.h declares no shadowing member (unlike ~100 other KOKKOS pair headers, e.g. pair_born_kokkos.h:89 'KK_FLOAT special_lj[4];'). The kernel then does 'KK_FLOAT factor_lj = static_cast<KK_FLOAT>(special_lj[sbmask(j)]);' (line 297), 'if (factor_lj == 0) continue;' (line 300) and later scales 'fx *= factor_lj; ... tor3 *= factor_lj;' (lines 425-437). The CPU style uses the double values for exactly the same scaling (src/GRANULAR/pair_gran_hooke_history.cpp:179-182, 314-326). So a fractional special_bonds factor (e.g. 0.5) truncates to 0 and the contact is dropped instead of scaled - and the shear history is zeroed differently too. Only the default factors (1.0 and 0.0) survive truncation, so this needs bonded granular particles to bite, which is why I rate it lower than the original.",
+  "severity_agreed": "low",
+  "fix": "Add 'KK_FLOAT special_lj[4];' to src/KOKKOS/pair_gran_hooke_history_kokkos.h, pair_gran_hertz_history_kokkos.h and pair_gran_hooke_kokkos.h so the double factors survive. NOTE: src/KOKKOS/pair_table_kokkos.cpp:124-127 has the same defect and no shadow member in pair_table_kokkos.h, where fractional special_bonds factors ARE common (pair_kokkos.h:156 etc. read c.special_lj) - that instance deserves its own fix and is more serious than the granular ones."
+ },
+ {
+  "id": "F0339",
+  "file": "src/KOKKOS/pair_gran_hooke_history_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 160,
+  "reasoning": "grep -rn 'neighbors_touch|numneigh_touch' over all of src/ returns exactly six lines: the two member declarations in pair_gran_hooke_history_kokkos.h:90-91 and pair_gran_hertz_history_kokkos.h:90-91, and the identical five-line allocation block at pair_gran_hooke_history_kokkos.cpp:160-164 and pair_gran_hertz_history_kokkos.cpp:160-164. No kernel, no header, nothing else references them, so they are written only by the allocation itself. d_neighbors_touch is created as 'typename AT::t_neighbors_2d(\"pair:neighbors_touch\", d_neighbors.extent(0), d_neighbors.extent(1))', i.e. a fresh allocation the same size as the entire int neighbor list, redone whenever the list is resized. Purely wasted memory (and on GPU the neighbor list is typically the largest allocation), no correctness impact.",
+  "severity_agreed": "medium",
+  "fix": "Delete the d_neighbors_touch / d_numneigh_touch members (pair_gran_hooke_history_kokkos.h:90-91, pair_gran_hertz_history_kokkos.h:90-91) and the allocation block at lines 160-164 of both .cpp files."
+ },
+ {
+  "id": "F0351",
+  "file": "src/KOKKOS/pair_gran_hooke_history_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 166,
+  "reasoning": "pair_gran_hooke_history_kokkos.cpp:166-172 does 'fix_historyKK->k_firstflag.template sync<DeviceType>(); fix_historyKK->k_firstvalue.template sync<DeviceType>(); d_firsttouch = ...view<DeviceType>(); d_firstshear = ...view<DeviceType>(); Kokkos::deep_copy(d_firsttouch,0);' and the kernel then writes both views (lines 313-315 'd_firstshear(i,3*jj) = 0;', 319 'd_firsttouch(i,jj) = 1;', 415-417 shear update). Reading compute() through to its end (lines 236-256: virial handling, k_vatom modify/sync, pair_virial_fdotr_compute, copymode = 0) there is no modify<DeviceType>() on either DualView, whereas FixNeighHistoryKokkos::post_neighbor() does exactly that after its own kernel (fix_neigh_history_kokkos.cpp:237-238). I checked whether it can bite today: grep shows no modify_host()/sync_host() anywhere for k_firstflag/k_firstvalue, so the DualViews stay permanently device-modified after post_neighbor() and every later sync<DeviceType>() (fix_neigh_history_kokkos.cpp:110-111, 198-199) is a no-op. So the omission is currently masked - a protocol violation and a latent hazard, not a live bug. Same omission in pair_gran_hertz_history_kokkos.cpp:166-172.",
+  "severity_agreed": "low",
+  "fix": "After the dispatch block in compute() (before 'copymode = 0;') add 'fix_historyKK->k_firstflag.template modify<DeviceType>(); fix_historyKK->k_firstvalue.template modify<DeviceType>();' in both pair_gran_hooke_history_kokkos.cpp and pair_gran_hertz_history_kokkos.cpp."
+ },
+ {
+  "id": "F0271",
+  "file": "src/KOKKOS/improper_cvff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 278,
+  "reasoning": "Read the kernel and both class declarations. Line 278 'if (sign[type] == -1) { p = 2.0 - p; pd = -pd; }' sits inside ImproperCvffKokkos<DeviceType>::operator()(TagImproperCvffCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const, which is declared KOKKOS_INLINE_FUNCTION at line 160. 'sign' is not a member of ImproperCvffKokkos - the KOKKOS header only declares 'DAT::tdual_int_1d k_sign,k_multiplicity;' (improper_cvff_kokkos.h:88) and 'typename AT::t_int_1d d_sign,d_multiplicity;' (:91) - so it resolves to the host-only raw pointer 'int *sign, *multiplicity;' in src/MOLECULE/improper_cvff.h:40, allocated with memory->create in ImproperCvff::allocate. The device mirror is fully maintained but never read: allocated at improper_cvff_kokkos.cpp:366/370, filled and marked host-modified in coeff() (:388,393) and read_restart() (:409,414), and synced to device in compute() at :92 'k_sign.template sync<DeviceType>();'. The sibling array is used correctly 31 lines above: 'const int m = d_multiplicity[type];' (:247). I checked the other KOKKOS bonded styles with the same shape (dihedral_charmm/charmmfsw/harmonic, angle_cosine_periodic) and they all use the d_ views; improper_cvff is the only offender. On a CUDA/HIP build without managed memory this dereferences a host address from device code: illegal memory access, or wrong signs. A host-space Kokkos build is unaffected, which is why unit tests can pass.",
+  "severity_agreed": "high",
+  "fix": "In src/KOKKOS/improper_cvff_kokkos.cpp change line 278 from 'if (sign[type] == -1) {' to 'if (d_sign[type] == -1) {', matching the d_multiplicity[type] usage on line 247."
+ },
+ {
+  "id": "F0466",
+  "file": "src/KOKKOS/improper_cvff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 278,
+  "reasoning": "Read the kernel and both class declarations. Line 278 'if (sign[type] == -1) { p = 2.0 - p; pd = -pd; }' sits inside ImproperCvffKokkos<DeviceType>::operator()(TagImproperCvffCompute<NEWTON_BOND,EVFLAG>, const int &n, EV_FLOAT& ev) const, which is declared KOKKOS_INLINE_FUNCTION at line 160. 'sign' is not a member of ImproperCvffKokkos - the KOKKOS header only declares 'DAT::tdual_int_1d k_sign,k_multiplicity;' (improper_cvff_kokkos.h:88) and 'typename AT::t_int_1d d_sign,d_multiplicity;' (:91) - so it resolves to the host-only raw pointer 'int *sign, *multiplicity;' in src/MOLECULE/improper_cvff.h:40, allocated with memory->create in ImproperCvff::allocate. The device mirror is fully maintained but never read: allocated at improper_cvff_kokkos.cpp:366/370, filled and marked host-modified in coeff() (:388,393) and read_restart() (:409,414), and synced to device in compute() at :92 'k_sign.template sync<DeviceType>();'. The sibling array is used correctly 31 lines above: 'const int m = d_multiplicity[type];' (:247). I checked the other KOKKOS bonded styles with the same shape (dihedral_charmm/charmmfsw/harmonic, angle_cosine_periodic) and they all use the d_ views; improper_cvff is the only offender. On a CUDA/HIP build without managed memory this dereferences a host address from device code: illegal memory access, or wrong signs. A host-space Kokkos build is unaffected, which is why unit tests can pass.",
+  "severity_agreed": "high",
+  "fix": "In src/KOKKOS/improper_cvff_kokkos.cpp change line 278 from 'if (sign[type] == -1) {' to 'if (d_sign[type] == -1) {', matching the d_multiplicity[type] usage on line 247."
+ },
+ {
+  "id": "F0206",
+  "file": "src/KOKKOS/fix_reaxff_bonds_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 72,
+  "reasoning": "Read both versions of Output_ReaxFF_Bonds(). The base FixReaxFFBonds::Output_ReaxFF_Bonds() (src/REAXFF/fix_reaxff_bonds.cpp:149-152) does 'numbonds = FindBond();' then '// no file output with NULL file name.\\n  if (filename == \"NULL\") return;' before the MPI_Allreduce/buffer/RecvBuffer sequence. FixReaxFFBondsKokkos::Output_ReaxFF_Bonds() (src/KOKKOS/fix_reaxff_bonds_kokkos.cpp, whole function read) goes straight from FindBond_kokkos() to MPI_Allreduce, create_kokkos, PackBondBuffer and RecvBuffer, with no filename test anywhere in the file. RecvBuffer (src/REAXFF/fix_reaxff_bonds.cpp:262-278) then does 'std::string myfile = filename; ... fp = fopen(myfile.c_str(), \"w\")', so rank 0 creates a file literally named NULL and writes the full bond table into it every nevery steps. 'NULL' is a documented option added in the 11Feb2026 release (doc/src/fix_reaxff_bonds.rst:73-77: 'If the filename is \"NULL\", then no output is created.'), which the KOKKOS override was not updated for. FixReaxFFBondsKokkos does not override RecvBuffer, so nothing compensates.",
+  "severity_agreed": "medium",
+  "fix": "In FixReaxFFBondsKokkos::Output_ReaxFF_Bonds(), immediately after the FindBond_kokkos() calls, add '// no file output with NULL file name\\n  if (filename == \"NULL\") return;' - matching src/REAXFF/fix_reaxff_bonds.cpp:151-152."
+ },
+ {
+  "id": "F0207",
+  "file": "src/KOKKOS/fix_reaxff_bonds_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 58,
+  "reasoning": "FixReaxFFBonds::image() (src/REAXFF/fix_reaxff_bonds.cpp:377-383+) starts 'if (atom->map_style == Atom::MAP_NONE) error->all(...); if (!numobjs) return 0;' and then walks 'numneigh[i]' / 'neighid[i][jj]'. numobjs is initialised to 0 in the constructor (line 54) and is only ever recomputed inside FixReaxFFBonds::FindBond() (line 187 'numobjs = 0;', line 206 'numobjs += nj;'), which is called only from the base Output_ReaxFF_Bonds() (line 149). FixReaxFFBondsKokkos overrides Output_ReaxFF_Bonds() and calls PairReaxFFKokkos::FindBond_kokkos()/PackBondBuffer() instead, never FindBond(); it also never touches numneigh/neighid (both are only zeroed/filled in the base path at lines 142-148 and inside FindBond). The KOKKOS header (src/KOKKOS/fix_reaxff_bonds_kokkos.h) overrides only init(), Output_ReaxFF_Bonds() and memory_usage() - image() is not overridden. So image() always returns 0 and 'dump image ... bonds fix' silently draws no ReaxFF bonds with reaxff/bonds/kk, while the non-kk fix draws them. The dump-image support is documented at doc/src/fix_reaxff_bonds.rst:78-100 (versionadded 11Feb2026).",
+  "severity_agreed": "medium",
+  "fix": "Either override image() in FixReaxFFBondsKokkos so it builds numobjs/numneigh/neighid from the pair style's device bond data (sync to host first, e.g. reuse the PackBondBuffer data or add a host-side FindBond equivalent), or have FixReaxFFBondsKokkos::init() emit a clear error/warning when the fix is referenced by a dump image 'fix' keyword."
+ },
+ {
+  "id": "F0216",
+  "file": "src/KOKKOS/fix_reaxff_bonds_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 95,
+  "reasoning": "FixReaxFFBonds's constructor ends with 'allocate();' (src/REAXFF/fix_reaxff_bonds.cpp:68), and allocate() creates abo(nmax x 24 double), neighid(nmax x 24 tagint) and numneigh(nmax) (MAXREAXBOND is 24, src/REAXFF/reaxff_defs.h:53). allocate()/destroy() are non-virtual (src/REAXFF/fix_reaxff_bonds.h:50-51) and FixReaxFFBondsKokkos does not redeclare them, so a reaxff/bonds/kk fix owns all three host arrays; nothing in the KOKKOS path reads or writes them (its Output_ReaxFF_Bonds() uses PairReaxFFKokkos::FindBond_kokkos/PackBondBuffer only). FixReaxFFBondsKokkos::memory_usage() reports only 'nbuf*sizeof(double)' and comments the other three terms out with '// These are accounted for in PairReaxFFKokkos:' - which is wrong, the fix still owns them. Correction to the finding: they are allocated once at construction but NOT grown, because the 'if (atom->nmax > nmax) { destroy(); nmax = atom->nmax; allocate(); }' block lives in the base Output_ReaxFF_Bonds() (lines 135-139) that the KOKKOS class overrides; so the waste is fixed at the construction-time nmax (~200 bytes/atom) rather than growing. No correctness impact - the arrays are simply never read.",
+  "severity_agreed": "low",
+  "fix": "Make FixReaxFFBonds::allocate()/destroy() virtual and override them as no-ops in FixReaxFFBondsKokkos (setting numneigh/neighid/abo to nullptr), or keep the allocation and restore the three commented-out terms in FixReaxFFBondsKokkos::memory_usage(). Note this interacts with F0207: if image() is implemented for the KOKKOS class it will need numneigh/neighid after all."
+ },
+ {
+  "id": "F0147",
+  "file": "src/KOKKOS/tune_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 99,
+  "reasoning": "tune_kokkos.cpp:96-104 is exactly as quoted: 'if (comm->me == 0) { std::string filename = fmt::format(\"tuning-{}.log\", my_name); tuning_logfile = fopen(filename.c_str(),\"w\"); if (tuning_logfile == nullptr) error->all(FLERR,\"Cannot open tuning logfile {}: {}\", filename.c_str(), utils::getsyserror()); } else { tuning_logfile = nullptr; }'. I checked Error::all in src/error.cpp: its very first statement is 'MPI_Barrier(world);'. Only rank 0 can reach it here, so rank 0 blocks in that barrier while the other ranks return from the constructor into allocate() and the run - a genuine deadlock, not merely an untidy error class. error->one() (Error::one) does not barrier and is the documented choice for a single-rank failure. The raw fopen/fclose (constructor line 98, destructor lines 115-118) is a secondary style issue: the project rule prefers SafeFilePtr (src/safe_pointers.h) for FILE* members. I checked the rest of the file for a compensating broadcast of the open status - there is none; all other tuning_logfile writes are correctly guarded by 'if (tuning_logfile)' or 'comm->me == 0'.",
+  "severity_agreed": "medium",
+  "fix": "Change the error->all(FLERR,...) at tune_kokkos.cpp:100-102 to error->one(FLERR,...) (or MPI_Bcast the open-failure flag and call error->all on every rank). Optionally hold tuning_logfile in a SafeFilePtr so the destructor's manual fclose can go away."
+ },
+ {
+  "id": "F0159",
+  "file": "src/KOKKOS/tune_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 465,
+  "reasoning": "TuneKokkos::get_optimal_combination_idx() (tune_kokkos.cpp:460-502) seeds 'opt_perf = performance[0][0]; int opt_idx = 0;' with a single raw sample, then loops over combinations computing p_i as the max (MAX_VALUE), mean (AVERAGE_VALUE) or median (MEDIAN_VALUE) of that combination's samples and only updates via 'if (p_i > opt_perf) { opt_perf = p_i; opt_idx = i; }'. For MAX_VALUE the seed is harmless (p_0 >= performance[0][0] so the result is consistent). For AVERAGE_VALUE and MEDIAN_VALUE p_0 <= max sample of row 0, so a high outlier in performance[0][0] is never replaced: opt_perf keeps the outlier, and opt_idx stays 0 even when some other combination's representative value beats combination 0's. opt_perf is a member consumed by regular_performance_check() at lines 545-550 'diff = (opt_perf - perf) / opt_perf;' and line 550 'if (diff > relative_tolerance)' -> an inflated opt_perf makes every later check report degradation and re-trigger the scan (lines 569-573). (Note in MEDIAN mode std::sort also permutes performance[0] in place, but that happens after the seed is taken, so it does not change the analysis.) Impact is confined to the auto-tuning heuristic - no physics results change.",
+  "severity_agreed": "low",
+  "fix": "Replace 'opt_perf = performance[0][0];' at tune_kokkos.cpp:465 with 'opt_perf = -1.0;' so the loop's 'if (p_i > opt_perf)' always assigns on i == 0 (equivalently, compute p_0 first and seed with it)."
+ },
+ {
+  "id": "F0495",
+  "file": "src/EXTRA-PAIR/pair_lj_expand_sphere.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 122,
+  "reasoning": "Derived the gradient and cross-checked every sibling. Energy tallied by the style: 'evdwl = r6inv*(lj3*r6inv - lj4)' with lj3 = 4*eps*sigma^12, lj4 = 4*eps*sigma^6 and r6inv = 1/rshift^6 (init_one, pair_lj_expand_sphere.cpp:266-269), i.e. E(rshift) = 4eps[(sigma/rshift)^12 - (sigma/rshift)^6]. Then dE/drshift = -(1/rshift)*r6inv*(lj1*r6inv - lj2) = -forcelj/rshift with lj1 = 48*eps*sigma^12, lj2 = 24*eps*sigma^6. Since rshift = r - radius[i] - radius[j], drshift/dr = 1, so the scalar multiplying del must be -(1/r)dE/dr = forcelj/(rshift*r). The code has 'fpair = factor_lj * forcelj * rshift / r;' (line 122) and 'fforce = factor_lj * forcelj * rshift / r;' in single() (line 396) - wrong by a factor rshift^2. Every sibling with the identical energy form divides: src/pair_lj_expand.cpp:115 and :409 'forcelj / rshift / r' (with the same lj1/lj2 definitions, lines 235-236), src/EXTRA-PAIR/pair_lj_expand_coul_long.cpp:169,276,371,506,576,953 'forcelj *= factor_lj/rshift/r', src/KOKKOS/pair_lj_expand_kokkos.cpp:158 and src/KOKKOS/pair_lj_expand_coul_long_kokkos.cpp:182 'return forcelj/rshift/r'. The defect is mirrored in both accelerator ports: src/OPENMP/pair_lj_expand_sphere_omp.cpp:149 and src/KOKKOS/pair_lj_expand_sphere_kokkos.cpp:154 'return r6inv*(lj1*r6inv - lj2) * rshift / r;'. So this is an upstream CPU bug faithfully copied, not a KOKKOS port defect.",
+  "severity_agreed": "high",
+  "fix": "Change '* rshift / r' to '/ rshift / r' in all four places: src/EXTRA-PAIR/pair_lj_expand_sphere.cpp:122 (compute) and :396 (single), src/OPENMP/pair_lj_expand_sphere_omp.cpp:149, and src/KOKKOS/pair_lj_expand_sphere_kokkos.cpp:154 (compute_fpair). The reference values in unittest/force-styles/tests/atomic-pair-lj_expand_sphere.yaml were generated from the current code and must be regenerated afterwards."
+ },
+ {
+  "id": "F0046",
+  "file": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 99,
+  "reasoning": "BondHarmonicRestrainKokkos::compute() (bond_harmonic_restrain_kokkos.cpp:89-108) does, unconditionally on every call: 'const double *const *const x0 = initial->astore;' then 'const int n_sync = atom->nlocal + atom->nghost; auto h_x0 = k_x0.view_host(); for (int i = 0; i < n_sync; i++) { h_x0(i,0) = static_cast<KK_FLOAT>(x0[i][0]); ... } k_x0.modify_host(); k_x0.template sync<DeviceType>();'. There is no ntimestep/neighbor->ago guard anywhere in the function, and modify_host() forces the sync to be a real H2D copy every step. The data being copied is FixStoreAtom's per-atom array, which only changes when atoms migrate or are re-sorted, i.e. at reneighbouring. So the cost is real and avoidable: an O(nlocal+nghost) scalar host loop plus a 3*(nlocal+nghost) H2D transfer per timestep, comparable to the x transfer that the KOKKOS package exists to avoid. Correctness is unaffected.",
+  "severity_agreed": "low",
+  "fix": "Guard the refill+sync so it only runs when the atom ordering can have changed - e.g. keep a member 'bigint x0_synced_step' and refill when 'neighbor->ago == 0' or when the stored step is stale (also on the first call and after any k_x0 reallocation). Everything else in compute() can stay as is."
+ },
+ {
+  "id": "F0050",
+  "file": "src/KOKKOS/bond_harmonic_restrain_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 243,
+  "reasoning": "Read both. The device helper BondHarmonicRestrainKokkos<DeviceType>::minimum_image() (bond_harmonic_restrain_kokkos.cpp:242-293) uses a single 'if (Kokkos::abs(dx) > xprd_half) { ... }' per dimension, in both the orthogonal branch (lines 245-262) and all three triclinic branches (lines 263-292). Domain::minimum_image(const std::string&,int,double&,double&,double&) (src/domain.cpp:1215-1288) uses 'while (fabs(dx) > xprd_half) { ... }' for each dimension and additionally raises 'error->one(file, line, \"Atoms have moved too far apart ({}) for minimum image\")' when |d| > MAXIMGCOUNT*prd (MAXIMGCOUNT = 16). The CPU base style calls exactly that function on the stored initial positions: src/EXTRA-MOLECULE/bond_harmonic_restrain.cpp:78 'domain->minimum_image(FLERR, delx, dely, delz);' (and :239 in single()), while the KOKKOS kernel calls its own helper at line 191 on dx0/dy0/dz0. So the divergence is real: a single wrap is equivalent only while |d| < 1.5*prd, and the diagnostic is silently dropped. Since the wrapped quantity is the separation of two bonded atoms' stored initial positions, exceeding 1.5 box lengths needs a shrinking box (fix deform/npt after the reference positions were stored) or unwrapped x0 - possible but not routine, hence low severity.",
+  "severity_agreed": "low",
+  "fix": "Turn each 'if (Kokkos::abs(d?) > ?prd_half)' in BondHarmonicRestrainKokkos::minimum_image() into a 'while (...)' loop, matching Domain::minimum_image for both the orthogonal and the triclinic branches. Optionally set a device error flag when |d| > 16*prd and report it on the host after the kernel, to preserve the 'Atoms have moved too far apart' diagnostic."
+ },
+ {
+  "id": "F0299",
+  "file": "src/KOKKOS/npair_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 779,
+  "reasoning": "Confirmed on both sides. In the team (GPU) kernel build_ItemGPU the shared buffer is 'auto* sharedmem = static_cast<double *>(dev.team_shmem().get_shmem(sharedsize)); ... double* other_x = sharedmem + 6*atoms_per_bin*MY_BIN;' (npair_kokkos.cpp:621,634) and the tag is staged through it: line 664-665 'itag = tag(i); other_x[MY_II + 4 * atoms_per_bin] = itag;', line 755 'other_x[MY_II + 4 * atoms_per_bin] = tag(j);', then read back at line 779 'const tagint jtag = other_x[m + 4 * atoms_per_bin];'. The same pattern exists in the size (finite-particle) team kernel at lines 1388-1389 and 1481-1483/1507 (slot 5 there). The flat/serial path does not round-trip: line 532 'const tagint jtag = tag(j);' and line 1258 likewise. With -DLAMMPS_BIGBIG, 'using tagint = int64_t;' (src/lmptype.h:157), so any tag above 2^53 is not exactly representable in a double; both the ordering test 'if (itag > jtag)' and, more importantly, the parity test '(itag+jtag) % 2' (which depends on the lowest bit) can then disagree with what the other owner of the pair computes, so an owned/ghost pair is stored twice or dropped from a half/newton/triclinic list. Note itag itself is kept in a tagint local on the writing side, so only jtag is corrupted - the asymmetry is exactly what breaks the tie-break. Reachability is narrow: it needs LAMMPS_BIGBIG plus atom IDs above 2^53, which only arise from explicitly assigned large IDs, not from atom counts.",
+  "severity_agreed": "low",
+  "fix": "Do not stage tags in the double buffer. Either read 'const tagint jtag = tag(j);' directly in the HalfNeigh&&Newton&&Tri branch (lines 779 and 1507) - j is already available as other_id[m] - or carve a separate tagint-typed slice out of the shared memory block next to other_id, adjusting the sharedsize computation (npair_kokkos.cpp:272, 293, ... 'atoms_per_bin * N * sizeof(double) * factor') accordingly."
+ },
+ {
+  "id": "F0300",
+  "file": "src/KOKKOS/npair_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 632,
+  "reasoning": "The divergence is real. In build_ItemGPU: 'const int BINS_PER_TEAM = dev.team_size()/atoms_per_bin <1?1:dev.team_size()/atoms_per_bin; const int MY_BIN = dev.team_rank()/atoms_per_bin; const int ibin = dev.league_rank()*BINS_PER_TEAM+MY_BIN; if (ibin >= mbins) return;' (npair_kokkos.cpp:626-632). The launch uses 'Kokkos::TeamPolicy<DeviceType> config((mbins+factor-1)/factor, team_size)' with team_size = atoms_per_bin*factor and factor = (atoms_per_bin < 64 ? 2 : 1) (lines 263-264, 297-299), so BINS_PER_TEAM == factor and, when factor == 2 and mbins is odd, exactly the MY_BIN==1 half of the last team returns before the block-wide collectives at line 671 '__syncthreads_count(...)' and lines 737/760/833 'dev.team_barrier()'. Same shape in the size kernel (lines ~992, ~1352). BUT the finding's failure scenario is wrong: I traced what the partial count yields. The threads that exit are precisely those whose ibin is out of range; had they stayed, their predicate 'i >= 0 && i < nlocal' would have been meaningless (c_bins(mbins,...) is out of range). On CUDA/HIP exited lanes contribute 0 to __syncthreads_count and are not awaited by the block barrier, so the surviving MY_BIN==0 threads get exactly the count for their own bin and the early-return branch is taken only when it should be. Nothing is skipped - which is consistent with the fact that this path is hit on roughly half of all GPU runs (odd mbins) without observed breakage. What remains is formal UB (CUDA documents __syncthreads/__syncthreads_count with exited threads as undefined) and a genuine portability risk on the SYCL path, where line 675 'dev.team_reduce(Kokkos::Max<int>(not_done));' is a group collective that SYCL requires all work-items of the group to reach, and on OpenMPTarget (line 679 'dev.team_barrier()'). Severity therefore stays low, as a latent portability defect rather than a wrong-results race.",
+  "severity_agreed": "low",
+  "fix": "Replace the early 'if (ibin >= mbins) return;' with a participation-preserving guard: keep a 'const bool bin_valid = (ibin < mbins);' and (a) clamp the bin index used for c_bincount/c_bins ('const int ibin_safe = bin_valid ? ibin : 0;'), (b) force i = -1 and skip the body when !bin_valid, so all threads still execute every __syncthreads_count/team_barrier. Apply to build_ItemGPU (line 632) and to the size variant (~line 1352)."
+ },
+ {
+  "id": "F0113",
+  "file": "src/KOKKOS/domain_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 50,
+  "reasoning": "src/KOKKOS/domain_kokkos.h:50 declares 'int closest_image(const int, int) const;' in class DomainKokkos. 'grep -rn \"DomainKokkos::closest_image\" src/' returns nothing, so there is no definition anywhere in the tree - the declaration is dead. src/domain.h:143-145 declares three non-virtual overloads 'int closest_image(int, int); int closest_image(const double *const, int); void closest_image(const double *const, const double *const, double *const);'. Because the derived class redeclares the name, ordinary name lookup through a DomainKokkos* (or inside DomainKokkos member functions) finds only the derived declaration and hides all three base overloads; a call to the two-int form would compile and then fail at link time, and the other two forms would not compile. Nothing calls it today - the KOKKOS users each carry their own closest_image (fix_cmap_kokkos, fix_shake_kokkos, neigh_bond_kokkos), and everyone else reaches it through the Pointers 'Domain *domain' pointer where the base overloads are visible. So it is latent, not live.",
+  "severity_agreed": "low",
+  "fix": "Delete the 'int closest_image(const int, int) const;' declaration from src/KOKKOS/domain_kokkos.h:50. If the name is wanted in the derived class, replace it with 'using Domain::closest_image;' so the base overloads stay visible."
+ },
+ {
+  "id": "F0184",
+  "file": "src/KOKKOS/fix_enforce2d_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 41,
+  "reasoning": "Read all four pieces. FixEnforce2DKokkos<DeviceType>::setup(int vflag) is 'void FixEnforce2DKokkos<DeviceType>::setup(int vflag) { post_force(vflag); }' (fix_enforce2d_kokkos.cpp:40-44), overriding FixEnforce2D::setup() (src/fix_enforce2d.cpp:62-75) which branches: 'if (utils::strmatch(update->integrate_style,\"^verlet\")) post_force(vflag); else { int nlevels_respa = ...->nlevels; for (ilevel...) { copy_flevel_f(ilevel); post_force_respa(vflag,ilevel,0); copy_f_flevel(ilevel); } }'. So under rRESPA the per-level stored force arrays never get their z component zeroed at setup; only atom->f does. FixEnforce2D::setmask() sets POST_FORCE_RESPA and post_force_respa() forwards to the virtual post_force(), so the run-time path still works - the gap is exactly the setup pass, after which Respa::sum_flevel_f() re-injects the stale per-level f_z. FixEnforce2DKokkos declares no init() override (src/KOKKOS/fix_enforce2d_kokkos.h:31-47 lists only setup/post_force plus the kernel), unlike fix_drag_kokkos, fix_dt_reset_kokkos and fix_efield_kokkos which reject respa in init(). And KokkosLMP::respa_check() (src/KOKKOS/kokkos.cpp:954-988) has its entire body inside '#ifdef LMP_KOKKOS_GPU', so a Serial/OpenMP KOKKOS build imposes no restriction at all. The combination is therefore reachable. Impact is modest because a well-formed 2d run usually has zero f_z anyway; fix enforce2d is a safety net.",
+  "severity_agreed": "low",
+  "fix": "Simplest correct fix: delete the setup() override (and its declaration in src/KOKKOS/fix_enforce2d_kokkos.h) so FixEnforce2D::setup() runs and dispatches to the KOKKOS post_force() through the virtual call. Alternatively add an init() override that calls FixEnforce2D::init() and then errors out when update->integrate_style does not match '^verlet', matching the neighbouring /kk fixes."
+ },
+ {
+  "id": "F0346",
+  "file": "src/KOKKOS/pair_hybrid_overlay_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 63,
+  "reasoning": "I diffed the two function bodies directly ('diff' of PairHybridOverlayKokkos::coeff vs PairHybridOverlay::coeff). The only difference besides the function name is the unknown-sub-style branch: the KOKKOS copy has 'if (strcmp(arg[2],\"none\") == 0) none = 1; else error->all(FLERR,\"Pair coeff for hybrid has invalid style: {}\", arg[2]);' while src/pair_hybrid_overlay.cpp:60-65 has '... else error->all(FLERR,\"Expected hybrid sub-style instead of {} in pair_coeff command\", arg[2]);'. Everything else is byte-identical, so the KOKKOS override adds nothing at all and has simply drifted behind the CPU version. Consequence is limited to a different (older, less helpful) diagnostic for a mistyped sub-style under pair_style hybrid/overlay/kk, plus the maintenance hazard of a duplicated 80-line function.",
+  "severity_agreed": "low",
+  "fix": "Since the two bodies are otherwise identical, delete PairHybridOverlayKokkos::coeff() entirely (and its declaration in src/KOKKOS/pair_hybrid_overlay_kokkos.h) so the inherited PairHybridOverlay::coeff() is used. If the override must stay for some reason, at minimum copy the current error text: error->all(FLERR,\"Expected hybrid sub-style instead of {} in pair_coeff command\", arg[2]);"
+ }
+]

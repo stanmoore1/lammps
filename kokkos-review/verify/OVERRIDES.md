@@ -41,3 +41,17 @@ Lesson: a verdict that depends on evidence outside the two C++ files being diffe
 
 Sample result: 4 of 5 sound, 1 wrong. Fix phase must re-read the code at each site rather
 than applying a verdict's `fix` string blind.
+
+## Update after wave 1 (274 verdicts)
+
+**F0249 / F0481 has now been CONFIRMED by three independent verifiers** (batches 00, 07
+and 08).  The override still stands.  All three read only the C++ and counted the two
+explicit `Py_INCREF`s in `build_unified_kokkos`; none opened the Cython-generated code for
+`mliap_unified_connect_kokkos`, which carries a third `__Pyx_INCREF` on its return path
+(`mliap_unified_couple_kokkos.pyx:492-549`).  Agreement among verifiers who share a blind
+spot is not corroboration.  Do not delete the `Py_DECREF` at `mliap_unified_kokkos.cpp:144`
+on its own.
+
+Batch 08 adds a supporting detail that is easy to misread as confirmation: the sibling
+descriptor destructor has the same call *deliberately commented out*.  That is consistent
+with the balanced-by-accident reading, not with a double release.
