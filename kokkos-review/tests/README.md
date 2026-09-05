@@ -25,6 +25,13 @@ the cpu reference exactly.
 | in.dsf_special | E_coul | -0.76902174 | +0.046435449 | -0.76902174 |
 | in.hexorder_nnn_null | c_hxa | 0.001817125 | -nan | 0.001817125 |
 | in.temp_region_bias | temp / c_t | 0.54286473 / 0.28128204 | SIGSEGV in `ComputeTempRegion::dof_remove` | 0.54286473 / 0.28128204 |
+| in.map_hash_dedup | E_total | 6.1118502 | `Kokkos::abort`, "Concurrent modification of host and device hashes" | 6.1118502 |
+
+`in.map_hash_dedup` needs the extra run option `-pk kokkos atom/map device`.  That is the
+DEFAULT on a GPU build, so upstream `develop` aborts on the ordinary path there for any
+molecular system with special bonds; a CPU-only build has to ask for it explicitly.  This one
+is an upstream regression rather than a long-standing defect -- `map_clear()` gained its
+device branch without a matching `clear_sync_state()`.
 
 `in.gravity_none` is the control for `in.gravity_disable`: it agrees everywhere, confirming
 that the divergence above comes from the `disable` keyword and not from `fix gravity` itself.

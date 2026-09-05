@@ -186,9 +186,10 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::com
   xlen = nxhi-nxlo+1;
   total_range = (nzhi-nzlo+1)*(nyhi-nylo+1)*(nxhi-nxlo+1);
 
-  atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK);
+  atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK|MASK_MASK);
   x = atomKK->k_x.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
+  mask = atomKK->k_mask.view<DeviceType>();
   k_cutsq.template sync<DeviceType>();
 
   Kokkos::deep_copy(d_grid,0.0);
@@ -457,6 +458,11 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::ope
   // The cutoff test uses cutsq(jtype,jtype), matching ComputeSNAGrid::compute_array():
   // a grid point takes on the radius of the neighbor it is being compared against.
   for (int j = 0; j < ntotal; j++){
+
+    // check that j is in compute group
+
+    if (!(mask(j) & groupbit)) continue;
+
     const double dx = static_cast<double>(x(j,0) - xtmp);
     const double dy = static_cast<double>(x(j,1) - ytmp);
     const double dz = static_cast<double>(x(j,2) - ztmp);
@@ -472,6 +478,11 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::ope
 
   int offset = 0;
   for (int j = 0; j < ntotal; j++){
+
+    // check that j is in compute group
+
+    if (!(mask(j) & groupbit)) continue;
+
     const double dx = static_cast<double>(x(j,0) - xtmp);
     const double dy = static_cast<double>(x(j,1) - ytmp);
     const double dz = static_cast<double>(x(j,2) - ztmp);

@@ -154,9 +154,10 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::compute_local()
   xlen = nxhi-nxlo+1;
   total_range = (nzhi-nzlo+1)*(nyhi-nylo+1)*(nxhi-nxlo+1);
 
-  atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK);
+  atomKK->sync(execution_space,X_MASK|F_MASK|TYPE_MASK|MASK_MASK);
   x = atomKK->k_x.view<DeviceType>();
   type = atomKK->k_type.view<DeviceType>();
+  mask = atomKK->k_mask.view<DeviceType>();
   k_cutsq.template sync<DeviceType>();
 
   ntotal = atomKK->nlocal + atomKK->nghost;
@@ -278,6 +279,11 @@ void ComputeGaussianGridLocalKokkos<DeviceType>::operator() (TagComputeGaussianG
 
   // Looping over ntotal for now.
   for (int j = 0; j < ntotal; j++){
+
+    // check that j is in compute group
+
+    if (!(mask(j) & groupbit)) continue;
+
     const double dx = static_cast<double>(x(j,0)) - xtmp;
     const double dy = static_cast<double>(x(j,1)) - ytmp;
     const double dz = static_cast<double>(x(j,2)) - ztmp;
