@@ -548,11 +548,11 @@
  {
   "file": "src/KOKKOS/mliap_unified_kokkos.cpp",
   "line": 144,
-  "severity": "high",
+  "severity": "medium",
   "category": "correctness",
-  "confidence": "confirmed",
-  "summary": "~MLIAPDummyModelKokkos() calls Py_DECREF(unified_interface) and its base ~MLIAPDummyModel() does the same, so the Python object is released twice for one incref.",
-  "verified_by": "orchestrator (src/KOKKOS/mliap_unified_kokkos.cpp:144 vs src/ML-IAP/mliap_unified.cpp:126). Note the sibling descriptor destructor at mliap_unified_kokkos.cpp:44 has exactly this call commented out, which is the intended fix."
+  "confidence": "corrected",
+  "summary": "CORRECTED. Earlier verification called this a double Py_DECREF for one incref; that was WRONG. The Cython-generated mliap_unified_connect_kokkos returns a NEW reference that build_unified never releases, so the count is 3 increfs (connect's return + the two explicit Py_INCREFs) vs 3 decrefs (this one, the base ~MLIAPDummyModel, and the base descriptor). It is balanced by accident, not broken. The real defect is the asymmetry: removing this DECREF alone reintroduces the leak the CPU path already has, and fixing that leak while leaving this DECREF gives 4 decrefs for 3 increfs, i.e. a use-after-free.",
+  "verified_by": "orchestrator originally, then REFUTED and re-derived by the .pyx sweep, which cythonized mliap_unified_couple_kokkos.pyx:492-549 and read the generated __Pyx_INCREF on the return path. Correct fix: make ownership explicit in both build_unified implementations - keep the two Py_INCREFs, add the missing Py_DECREF for connect's return value, fix the wrong 'Borrowed references' comment, and only then drop this line."
  },
  {
   "file": "src/KOKKOS/fix_wall_gran_kokkos.cpp",

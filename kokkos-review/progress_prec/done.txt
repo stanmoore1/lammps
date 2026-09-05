@@ -14,3 +14,16 @@ min_cg_kokkos.cpp
 min_linesearch_kokkos.cpp/.h
 compute_temp_*_kokkos.h
 fix_qeq_reaxff_kokkos.cpp
+compute_orientorder_atom_kokkos.cpp
+fix_acks2_reaxff_kokkos.cpp
+pair_kokkos.h (fdotr/compute_item precision paths)
+kokkos_type.h
+nbin_kokkos.h / npair
+pppm_kokkos.cpp
+min_fire_kokkos.cpp / min_quickmin_kokkos.cpp
+meam_kokkos.h
+fix_shardlow/pair_dpd*_kokkos.cpp
+fix_rx_kokkos.cpp
+compute_temp_*_kokkos (all double)
+d_ubuf buffer scan (all double)
+MPI_DOUBLE buffer type scan (clean)

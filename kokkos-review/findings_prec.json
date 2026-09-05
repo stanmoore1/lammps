@@ -1,0 +1,146 @@
+[
+ {
+  "file": "src/KOKKOS/pair_born_coul_wolf_cs_kokkos.cpp",
+  "line": 185,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "EPSILON=1e-20 added to rsq to keep the r=0 core/shell pair finite makes r6inv=(1e20)^3=1e60 overflow to +inf when KK_FLOAT is float, so the vdW term becomes inf/NaN and, multiplied by the special-bond factor 0.0 in pair_kokkos.h, poisons every force with NaN (KOKKOS_PREC=single or mixed).",
+  "evidence": "compute_fpair()/compute_evdwl() at lines 185/216/244/275: `const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);` with `static constexpr double EPSILON = 1.0e-20;` (line 37), followed by `const KK_FLOAT r2inv = 1.0/rsq; const KK_FLOAT r6inv = r2inv*r2inv*r2inv;` and `forceborn = born1*r*rexp - born2*r6inv + born3*r2inv*r6inv;` -- In double 1/1e-20=1e20 and (1e20)^3=1e60 are finite; in float FLT_MAX=3.4e38 so r6inv=+inf and forceborn=(-inf)+(+inf)=NaN. pair_kokkos.h:246 then does `fpair+=factor_lj*c.template compute_fpair<...>(rsq,...)` with factor_lj=special_lj[0]=0.0 for the bonded core/shell pair, and inf*0/NaN*0 = NaN (in double the finite 1e100 times 0.0 correctly gives 0). Same shape already CONFIRMED at src/KOKKOS/pair_born_coul_dsf_cs_kokkos.cpp:185. CPU base (e.g. src/CORESHELL/pair_born_coul_long_cs.cpp) is all-double and unaffected; its comment reads 'Add Epsilon for case: r = 0; Interaction must be removed by special bond'.",
+  "failure_scenario": "cmake -D KOKKOS_PREC=single (or mixed) + any CORESHELL example (examples/coreshell) using this /cs pair style with 'special_bonds lj/coul 0.0 0.0 0.0': the core and its shell sit at r~0, rsq_in=0 -> r6inv=inf -> fpair=NaN -> all forces/energies NaN on step 1. Correct (double) run gives finite forces.",
+  "suggested_fix": "Evaluate the r->0 guard in double (e.g. `const double rsq = (double)rsq_in + EPSILON;` and compute r2inv/r6inv in double before casting back), or raise EPSILON to a value whose cube-inverse is representable in float (e.g. 1e-10) when KK_FLOAT is float."
+ },
+ {
+  "file": "src/KOKKOS/pair_born_coul_long_cs_kokkos.cpp",
+  "line": 190,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "EPSILON=1e-20 added to rsq to keep the r=0 core/shell pair finite makes r6inv=(1e20)^3=1e60 overflow to +inf when KK_FLOAT is float, so the vdW term becomes inf/NaN and, multiplied by the special-bond factor 0.0 in pair_kokkos.h, poisons every force with NaN (KOKKOS_PREC=single or mixed).",
+  "evidence": "compute_fpair() lines 190-204 (and compute_evdwl() at 291): `const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);` (EPSILON=1.0e-20, line 55) then `r2inv = 1.0/rsq; r6inv = r2inv*r2inv*r2inv;` and `forceborn = born1*r*rexp - born2*r6inv + born3*r2inv*r6inv;` -- In double 1/1e-20=1e20 and (1e20)^3=1e60 are finite; in float FLT_MAX=3.4e38 so r6inv=+inf and forceborn=(-inf)+(+inf)=NaN. pair_kokkos.h:246 then does `fpair+=factor_lj*c.template compute_fpair<...>(rsq,...)` with factor_lj=special_lj[0]=0.0 for the bonded core/shell pair, and inf*0/NaN*0 = NaN (in double the finite 1e100 times 0.0 correctly gives 0). Same shape already CONFIRMED at src/KOKKOS/pair_born_coul_dsf_cs_kokkos.cpp:185. CPU base (e.g. src/CORESHELL/pair_born_coul_long_cs.cpp) is all-double and unaffected; its comment reads 'Add Epsilon for case: r = 0; Interaction must be removed by special bond'.",
+  "failure_scenario": "cmake -D KOKKOS_PREC=single (or mixed) + any CORESHELL example (examples/coreshell) using this /cs pair style with 'special_bonds lj/coul 0.0 0.0 0.0': the core and its shell sit at r~0, rsq_in=0 -> r6inv=inf -> fpair=NaN -> all forces/energies NaN on step 1. Correct (double) run gives finite forces.",
+  "suggested_fix": "Evaluate the r->0 guard in double (e.g. `const double rsq = (double)rsq_in + EPSILON;` and compute r2inv/r6inv in double before casting back), or raise EPSILON to a value whose cube-inverse is representable in float (e.g. 1e-10) when KK_FLOAT is float."
+ },
+ {
+  "file": "src/KOKKOS/pair_lj_cut_coul_long_cs_kokkos.cpp",
+  "line": 200,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "EPSILON=1e-20 added to rsq to keep the r=0 core/shell pair finite makes r6inv=(1e20)^3=1e60 overflow to +inf when KK_FLOAT is float, so the vdW term becomes inf/NaN and, multiplied by the special-bond factor 0.0 in pair_kokkos.h, poisons every force with NaN (KOKKOS_PREC=single or mixed).",
+  "evidence": "compute_fpair() lines 200-208 (and compute_evdwl() at 296): `const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);` (EPSILON=1.0e-20, line 54) then `r2inv = 1.0/rsq; r6inv = r2inv*r2inv*r2inv; forcelj = r6inv*(lj1*r6inv - lj2);` -- In double 1/1e-20=1e20 and (1e20)^3=1e60 are finite; in float FLT_MAX=3.4e38 so r6inv=+inf and forceborn=(-inf)+(+inf)=NaN. pair_kokkos.h:246 then does `fpair+=factor_lj*c.template compute_fpair<...>(rsq,...)` with factor_lj=special_lj[0]=0.0 for the bonded core/shell pair, and inf*0/NaN*0 = NaN (in double the finite 1e100 times 0.0 correctly gives 0). Same shape already CONFIRMED at src/KOKKOS/pair_born_coul_dsf_cs_kokkos.cpp:185. CPU base (e.g. src/CORESHELL/pair_born_coul_long_cs.cpp) is all-double and unaffected; its comment reads 'Add Epsilon for case: r = 0; Interaction must be removed by special bond'.",
+  "failure_scenario": "cmake -D KOKKOS_PREC=single (or mixed) + any CORESHELL example (examples/coreshell) using this /cs pair style with 'special_bonds lj/coul 0.0 0.0 0.0': the core and its shell sit at r~0, rsq_in=0 -> r6inv=inf -> fpair=NaN -> all forces/energies NaN on step 1. Correct (double) run gives finite forces.",
+  "suggested_fix": "Evaluate the r->0 guard in double (e.g. `const double rsq = (double)rsq_in + EPSILON;` and compute r2inv/r6inv in double before casting back), or raise EPSILON to a value whose cube-inverse is representable in float (e.g. 1e-10) when KK_FLOAT is float."
+ },
+ {
+  "file": "src/KOKKOS/pair_lj_class2_coul_long_cs_kokkos.cpp",
+  "line": 190,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "EPSILON=1e-20 added to rsq to keep the r=0 core/shell pair finite makes r6inv=(1e20)^3=1e60 overflow to +inf when KK_FLOAT is float, so the vdW term becomes inf/NaN and, multiplied by the special-bond factor 0.0 in pair_kokkos.h, poisons every force with NaN (KOKKOS_PREC=single or mixed).",
+  "evidence": "compute_fpair() lines 190-201 (and compute_evdwl() at 288): `const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);` (EPSILON=1.0e-20, line 52) then `r2inv=1.0/rsq; rinv=sqrt(r2inv); r3inv=r2inv*rinv; r6inv=r3inv*r3inv;` -- r3inv=1e30, r6inv=1e60 -- In double 1/1e-20=1e20 and (1e20)^3=1e60 are finite; in float FLT_MAX=3.4e38 so r6inv=+inf and forceborn=(-inf)+(+inf)=NaN. pair_kokkos.h:246 then does `fpair+=factor_lj*c.template compute_fpair<...>(rsq,...)` with factor_lj=special_lj[0]=0.0 for the bonded core/shell pair, and inf*0/NaN*0 = NaN (in double the finite 1e100 times 0.0 correctly gives 0). Same shape already CONFIRMED at src/KOKKOS/pair_born_coul_dsf_cs_kokkos.cpp:185. CPU base (e.g. src/CORESHELL/pair_born_coul_long_cs.cpp) is all-double and unaffected; its comment reads 'Add Epsilon for case: r = 0; Interaction must be removed by special bond'.",
+  "failure_scenario": "cmake -D KOKKOS_PREC=single (or mixed) + any CORESHELL example (examples/coreshell) using this /cs pair style with 'special_bonds lj/coul 0.0 0.0 0.0': the core and its shell sit at r~0, rsq_in=0 -> r6inv=inf -> fpair=NaN -> all forces/energies NaN on step 1. Correct (double) run gives finite forces.",
+  "suggested_fix": "Evaluate the r->0 guard in double (e.g. `const double rsq = (double)rsq_in + EPSILON;` and compute r2inv/r6inv in double before casting back), or raise EPSILON to a value whose cube-inverse is representable in float (e.g. 1e-10) when KK_FLOAT is float."
+ },
+ {
+  "file": "src/KOKKOS/pair_buck_coul_long_cs_kokkos.cpp",
+  "line": 194,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "EPSILON=1e-20 added to rsq to keep the r=0 core/shell pair finite makes r6inv=(1e20)^3=1e60 overflow to +inf when KK_FLOAT is float, so the vdW term becomes inf/NaN and, multiplied by the special-bond factor 0.0 in pair_kokkos.h, poisons every force with NaN (KOKKOS_PREC=single or mixed).",
+  "evidence": "compute_fpair() lines 194-206 (and compute_evdwl() at 221): `const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);` (EPSILON=1.0e-20, line 56) then `r2inv=1.0/rsq; r6inv=r2inv*r2inv*r2inv; forcebuck = buck1*r*rexp - buck2*r6inv;` -- In double 1/1e-20=1e20 and (1e20)^3=1e60 are finite; in float FLT_MAX=3.4e38 so r6inv=+inf and forceborn=(-inf)+(+inf)=NaN. pair_kokkos.h:246 then does `fpair+=factor_lj*c.template compute_fpair<...>(rsq,...)` with factor_lj=special_lj[0]=0.0 for the bonded core/shell pair, and inf*0/NaN*0 = NaN (in double the finite 1e100 times 0.0 correctly gives 0). Same shape already CONFIRMED at src/KOKKOS/pair_born_coul_dsf_cs_kokkos.cpp:185. CPU base (e.g. src/CORESHELL/pair_born_coul_long_cs.cpp) is all-double and unaffected; its comment reads 'Add Epsilon for case: r = 0; Interaction must be removed by special bond'.",
+  "failure_scenario": "cmake -D KOKKOS_PREC=single (or mixed) + any CORESHELL example (examples/coreshell) using this /cs pair style with 'special_bonds lj/coul 0.0 0.0 0.0': the core and its shell sit at r~0, rsq_in=0 -> r6inv=inf -> fpair=NaN -> all forces/energies NaN on step 1. Correct (double) run gives finite forces.",
+  "suggested_fix": "Evaluate the r->0 guard in double (e.g. `const double rsq = (double)rsq_in + EPSILON;` and compute r2inv/r6inv in double before casting back), or raise EPSILON to a value whose cube-inverse is representable in float (e.g. 1e-10) when KK_FLOAT is float."
+ },
+ {
+  "file": "src/KOKKOS/pair_coul_long_cs_kokkos.cpp",
+  "line": 232,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The core/shell EPS_EWALD correction branch (erfc + EWALD_F*grij*expm2 - (1-factor_coul)) is a catastrophic cancellation at r~0 that float cannot carry: at r=0 the returned fpair is -1.98e13 in float vs +2.95e5 in double, i.e. wrong magnitude AND sign (KOKKOS_PREC=single or mixed).",
+  "evidence": "src/KOKKOS/pair_coul_long_cs_kokkos.cpp:215-232 `const KK_FLOAT reps = r + static_cast<KK_FLOAT>(EPS_EWALD); ... const KK_FLOAT prefactor = qqrd2e*qtmp*q[j]/reps; const KK_FLOAT forcecoul = prefactor*(erfc + EWALD_F*grij*expm2 - (1.0-factor_coul)); return forcecoul/(rsq_cs + static_cast<KK_FLOAT>(EPS_EWALD_SQR));` with EPS_EWALD=1e-6, EPS_EWALD_SQR=1e-12, EPSILON=1e-20 (lines 56-58). The parenthesis is O(grij^3)~1e-20 formed as a difference of quantities of size 1, so its relative error is 1 ulp of 1.0; it is then multiplied by prefactor/1e-12 ~ 3.3e20. In double 1 ulp = 2.2e-16 -> O(1e5) which is the CPU answer (src/CORESHELL/pair_coul_long_cs.cpp:109-121 does exactly this in double); in float 1 ulp = 1.2e-7 -> O(1e13). Reproduced with a standalone program using the same constants: double r=0 -> 294902.33, float r=0 -> -1.9790559e+13; double r=1e-4 -> 41.6, float r=1e-4 -> 0. The identical branch exists in pair_born_coul_long_cs_kokkos.cpp:259, pair_lj_cut_coul_long_cs_kokkos.cpp:264, pair_lj_class2_coul_long_cs_kokkos.cpp:256 and pair_buck_coul_long_cs_kokkos.cpp:286.",
+  "failure_scenario": "cmake -D KOKKOS_PREC=single (or mixed) + examples/coreshell (pair_style born/coul/long/cs or coul/long/cs with 'special_bonds coul 0.0 0.0 0.0'): every bonded core-shell pair gets a ~1e13 kcal/mol/A force of the wrong sign on step 1 and the run explodes; a double build is stable.",
+  "suggested_fix": "Compute this branch (r, reps, grij, erfc, prefactor, and the final division) in double regardless of KK_FLOAT, e.g. promote rsq to double at the top of the factor_coul<1 path and cast only the returned fpair back to KK_FLOAT."
+ },
+ {
+  "file": "src/KOKKOS/angle_gaussian_kokkos.cpp",
+  "line": 222,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The underflow guard `if (sum_g_i < sum_numerator*SMALLG) sum_g_i = sum_numerator*SMALLG;` casts SMALLG=2.3e-308 to KK_FLOAT, which is 0.0f in a single/mixed build, so the guard is dead exactly when float exp() underflow makes it necessary and log(0)/0-over-0 produce -inf/NaN.",
+  "evidence": "src/KOKKOS/angle_gaussian_kokkos.cpp:31 `static constexpr double SMALLG = 2.3e-308;` and 222-223 `if (sum_g_i < sum_numerator * static_cast<KK_FLOAT>(SMALLG)) sum_g_i = sum_numerator * static_cast<KK_FLOAT>(SMALLG);` -- static_cast<float>(2.3e-308) == 0.0f, so the test becomes `sum_g_i < 0` and never fires for the non-negative sum. Line 227 `eangle = -kbt*Kokkos::log(sum_g_i)` and line 229 `a = -4.0*kbt*(sum_numerator/sum_g_i)*s` then see sum_g_i == 0. The sibling style already carries the fix: src/KOKKOS/bond_gaussian_kokkos.cpp:152-155 `// smallest normalized value of the accumulation type so the underflow guard below works at any precision (casting the 2.3e-308 of the base class to float gives 0.0) static constexpr KK_ACC_FLOAT SMALL_KK = std::numeric_limits<KK_ACC_FLOAT>::min();`. CPU base src/EXTRA-MOLECULE/angle_gaussian.cpp:136 is all double.",
+  "failure_scenario": "KOKKOS_PREC=single/mixed, angle_style gaussian with width w: `exponent = -2*dtheta^2/w^2` underflows float exp() once |dtheta| > ~6.6*w (float exp underflows below -87.3, double below -708), so every g_i is 0 -> sum_g_i = 0 -> eangle = +inf and a = NaN -> NaN forces on that angle. With w=0.1 rad this happens for any angle more than ~0.66 rad off every theta0, a routine configuration.",
+  "suggested_fix": "Replace `static_cast<KK_FLOAT>(SMALLG)` with `std::numeric_limits<KK_FLOAT>::min()` (or KK_ACC_FLOAT), exactly as bond_gaussian_kokkos.cpp:155 already does."
+ },
+ {
+  "file": "src/KOKKOS/fix_eos_table_rx_kokkos.h",
+  "line": 93,
+  "severity": "high",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The EOS table's temperature bounds lo/hi are stored in INTEGER Kokkos views, truncating the double bounds read from the table file in every precision mode.",
+  "evidence": "src/KOKKOS/fix_eos_table_rx_kokkos.h:93/99/105 `typename AT::t_int_1d lo,hi;` (and `HAT::t_int_1d lo,hi;`), filled at src/KOKKOS/fix_eos_table_rx_kokkos.cpp:563-564 `h_table->lo[i] = tb->lo; h_table->hi[i] = tb->hi;` -- the base class declares them double: src/DPD-REACT/fix_eos_table_rx.h:46 `double lo, hi;`, set at src/DPD-REACT/fix_eos_table_rx.cpp:108-109 `tb->lo = tb->rfile[0]; tb->hi = tb->rfile[tb->ninput-1];` (the first/last temperature in the table file). They are then used as real numbers: fix_eos_table_rx_kokkos.cpp:348-354 `thetai = MAX(thetai,d_table_const.lo(ispecies)); thetai = MIN(thetai,d_table_const.hi(ispecies)); itable = static_cast<int>((thetai - d_table_const.lo(ispecies))*d_table_const.invdelta(ispecies));` and 394-395 `int lo = d_table_const.lo(0); int hi = d_table_const.hi(0);`. All the other table fields (invdelta, r, e, de) are correctly KK_FLOAT views.",
+  "failure_scenario": "Any fix eos/table/rx/kk whose table file starts at a non-integer temperature, e.g. lo=0.25 hi=1.75 (reduced DPD units, as in examples/PACKAGES/dpd-react): lo becomes 0 and hi becomes 1, so thetai is clamped to [0,1] instead of [0.25,1.75] and `itable = (thetai - 0)*invdelta` indexes the wrong table row -- wrong internal energies/temperatures, and thetai can be clamped to 0 which then trips the 'Internal temperature <= zero' error.",
+  "suggested_fix": "Change the three lo,hi declarations to the KK_FLOAT 1d view type (t_kkfloat_1d / HAT::t_kkfloat_1d) -- or better a double view since they are table bounds -- and change the `int lo/int hi` locals at fix_eos_table_rx_kokkos.cpp:394-395 to KK_FLOAT."
+ },
+ {
+  "file": "src/KOKKOS/min_cg_kokkos.cpp",
+  "line": 118,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "confirmed",
+  "summary": "The CG force dot products (f.f and f.g over all degrees of freedom) are accumulated in the misleadingly named local struct s_KK_double2, whose members are KK_FLOAT, so in a single build the whole minimizer's convergence test and Polak-Ribiere beta are computed from float sums over 3*nlocal terms.",
+  "evidence": "src/KOKKOS/min_cg_kokkos.cpp:118 `s_KK_double2 sdot;` resolves to src/KOKKOS/min_linesearch_kokkos.h:22-23 `struct s_KK_double2 { KK_FLOAT d0, d1; ...}` (declared inside namespace LAMMPS_NS, shadowing the genuine global `struct alignas(2*sizeof(double)) s_KK_double2 { double v[2]; }` of src/KOKKOS/kokkos_type.h:492-515 that every other caller gets). Lines 127-141 accumulate `sdot.d0 += static_cast<KK_FLOAT>(l_f(i,0)*l_f(i,0)); ... sdot.d1 += static_cast<KK_FLOAT>(l_f(i,0))*l_g[j];`, then 144-146 `dot[0]=static_cast<double>(sdot.d0); ... MPI_Allreduce(dot,dotall,2,MPI_DOUBLE,MPI_SUM,world);` -- the double is restored only after the damage. dotall[0] is the force 2-norm used for the FTOL test (line 160 `if (fdotf < update->ftol*update->ftol) return FTOL;`) and line 168 `beta = MAX(0.0,(dotall[0]-dotall[1])/gg);`. The same struct is used at src/KOKKOS/min_linesearch_kokkos.cpp:280-306. CPU base src/min_cg.cpp uses double for dot[2]/dotall[2].",
+  "failure_scenario": "KOKKOS_PREC=single, `min_style cg` on a 1e6-atom system: dotall[0] is a float sum of 3e6 positive terms (relative error ~N*eps ~ 0.2 even before the near-converged regime), and beta = (dotall[0]-dotall[1])/gg is a difference of two float-rounded sums whose true value is tiny near convergence -- beta becomes pure noise, so CG stops descending and either stalls at MAXITER or reports a bogus FTOL/ETOL exit.",
+  "suggested_fix": "Make min_linesearch_kokkos.h's s_KK_double2 members `double` (matching its name and the kokkos_type.h struct it shadows) and drop the static_cast<KK_FLOAT> on the products, or delete the local struct and use the KK_double2 from kokkos_type.h."
+ },
+ {
+  "file": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp",
+  "line": 427,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "likely",
+  "summary": "The secant solver's convergence test uses an ABSOLUTE tolerance of 1e-10 on a KK_FLOAT temperature, which is three to five orders of magnitude below float resolution, so in a single/mixed build the loop can never satisfy it and falls through to the hard error 'Maxit exceeded in secant solver.'",
+  "evidence": "src/KOKKOS/fix_eos_table_rx_kokkos.cpp:392 `KK_FLOAT tolerance = static_cast<KK_FLOAT>(1.0e-10);` and 427 `if (Kokkos::fabs(temp-t2) < tolerance) break;` with `KK_FLOAT t1,t2,...,temp;` (line 388). For thetai ~ 1.0 one float ulp is 1.2e-7 and for thetai ~ 300 it is 3.05e-5, so |temp-t2| is either 0 or >= 1.2e-7 -- it can only pass when the iterates become bit-identical, which a secant iteration on float-noisy energies (energy_lookup at line 319 is entirely KK_FLOAT) need not achieve; it typically limit-cycles between two adjacent floats. Lines 435-439 then set k_error_flag=3 and error_check() (line 530) calls `error->one(FLERR,\"Maxit exceeded in secant solver.\")`. CPU base src/DPD-REACT/fix_eos_table_rx.cpp:64-73 uses double throughout with the same 1e-10.",
+  "failure_scenario": "KOKKOS_PREC=single or mixed + `fix eos/table/rx/kk` (examples/PACKAGES/dpd-react): the run aborts with 'Maxit exceeded in secant solver.' (or, via the f2-f1 branch at line 419, warns 'Secant solver did not converge because table bounds were exceeded' every step). A double build converges in a handful of iterations.",
+  "suggested_fix": "Make the tolerance relative and precision-aware, e.g. `tolerance = 100*std::numeric_limits<KK_FLOAT>::epsilon()*fabs(t2)`, or perform the secant iteration in double (thetai/ui are per-atom scalars, not force-loop hot code)."
+ },
+ {
+  "file": "src/KOKKOS/fix_qeq_reaxff_kokkos.cpp",
+  "line": 459,
+  "severity": "medium",
+  "category": "correctness",
+  "confidence": "likely",
+  "summary": "The QEq CG solve stores all its Krylov vectors in KK_FLOAT views, so the achievable relative residual floors at ~1e-6..1e-5 while the standard input tolerance is 1.0e-6 -- in a single/mixed build the solver runs to imax every step and warns 'cg_solve convergence failed'.",
+  "evidence": "src/KOKKOS/fix_qeq_reaxff_kokkos.h:284 `typename AT::t_kkfloat_1d_2 d_p, d_o, d_r, d_d, d_b_st, d_st, d_xx;` -- the residual r, search direction d and solution st are float. The dot products themselves are correctly double (KK_double2 from kokkos_type.h, MPI_DOUBLE at fix_qeq_reaxff_kokkos.cpp:440/448/484/498), but a float r cannot represent a residual smaller than ~eps_float times its own norm, so `residual[0] = sqrt(sig_new.v[0])/b_norm.v[0]` (line 456) cannot fall much below sqrt(nn)*1.2e-7. Line 459 `converged = static_cast<int>(residual[0] <= tolerance) | ...` then never sets converged, and lines 512-518 fire `error->warning(FLERR, ... \"cg_solve convergence failed after {} iterations at step {}\")`. The same shape applies to the BiCGStab in fix_acks2_reaxff_kokkos.cpp:1267 (`for (i = 1; i < imax && rnorm/bnorm > tolerance; ++i)`), whose vectors are likewise KK_FLOAT.",
+  "failure_scenario": "KOKKOS_PREC=single or mixed + examples/reaxff (`fix qeq/reaxff 1 0.0 10.0 1.0e-6 reaxff`) on ~1e4 atoms: every timestep does imax (default 200) CG iterations instead of ~20 and emits the convergence-failed warning, roughly 10x slower with charges no better than ~1e-5; the double build converges normally.",
+  "suggested_fix": "Either store the CG vectors (at least r, p and st) as KK_ACC_FLOAT so they are double in mixed mode, or clamp the effective tolerance to a precision-aware floor and say so in the warning."
+ },
+ {
+  "file": "src/KOKKOS/angle_dipole_kokkos.cpp",
+  "line": 155,
+  "severity": "low",
+  "category": "correctness",
+  "confidence": "likely",
+  "summary": "The zero-length guard `if (r2 < static_cast<KK_FLOAT>(SMALL)*static_cast<KK_FLOAT>(SMALL)) return;` with SMALL=1e-100 evaluates to `r2 < 0.0f` in a single/mixed build, so the guard is dead and a zero-length bond vector divides by zero instead of being skipped.",
+  "evidence": "src/KOKKOS/angle_dipole_kokkos.cpp:31 `static constexpr double SMALL = 1.0e-100;` and lines 155 / 183 `if (r2 < static_cast<KK_FLOAT>(SMALL)*static_cast<KK_FLOAT>(SMALL)) return;` -- static_cast<float>(1e-100) is 0.0f (float's smallest subnormal is 1.4e-45), so the product is 0.0f and the comparison can never be true. CPU base src/DIPOLE/angle_dipole.cpp:95/121 `if (r < SMALL) continue;` is evaluated in double and does exclude r == 0.",
+  "failure_scenario": "KOKKOS_PREC=single/mixed with angle_style dipole and a degenerate configuration where the dipole reference bond vector collapses (two atoms at identical coordinates, e.g. after a bad restart or an overlapping insertion): the double build skips the angle, the float build divides by r2 == 0 and produces inf/NaN torque.",
+  "suggested_fix": "Compare against a precision-aware floor, e.g. `std::numeric_limits<KK_FLOAT>::min()`, as bond_gaussian_kokkos.cpp:155 does, instead of casting 1e-100."
+ },
+ {
+  "file": "src/KOKKOS/compute_orientorder_atom_kokkos.cpp",
+  "line": 632,
+  "severity": "low",
+  "category": "overflow",
+  "confidence": "likely",
+  "summary": "polar_prefactor accumulates (l+m)!/(l-m)! in a KK_FLOAT, which overflows to +inf for degrees l >= 18 in a single/mixed build, silently zeroing the spherical harmonic instead of computing it.",
+  "evidence": "src/KOKKOS/compute_orientorder_atom_kokkos.cpp:631-634 `KK_FLOAT prefactor = 1.0; for (int i=l-mabs+1; i < l+mabs+1; ++i) prefactor *= static_cast<KK_FLOAT>(i); prefactor = Kokkos::sqrt(static_cast<KK_FLOAT>(2*l+1)/(static_cast<KK_FLOAT>(MY_4PI)*prefactor)) * associated_legendre(l,mabs,costheta);` -- for l=m the product is (2l)!, and (2*18)! = 3.7e41 > FLT_MAX = 3.4e38, so prefactor becomes +inf and sqrt(x/inf) = 0. The CPU base src/compute_orientorder_atom.cpp computes the same product in double (170! is representable). src/compute_orientorder_atom.cpp:97-107 places no upper bound on the requested degrees (`degrees` keyword), it only tracks qmax.",
+  "failure_scenario": "KOKKOS_PREC=single/mixed with `compute 1 all orientorder/atom degrees 1 18` (or any degree >= 18): every Y_l^m with |m| = l comes out as exactly 0 instead of its true value, so Ql/Wl are silently wrong; the double build is correct.",
+  "suggested_fix": "Accumulate the ratio in double (or build sqrt((2l+1)/(4pi)) * sqrt((l-m)!/(l+m)!) as a product of per-term square roots) before casting the result to KK_FLOAT."
+ }
+]
+COVERAGE: swept all of src/KOKKOS (approx 900 files) along the numeric-precision axis rather than file-by-file; every file named in a finding was read in full.
