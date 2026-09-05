@@ -33,15 +33,22 @@
 using namespace LAMMPS_NS;
 
 // A minimal separation so that r = 0 core/shell pairs stay finite until the
-// special-bond factor removes them.  The CPU style uses 1.0e-20; that value
-// cannot be carried over unchanged when KK_FLOAT is float, because the Born
-// potential's steepest term goes as r^-8 and 1.0e-20 gives r^-8 = 1e80, which
-// is finite in double but overflows to infinity in single.  The zero
-// special-bond factor would then produce NaN rather than removing the pair.
-// 1.0e-8 keeps r^-8 at 1e32, well inside the range of float, and is still
-// small enough to sit below the type's epsilon at a normal separation.
+// special-bond factor removes them.  The CPU style uses 1.0e-20, which cannot
+// be carried over unchanged when KK_FLOAT is float.
+//
+// The quantity that has to stay in range is the steepest one the kernel forms,
+// not the energy: compute_fpair() returns forceborn*r2inv, whose born3 term is
+// born3 * rsq^-5.  At rsq = 1.0e-20 that is 1e100 -- finite in double, infinite
+// in single -- and the zero special-bond factor then gives NaN rather than
+// removing the pair.  1.0e-6 puts it at 1e30, eight orders inside the range of
+// float, and leaves the r^-8 energy term at 1e24.
+//
+// The value is applied as a floor, not as an unconditional add, so it can be
+// this large without consequence: a floor only changes separations already
+// below it, and never perturbs a normal pair.  (An *added* 1.0e-6 would have
+// perturbed one, since 1.0f + 1.0e-6f != 1.0f.)
 
-static constexpr double EPSILON = std::is_same_v<KK_FLOAT, float> ? 1.0e-8 : 1.0e-20;
+static constexpr double EPSILON = std::is_same_v<KK_FLOAT, float> ? 1.0e-6 : 1.0e-20;
 using MathConst::MY_PIS;
 
 /* ---------------------------------------------------------------------- */
@@ -195,8 +202,8 @@ compute_fpair(const KK_FLOAT& rsq_in, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const
 {
   // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
-  // rather than an unconditional add: in double, adding EPSILON to a normal
-  // rsq is already a no-op, while in single it would be a real perturbation
+  // rather than an unconditional add, so that a value large enough to keep the
+  // single-precision kernel in range cannot perturb a normal pair
 
   const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
     rsq_in : static_cast<KK_FLOAT>(EPSILON);
@@ -228,8 +235,8 @@ compute_fcoul(const KK_FLOAT& rsq_in, const int& /*i*/, const int& j,
               const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const
 {
   // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
-  // rather than an unconditional add: in double, adding EPSILON to a normal
-  // rsq is already a no-op, while in single it would be a real perturbation
+  // rather than an unconditional add, so that a value large enough to keep the
+  // single-precision kernel in range cannot perturb a normal pair
 
   const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
     rsq_in : static_cast<KK_FLOAT>(EPSILON);
@@ -262,8 +269,8 @@ compute_evdwl(const KK_FLOAT& rsq_in, const int& /*i*/, const int& /*j*/,
                const int& itype, const int& jtype) const
 {
   // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
-  // rather than an unconditional add: in double, adding EPSILON to a normal
-  // rsq is already a no-op, while in single it would be a real perturbation
+  // rather than an unconditional add, so that a value large enough to keep the
+  // single-precision kernel in range cannot perturb a normal pair
 
   const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
     rsq_in : static_cast<KK_FLOAT>(EPSILON);
@@ -295,8 +302,8 @@ compute_ecoul(const KK_FLOAT& rsq_in, const int& /*i*/, const int& j,
                const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const
 {
   // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
-  // rather than an unconditional add: in double, adding EPSILON to a normal
-  // rsq is already a no-op, while in single it would be a real perturbation
+  // rather than an unconditional add, so that a value large enough to keep the
+  // single-precision kernel in range cannot perturb a normal pair
 
   const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
     rsq_in : static_cast<KK_FLOAT>(EPSILON);
