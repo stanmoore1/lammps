@@ -210,6 +210,7 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::com
   // `total_range` is the number of grid points which may be larger than chunk size.
   chunk_size = MIN(chunksize, total_range);
   chunk_offset = 0;
+  const int chunk_size_max = chunk_size;
   snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
 
   // Pre-compute ceil(chunk_size / vector_length) for code cleanliness
@@ -255,7 +256,8 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::com
         if (max_ninside <= max_neighs) break;
 
         max_neighs = max_ninside;
-        snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
+        // grow with the full chunk size so a short final chunk cannot shrink the arrays
+        snaKK.grow_rij(chunk_size_max, max_neighs, padding_factor);
       }
     }
 

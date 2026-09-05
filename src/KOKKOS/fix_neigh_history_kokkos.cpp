@@ -581,6 +581,13 @@ void FixNeighHistoryKokkos<DeviceType>::unpack_restart(int nlocal, int nth)
   if (n > maxpartner) {
     maxpartner = n;
     grow_arrays(atom->nmax);
+
+    // the grow leaves the data on the device and the host mirror empty,
+    // so pull the enlarged arrays back before writing into them
+
+    k_npartner.sync_host();
+    k_partner.sync_host();
+    k_valuepartner.sync_host();
   }
 
   npartner[nlocal] = n;

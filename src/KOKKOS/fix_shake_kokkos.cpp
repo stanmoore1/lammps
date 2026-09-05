@@ -604,6 +604,9 @@ void FixShakeKokkos<DeviceType>::post_force(int vflag)
   d_f = atomKK->k_f.view<DeviceType>();
   d_type = atomKK->k_type.view<DeviceType>();
   d_rmass = atomKK->k_rmass.view<DeviceType>();
+  // the per-type masses have no datamask bit, so atomKK->sync() cannot carry
+  // them: push the dual view to the device by hand
+  atomKK->k_mass.template sync<DeviceType>();
   d_mass = atomKK->k_mass.view<DeviceType>();
   nlocal = atomKK->nlocal;
 
@@ -830,6 +833,9 @@ void FixShakeKokkos<DeviceType>::unconstrained_update()
   d_f = atomKK->k_f.view<DeviceType>();
   d_type = atomKK->k_type.view<DeviceType>();
   d_rmass = atomKK->k_rmass.view<DeviceType>();
+  // the per-type masses have no datamask bit, so atomKK->sync() cannot carry
+  // them: push the dual view to the device by hand
+  atomKK->k_mass.template sync<DeviceType>();
   d_mass = atomKK->k_mass.view<DeviceType>();
   nlocal = atom->nlocal;
 

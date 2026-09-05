@@ -566,6 +566,50 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_setup_triclinic2, const int &n) 
 }
 
 /* ----------------------------------------------------------------------
+   reset local grid arrays and communication stencils
+   called by fix balance b/c it changed sizes of processor sub-domains
+
+   PPPM::reset_grid() cannot be inherited here: it works on the base class
+   grid and charge distribution coefficients, which a KOKKOS run leaves
+   unallocated, and compute_rho_coeff() is not virtual
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PPPMKokkos<DeviceType>::reset_grid()
+{
+  // free all arrays previously allocated
+
+  deallocate();
+  if (peratom_allocate_flag) deallocate_peratom();
+
+  // reset portion of global grid that each proc owns
+
+  set_grid_local();
+
+  // reallocate K-space dependent memory
+  // check if grid communication is now overlapping if not allowed
+  // don't invoke allocate_peratom(), will be allocated when needed
+
+  allocate();
+
+  if (!overlap_allowed && !gc->ghost_adjacent())
+    error->all(FLERR,"PPPM grid stencil extends beyond nearest neighbor processor");
+
+  // pre-compute Green's function denomiator expansion
+  // pre-compute 1d charge distribution coefficients
+
+  compute_gf_denom();
+  compute_rho_coeff();
+
+  k_rho_coeff.modify_host();
+  k_rho_coeff.template sync<DeviceType>();
+
+  // pre-compute volume-dependent coeffs for portion of grid I now own
+
+  setup();
+}
+
+/* ----------------------------------------------------------------------
    compute the PPPM long-range force, energy, virial
 ------------------------------------------------------------------------- */
 

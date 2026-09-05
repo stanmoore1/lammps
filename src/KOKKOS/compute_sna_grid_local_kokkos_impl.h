@@ -150,6 +150,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
 
   ComputeGridLocal::assign_coords();
   k_alocal.modify_host();
+  k_alocal.template sync<DeviceType>();
 }
 
 // Compute
@@ -196,6 +197,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   // `total_range` is the number of grid points which may be larger than chunk size.
   chunk_size = MIN(chunksize, total_range);
   chunk_offset = 0;
+  const int chunk_size_max = chunk_size;
   //snaKK.grow_rij(chunk_size, ntotal);
   snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
 
@@ -244,7 +246,8 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
         if (max_ninside <= max_neighs) break;
 
         max_neighs = max_ninside;
-        snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
+        // grow with the full chunk size so a short final chunk cannot shrink the arrays
+        snaKK.grow_rij(chunk_size_max, max_neighs, padding_factor);
       }
     }
 
@@ -536,7 +539,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   if (iatom >= chunk_size) return;
 
   // all grid points are type 1, iatom is a grid index and must not be used
-  // to look up an atom type, see ComputeSNAGrid::compute_array()
+  // to look up an atom type, see ComputeSNAGridLocal::compute_local()
   const int itype = 1;
   const int ielem = chemflag ? d_map[itype] : 0;
 
@@ -550,7 +553,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   if (iatom >= chunk_size) return;
 
   // all grid points are type 1, iatom is a grid index and must not be used
-  // to look up an atom type, see ComputeSNAGrid::compute_array()
+  // to look up an atom type, see ComputeSNAGridLocal::compute_local()
   const int itype = 1;
   const int ielem = chemflag ? d_map[itype] : 0;
 
@@ -564,7 +567,7 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   if (iatom >= chunk_size) return;
 
   // all grid points are type 1, iatom is a grid index and must not be used
-  // to look up an atom type, see ComputeSNAGrid::compute_array()
+  // to look up an atom type, see ComputeSNAGridLocal::compute_local()
   const int itype = 1;
   const int ielem = chemflag ? d_map[itype] : 0;
 
