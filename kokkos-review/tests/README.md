@@ -19,6 +19,7 @@ Run three ways:
 | in.morse_shift | E_pair -5.0248849 | E_pair -12.055493 | yes - offset never subtracted |
 | in.dipole_split | E_pair -2.7509396 | E_pair -2.7534785 | yes - LJ force and virial dropped |
 | in.dsf_special | E_coul -0.76902174 | E_coul +0.046435449 | yes - wrong sign |
+| in.hexorder_nnn_null | c_hxa 0.001817125 | c_hxa -nan | yes - divide by zero |
 | in.temp_region_bias | - | - | no divergence observed |
 | in.gravity_none | control for in.gravity_disable | | |
 

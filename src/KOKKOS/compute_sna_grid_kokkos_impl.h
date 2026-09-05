@@ -173,7 +173,9 @@ template<class DeviceType, typename real_type, typename accum_type, int vector_l
 void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::compute_array()
 {
   if (host_flag) {
+    atomKK->sync(Host,X_MASK|TYPE_MASK|MASK_MASK);
     ComputeSNAGrid::compute_array();
+    k_grid.modify_host();
     return;
   }
 
@@ -233,12 +235,28 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::com
 
     //ComputeNeigh
     {
-      int scratch_size = scratch_size_helper<int>(team_size_compute_neigh * max_neighs); //ntotal);
+      // The kernel records the true neighbor count of every grid point but stores at
+      // most max_neighs neighbors.  If any grid point in this chunk has more, grow the
+      // SNA neighbor arrays and repeat, rather than overrunning them.
 
-      SnapAoSoATeamPolicy<DeviceType, team_size_compute_neigh, TagCSNAGridComputeNeigh>
-        policy_neigh(chunk_size, team_size_compute_neigh, vector_length);
-      policy_neigh = policy_neigh.set_scratch_size(0, Kokkos::PerTeam(scratch_size));
-      Kokkos::parallel_for("ComputeNeigh",policy_neigh,*this);
+      for (int attempt = 0; attempt < 2; attempt++) {
+        int scratch_size = scratch_size_helper<int>(team_size_compute_neigh * max_neighs);
+
+        SnapAoSoATeamPolicy<DeviceType, team_size_compute_neigh, TagCSNAGridComputeNeigh>
+          policy_neigh(chunk_size, team_size_compute_neigh, vector_length);
+        policy_neigh = policy_neigh.set_scratch_size(0, Kokkos::PerTeam(scratch_size));
+        Kokkos::parallel_for("ComputeNeigh",policy_neigh,*this);
+
+        Kokkos::deep_copy(h_ninside, d_ninside);
+        int max_ninside = 0;
+        for (int ii = 0; ii < chunk_size; ii++)
+          if (h_ninside(ii) > max_ninside) max_ninside = h_ninside(ii);
+
+        if (max_ninside <= max_neighs) break;
+
+        max_neighs = max_ninside;
+        snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
+      }
     }
 
     //ComputeCayleyKlein

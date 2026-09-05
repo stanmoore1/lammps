@@ -1,0 +1,17 @@
+units           lj
+atom_style      sphere
+dimension       3
+lattice         sc 0.4
+region          box block 0 6 0 6 0 6
+create_box      1 box
+create_atoms    1 box
+set             type 1 diameter 1.0 density 1.0
+velocity        all create 1.0 12345 loop geom
+pair_style      brownian 1.0 1 1 2.5 98765 
+pair_coeff      * * 
+neighbor        0.3 bin
+neigh_modify    delay 0 every 1 check no
+fix             1 all nve/sphere
+thermo_style    custom step temp press
+thermo          20
+run             20

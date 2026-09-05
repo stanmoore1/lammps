@@ -145,6 +145,14 @@ void PPPMKokkos<DeviceType>::init()
   if (differentiation_flag == 1)
     error->all(FLERR,"Cannot (yet) use PPPM Kokkos with 'kspace_modify diff ad'");
 
+  // the automatic slab volume factor of the base class needs the iteration in
+  // PPPM::init(), which is not implemented here.  Without it slab_volfactor
+  // stays at 1.0, no vacuum is inserted, and the slab correction is applied to
+  // the unmodified box, so this must be rejected rather than ignored.
+
+  if (slabflag == 1 && slab_auto)
+    error->all(FLERR,"Cannot (yet) use PPPM Kokkos with 'kspace_modify slab auto'");
+
   triclinic_check();
 
   if (triclinic != domain->triclinic)
@@ -618,6 +626,11 @@ void PPPMKokkos<DeviceType>::compute(int eflag, int vflag)
     boxlo[2] = domain->boxlo_lamda[2];
 
     domain->x2lamda(atomKK->nlocal);
+
+    // DomainKokkos converts on the device and claims X there, so the host
+    // instantiation would otherwise keep reading un-converted coordinates
+
+    atomKK->sync(execution_space,X_MASK);
   }
 
   boxlo_kk[0] = static_cast<KK_FLOAT>(boxlo[0]);
@@ -737,7 +750,10 @@ void PPPMKokkos<DeviceType>::compute(int eflag, int vflag)
   // convert atoms back from lamda to box coords
   // must precede slabcorr(), which needs Cartesian z-coordinates
 
-  if (triclinic) domain->lamda2x(atom->nlocal);
+  if (triclinic) {
+    domain->lamda2x(atom->nlocal);
+    atomKK->sync(execution_space,X_MASK);
+  }
 
   // 2d slab correction
 
@@ -903,9 +919,16 @@ void PPPMKokkos<DeviceType>::deallocate()
   memory->destroy(gc_buf1);
   memory->destroy(gc_buf2);
 
-  memoryKK->destroy_kokkos(d_density_fft,density_fft);
-  memoryKK->destroy_kokkos(d_work1,work1);
-  memoryKK->destroy_kokkos(d_work2,work2);
+  // release through the DualViews the buffers were created from, and drop the
+  // derived device handles as well: either one left holding a reference keeps
+  // the old allocation alive until allocate() overwrites it
+
+  memoryKK->destroy_kokkos(k_density_fft,density_fft);
+  memoryKK->destroy_kokkos(k_work1,work1);
+  memoryKK->destroy_kokkos(k_work2,work2);
+  d_density_fft = typename FFT_AT::t_FFT_SCALAR_1d();
+  d_work1 = typename FFT_AT::t_FFT_SCALAR_1d();
+  d_work2 = typename FFT_AT::t_FFT_SCALAR_1d();
 
   delete fft1;
   fft1 = nullptr;
