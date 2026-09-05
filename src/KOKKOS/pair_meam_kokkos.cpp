@@ -311,6 +311,31 @@ void PairMEAMKokkos<DeviceType>::coeff(int narg, char **arg)
 }
 
 /* ----------------------------------------------------------------------
+   refresh the device copy of scale[][]
+
+   fix adapt writes scale[][] through PairMEAM::extract() and then calls
+   Pair::reinit(), so without this override the device keeps the values
+   captured at pair_coeff time and the requested scaling never takes effect
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairMEAMKokkos<DeviceType>::reinit()
+{
+  PairMEAM::reinit();
+
+  if (!d_scale.data()) return;
+
+  const int n = atom->ntypes;
+  auto h_scale = Kokkos::create_mirror_view(d_scale);
+  for (int i = 1; i <= n; i++)
+    for (int j = 1; j <= n; j++)
+      h_scale(i,j) = scale[i][j];
+  Kokkos::deep_copy(d_scale,h_scale);
+
+  meam_inst_kk->d_scale = d_scale;
+}
+
+/* ----------------------------------------------------------------------
    init specific to this pair style
 ------------------------------------------------------------------------- */
 template<class DeviceType>
