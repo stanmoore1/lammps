@@ -139,6 +139,12 @@ void FixNeighHistoryKokkos<DeviceType>::pre_exchange_no_newton()
       maxpartner += 8;
       memoryKK->grow_kokkos(k_partner,partner,atom->nmax,maxpartner,"neighbor_history:partner");
       memoryKK->grow_kokkos(k_valuepartner,valuepartner,atom->nmax,dnum*maxpartner,"neighbor_history:valuepartner");
+
+      // the grow reallocates, so the views used by the retry kernel must be
+      // re-bound, otherwise it writes past the end of the old allocation
+
+      d_partner = k_partner.template view<DeviceType>();
+      d_valuepartner = k_valuepartner.template view<DeviceType>();
     }
   }
 

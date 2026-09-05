@@ -298,7 +298,7 @@ void AngleGaussianKokkos<DeviceType>::coeff(int narg, char **arg)
   allocate_kokkos();
 
   int ilo,ihi;
-  utils::bounds(FLERR,arg[0],1,atom->ndihedraltypes,ilo,ihi,error);
+  utils::bounds(FLERR,arg[0],1,atom->nangletypes,ilo,ihi,error);
 
   for (int i = ilo; i <= ihi; i++) {
     k_nterms.view_host()[i]             = nterms[i];
