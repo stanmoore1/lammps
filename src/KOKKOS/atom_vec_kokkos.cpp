@@ -1848,9 +1848,7 @@ struct AtomVecKokkos_PackBorderVel {
     _buf(i,m++) = d_ubuf(_mask(j)).d;
 
     if constexpr (DEFORM_VREMAP) {
-      // NOTE: the mask is indexed with i, not j, to match AtomVec::pack_border_vel()
-      // at src/atom_vec.cpp:951.  Changing it here alone would diverge from the CPU.
-      if (_mask(i) & _deform_groupbit) {
+      if (_mask(j) & _deform_groupbit) {
         _buf(i,m++) = static_cast<double>(_v(j,0)) + _dvx;
         _buf(i,m++) = static_cast<double>(_v(j,1)) + _dvy;
         _buf(i,m++) = static_cast<double>(_v(j,2)) + _dvz;

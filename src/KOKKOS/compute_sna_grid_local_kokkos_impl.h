@@ -452,11 +452,6 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   d_alocal(igrid, 4) = ytmp;
   d_alocal(igrid, 5) = ztmp;
 
-  // currently, all grid points are type 1
-  // not clear what a better choice would be
-
-  const int itype = 1;
-
   // Compute the number of neighbors, store rsq
   int ninside = 0;
 
@@ -509,8 +504,8 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
         snaKK.rcutij(ii,offset) = static_cast<real_type>((2.0 * static_cast<double>(d_radelem[jtype]))*rcutfac);
         snaKK.inside(ii,offset) = j;
         if (switchinnerflag) {
-          snaKK.sinnerij(ii,offset) = static_cast<real_type>(0.5)*(d_sinnerelem[itype] + d_sinnerelem[jtype]);
-          snaKK.dinnerij(ii,offset) = static_cast<real_type>(0.5)*(d_dinnerelem[itype] + d_dinnerelem[jtype]);
+          snaKK.sinnerij(ii,offset) = d_sinnerelem[jtype];
+          snaKK.dinnerij(ii,offset) = d_dinnerelem[jtype];
         }
         snaKK.element(ii,offset) = jelem;
       }

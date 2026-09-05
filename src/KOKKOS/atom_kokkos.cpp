@@ -154,6 +154,13 @@ void AtomKokkos::init()
 {
   Atom::init();
 
+  // refresh the list of fix property/atom instances.  This must happen here and
+  // not only from FixPropertyAtomKokkos, otherwise an input that defines *only*
+  // plain "fix property/atom" instances never reaches the check below and their
+  // per-atom data would silently not be kept in sync with the device.
+
+  update_property_atom();
+
   sort_legacy = lmp->kokkos->sort_legacy;
 }
 
@@ -165,7 +172,8 @@ void AtomKokkos::update_property_atom()
   std::vector<Fix *> prop_atom_fixes;
   for (auto &ifix : modify->get_fix_by_style("^property/atom")) {
     if (!ifix->kokkosable)
-      error->all(FLERR, "KOKKOS package requires a Kokkos-enabled version of fix property/atom");
+      error->all(FLERR, "Fix property/atom {} must use the Kokkos-enabled style "
+                 "property/atom/kk when running with the KOKKOS package", ifix->id);
 
     ++nprop_atom;
     prop_atom_fixes.push_back(ifix);
