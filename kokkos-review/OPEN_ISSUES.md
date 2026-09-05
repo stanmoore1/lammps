@@ -271,11 +271,17 @@ assume a green build covers the branch.**
 * **There is no `eatom_only_kokkos` test variant.**  `test_pair_style.cpp` provides `plain`,
   `omp`, `eatom_only`, `eatom_only_omp`, `extract`, `extract_omp`, `kokkos_omp`,
   `kokkos_serial`, `kokkos_gpu`, `gpu`, `intel`, `opt` and `single` -- an eatom-only variant
-  for the plain and OpenMP styles, but none for KOKKOS.  A per-atom-only energy request is
-  exactly the condition under which `if (eflag)` wrongly accumulates into a global that
-  `ev_init` has not zeroed, which is the defect this review found in ten KOKKOS styles by
-  reading.  **The suite could not have caught it and still cannot catch a regression of it.**
-  Adding an `eatom_only_kokkos` variant would close that.
+  for the plain and OpenMP styles, but none for KOKKOS.  Adding one would exercise the
+  KOKKOS per-atom energy path, which nothing currently covers on its own.
+
+  It would **not**, however, catch the `if (eflag)` pattern of REPORT.md, for two separate
+  reasons, both worth knowing before anyone writes it.  First, the helper it would reuse,
+  `eatom_direct()`, always calls `compute(ENERGY_GLOBAL | ENERGY_ATOM, ...)`, so
+  `eflag_global` is set on every call and the per-atom-only condition never arises.  Second,
+  and more fundamentally, that pattern turns out not to be observable at all -- see the
+  withdrawn claim in REPORT.md.  A test aimed at it would need to request `ENERGY_ATOM`
+  alone and then inspect `pair->eng_vdwl` directly, bypassing the `compute pe` guard that
+  makes the pollution unreachable in normal use.
 * **Enabling a package converts skips into real tests.**  The seven packages added during this
   review did not change the test count; they turned roughly 45 already-listed tests from
   skipped into actually running.  A green run says nothing about styles whose prerequisites

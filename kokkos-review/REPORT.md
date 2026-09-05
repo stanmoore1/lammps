@@ -213,13 +213,27 @@ then fixed.  Where it contradicts the sections above, this section is current.
 
 ## Corrections to the report above
 
-* **The `if (eflag)` pattern was NOT benign.**  The section "What was checked and
-  deliberately *not* reported" argues that `eng_coul` is not read when `eflag_global == 0`
-  and is reset by `ev_init` on the next energy step.  That reasoning is wrong for a
-  per-atom-only energy request: `pair_kokkos.h:183` accumulates `ev.ecoul` under
-  `eflag_either`, which is set for a per-atom request, while `ev_init` only zeroes the
-  global on a *global* energy step.  All ten occurrences (four lj styles, six coul styles)
-  now use `eflag_global`; none remain in the package.
+* **The `if (eflag)` pattern: hardening, not a live bug.**  An earlier revision of this
+  section claimed the original "benign" assessment was wrong.  That claim overstated the
+  case and is withdrawn.
+
+  The mechanism is real: `pair_kokkos.h:183` accumulates under `eflag_either`, which is set
+  for a per-atom-only request, while `ev_setup` zeroes `eng_vdwl`/`eng_coul` only under
+  `eflag_global` (`src/pair.cpp:1015`).  A per-atom-only step therefore does add into a
+  global that was not zeroed.
+
+  But the pollution is transient and no consumer can observe it.  A survey of every reader
+  of `pair->eng_vdwl`/`eng_coul` outside the pair classes found none that can see it:
+  `compute_pe` (`compute_pe.cpp:87`) and `compute_pair` (`compute_pair.cpp:118,139`) both
+  raise "Energy was not tallied on needed timestep" unless `eflag_global` was set for that
+  step; `thermo` and `compute_fep` (`ENERGY_GLOBAL | ENERGY_ONLY`) set it themselves, so
+  `ev_setup` zeroes before they read.
+
+  All ten occurrences (four lj styles, six coul styles) now use `eflag_global` anyway.  The
+  change is right on its own terms -- it matches the CPU convention and the `vflag_global`
+  on the adjacent line, and it removes a trap for any future consumer that reads the global
+  without setting the flag -- but it should be understood as hardening, not as a fix for an
+  observable defect.
 * **`pair_vashishta` FullB indexing is latent, not live.**  `KokkosLMP::newton_check()`
   runs unconditionally at startup and forces newton pair off whenever `neighflag == FULL`,
   while `PairVashishta::init_style()` requires newton pair on.  The FULL path is therefore
