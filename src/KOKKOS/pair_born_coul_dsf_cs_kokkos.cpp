@@ -122,9 +122,17 @@ void PairBornCoulDSFCSKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   newton_pair = force->newton_pair;
 
   // damped-shifted-force self-energy per atom
-  for (int i = 0; i < nlocal; i++) {
-    double qisq = atom->q[i]*atom->q[i];
-    eng_coul += -(e_shift/2.0 + alpha/MY_PIS) * qisq * force->qqrd2e;
+  // the loop below reads the host copy of q, which the sync above only
+  // refreshed in the execution space, so bring q to the host explicitly
+
+  if (eflag) {
+    atomKK->sync(Host,Q_MASK);
+    if (eflag_global) {
+      for (int i = 0; i < nlocal; i++) {
+        double qisq = atom->q[i]*atom->q[i];
+        eng_coul += -(e_shift/2.0 + alpha/MY_PIS) * qisq * force->qqrd2e;
+      }
+    }
   }
 
   EV_FLOAT ev;

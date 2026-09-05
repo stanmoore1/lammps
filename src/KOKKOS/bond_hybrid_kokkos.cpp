@@ -101,6 +101,17 @@ void BondHybridKokkos::compute(int eflag, int vflag)
       d_bondlist(m,n,1) = d_bondlist_orig(i,1);
       d_bondlist(m,n,2) = d_bondlist_orig(i,2);
     });
+
+    // the sub-style lists were just rebuilt on the device.  The subviews
+    // handed to the sub-styles below share these modified flags, so the
+    // device side is marked newest here and only here: on the other steps
+    // a sub-style may have marked the host side newest (bond quartic/kk
+    // zeroes broken bonds in the host mirror) and that must survive to the
+    // next step, and marking the device modified on top of it would abort
+    // with a concurrent modification error
+
+    k_bondlist.clear_sync_state();
+    k_bondlist.modify_device();
   }
 
   // call each sub-style's compute function
@@ -115,7 +126,6 @@ void BondHybridKokkos::compute(int eflag, int vflag)
   for (int m = 0; m < nstyles; m++) {
     neighbor->nbondlist = h_nbondlist[m];
     auto k_bondlist_m = Kokkos::subview(k_bondlist,m,Kokkos::ALL,Kokkos::ALL);
-    k_bondlist_m.modify_device();
     neighborKK->k_bondlist = k_bondlist_m;
 
     auto style = styles[m];

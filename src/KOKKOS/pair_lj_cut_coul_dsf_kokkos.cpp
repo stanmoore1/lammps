@@ -118,19 +118,25 @@ void PairLJCutCoulDSFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   qqrd2e = static_cast<KK_FLOAT>(force->qqrd2e);
   newton_pair = force->newton_pair;
 
+  // damped-shifted-force self-energy per atom
+  // the loop below reads the host copy of q, which the sync above only
+  // refreshed in the execution space, so bring q to the host explicitly
+
+  if (eflag) {
+    atomKK->sync(Host,Q_MASK);
+    if (eflag_global) {
+      for (int i = 0; i < nlocal; i++) {
+        double qisq = atom->q[i]*atom->q[i];
+        eng_coul += -(e_shift/2.0 + alpha/MY_PIS) * qisq * force->qqrd2e;
+      }
+    }
+  }
+
   // loop over neighbors of my atoms
 
   EV_FLOAT ev;
 
   copymode = 1;
-
-  int inum = list->inum;
-
-  for (int ii = 0; ii < inum; ii ++) {
-    //int i = list->ilist[ii];
-    double qtmp = atom->q[ii];
-    eng_coul += -(e_shift/2.0 + alpha/MY_PIS) * qtmp*qtmp*static_cast<double>(qqrd2e);
-  }
 
   ev = pair_compute<PairLJCutCoulDSFKokkos<DeviceType>,void >
     (this,(NeighListKokkos<DeviceType>*)list);
@@ -151,6 +157,11 @@ void PairLJCutCoulDSFKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
     k_eatom.sync_host();
+    // add the self-energy to the per-atom energy after the device sync
+    for (int i = 0; i < nlocal; i++) {
+      double qisq = atom->q[i]*atom->q[i];
+      eatom[i] += -(e_shift/2.0 + alpha/MY_PIS) * qisq * force->qqrd2e;
+    }
   }
 
   if (vflag_atom) {

@@ -1625,7 +1625,13 @@ void FixRigidSmallKokkos<DeviceType>::grow_arrays(int nmax)
   // body came out with zero mass, zero inertia and, through a zero degree-of-
   // freedom count, a nan temperature.  Carry the host side across the grow
   // whenever the host side is the one holding the values.
-  const bool host_holds_bookkeeping = (!setupflag || setup_host_rebuild);
+  // The host also owns this bookkeeping during a run whenever CommKokkos is not
+  // using the device exchange: pre_exchange() flushes everything down and the
+  // base class then migrates the atoms through the raw host pointers without
+  // touching the modify flags, so a grow in the middle of that exchange would
+  // otherwise refill the mirrors from the pre-exchange device snapshot.
+  const bool using_device_exchange = exchange_comm_device && !commKK->exchange_comm_legacy;
+  const bool host_holds_bookkeeping = (!setupflag || setup_host_rebuild || !using_device_exchange);
 
   if (!tied_initialized) {
     // the base ctor's virtual grow_arrays() allocated these as plain

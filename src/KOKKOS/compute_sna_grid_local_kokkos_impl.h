@@ -517,8 +517,10 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   const int iatom = iatom_mod + iatom_div * vector_length;
   if (iatom >= chunk_size) return;
 
-  int itype = type(iatom);
-  int ielem = d_map[itype];
+  // all grid points are type 1, iatom is a grid index and must not be used
+  // to look up an atom type, see ComputeSNAGrid::compute_array()
+  const int itype = 1;
+  const int ielem = chemflag ? d_map[itype] : 0;
 
   snaKK.pre_ui(iatom, j, ielem);
 }
@@ -529,8 +531,10 @@ KOKKOS_INLINE_FUNCTION
 void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>::operator() (TagCSNAGridLocalPreUi, const int& iatom, const int& j) const {
   if (iatom >= chunk_size) return;
 
-  int itype = type(iatom);
-  int ielem = d_map[itype];
+  // all grid points are type 1, iatom is a grid index and must not be used
+  // to look up an atom type, see ComputeSNAGrid::compute_array()
+  const int itype = 1;
+  const int ielem = chemflag ? d_map[itype] : 0;
 
   snaKK.pre_ui(iatom, j, ielem);
 }
@@ -541,8 +545,10 @@ KOKKOS_INLINE_FUNCTION
 void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>::operator() (TagCSNAGridLocalPreUi, const int& iatom) const {
   if (iatom >= chunk_size) return;
 
-  const int itype = type(iatom);
-  const int ielem = d_map[itype];
+  // all grid points are type 1, iatom is a grid index and must not be used
+  // to look up an atom type, see ComputeSNAGrid::compute_array()
+  const int itype = 1;
+  const int ielem = chemflag ? d_map[itype] : 0;
 
   for (int j = 0; j <= twojmax; j++)
     snaKK.pre_ui(iatom, j, ielem);
