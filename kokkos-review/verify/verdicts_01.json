@@ -1,0 +1,279 @@
+[
+ {
+  "id": "F0065",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 159,
+  "reasoning": "compute_local() begins 'if (host_flag) { ComputeSNAGridLocal::compute_array(); return; }' (impl header lines 156-162). I read src/ML-SNAP/compute_sna_grid_local.h: the class declares only 'void init() override; void compute_local() override; double memory_usage() override;' - no compute_array. Its base src/ML-SNAP/compute_grid_local.h declares 'void compute_local() override = 0;' and no compute_array. So the qualified call resolves to Compute's 'virtual void compute_array() {}' (src/compute.h:129) - an empty body. host_flag is set from 'host_flag = (execution_space == HostKK)'; src/KOKKOS/compute_sna_grid_local_kokkos.cpp instantiates ComputeSNAGridLocalKokkosDevice<LMPDeviceType> unconditionally, and on a CPU-only Kokkos build LMPDeviceType==LMPHostType so execution_space==HostKK and the branch is taken. The contrast the finding draws is real: ComputeSNAGrid does declare 'void compute_array() override;' (src/ML-SNAP/compute_sna_grid.h:32), so the sibling compute_sna_grid_kokkos_impl.h host branch is correct. Nothing else fills alocal on the host path - setup() only create_kokkos()es it (NoInit is not used there but memoryKK create is uninitialized malloc), so dump local prints whatever is in memory.",
+  "severity_agreed": "high",
+  "fix": "In ComputeSNAGridLocalKokkos::compute_local(), change the host branch to 'ComputeSNAGridLocal::compute_local(); return;'. Note the base compute_local() writes into alocal[igrid][...], and alocal here points into the Kokkos view host data, so also mark k_alocal.modify_host() (or simply keep the host path entirely on the base-class allocation, see F0072)."
+ },
+ {
+  "id": "F0066",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 438,
+  "reasoning": "TagCSNAGridLocalComputeNeigh has two loops 'for (int j = 0; j < ntotal; j++)' (counting pass and fill pass); neither tests atom->mask. The constructor sets 'datamask_read = EMPTY_MASK;' and compute_local() syncs only X_MASK|F_MASK|TYPE_MASK, so mask is never even fetched. The CPU original src/ML-SNAP/compute_sna_grid_local.cpp compute_local() has, as the first statement of the identical j loop, 'if (!(mask[j] & groupbit)) continue;' with 'const int *const mask = atom->mask;' hoisted above. No compensating filter exists anywhere else in the KOKKOS path - the fill kernel TagCSNAGridLocal2Fill only copies blist into alocal. So for any group other than 'all' the /kk descriptors include out-of-group atoms.",
+  "severity_agreed": "high",
+  "fix": "Add MASK_MASK to datamask_read and to the atomKK->sync() in compute_local(); add 'mask = atomKK->k_mask.view<DeviceType>();' next to the x/type captures, declare the view in compute_sna_grid_local_kokkos.h, and add 'if (!(mask(j) & groupbit)) continue;' as the first statement of both j loops in TagCSNAGridLocalComputeNeigh."
+ },
+ {
+  "id": "F0067",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 63,
+  "reasoning": "Constructor: 'cutsq_tmp = cutsq[1][1]; for (i=1..ntypes) for (j=1..ntypes) { k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutsq_tmp; ... }' - every entry of the (ntypes+1)^2 table gets cutsq[1][1]. The base class really does build a per-type table: src/ML-SNAP/compute_sna_grid_local.cpp constructor, 'cut = 2.0*radelem[i]*rcutfac; cutsq[i][i] = cut*cut;' plus the off-diagonal '(radelem[i]+radelem[j])*rcutfac'. And the kernel compounds it: TagCSNAGridLocalComputeNeigh uses 'rnd_cutsq(itype,jtype)' with 'const int itype = 1;' hard-wired a few lines above, i.e. row 1 only, while the CPU cutoff test is 'if (rsq < cutsq[jtype][jtype] && rsq > 1e-20)'. Both halves of the finding hold; with a single atom type the two agree, with differing radelem they do not.",
+  "severity_agreed": "high",
+  "fix": "Fill k_cutsq from the real base-class table ('k_cutsq.view_host()(i,j) = cutsq[i][j];' inside the double loop, then modify_host()), and change both kernel tests to 'rnd_cutsq(jtype,jtype)' to match compute_sna_grid_local.cpp. Drop the now-unused cutsq_tmp member."
+ },
+ {
+  "id": "F0068",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 176,
+  "reasoning": "compute_local() has '// max_neighs is defined here - think of more elaborate methods.' followed by 'max_neighs = 100;', and then 'snaKK.grow_rij(chunk_size, max_neighs, padding_factor);' (the line 'snaKK.grow_rij(chunk_size, ntotal);' is commented out directly above it). TagCSNAGridLocalComputeNeigh's second loop runs over all ntotal atoms and writes 'snaKK.rij(ii,offset,0..2)', 'snaKK.wj(ii,offset)', 'snaKK.rcutij(ii,offset)', 'snaKK.inside(ii,offset)' then 'offset++' with no comparison against max_neighs anywhere. The CPU style sizes for the worst case: 'snaptr->grow_rij(ntotal);'. The scratch allocation is also sized 'team_size_compute_neigh * max_neighs'. Two separate consequences: >100 neighbours writes out of bounds, and the downstream ComputeCayleyKlein/ComputeUi range policies are built with extent max_neighs so neighbours 100+ would be silently skipped even if the memory were large enough (d_ninside(ii) is stored unclamped and used as the loop bound in those kernels).",
+  "severity_agreed": "high",
+  "fix": "Add a max-reduction over d_ninside (or a cheap pre-pass counting atoms within cutmax of each grid point), take the MPI-local max, and pass that to grow_rij; alternatively pass ntotal as the commented-out line did. As a minimum, clamp offset and raise an error when ninside > max_neighs."
+ },
+ {
+  "id": "F0069",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 516,
+  "reasoning": "All three TagCSNAGridLocalPreUi operator() overloads (3-index, 2-index and 1-index forms) contain 'int itype = type(iatom); int ielem = d_map[itype]; snaKK.pre_ui(iatom, j, ielem);'. iatom is 'iatom_mod + iatom_div*vector_length' bounded by 'if (iatom >= chunk_size) return;' - chunk_size is MIN(chunksize, total_range) grid points, not atoms. The same file states the intended convention in TagCSNAGridLocalComputeNeigh: '// currently, all grid points are type 1 ... const int itype = 1; int ielem = 0; if (chemflag) ielem = d_map[itype];', which matches the CPU code 'const int itype = 1; int ielem = 0; if (chemflag) ielem = map[itype];'. Two failures: (a) the central element is map[type[grid_index]] instead of map[1]; (b) d_map is read even when chemflag is 0, and MemKK::realloc_kokkos uses 'Kokkos::NoInit' (src/KOKKOS/memory_kokkos.h:429) and d_map is deep-copied only 'if (chemflag)', so with chemflag off ielem is garbage. Also type() has extent nmax, so chunk_size > nmax is an out-of-bounds read. One of these is dispatched for every run - snap_get_policy picks the overload by policy rank at compute_local().",
+  "severity_agreed": "high",
+  "fix": "In all three TagCSNAGridLocalPreUi overloads replace the two lines with 'const int ielem = chemflag ? d_map[1] : 0;' (matching the ComputeNeigh convention and the CPU style). Optionally hoist it to a member computed once in compute_local()."
+ },
+ {
+  "id": "F0070",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 74,
+  "reasoning": "Constructor: 'MemKK::realloc_kokkos(d_radelem,...,nelements); MemKK::realloc_kokkos(d_wjelem,...,nelements); MemKK::realloc_kokkos(d_sinnerelem,...,nelements); MemKK::realloc_kokkos(d_dinnerelem,...,nelements);' then host mirrors are filled by 'for (int i = 1; i <= atom->ntypes; i++) { h_radelem(i-1) = radelem[i]; h_wjelem(i-1) = wjelem[i]; if (switchinnerflag) { h_sinnerelem(i) = sinnerelem[i]; h_dinnerelem(i) = dinnerelem[i]; } }'. nelements is 1 unless the 'chem' keyword is given (src/ML-SNAP/compute_sna_grid_local.cpp sets 'nelements = 1;' in the defaults block and only reassigns it under 'chem'), and it is unrelated to atom->ntypes. Both halves of the claim hold: (a) ntypes > nelements overruns radelem/wjelem, (b) the sinner/dinner writes use index i (1..ntypes) into a length-nelements view, so even ntypes==nelements==1 writes h_sinnerelem(1) one past the end. These are host mirror views allocated with Kokkos::NoInit, so this is a plain heap overflow with no bounds check in a release build.",
+  "severity_agreed": "high",
+  "fix": "Size all four views with atom->ntypes (they are indexed by type, not element - see F0077) or with MAX(nelements, atom->ntypes) if the element indexing is kept, and use the same i-1 offset for sinner/dinner as for radelem/wjelem."
+ },
+ {
+  "id": "F0072",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 143,
+  "reasoning": "setup() is 'ComputeGridLocal::setup(); memoryKK->create_kokkos(k_alocal, alocal, size_local_rows, size_local_cols, \"grid:alocal\"); array_local = alocal; d_alocal = ...'. src/ML-SNAP/compute_grid_local.cpp: setup() = 'deallocate(); set_grid_global(); set_grid_local(); allocate(); assign_coords();'; allocate() = 'gridlocal_allocated = 1; memory->create(alocal, size_local_rows, size_local_cols, ...); array_local = alocal;'; deallocate() = 'if (gridlocal_allocated) { gridlocal_allocated = 0; memory->destroy(alocal); }'. MemoryKokkos::create_kokkos(TYPE&, value_type**&, n1, n2, name) (src/KOKKOS/memory_kokkos.h) smalloc()s only the row-pointer array and sets 'array[i] = &h_data(i,0)', i.e. row 0 points into the Kokkos View's host allocation. Memory::destroy(TYPE**&) does 'sfree(array[0]); sfree(array);'. So on the second setup() (Modify::setup() calls compute[i]->setup() on every run) deallocate() free()s a pointer that was never malloc()ed. The leak of the base-class array on the first setup() is real too. The sibling confirms the intent: compute_sna_grid_kokkos_impl.h setup() opens with '// Do not call ComputeGrid::setup(), we don't wanna allocate the grid array there.' and calls only set_grid_global()/set_grid_local(). The same pattern (ComputeGridLocal::setup() followed by create_kokkos) is in src/KOKKOS/compute_gaussian_grid_local_kokkos.cpp setup(), whose destructor even has a commented-out '//gridlocal_allocated = 0;'.",
+  "severity_agreed": "high",
+  "fix": "Replace 'ComputeGridLocal::setup();' with 'ComputeGridLocal::set_grid_global(); ComputeGridLocal::set_grid_local();' (mirroring compute_sna_grid_kokkos_impl.h), then memoryKK->destroy_kokkos(k_alocal, alocal) before create_kokkos, and leave gridlocal_allocated at 0 so the base deallocate() is a no-op. Grid coordinate columns are already written by TagCSNAGridLocalComputeNeigh, so the dropped assign_coords() is not needed on the device path. Apply the identical change in compute_gaussian_grid_local_kokkos.cpp."
+ },
+ {
+  "id": "F0077",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 467,
+  "reasoning": "TagCSNAGridLocalComputeNeigh fill loop: 'int jelem = 0; if (chemflag) jelem = d_map[jtype]; ... snaKK.wj(ii,offset) = d_wjelem[jelem]; snaKK.rcutij(ii,offset) = (2.0*d_radelem[jelem])*rcutfac;' with a comment admitting the choice ('pair snap uses jelem here, but we use jtype, see compute_sna_grid.cpp / actually since the views here have values starting at 0, let's use jelem'). The CPU original is unambiguous: 'snaptr->wj[ninside] = wjelem[jtype]; snaptr->rcutij[ninside] = 2.0 * radelem[jtype] * rcutfac;'. So whenever two types map to the same element they get identical weights/radii on the device but distinct ones on the CPU. The off-by-one interaction is real as well: the mirrors were filled with h_wjelem(i-1)=wjelem[i], so with chemflag off (jelem always 0) every neighbour gets wjelem[1]/radelem[1] regardless of type. Note the neighbouring sinnerij/dinnerij lines diverge from the CPU too (KOKKOS averages ielem and jelem, the CPU uses sinnerelem[jelem] alone), which is a further instance of the same class of defect.",
+  "severity_agreed": "medium",
+  "fix": "Index by type: 'snaKK.wj(ii,offset) = d_wjelem[jtype-1]; snaKK.rcutij(ii,offset) = 2.0*d_radelem[jtype-1]*rcutfac;' after sizing d_wjelem/d_radelem with atom->ntypes (see F0070), or drop the -1 offset and size them ntypes+1 so the indexing reads like the CPU code. Also reconcile sinnerij/dinnerij with compute_sna_grid_local.cpp."
+ },
+ {
+  "id": "F0084",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 156,
+  "reasoning": "ComputeSNAGridLocalKokkos::compute_local() starts with the host_flag branch and then 'copymode = 1; zlen = ...' - there is no 'invoked_local = update->ntimestep;' anywhere in the function (grep over the whole impl header finds no invoked_local). The CPU original opens with exactly that line ('void ComputeSNAGridLocal::compute_local() { invoked_local = update->ntimestep;'), and the sibling src/KOKKOS/compute_gaussian_grid_local_kokkos.cpp:134 has it too. Consequence is the mild one the finding states - callers that use invoked_local as a this-timestep cache flag recompute; note it is only a performance/staleness issue, not wrong numbers, hence low.",
+  "severity_agreed": "low",
+  "fix": "Add 'invoked_local = update->ntimestep;' as the first statement of ComputeSNAGridLocalKokkos::compute_local(), before the host_flag branch (the base compute_local() sets it itself, so putting it first is harmless either way)."
+ },
+ {
+  "id": "F0085",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 38,
+  "reasoning": "All three items check out. (1) '#include <iostream>' sits alone after the <cmath>/<cstdlib>/<cstring> block; nothing in the file uses std::cout/cerr, and the project rule bans iostreams in LAMMPS sources. (2) d_test: declared 'Kokkos::View<real_type*, DeviceType> d_test; // test view' in compute_sna_grid_local_kokkos.h, realloc'd under a '// test' comment in the constructor, mirrored, assigned h_test(0)=2.0, and deep-copied - grep over both headers and the .cpp shows no other reference, so it is never read. (3) TagCSNAGridLocal2Fill recomputes iz/i2/iy/ix and xgrid[0..2] including the full triclinic 'h0*xgrid[0]+h5*xgrid[1]+h4*xgrid[2]+lo0' transform, then never uses xgrid - the function goes straight on to 'const auto idxb_max = snaKK.idxb_max;' and the blist copy. The grid-info columns 0-5 are indeed already written in TagCSNAGridLocalComputeNeigh ('d_alocal(igrid,0) = ix; ... d_alocal(igrid,5) = ztmp;'). The commented-out 'printf(\"ii igrid: %d %d\\n\", ii, igrid);' is there as claimed.",
+  "severity_agreed": "low",
+  "fix": "Delete '#include <iostream>'; delete the d_test declaration in compute_sna_grid_local_kokkos.h and its realloc/mirror/h_test/deep_copy lines in the constructor; in TagCSNAGridLocal2Fill delete everything from 'int iz = igrid/(xlen*ylen);' through the triclinic block plus the commented-out printf, keeping only 'const int igrid = ii + chunk_offset;' and the blist loop."
+ },
+ {
+  "id": "F0460",
+  "file": "src/KOKKOS/compute_sna_grid_local_kokkos_impl.h",
+  "verdict": "CONFIRMED",
+  "real_line": 159,
+  "reasoning": "Same defect as F0065 (duplicate), and the extra claim about the sibling checks out too. src/KOKKOS/compute_gaussian_grid_local_kokkos.cpp:128-132 reads 'void ComputeGaussianGridLocalKokkos<DeviceType>::compute_local() { if (host_flag) { return; } invoked_local = update->ntimestep; ...' - it returns before computing anything, so on a CPU-only Kokkos build gaussian/grid/local/kk likewise leaves alocal unwritten and does not even set invoked_local. Both classes do have a working CPU compute_local() to delegate to.",
+  "severity_agreed": "high",
+  "fix": "sna: 'ComputeSNAGridLocal::compute_local(); return;' in the host branch. gaussian: 'ComputeGaussianGridLocal::compute_local(); return;' at compute_gaussian_grid_local_kokkos.cpp:130. In both cases set invoked_local before delegating (or let the base set it)."
+ },
+ {
+  "id": "F0334",
+  "file": "src/KOKKOS/pair_gran_hooke_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 280,
+  "reasoning": "KOKKOS kernel: 'const KK_FLOAT imass = rmass[i];' ... 'const KK_FLOAT jmass = rmass[j];' ... 'KK_FLOAT meff = imass*jmass / (imass+jmass); if (mask_i & freeze_group_bit) meff = jmass; if (mask[j] & freeze_group_bit) meff = imass;'. The CPU base src/GRANULAR/pair_gran_hooke.cpp has, under the comment '// meff = effective mass of pair of particles / if I or J part of rigid body, use body mass': 'mi = rmass[i]; mj = rmass[j]; if (fix_rigid) { if (mass_rigid[i] > 0.0) mi = mass_rigid[i]; if (mass_rigid[j] > 0.0) mj = mass_rigid[j]; } meff = mi*mj/(mi+mj);', and the top of PairGranHooke::compute() refreshes mass_rigid from fix_rigid->extract(\"body\")/extract(\"masstotal\") on every reneighbor followed by comm->forward_comm(this). 'grep -n \"mass_rigid\\|fix_rigid\" src/KOKKOS/pair_gran*' returns nothing, so no compensating path exists. PairGranHookeKokkos::init_style() calls PairGranHooke::init_style() (which reaches PairGranHookeHistory::init_style where fix_rigid is looked up and assigned) and then only adjusts the neighbor request and rejects FULL lists - there is no guard rejecting fix_rigid. meff feeds both the normal damping 'damp = meff*gamman_kk*vnnr*rsqinv' and the friction cap 'fs = meff*gammat_kk*vrel', so the divergence changes forces.",
+  "severity_agreed": "high",
+  "fix": "Port the rigid-body mass path: add a DAT::tdual_float_1d k_mass_rigid filled in compute() when (fix_rigid && neighbor->ago == 0) from fix_rigid->extract(\"body\")/(\"masstotal\") plus the existing forward_comm, sync it to the device, and in the kernel use 'KK_FLOAT mi = imass, mj = jmass; if (fix_rigid_flag) { if (d_mass_rigid[i] > 0.0) mi = d_mass_rigid[i]; if (d_mass_rigid[j] > 0.0) mj = d_mass_rigid[j]; }' before forming meff. Apply to all three KOKKOS granular styles (see F0499). As an interim measure, add 'if (fix_rigid) error->all(FLERR,\"Pair style gran/hooke/kk does not (yet) support fix rigid\");' at the end of init_style()."
+ },
+ {
+  "id": "F0337",
+  "file": "src/KOKKOS/pair_gran_hooke_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 125,
+  "reasoning": "src/pair.h:247 declares 'int special_lj[4];    // copied from force->special_lj for Kokkos'. Neither pair_gran_hooke_kokkos.h nor pair_gran_hooke_history_kokkos.h nor pair_gran_hertz_history_kokkos.h declares a shadowing member (grep for special_lj in those three headers returns nothing), while pair_lj_cut_kokkos.h:91 and pair_gauss_cut_kokkos.h:89 both declare 'KK_FLOAT special_lj[4];'. So the four assignments in compute() ('special_lj[0] = force->special_lj[0]; ...') convert force->special_lj's doubles to int. The kernel then reads 'KK_FLOAT factor_lj = static_cast<KK_FLOAT>(special_lj[sbmask(j)]); ... if (factor_lj == 0) continue;' and, further down, actually scales with it ('fx *= factor_lj; ... tor3 *= factor_lj;'), exactly like the CPU style which uses 'double *special_lj = force->special_lj;'. So a factor of 0.5 becomes 0 and the pair is skipped entirely; 1.5 would become 1. Reachability requires bonded granular particles (e.g. atom_style hybrid sphere bond) with a fractional special_bonds lj factor, which is why I keep this at medium rather than high, but the truncation itself is unambiguous. All three KOKKOS granular styles are affected identically (lines 125-128 / 142-145 / 142-145).",
+  "severity_agreed": "medium",
+  "fix": "Add 'KK_FLOAT special_lj[4];' as a protected member of PairGranHookeKokkos, PairGranHookeHistoryKokkos and PairGranHertzHistoryKokkos (shadowing Pair::special_lj the way pair_lj_cut_kokkos.h does), so the four copies in compute() keep full precision."
+ },
+ {
+  "id": "F0499",
+  "file": "src/KOKKOS/pair_gran_hooke_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 280,
+  "reasoning": "Same defect as F0334, verified to span all three styles. Identical 'KK_FLOAT meff = imass*jmass / (imass+jmass); if (mask_i & freeze_group_bit) meff = jmass; if (mask[j] & freeze_group_bit) meff = imass;' appears at pair_gran_hooke_kokkos.cpp:280, pair_gran_hooke_history_kokkos.cpp:350 and pair_gran_hertz_history_kokkos.cpp:350, with imass/jmass taken from rmass in every case. Grep for mass_rigid or fix_rigid across all six src/KOKKOS/pair_gran_* files finds no hits. The CPU counterparts pair_gran_hooke.cpp and pair_gran_hooke_history.cpp both do the mass_rigid substitution (pair_gran_hooke_history.cpp:237 'if (fix_rigid) {' guards the same block, and hertz/history inherits that compute()). In hertz/history and hooke/history meff additionally enters the shear-history update ('shear1 = (fn/fs)*(shear1 + meff*gammat_kk*vtr1/kt_kk) - meff*gammat_kk*vtr1/kt_kk'), so the error accumulates in the stored history, not just the instantaneous force.",
+  "severity_agreed": "high",
+  "fix": "See F0334; make the same change in pair_gran_hooke_history_kokkos.cpp and pair_gran_hertz_history_kokkos.cpp."
+ },
+ {
+  "id": "F0094",
+  "file": "src/KOKKOS/min_linesearch_kokkos.cpp",
+  "verdict": "REFUTED",
+  "real_line": 391,
+  "reasoning": "The premise 'the flat alias of x is layout-dependent' is false: atom->x is pinned to LayoutRight independently of KOKKOS_LAYOUT. src/KOKKOS/atom_kokkos.h:34 declares 'DAT::ttransform_kkfloat_1d_3_lr k_x;', and src/KOKKOS/kokkos_type.h:1257 defines 'typedef TransformView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight> ttransform_kkfloat_1d_3_lr;' - the layout parameter is the literal Kokkos::LayoutRight, not LMPDeviceLayout. TransformView (kokkos_type.h:698) uses that parameter directly: 'typedef Kokkos::DualView<KKType, KKLayout, KKSpace> kk_view;', so k_x.view_device() is a LayoutRight view under every build and 'xvec = DAT::t_kkfloat_1d(d_x.data(),nvec)' is always the correct [x0,y0,z0,x1,...] flattening. Force is the odd one out: atom_kokkos.h:36 'DAT::ttransform_kkacc_1d_3 k_f;' and kokkos_type.h:1258 'typedef TransformView<KK_ACC_FLOAT*[3], double*[3], LMPDeviceLayout> ttransform_kkacc_1d_3;' - layout-dependent, hence the flat fvec alias needs a guard. That is exactly what the existing branches do, and the flag is even named for it: min_kokkos.h:27 'F_LAYOUTRIGHT'. I checked every one of the 11 'if constexpr (F_LAYOUTRIGHT)' sites (min_kokkos.cpp:624/661/698, min_linesearch_kokkos.cpp:191/286/442, min_cg_kokkos.cpp:68/125/178, min_sd_kokkos.cpp:51) and the guarded branch is 'auto l_fvec = fvec;' in all 11 - not one guards xvec. The asymmetry the finding reads as a missing guard is the intended design. Note also that the 'ghost x-coordinates corrupted' scenario could not arise anyway: even under LayoutLeft, x has nmax rows, so a flat length-3*nlocal window stays inside the allocation.",
+  "severity_agreed": "low"
+ },
+ {
+  "id": "F0463",
+  "file": "src/KOKKOS/min_linesearch_kokkos.cpp",
+  "verdict": "REFUTED",
+  "real_line": 253,
+  "reasoning": "Duplicate of F0094 and refuted for the same reason. The x DualView is declared with an explicit Kokkos::LayoutRight (atom_kokkos.h:34 'DAT::ttransform_kkfloat_1d_3_lr k_x;' -> kokkos_type.h:1257 'TransformView<KK_FLOAT*[3], double*[3], Kokkos::LayoutRight>'), so KOKKOS_LAYOUT=default does not change it and the flat xvec alias built in reset_vectors() is valid on CUDA/HIP as well. Only k_f carries LMPDeviceLayout, which is why the F_LAYOUTRIGHT guards exist and why all of them wrap fvec loops rather than xvec loops. The cited 'guarded loops at 191, 286, 442' are all fvec reductions; the 'unguarded loops at 253/392/411' are all xvec loops. No fix is needed.",
+  "severity_agreed": "low"
+ },
+ {
+  "id": "F0317",
+  "file": "src/KOKKOS/pair_coul_dsf_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 260,
+  "reasoning": "Read both sides in full. CPU PairCoulDSF::compute(): 'prefactor = qqrd2e * qtmp * q[j] / r; ... forcecoul = prefactor * (erfcc/r + 2.0*alpha/MY_PIS*erfcd + r*f_shift) * r; if (factor_coul < 1.0) forcecoul -= (1.0 - factor_coul) * prefactor;' and 'ecoul = prefactor * (erfcc - r*e_shift - rsq*f_shift); if (factor_coul < 1.0) ecoul -= (1.0 - factor_coul) * prefactor;'. PairCoulDSF::single() uses the identical convention, so it is not a compute/single inconsistency in the CPU style. KOKKOS: 'const KK_FLOAT prefactor = factor_coul * qqrd2e*qtmp*q[j]/r;' and then forcecoul/ecoul are formed from that prefactor with no subtraction anywhere in the kernel (I read the whole loop body, lines 244-292; the only other use of factor_coul is the sbmask fetch). Writing P for qqrd2e*qi*qj/r and X for the damped/shifted bracket, CPU gives P*X-(1-fc)*P while KOKKOS gives fc*P*X. These agree only at fc==1; at the LAMMPS default special coul 0.0 the CPU contributes -P and KOKKOS contributes 0. The intended KOKKOS pattern exists in the sibling: pair_born_coul_dsf_kokkos.cpp has 'const KK_FLOAT prefactor = qqrd2e*qtmp*q(j)/r;' (unscaled) followed by 'forcecoul -= (1.0-factor_coul)*prefactor;' and 'ecoul -= (1.0-factor_coul)*prefactor;'. The second half of the finding checks out too: pair_lj_cut_coul_dsf_kokkos.cpp:223 and :248 both do 'const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);' with no subtraction, against pair_lj_cut_coul_dsf.cpp:137-143/164-165 which does it correctly.",
+  "severity_agreed": "high",
+  "fix": "In pair_coul_dsf_kokkos.cpp change line 260 to 'const KK_FLOAT prefactor = qqrd2e*qtmp*q[j]/r;', make forcecoul and ecoul non-const, and after each add 'if (factor_coul < 1.0) forcecoul -= (static_cast<KK_FLOAT>(1.0)-factor_coul)*prefactor;' / '... ecoul -= ...', copying pair_born_coul_dsf_kokkos.cpp:213 and :262. Make the same change in pair_lj_cut_coul_dsf_kokkos.cpp compute_fcoul()/compute_ecoul() (lines 223 and 248); note those two helpers return a value divided by r, so the subtraction must be folded in before the division."
+ },
+ {
+  "id": "F0492",
+  "file": "src/KOKKOS/pair_coul_dsf_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 260,
+  "reasoning": "Duplicate of F0317; verified independently against src/pair_coul_dsf.cpp compute() and single() and against src/KOKKOS/pair_born_coul_dsf_kokkos.cpp (the correctly ported sibling). The extra claim about pair_lj_cut_coul_dsf_kokkos.cpp holds: 'const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);' appears at both line 223 (compute_fcoul) and line 248 (compute_ecoul), with no (1-factor_coul)*prefactor term, while src/EXTRA-PAIR/pair_lj_cut_coul_dsf.cpp compute() has 'if (factor_coul < 1.0) forcecoul -= (1.0-factor_coul)*prefactor;' at :143 and the matching ecoul line at :165. One caveat worth recording: PairLJCutCoulDSF::single() at :444 does use 'prefactor = factor_coul * ...' like the KOKKOS kernel, so that CPU style is internally inconsistent - but compute() is the authoritative force/energy path and is what /kk must reproduce.",
+  "severity_agreed": "high",
+  "fix": "See F0317."
+ },
+ {
+  "id": "F0198",
+  "file": "src/KOKKOS/fix_momentum_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 72,
+  "reasoning": "The code is as quoted: get_kinetic_energy()'s per-type branch is 'atomKK->sync(execution_space, TYPE_MASK); ... mass = atomKK->k_mass.view<DeviceType>();' with the author's own comment '// D.I. : why is there no MASS_MASK ?' immediately above, and no k_mass.sync anywhere in the file (the file's only sync calls are lines 60, 70, 88, 143). I confirmed there is no MASS_MASK bit: src/atom_masks.h has RMASS_MASK (0x200) but no MASS_MASK, so AtomKokkos::sync() cannot cover k_mass and it must be synced by hand. The convention is clear across the package - about twenty styles do 'atomKK->k_mass.sync<DeviceType>()' explicitly (compute_temp_kokkos.cpp:46, compute_ke_kokkos.cpp:65, fix_baoab_kokkos.cpp:92, group_kokkos.h:64, ...) and AtomKokkos::set_mass() marks k_mass.modify_host() (atom_kokkos.cpp:287-316). Note the sibling branch in the same function does it right for rmass via RMASS_MASK, which makes the omission an oversight rather than a deliberate choice. I did try to refute this on reachability and it is narrow in practice: FixNVEKokkos::init() (fix_nve_kokkos.cpp:45-46) and FixNHKokkos (fix_nh_kokkos.cpp:77-78) both do 'k_mass.modify_host(); k_mass.sync<DeviceType>();' at every init, so in a normal KOKKOS run the device copy is already fresh when end_of_step runs. The failure needs a configuration where no other device consumer has synced the masses. Hence I downgrade the severity, but the missing sync is real and the fix is one line.",
+  "severity_agreed": "low",
+  "fix": "In get_kinetic_energy(), add 'atomKK->k_mass.template sync<DeviceType>();' immediately after 'atomKK->sync(execution_space, TYPE_MASK);' (line 70), and replace the '// D.I. : why is there no MASS_MASK ?' comment. Match src/KOKKOS/group_kokkos.h:63-64."
+ },
+ {
+  "id": "F0521",
+  "file": "src/KOKKOS/fix_momentum_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 72,
+  "reasoning": "The missing 'atomKK->k_mass.sync<DeviceType>()' is real - it is the same one as F0198 - but the description of what it affects and the failure scenario are both wrong. (a) Location: lines 70-77 are inside the file-static get_kinetic_energy(), which computes the kinetic energy for the 'rescale' option, not the group mass. (b) The group mass is computed at end_of_step():97 by 'masstotal = groupKK->mass_kk<DeviceType>(igroup);', and GroupKokkos::mass_kk (src/KOKKOS/group_kokkos.h:59-68) does sync correctly: 'atomKK->sync(execution_space,MASK_MASK|TYPE_MASK); atomKK->k_mass.template sync<DeviceType>();' before the reduction. So the group-mass path is not defective. (c) The claimed NaN cannot occur even hypothetically: end_of_step():101 is 'if (masstotal == 0.0) return;', so a zero group mass causes an early return, not a division by zero. The real consequence of the actual defect is a wrong ekin_old/ekin_new and hence a wrong rescale factor, only when 'rescale' is on. As with F0198, reachability is limited because FixNVEKokkos::init() and FixNHKokkos both force a k_mass device copy at every init.",
+  "severity_agreed": "low",
+  "fix": "Same single line as F0198: add 'atomKK->k_mass.template sync<DeviceType>();' after the TYPE_MASK sync at line 70 in get_kinetic_energy(). No change is needed for the group-mass path."
+ },
+ {
+  "id": "F0120",
+  "file": "src/KOKKOS/meam_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 65,
+  "reasoning": "Verified every link in the chain. Declarations: src/KOKKOS/meam_kokkos.h:65 'typename AT::t_int_2d d_scale;' and src/KOKKOS/pair_meam_kokkos.h:108 'typename AT::t_int_2d d_scale;' - an integer view. Source: PairMEAM::scale is 'double **' (src/MEAM/pair_meam.cpp:170 'memory->create(scale, np1, np1, \"pair:scale\");'). Fill: PairMEAMKokkos<DeviceType>::coeff() does 'auto h_scale = Kokkos::create_mirror_view(d_scale); ... h_scale(i,j) = scale[i][j];' - an implicit double->int narrowing. Use: it is consumed as a floating-point multiplier, meam_dens_final_kokkos.h:59-63 'KK_FLOAT scaleii; ... scaleii = d_scale(type[i],type[i]);' then :182 'Fl *= scaleii;', and meam_force_kokkos.h:187-188 'KK_FLOAT scaleij = d_scale(type[i], type[i]); KK_FLOAT phi_sc = phi * scaleij;'. So 0.5 truncates to 0 and 1.9 to 1. The fix-adapt exposure is real: src/MEAM/pair_meam.cpp:898 'if (strcmp(str, \"scale\") == 0) return (void *) scale;' and doc/src/fix_adapt.rst:243 lists meam/scale as a type-pair adapt target. Nothing compensates: I checked all uses of d_scale and there is no rounding, no separate double path, and no error/warning for meam/kk + fix adapt. There is a second, arguably worse half that the finding notes only in passing and that I confirmed: d_scale is deep-copied ONLY inside coeff() (pair_meam_kokkos.cpp:299-310); nothing re-copies it later, so a fix adapt scale change never reaches the device at all, even for integral values. The default is benign because PairMEAM::coeff sets scale[i][j] = 1.0 (pair_meam.cpp:310) before the copy.",
+  "severity_agreed": "high",
+  "fix": "Change d_scale to a floating-point view - 'typename AT::t_kkfloat_2d d_scale;' in src/KOKKOS/meam_kokkos.h:65 and src/KOKKOS/pair_meam_kokkos.h:108, and the matching parameter type in the meam_dens_final signature (meam_dens_final_kokkos.h:25 and the declaration in meam_kokkos.h). Then move the scale->d_scale deep_copy out of coeff() into a small helper called from PairMEAMKokkos::compute() (or init_one/init_style plus a per-step refresh) so fix adapt changes actually reach the device."
+ },
+ {
+  "id": "F0250",
+  "file": "src/KOKKOS/fix_wall_region_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 96,
+  "reasoning": "Read both sides. The functor is 'template <class DeviceType, class T> struct FixWallRegionKokkosFunctor { ... FixWallRegionKokkos<DeviceType> c; T *regionKK; FixWallRegionKokkosFunctor(FixWallRegionKokkos<DeviceType>* c_ptr, T *regionKK): value_count(10), c(*c_ptr), regionKK(regionKK) {} ... KOKKOS_INLINE_FUNCTION void operator()(const int i, value_type result) const { c.wall_particle(regionKK,i,result); } };'. Note the asymmetry the finding points at: the fix is copied by value ('c(*c_ptr)') while the region is kept as a raw pointer. That pointer comes from fix_wall_region_kokkos.cpp post_force(): 'if (auto *regionKK = dynamic_cast<RegBlockKokkos<DeviceType>*>(region)) { FixWallRegionKokkosFunctor<...> functor(this,regionKK); Kokkos::parallel_reduce(nlocal,functor,result); }' - region is an ordinary host-heap object from Domain's region factory. Inside the kernel, FixWallRegionKokkos<DeviceType>::wall_particle() calls 'regionKK->match_kokkos(...)' and 'regionKK->surface_kokkos(...)', and those methods (src/KOKKOS/region_block_kokkos.h:67-73, 76-117) read instance members - boxremap (a RegionRemapKokkos by value), dynamic, openflag, interior, rotateflag, and the block bounds via k_inside/surface_interior_kokkos. That is a host-address dereference from device code. FixWallRegionKokkos<LMPDeviceType> is instantiated unconditionally at the bottom of the .cpp, so this is the GPU path, not a host-only one. The established pattern is exactly what the finding says: RegBlockKokkos<DeviceType>::match_all_kokkos (src/KOKKOS/region_block_kokkos.cpp:35-50) sets 'copymode = 1; Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagRegBlockMatchAll>(0,nlocal),*this);' - the region copies ITSELF into the kernel - and the region-aware fixes go through it (fix_setforce_kokkos.cpp:84-92 'regionKKBase->match_all_kokkos(groupbit,k_match);'). I could not find any compensating mechanism (no UVM assumption in the file, no host-only guard, no managed allocation for regions).",
+  "severity_agreed": "high",
+  "fix": "Store the region by value in the functor: change 'T *regionKK;' to 'T regionKK;' with 'regionKK(*region_ptr)' in the ctor, set region_ptr->copymode = 1 around the parallel_reduce so the functor copy's destructor does not free the region's arrays, and change FixWallRegionKokkos::wall_particle's template parameter use from 'regionKK->' to 'regionKK.' (the MAXCONTACT lookup becomes 'T::MAXCONTACT' instead of 'std::remove_pointer_t<T>::MAXCONTACT'). Alternatively restructure so the loop is launched from inside the region class as match_all_kokkos does."
+ },
+ {
+  "id": "F0411",
+  "file": "src/KOKKOS/pair_tersoff_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 836,
+  "reasoning": "The code divergence is exactly as described. Fused version (the one actually used, called from line 436 'ters_bij_k_and_ters_dbij(d_params(iparam_ij),bo_ij,bij,prefactor);'), tmp > param.c2 branch: 'prefactor = param.beta * (factor * (1.0 - 0.5*(1.0 + 0.5/(prm_ijk_pn)) * tmp_pow_neg_prm_ijk_pn));'. The unfused ters_dbij() in the same file has the corrected form with the fix explicitly recorded in a comment: '// error in negligible 2nd term fixed 2/21/2022 / // (1.0 - 0.5*(1.0 + 1.0/(2.0*param.powern)) * / (1.0 - (1.0 + 0.5/(param.powern)) * Kokkos::pow(tmp,-param.powern))'. The CPU base PairTersoff::ters_bij_d() matches the corrected form with the same historical comment: '(1.0 - (1.0 + 1.0/(2.0*param->powern)) * pow(tmp,-param->powern))' (0.5/n == 1/(2n), so the KOKKOS unfused and CPU forms are identical). So the fused branch carries the pre-fix expression - the commented-out line in ters_dbij is character-for-character what the fused code does. The sibling KOKKOS styles use the corrected unfused ters_dbij (pair_tersoff_zbl_kokkos.cpp:484, pair_tersoff_mod_kokkos.cpp:441, pair_tersoff_mod_c_kokkos.cpp:446). WHAT I ADJUST is the severity. I checked the branch's reachability: src/MANYBODY/pair_tersoff.cpp:567-568 sets 'c1 = pow(2.0*powern*1.0e-16,-1.0/powern); c2 = pow(2.0*powern*1.0e-8,-1.0/powern);' (with c3=1/c2, c4=1/c1), so the affected branch 'c2 < beta*zeta <= c1' needs beta*zeta of order 1e9 to 1e20 - for Si tersoff (beta=1.1e-6, n=0.787) that means zeta above ~1e15, which no physical configuration produces. The term is also the one the source comments call 'negligible'. So this is a real formula divergence that will essentially never change a number in a real run; it matters as correctness-of-record and because it is the trap that a future reader of the fused code will fall into.",
+  "severity_agreed": "low",
+  "fix": "In ters_bij_k_and_ters_dbij(), drop the extra 0.5 from the c2 branch so it reads 'prefactor = param.beta * (factor * (static_cast<KK_FLOAT>(1.0) - (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(0.5)/(prm_ijk_pn)) * tmp_pow_neg_prm_ijk_pn));', matching ters_dbij() and PairTersoff::ters_bij_d()."
+ },
+ {
+  "id": "F0415",
+  "file": "src/KOKKOS/pair_tersoff_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 780,
+  "reasoning": "Verified each name with a call-site grep restricted to a function-call shape ('\\bNAME\\s*(') across all of src/KOKKOS. Within pair_tersoff_kokkos.cpp / .h, ters_bij_k (def 780), ters_dbij (797), ters_fa_k (737), ters_dfa (749), ters_dthbj (938), ters_dthbk (1001) and v_tally3_atom (1162) appear only as a definition plus a declaration in the header - no call site anywhere. The only bij/fa/fc helpers actually invoked are the fused ones: 'ters_fa_k_and_ters_dfa(...)' at line 435, 'ters_bij_k_and_ters_dbij(...)' at 436, and 'ters_fc_k_and_ters_dfc(...)' at 507 and 890. The hits for the same names in pair_tersoff_mod_kokkos.cpp / pair_tersoff_zbl_kokkos.cpp / pair_tersoff_mod_c_kokkos.cpp are their own independent definitions - those classes derive from PairTersoffMOD / PairTersoffZBL / PairTersoffMODC, not from PairTersoffKokkos (checked the class declarations), so they cannot be reaching into this file's copies. The file header even records the rewrite: '- Merged \"ters_fc_k\" with \"ters_dfc\", \"ters_bij_k\" with \"ters_dbij\", \"ters_gijk\" with \"ters_dgijk\", and \"ters_fa_k\" with \"ters_dfa\"'. The finding's point about why this matters is borne out by F0411: the surviving unfused ters_dbij is correct while the fused one it replaced is not. (ters_dthbj/ters_dthbk/v_tally3_atom are equally uncalled in the three sibling files, so the cleanup could reasonably extend there.)",
+  "severity_agreed": "low",
+  "fix": "Delete ters_bij_k, ters_dbij, ters_fa_k, ters_dfa, ters_dthbj, ters_dthbk and v_tally3_atom from src/KOKKOS/pair_tersoff_kokkos.cpp together with their declarations in pair_tersoff_kokkos.h (lines 172, 176, 184, 188, 221, 228, 284) - but only after applying the F0411 fix, since ters_dbij is currently the only correct copy of that formula."
+ },
+ {
+  "id": "F0152",
+  "file": "src/KOKKOS/transpose_helper_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 78,
+  "reasoning": "Line 78 of the TransposeHelperKokkos constructor is verbatim 'assert(d_dst.extent(0) == d_src.extent(0) && d_dst.extent(1) == d_dst.extent(1));' - the second conjunct compares d_dst.extent(1) with itself and is unconditionally true. I checked that the intended relation really is dst.extent(1) == src.extent(1) rather than a transposed one: despite the name, this helper does an out-of-place LAYOUT conversion, not an index transpose - the same-layout path is 'Kokkos::deep_copy(d_dst, d_src);' (which itself requires identical extents), and the tiling below is built purely from the destination's extents ('extent_tiles[0] = (d_dst.extent(0) + tile_size - 1)/tile_size; extent_tiles[1] = (d_dst.extent(1) + tile_size - 1)/tile_size;'), so source and destination must have the same shape in both dimensions. Severity is genuinely low: assert() is compiled out in release builds (NDEBUG), so the only loss is the debug-build diagnostic.",
+  "severity_agreed": "low",
+  "fix": "Change line 78 to 'assert(d_dst.extent(0) == d_src.extent(0) && d_dst.extent(1) == d_src.extent(1));'."
+ },
+ {
+  "id": "F0541",
+  "file": "src/KOKKOS/transpose_helper_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 19,
+  "reasoning": "I re-derived both lists mechanically over src/KOKKOS/*.h. Headers with no '#ifndef' guard at all: compute_sna_grid_kokkos_impl.h, compute_sna_grid_local_kokkos_impl.h, meam_dens_final_kokkos.h, meam_dens_init_kokkos.h, meam_force_kokkos.h, meam_funcs_kokkos.h, meam_impl_kokkos.h, meam_setup_done_kokkos.h, pack_kokkos.h, pair_snap_kokkos_impl.h, sna_kokkos_impl.h, transpose_helper_kokkos.h - exactly the twelve named, no more and no fewer. Headers whose first guard macro lacks the LMP_ prefix: kokkos.h (KOKKOS_LMP_H), kokkos_base.h (KOKKOS_BASE_H), kokkos_few.h (KOKKOS_FEW_H), rand_pool_wrap_kokkos.h (RAND_POOL_WRAP_H) - exactly the four named, and every other header in the directory uses LMP_*. transpose_helper_kokkos.h does go straight from '#include \"kokkos_type.h\"' at line 19 to 'namespace LAMMPS_NS {' at line 21. The finding is honest that nothing breaks today (each unguarded header has a single includer) and the KOKKOS_* macro names really do sit in the Kokkos library's own macro namespace, which is the sharper of the two concerns. This is a robustness/consistency issue, not a bug; note also that the *_impl.h files are conventionally include-once template bodies, so a guard there is belt-and-braces rather than a fix.",
+  "severity_agreed": "low",
+  "fix": "Add the standard '#ifndef LMP_<FILE>_H / #define LMP_<FILE>_H ... #endif' guard to the twelve unguarded headers, and rename the four guards to LMP_KOKKOS_H, LMP_KOKKOS_BASE_H, LMP_KOKKOS_FEW_H and LMP_RAND_POOL_WRAP_H."
+ },
+ {
+  "id": "F0426",
+  "file": "src/KOKKOS/pair_uf3_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 88,
+  "reasoning": "Verified the declarations, the uses and the instantiation. pair_uf3_kokkos.h lines 88-108 declare seventeen views all of the form 'Kokkos::View<..., LMPDeviceLayout, LMPDeviceType>' - d_cut_3b_list, d_coefficients_2b, d_dncoefficients_2b, d_n2b_knot, d_n2b_knot_spacings, map2b, constants, dnconstants, d_n3b_knot_matrix, d_coefficients_3b, d_dncoefficients_3b, d_n3b_knot_spacings, d_n3b_knot_matrix_spacings, map3b, constants_2b, dnconstants_2b, constants_3b, dnconstants_3b - with LMPDeviceType hardcoded as the third (device/memory-space) argument, while the neighbor-short views a few lines below correctly use the template parameter ('Kokkos::View<int **, DeviceType> d_neighbors_short;'). They are read from device code: twobody() does 'int interaction_id = map2b(itype, jtype);', 'while (r > d_n2b_knot(interaction_id, start_index + 1)) start_index++;', and dozens of 'constants_2b(interaction_id, ...)' / 'dnconstants_2b(...)' reads; threebody() does the same with map3b/constants_3b. Those run under 'Kokkos::RangePolicy<DeviceType, TagPairUF3ComputeFullA<FULL,...>>' (lines 795-800). The host instantiation exists and is unguarded: 'template class PairUF3Kokkos<LMPDeviceType>; #ifdef LMP_KOKKOS_GPU template class PairUF3Kokkos<LMPHostType>; #endif'. I looked for a compensating guard and there is none - init_style only sets the neighbor request's kokkos_host/kokkos_device flags, with no error for the host variant. So on a CUDA/HIP build the /kk/host path executes host code that indexes device-space views, which Kokkos' access verification turns into an abort (and would silently read device pointers from the host without it). On a CPU-only build LMPDeviceType == LMPHostType, so the bug is invisible - which is why it survives CI.",
+  "severity_agreed": "medium",
+  "fix": "Replace LMPDeviceType with the class template parameter DeviceType in all of the Kokkos::View declarations at src/KOKKOS/pair_uf3_kokkos.h:88-108 (keep LMPDeviceLayout, or switch to the DeviceType-derived layout for consistency), matching the d_neighbors_short/d_numneigh_short declarations further down. No .cpp change is needed - the create_mirror/deep_copy fills adapt automatically."
+ },
+ {
+  "id": "F0101",
+  "file": "src/KOKKOS/nbin_ssa_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 142,
+  "reasoning": "Read the whole bin_atoms() flow. The measuring pass is 'atoms_per_bin = 0; copymode = 1; NPairSSAKokkosBinIDAtomsFunctor<DeviceType> f(*this); Kokkos::parallel_reduce(nlocal, f, atoms_per_bin); copymode = 0;' and the kernel body binIDAtomsItem() ends with 'const int ac = Kokkos::atomic_fetch_add(&(bincount[ibin]), (int)1); if (update <= ac) update = ac + 1;'. I traced every write to bincount before that point: bin_atoms_setup() only reallocates k_bincount when 'mbins > (int) k_bins.view_host().extent(0)', and the only clear is the MemsetZeroFunctor in the 'actually bin the local atoms' block, which runs AFTER the reduce. So from the second build onward bincount still holds the previous build's per-bin totals and the reduce returns max_b(prev[b] + cur[b]). The asymmetry with the ghost path is exactly as the finding says and is the strongest evidence of intent: the ghost measuring pass is preceded by 'for (int i = 0; i < 8; i++) k_gbincount.view_host()(i) = 0; k_gbincount.modify_host(); k_gbincount.sync<DeviceType>();', and the ghost binning pass repeats that clear. I also checked it cannot UNDER-estimate (the sum is always >= the current count) and does not ratchet without bound (prev[] is a true count, so the estimate stays below 2x peak occupancy), and that results are unaffected because binAtomsItem() re-counts from the zeroed bincount. So the consequence really is only the ~2x over-allocation of k_bins.",
+  "severity_agreed": "low",
+  "fix": "Before the binIDAtomsItem parallel_reduce (around line 142), clear the counter the same way the local binning pass does: 'MemsetZeroFunctor<DeviceType> f_zero; f_zero.ptr = (void*) k_bincount.view<DeviceType>().data(); Kokkos::parallel_for(mbins, f_zero);' (or Kokkos::deep_copy(bincount, 0))."
+ },
+ {
+  "id": "F0169",
+  "file": "src/KOKKOS/dihedral_table_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 371,
+  "reasoning": "Both sides read. KOKKOS setup_tables() loops 'for (int i = 0; i < tablength; i++) { k_e.view_host()(m,i) = ...; k_de.view_host()(m,i) = static_cast<KK_FLOAT>(tb->de[i]); k_f_tab.view_host()(m,i) = static_cast<KK_FLOAT>(tb->f[i]); k_df.view_host()(m,i) = static_cast<KK_FLOAT>(tb->df[i]); k_e2 ...; k_f2 ...; }' with no tabstyle test anywhere in the function. DihedralTable::compute_table() allocates phi/e/de/f/df/e2/f2 with memory->create (smalloc, uninitialized) and then branches: the 'if (tabstyle == SPLINE)' branch fills only tb->phi, tb->e and (when !f_unspecified) tb->f; the 'else if (tabstyle == LINEAR)' branch is the only one that reaches '// Fill the linear interpolation tables (de, df) ... tb->de[i] = tb->e[ip1] - tb->e[i]; tb->df[i] = tb->f[ip1] - tb->f[i];'. So with tabstyle spline, de[] and df[] (and f[] under NOF) are read uninitialized. I confirmed the read is numerically harmless: the kernel guards those views, 'if (tabstyle == LINEAR_STYLE) { ... u = d_e(tb,i) + b * d_de(tb,i); mdu = d_f_tab(tb,i) + b * d_df(tb,i); }', and the spline branch below uses d_e/d_e2/d_f2 only. That confines the impact to a sanitizer/valgrind report plus the narrowing of arbitrary doubles to KK_FLOAT in a single-precision build.",
+  "severity_agreed": "low",
+  "fix": "Guard the copies in setup_tables(): copy k_de/k_df only when tabstyle == LINEAR, and k_f_tab only when tabstyle == LINEAR or !tb->f_unspecified. Alternatively (and more robustly) switch the seven memory->create calls in DihedralTable::compute_table() to zero-initialized allocation, or memset de/df/f after creating them."
+ },
+ {
+  "id": "F0320",
+  "file": "src/KOKKOS/pair_buck6d_coul_gauss_dsf_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 192,
+  "reasoning": "The line is present verbatim inside compute_fpair()'s rsq > rsmooth_sq_val block: 'forcebuck6d = forcebuck6d*sme - ebuck6d*smf*r;' followed by '// ebuck6d *= sme;  // not needed for force path'. I checked that the claim in the trailing comment is true rather than a masked bug: the energy helper compute_evdwl() a few dozen lines below recomputes ebuck6d and does apply the scaling - 'const KK_FLOAT sme = c5v*rqu*r + ...; ebuck6d *= sme;' at line 268, then 'return ebuck6d - offset_val;'. So the commented-out statement really is dead in the force path and its removal changes nothing. It is cosmetic, but it is exactly the 'commented-out code' the LAMMPS review rules say to remove.",
+  "severity_agreed": "low",
+  "fix": "Delete line 192. If the reasoning is worth keeping, reword it as prose, e.g. '// the smoothing factor is applied to the energy in compute_evdwl()'."
+ },
+ {
+  "id": "F0535",
+  "file": "doc/src/kspace_style.rst",
+  "verdict": "CONFIRMED",
+  "real_line": 53,
+  "reasoning": "Line 53 reads (excerpt) '... or *pppm/disp/tip4p/omp* or *pppm/tip4p/kk or *pppm/tip4p/omp* or *pppm/dielectic* or ...'. Every other entry on the line is wrapped in a matched pair of asterisks; '*pppm/tip4p/kk' has no closing one, so Sphinx pairs it with the opening asterisk of the next entry and emphasises 'pppm/tip4p/kk or ' while leaving 'pppm/tip4p/omp*' unformatted. The style is real, so this is a formatting bug rather than a stale entry: src/KOKKOS/pppm_tip4p_kokkos.h registers the pppm/tip4p/kk KSpaceStyle and doc/src/kspace_style.rst:28 carries '.. index:: kspace_style pppm/tip4p/kk'. The two incidental defects the finding mentions are also on that same line: 'ewald/gpu' appears with no emphasis markers at all, and 'pppm/dielectic' is a misspelling of pppm/dielectric.",
+  "severity_agreed": "low",
+  "fix": "On doc/src/kspace_style.rst:53 close the emphasis: '*pppm/tip4p/kk*'. While there, change 'ewald/gpu' to '*ewald/gpu*' and '*pppm/dielectic*' to '*pppm/dielectric*'. Rebuild with 'cd doc && make html' and check 'make spelling' still passes."
+ }
+]
