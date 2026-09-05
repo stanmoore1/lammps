@@ -1,0 +1,260 @@
+[
+ {
+  "id": "F0324",
+  "file": "src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 304,
+  "reasoning": "already fixed in this branch. The current working tree reads `fpair = -params(itype,jtype).gamma*wdPar*wdPar*dot*rinv;` at line 304, matching the CPU `fpair = -factor_dpd * gamma[itype][jtype]*wdPar*wdPar*dot*rinv;` (src/DPD-BASIC/pair_dpd_ext_tstat.cpp:146). `git diff origin/develop -- src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp` shows exactly this hunk: `-      fpair = params(...)` / `+      fpair = -params(...)`. The described defect existed on origin/develop but is no longer present.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0325",
+  "file": "src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 121,
+  "reasoning": "already fixed in this branch. The ramp block in compute() now updates both amplitudes: `k_params.view_host()(i,j).sigma = ... sqrt(2.0*boltz*temperature*gamma[i][j])` AND `k_params.view_host()(i,j).sigmaT = ... sqrt(2.0*boltz*temperature*gammaT[i][j])`, matching CPU pair_dpd_ext_tstat.cpp:70-71. git diff vs origin/develop shows the sigmaT lines as an addition of this branch.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0467",
+  "file": "src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 304,
+  "reasoning": "Duplicate of F0324; already fixed in this branch. Working tree line 304 is `fpair = -params(itype,jtype).gamma*wdPar*wdPar*dot*rinv;` followed by `fpair *= factor_dpd;`, algebraically identical to the CPU expression. Confirmed by git diff against origin/develop.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0468",
+  "file": "src/KOKKOS/pair_dpd_ext_tstat_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 121,
+  "reasoning": "Duplicate of F0325; already fixed in this branch (sigmaT is now recomputed alongside sigma inside the t_start != t_stop block, lines 119-123).",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0236",
+  "file": "src/KOKKOS/fix_wall_flow_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 57,
+  "reasoning": "FixWallFlowKokkos<DeviceType>::init() (fix_wall_flow_kokkos.cpp:57-68) is declared `void init() override;` (fix_wall_flow_kokkos.h:49) and its body is only: atomKK->sync(...), k_current_segment.sync<DeviceType>(), d_x = ..., a TagFixWallFlowInit parallel_for over nlocal, modify<DeviceType>(). It never calls FixWallFlow::init(). The base FixWallFlow::init() (src/EXTRA-FIX/fix_wall_flow.cpp:185-215) does three fatal compatibility checks before the same current_segment loop: `if (domain->triclinic != 0) error->all(FLERR, \"Fix wall/flow cannot be used with triclinic simulation box\")`, `if (nrigid) error->all(FLERR, \"Fix wall/flow is not compatible with rigid bodies\")`, and `if (box_change_flowax) error->all(FLERR, \"Fix wall/flow is not compatible with simulation box size changing along flow direction\")`. All three are silently dropped under -sf kk, so a triclinic box / rigid fix / deforming box along the flow axis runs and produces wrong results instead of erroring out. Nothing else re-checks these: grep of the KOKKOS file shows no triclinic/rigid/box_change reference.",
+  "severity_agreed": "medium",
+  "fix": "Make FixWallFlowKokkos::init() call the base first: insert `FixWallFlow::init();` as the first statement of FixWallFlowKokkos<DeviceType>::init(). This is safe -- the base loop writes current_segment[] through the host pointer without touching the DualView flags, and the following k_current_segment.sync<DeviceType>() / device kernel / modify<DeviceType>() overwrite all nlocal entries anyway. (Alternatively factor the three checks into a protected helper and call that.)"
+ },
+ {
+  "id": "F0237",
+  "file": "src/KOKKOS/fix_wall_flow_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 38,
+  "reasoning": "already fixed in this branch. Line 38 now reads `datamask_read = X_MASK | V_MASK | RMASS_MASK | TYPE_MASK | MASK_MASK;`. `git diff origin/develop -- src/KOKKOS/fix_wall_flow_kokkos.cpp` shows exactly the one-line hunk adding V_MASK to datamask_read.",
+  "severity_agreed": "medium"
+ },
+ {
+  "id": "F0247",
+  "file": "src/KOKKOS/fix_wall_flow_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 280,
+  "reasoning": "FixWallFlowKokkos<DeviceType>::unpack_exchange_kokkos (lines 279-295) sets up d_buf/d_indices, runs TagFixWallFlowUnpackExchange, and then calls `k_current_segment.template modify<DeviceType>();` -- with no `k_current_segment.template sync<DeviceType>();` anywhere before the kernel. The kernel body (line 276) is `if (index > -1) { d_current_segment(index) = static_cast<int>(d_buf(i)); }`, i.e. it writes only selected entries, so claiming the whole view device-modified would discard a pending host modification of the untouched entries. The sibling doing it correctly is FixShakeKokkos<DeviceType>::unpack_exchange_kokkos (fix_shake_kokkos.cpp:2032-2061), which syncs k_buf, k_indices and each per-atom DualView to the device before the kernel and only then modifies them. Note the same routine also omits the k_buf/k_indices sync that FixShake does. I downgrade severity: in the actual exchange path the device copy is already current (pack_exchange_kokkos and grow_arrays both end with modify<DeviceType>(), and the host copy_arrays/unpack_exchange overloads are only used when device exchange is disabled), so I found no reachable data loss -- this is a latent robustness/idiom defect.",
+  "severity_agreed": "low",
+  "fix": "At the top of FixWallFlowKokkos<DeviceType>::unpack_exchange_kokkos add `k_current_segment.template sync<DeviceType>();` (and, matching FixShakeKokkos, `k_buf.template sync<DeviceType>(); k_indices.template sync<DeviceType>();`) before setting up d_buf/d_indices and launching the kernel."
+ },
+ {
+  "id": "F0458",
+  "file": "src/KOKKOS/fix_wall_flow_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 38,
+  "reasoning": "Duplicate of F0237; already fixed in this branch. datamask_read at line 38 includes V_MASK, so end_of_step's `atomKK->sync(execution_space, datamask_read)` now brings v to the device before generate_velocity_kk partially overwrites it and datamask_modify = V_MASK claims it.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0515",
+  "file": "src/KOKKOS/fix_wall_flow_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 38,
+  "reasoning": "Duplicate of F0237/F0458; already fixed in this branch (V_MASK is present in both datamask_read and datamask_modify).",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0205",
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 84,
+  "reasoning": "Both sides read. (1) ~FixPropertyAtomKokkos() (fix_property_atom_kokkos.cpp:63-85) ends with `atomKK->update_property_atom();`. (2) AtomKokkos::update_property_atom() (atom_kokkos.cpp:162-180) rebuilds the list from `modify->get_fix_by_style(\"^property/atom\")`, then `delete[] fix_prop_atom; fix_prop_atom = new FixPropertyAtomKokkos *[nprop_atom]; ... fix_prop_atom[n++] = dynamic_cast<FixPropertyAtomKokkos *>(ifix);`. (3) Modify::delete_fix(int ifix) (src/modify.cpp:1068-1082) is `delete fix[ifix]; atom->update_callback(ifix); for (int i = ifix+1; i < nfix; i++) fix[i-1] = fix[i]; ... nfix--;` -- the object is destroyed BEFORE it is unlinked, and the slot is never nulled, so during the destructor `fix[ifix]` still points at `this` and nfix still counts it. Modify::get_fix_by_style (modify.cpp:1115-1124) only skips null slots, so it returns the dying fix; the dynamic_cast succeeds because inside ~FixPropertyAtomKokkos the dynamic type is still FixPropertyAtomKokkos. The result is fix_prop_atom[] holding a pointer to freed memory with nprop_atom counting it, and update_property_atom() is called from nowhere else (only fix_property_atom_kokkos.cpp:56 and :84), so nothing repairs it. Every subsequent AtomKokkos::sync()/modified()/sync_pinned() dereferences it: atom_kokkos.cpp:248/251/255/263/267/276 all do `for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->sync(...)`. Reachable with a plain `unfix` of a property/atom fix mid-run.",
+  "severity_agreed": "high",
+  "fix": "Do not re-scan Modify from the destructor. Either (a) give AtomKokkos::update_property_atom() a parameter, `void update_property_atom(Fix *ignore = nullptr)`, skip `ifix == ignore` in the get_fix_by_style loop, and call `atomKK->update_property_atom(this);` from ~FixPropertyAtomKokkos(); or (b) replace the destructor call with an explicit removal of `this` from AtomKokkos::fix_prop_atom[] (compact the array in place and decrement nprop_atom)."
+ },
+ {
+  "id": "F0211",
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 162,
+  "reasoning": "The aliasing hazard is real but the location and reachability in the finding are off. AtomKokkos::add_custom() (atom_kokkos.cpp:450-526) always backs the custom arrays with Kokkos allocations -- e.g. IVEC: `memoryKK->grow_kokkos(k_ivector, ivector, nivector, nmax, \"atom:ivector\")`, so atom->ivector[i] is a row pointer INTO a contiguous Kokkos view. The base FixPropertyAtom::grow_arrays() (src/fix_property_atom.cpp) then does `memory->grow(atom->ivector[index[nv]], nmax, \"atom:ivector\")`, i.e. a realloc() of an interior pointer into a Kokkos allocation -- heap corruption. However the finding's claim that 'nothing forces the /kk variant' is only half true: AtomKokkos::update_property_atom() (atom_kokkos.cpp:167-168) does contain `if (!ifix->kokkosable) error->all(FLERR, \"KOKKOS package requires a Kokkos-enabled version of fix property/atom\");`. That check simply never runs unless at least one property/atom/kk fix already exists, because update_property_atom() is only ever called from FixPropertyAtomKokkos::post_constructor() and ~FixPropertyAtomKokkos(). Reachability is also narrower than stated: AtomKokkos::new_avec() (atom_kokkos.cpp:610) already refuses a non-kokkosable atom_style, so a KOKKOS run must have suffix_enable on with suffix 'kk', and Modify::add_fix() applies that suffix to internal add_fix() calls too (modify.cpp:858-864). The base FixPropertyAtom is therefore only instantiated if the script turns the suffix off (`suffix off`) or names the style explicitly. Real defect, but a guard gap rather than a routine failure.",
+  "severity_agreed": "low",
+  "fix": "Make the guard unconditional: move the `if (!ifix->kokkosable) error->all(FLERR, \"KOKKOS package requires a Kokkos-enabled version of fix property/atom\")` loop out of AtomKokkos::update_property_atom() into a place that always runs -- e.g. iterate modify->get_fix_by_style(\"^property/atom\") in AtomKokkos::init() (atom_kokkos.cpp:155) and error there, or perform the same check at the top of AtomKokkos::add_custom()."
+ },
+ {
+  "id": "F0479",
+  "file": "src/KOKKOS/fix_property_atom_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 84,
+  "reasoning": "Duplicate of F0205 and confirmed by the same reading: Modify::delete_fix() destroys the fix before unlinking it (src/modify.cpp:1073-1080), get_fix_by_style() therefore still returns it, and AtomKokkos::update_property_atom() stores the dangling pointer that AtomKokkos::sync()/modified() later dereference (atom_kokkos.cpp:248-276).",
+  "severity_agreed": "high",
+  "fix": "Same as F0205: exclude the dying fix, e.g. add an `ignore` argument to AtomKokkos::update_property_atom() and pass `this` from the destructor."
+ },
+ {
+  "id": "F0038",
+  "file": "src/KOKKOS/bond_quartic_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 176,
+  "reasoning": "Read the whole compute() and the kernel. k_brokenflag is only ever touched at four places (grep): line 121 allocation `k_brokenflag = DAT::tdual_int_1d(\"BondQuartic::brokenflag\",nbondlist);`, line 124 `Kokkos::deep_copy(d_brokenflag,0);` (a raw-View deep_copy, which does not touch DualView flags), line 176 `k_brokenflag.sync_host();`, line 182 `auto h_brokenflag = k_brokenflag.view_host();`. The kernel sets `d_brokenflag(n) = 1;` (line 281) on the device. There is NO `k_brokenflag.template modify<DeviceType>()` anywhere, so at line 176 neither side of the DualView is flagged modified and sync_host() is a no-op. On a GPU build (DeviceType = LMPDeviceType, separate host/device memory) the host view therefore stays at its zero-initialized allocation value, the post-processing loop `if (h_brokenflag(n)) {...}` at line 199 is never taken, and bond quartic/kk never breaks a bond. It happens to work on a host-only Kokkos build because there d_brokenflag and the host view alias the same memory -- which is why the bug is easy to miss.",
+  "severity_agreed": "high",
+  "fix": "Insert `k_brokenflag.template modify<DeviceType>();` after `copymode = 0;` (i.e. immediately before `k_brokenflag.sync_host();` at line 176) in BondQuarticKokkos<DeviceType>::compute()."
+ },
+ {
+  "id": "F0448",
+  "file": "src/KOKKOS/bond_quartic_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 176,
+  "reasoning": "Duplicate of F0038, same reading: the device-side `Kokkos::deep_copy(d_brokenflag,0)` (line 124) and `d_brokenflag(n) = 1` (line 281) are never accompanied by a DualView modify, so `k_brokenflag.sync_host()` (line 176) copies nothing and `h_brokenflag(n)` (line 199) is always 0 on a GPU build.",
+  "severity_agreed": "high",
+  "fix": "Add `k_brokenflag.template modify<DeviceType>();` immediately before `k_brokenflag.sync_host();` in compute()."
+ },
+ {
+  "id": "F0161",
+  "file": "src/KOKKOS/dihedral_hybrid_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 40,
+  "reasoning": "already fixed in this branch. DihedralHybridKokkos::DihedralHybridKokkos now sets `centroidstressflag = CENTROID_NOTAVAIL;` at line 40, with a comment explaining that every KOKKOS sub-style sets CENTROID_NOTAVAIL. `git diff origin/develop` shows this as an added hunk in dihedral_hybrid_kokkos.cpp (and identically in angle_hybrid_kokkos.cpp and improper_hybrid_kokkos.cpp).",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0464",
+  "file": "src/KOKKOS/dihedral_hybrid_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 40,
+  "reasoning": "already fixed in this branch, for all three hybrid styles named in the finding. git diff origin/develop shows the same `centroidstressflag = CENTROID_NOTAVAIL;` hunk added to src/KOKKOS/angle_hybrid_kokkos.cpp:37, src/KOKKOS/dihedral_hybrid_kokkos.cpp:40 and src/KOKKOS/improper_hybrid_kokkos.cpp:40. (The finding's premise checks out: Dihedral::Dihedral sets CENTROID_AVAIL by default at src/dihedral.cpp:47, and every KOKKOS angle/dihedral/improper sub-style sets CENTROID_NOTAVAIL -- but the hybrids now do too.)",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0405",
+  "file": "src/KOKKOS/pair_table_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 124,
+  "reasoning": "already fixed in this branch, though at the other end. pair_table_kokkos.cpp:124-127 still does `special_lj[0..3] = force->special_lj[0..3];`, but the member it writes into is Pair::special_lj, whose declaration was changed by this branch: `git diff origin/develop -- src/pair.h` shows `-  int special_lj[4];` / `+  double special_lj[4];` (src/pair.h:247). PairTableKokkos declares no special_lj of its own (no hit in pair_table_kokkos.h), so the fractional weights are no longer truncated.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0409",
+  "file": "src/KOKKOS/pair_table_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 469,
+  "reasoning": "Read allocate(), settings() and the destructor plus the MemoryKokkos overload. allocate() (line 420-421) uses `memoryKK->create_kokkos(d_table->cutsq, h_table->cutsq, cutsq, nt, nt, \"pair:cutsq\")`; that overload (memory_kokkos.h:178-197) additionally does `array = (value_type **) smalloc(nbytes,name);` and fills the rows with `&h_data(i,0)` -- so `cutsq` and `tabindex` are separately smalloc'd row-pointer arrays. settings() (lines 469-477) only does `memory->destroy(setflag);` and then resets the views by assignment (`d_table_const.tabindex = d_table->tabindex = typename AT::t_int_2d_lr(); h_table->tabindex = HAT::t_int_2d_lr();` and likewise for cutsq). The smalloc'd `cutsq`/`tabindex` row arrays are never sfree'd and are left non-null pointing at rows of the now-released host mirror. The CPU base does free them: PairTable::settings (src/pair_table.cpp) has `if (allocated) { memory->destroy(setflag); memory->destroy(cutsq); memory->destroy(tabindex); }`. The branch IS reachable: Input::pair_style (src/input.cpp:1831-1843) reuses the existing Pair object when the same style is re-issued -- `if (match) { force->pair->settings(narg-1,&arg[1]); return; }` -- so a second `pair_style table ...` after pair_coeff leaks both arrays. I downgrade severity because the leak is only ntypes+1 pointers per re-issue and the next allocate() overwrites the dangling pointers before anything reads them (Pair::init() refuses to proceed while allocated == 0).",
+  "severity_agreed": "low",
+  "fix": "In PairTableKokkos<DeviceType>::settings(), replace the manual view resets with the matching destroy calls:\n  if (allocated) {\n    memory->destroy(setflag);\n    memoryKK->destroy_kokkos(d_table->tabindex, tabindex);\n    memoryKK->destroy_kokkos(d_table->cutsq, cutsq);\n    d_table_const.tabindex = d_table->tabindex;\n    d_table_const.cutsq = d_table->cutsq;\n    h_table->tabindex = HAT::t_int_2d_lr();\n    h_table->cutsq = HAT::t_double_2d_lr();\n  }\n(destroy_kokkos at memory_kokkos.h:272-281 resets the view, sfree()s the row array and nulls the pointer.)"
+ },
+ {
+  "id": "F0417",
+  "file": "src/KOKKOS/pair_table_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 177,
+  "reasoning": "pair_table_kokkos.cpp:177 reads `if (eflag) eng_vdwl += static_cast<double>(ev.evdwl);` while the immediately following virial line is correctly guarded with `if (vflag_global)`. ev.evdwl is filled by the generic functor in pair_kokkos.h:178-184 under `if (c.eflag_either)`, i.e. it is non-zero on an eflag_atom-only step, so eng_vdwl is added to on steps that requested per-atom energy only. Every other KOKKOS pair style uses the global guard (grep 'eng_vdwl += ' in src/KOKKOS: pair_born_kokkos.cpp:112, pair_beck_kokkos.cpp:114, pair_adp_kokkos.cpp:270, pair_born_gauss_kokkos.cpp:108, ... all `if (eflag_global)`), so this is a genuine divergence. Severity is low in practice: Pair::ev_setup only zeroes eng_vdwl when eflag_global is set, and any consumer of the global energy (compute pe) errors out unless the step was tallied globally, so the polluted value is re-zeroed before it can be read.",
+  "severity_agreed": "low",
+  "fix": "Change `if (eflag) eng_vdwl += static_cast<double>(ev.evdwl);` to `if (eflag_global) eng_vdwl += static_cast<double>(ev.evdwl);` in PairTableKokkos<DeviceType>::compute_style()."
+ },
+ {
+  "id": "F0369",
+  "file": "src/KOKKOS/pair_morse_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 178,
+  "reasoning": "already fixed in this branch. `git diff origin/develop -- src/KOKKOS/pair_morse_kokkos.cpp` reports 2 insertions/1 deletion, and the working tree now reads at lines 176-178: `const KK_FLOAT offset = STACKPARAMS ? m_params[itype][jtype].offset : params(itype,jtype).offset;` and `return d0 * dexp * ( dexp - static_cast<KK_FLOAT>(2.0) ) - offset;`. The develop version (verified with `git show origin/develop:src/KOKKOS/pair_morse_kokkos.cpp`) returned the same expression without `- offset`. The offset field is populated in init_one at line 239 (`k_params.view_host()(i,j).offset = static_cast<KK_FLOAT>(offset[i][j]);`) and is a member of params_morse (pair_morse_kokkos.h:54).",
+  "severity_agreed": "medium"
+ },
+ {
+  "id": "F0498",
+  "file": "src/KOKKOS/pair_morse_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 178,
+  "reasoning": "Duplicate of F0369; already fixed in this branch (compute_evdwl now subtracts params(itype,jtype).offset, so `pair_modify shift yes` takes effect for both the global and per-atom energies).",
+  "severity_agreed": "medium"
+ },
+ {
+  "id": "F0305",
+  "file": "src/KOKKOS/pair_born_coul_wolf_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 119,
+  "reasoning": "Traced all four links. (1) pair_born_coul_wolf_kokkos.cpp:88 is `atomKK->sync(execution_space,datamask_read);` -- execution_space is Device on a GPU build, so this brings q to the DEVICE, not the host; grep for Q_MASK in the file shows only line 46 (datamask_read) and no `atomKK->sync(Host,...)` anywhere. (2) The self-energy is nevertheless summed on the host at lines 119-123 (`double qisq = atom->q[i]*atom->q[i]; eng_coul += ...`) and again for eatom at lines 148-152. (3) The host copy really can be stale: AtomKokkos::sync (atom_kokkos.cpp:240-256) only round-trips through the host when `lmp->kokkos->auto_sync` is set, and VerletKokkos clears it for the whole run loop (verlet_kokkos.cpp:311 `lmp->kokkos->auto_sync = 0;`) and re-enables it only for a non-kokkosable pair style (verlet_kokkos.cpp:432-433 `if (!force->pair->kokkosable) lmp->kokkos->auto_sync = 1;`). Meanwhile q IS rewritten on the device: AtomVecChargeKokkos::sort_kokkos (atom_vec_charge_kokkos.cpp:122-134) does `Sorter.sort(LMPDeviceType(), d_q);` followed by `atomKK->modified(Device, ALL_MASK & ~F_MASK);`, and the device exchange path modifies q the same way. So after the first atom sort the host ordering no longer matches, and after the first migration the host array holds a different set of atoms: eatom[i] is then attributed to the wrong atom, and eng_coul is simply wrong. (4) The correctly ported sibling does exist and does what the finding says: PairCoulWolfKokkos computes it inside the device kernel from the device q view -- pair_coul_wolf_kokkos.cpp:233-238 `const KK_FLOAT qisq = qtmp*qtmp; const KK_FLOAT e_self = -(e_shift/2.0 + alf_kk/MY_PIS) * qisq*qqrd2e; ... ev.ecoul += e_self; ... v_eatom[i] += e_self;`. The CPU base tallies it per neighbor-list atom (src/EXTRA-PAIR/pair_born_coul_wolf.cpp:122-124). The same host-side `atom->q[i]` self-energy loop appears in four sibling KOKKOS styles and should be fixed together: pair_born_coul_wolf_cs_kokkos.cpp:126,155; pair_born_coul_dsf_kokkos.cpp:121,150; pair_born_coul_dsf_cs_kokkos.cpp:126,155; pair_lj_cut_coul_wolf_kokkos.cpp:121,150.",
+  "severity_agreed": "high",
+  "fix": "Move the self-energy into the device kernel exactly as PairCoulWolfKokkos does (pair_coul_wolf_kokkos.cpp:230-238): in the per-i part of the functor compute `e_self = -(e_shift/2.0 + m_alf/MY_PIS) * q(i)*q(i) * qqrd2e` from the device q view and add it to ev.ecoul when eflag_global and to v_eatom[i] when eflag_atom, deleting the two host loops at lines 119-123 and 148-152. A minimal alternative is `atomKK->sync(Host, Q_MASK);` immediately before each host loop, but that forces a device->host copy of q every step. Apply the same change to pair_born_coul_wolf_cs_kokkos.cpp, pair_born_coul_dsf_kokkos.cpp, pair_born_coul_dsf_cs_kokkos.cpp and pair_lj_cut_coul_wolf_kokkos.cpp."
+ },
+ {
+  "id": "F0028",
+  "file": "src/KOKKOS/atom_vec_molecular_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 450,
+  "reasoning": "The omission is real. In AtomVecMolecularKokkos::sync_pinned (line 405) the `if (space == Device)` DIHEDRAL_MASK block (lines 450-461) transfers k_num_dihedral, k_dihedral_type and k_dihedral_atom1/2/3 but stops there -- no k_dihedral_atom4 -- while the else (Host/HostKK) branch does have it (lines 530-531), the neighbouring IMPROPER block covers atom1..atom4 (lines 467-474), and the ordinary sync()/modified() paths all include it (lines 310, 351, 392, 585, 626, 667). The same omission is in src/KOKKOS/atom_vec_full_kokkos.cpp's Device branch. Two corrections to the finding. (a) The stated mechanism is wrong: perform_pinned_copy_transform (atom_vec_kokkos.h:300-322) only calls src.sync_device()/sync_host() on the view it is handed, so no surrounding transfer clears k_dihedral_atom4's flag -- need_sync_device() stays true and a later ordinary atomKK->sync(Device, DIHEDRAL_MASK) would still copy it. (b) Reachability: the Device branch is currently dead code. Every caller of sync_pinned passes a host space -- atom_kokkos.cpp:275 forwards whatever it is given, and the only callers of AtomKokkos::sync_pinned are verlet_kokkos.cpp:448 (`HostKK`), dynamical_matrix_kokkos.cpp:230 (`Host`) and third_order_kokkos.cpp:230 (`Host`). So this is a latent inconsistency that will bite whoever first calls sync_pinned(Device, ...), not a live wrong-results bug; I downgrade to low.",
+  "severity_agreed": "low",
+  "fix": "In the `space == Device` branch of AtomVecMolecularKokkos::sync_pinned, after the k_dihedral_atom3 lines (459-460), add:\n      if (atomKK->k_dihedral_atom4.need_sync_device())\n        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_dihedral_atom4,space,async_flag);\nApply the identical addition to the Device branch of AtomVecFullKokkos::sync_pinned in src/KOKKOS/atom_vec_full_kokkos.cpp."
+ },
+ {
+  "id": "F0127",
+  "file": "src/KOKKOS/kissfft_kokkos.h",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 387,
+  "reasoning": "The sharing is real and matches the finding exactly. kf_bfly_generic (kissfft_kokkos.h:377-413) takes the plan state by const reference and does `typename FFT_AT::t_FFT_DATA_1d_um d_scratch = st.d_scratch;`, then writes `d_scratch(q1).re/.im` and reads `C_MUL(t,d_scratch,q,...)`. st.d_scratch is a single per-plan allocation made once in kiss_fft_alloc_kokkos (line 520: `st.d_scratch = typename FFT_AT::t_FFT_DATA_1d(\"kissfft:scratch\",p_max);`). kiss_fft_functor (fft3d_kokkos.cpp:177-193) holds `kiss_fft_state_kokkos<DeviceType> st;` BY VALUE, but a Kokkos::View member copies as a reference-counted handle to the same memory, so every one of the `Kokkos::parallel_for(total/length,f)` work items (fft3d_kokkos.cpp:261 and the mid/slow equivalents) writes the same p_max elements. The CPU original is per-call: src/KSPACE/kissfft.h:340 `auto *scratch = (FFT_DATA *) KISS_FFT_TMP_ALLOC(sizeof(FFT_DATA) * p);` ... :362 `KISS_FFT_TMP_FREE(scratch);`. kf_bfly_generic is only reached from kf_work's `default:` case (kissfft_kokkos.h:453) when the radix p is not 2/3/4/5. I adjust the severity down to low because it is unreachable today, and I verified the gate the finding only asserted: FFT3dKokkos is instantiated nowhere but PPPMKokkos (pppm_kokkos.cpp:879,884), and PPPM::set_grid_global boosts EVERY dimension -- including a user-supplied `kspace_modify mesh` grid, since the boost at KSPACE/pppm.cpp:1168-1172 sits outside the `if (!gridflag)` block -- until PPPM::factorable() accepts it, with factors[] = {2,3,5} only (pppm.cpp:92-96, 1198-1210). So p is always in {2,3,4,5} and the generic butterfly is never entered. It is a trap for the next user of FFT3dKokkos, and a real race on any threaded host backend (Kokkos::OpenMP) if it ever is.",
+  "severity_agreed": "low",
+  "fix": "Give each concurrent 1d FFT its own scratch. Either allocate st.d_scratch with p_max*(total/length) elements and have kf_bfly_generic index a subview based on the functor's work item (thread the FFT index down through kiss_fft_kokkos/kf_work alongside Fout_count), or switch the parallel_for to a TeamPolicy and take the buffer from Kokkos team scratch memory sized p_max. As an interim guard, error out in kiss_fft_alloc_kokkos when kf_factor returns a p_max > 5 rather than silently racing."
+ },
+ {
+  "id": "F0241",
+  "file": "src/DPD-REACT/fix_shardlow.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 118,
+  "reasoning": "FixShardlow::~FixShardlow() (src/DPD-REACT/fix_shardlow.cpp:118-122) is `{ memory->destroy(rand_state); maxRNG = 0; }` with no copymode guard, while FixShardlowKokkos derives from it (KOKKOS/fix_shardlow_kokkos.h:45 `class FixShardlowKokkos : public FixShardlow`) and is copied by value into device functors -- FixShardlowKokkos::initial_integrate sets `copymode = 1;` (fix_shardlow_kokkos.cpp:559) and launches `Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType,TagFixShardlowSSAUpdateDPDEGhost<...>>(0,workItemCt),*this);` (line ~660). The derived guard cannot help because base destructors always run; that is exactly why the convention is to put `if (copymode) return;` in the CPU base too -- Fix::~Fix() does it (src/fix.cpp:122), Pair::~Pair() and Compute::~Compute() do it, and 270 non-KOKKOS .cpp files in src/ carry the same line (e.g. PairLJCut::~PairLJCut). Note FixShardlowKokkos::~FixShardlowKokkos() also lacks the guard, though its body is only `ghostmax = 0;`. Severity is low because the destructor is currently harmless on a functor copy: `rand_state` is initialised to nullptr in the FixShardlow constructor (line 89) and is only ever grown inside FixShardlow::initial_integrate (line 532), which FixShardlowKokkos overrides, so it stays null for the /kk variant and Memory::destroy(TYPE*&) on a null pointer is a no-op. It becomes a double free the moment anything makes rand_state non-null on the /kk path.",
+  "severity_agreed": "low",
+  "fix": "Add `if (copymode) return;` as the first statement of FixShardlow::~FixShardlow() in src/DPD-REACT/fix_shardlow.cpp, and add the same guard to FixShardlowKokkos::~FixShardlowKokkos() in src/KOKKOS/fix_shardlow_kokkos.cpp for consistency with the KOKKOS convention."
+ },
+ {
+  "id": "F0510",
+  "file": "src/DPD-REACT/fix_shardlow.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 118,
+  "reasoning": "Duplicate of F0241, same reading: FixShardlow::~FixShardlow() lacks the mandatory `if (copymode) return;` although FixShardlowKokkos (KOKKOS/fix_shardlow_kokkos.h:45) inherits from it and passes `*this` by value to Kokkos::parallel_for with copymode set. Currently benign only because rand_state is always nullptr for the Kokkos variant (grown only in the overridden FixShardlow::initial_integrate).",
+  "severity_agreed": "low",
+  "fix": "Insert `if (copymode) return;` as the first line of FixShardlow::~FixShardlow(); also add it to FixShardlowKokkos::~FixShardlowKokkos()."
+ },
+ {
+  "id": "F0098",
+  "file": "src/KOKKOS/compute_temp_sphere_kokkos.h",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 82,
+  "reasoning": "The shadowing is real: compute_temp_sphere_kokkos.h:81-82 has `private:` then `class AtomKokkos *atomKK;`, while Pointers already provides `class AtomKokkos *&atomKK;` (src/pointers.h:131, initialised as `atomKK(ptr->atomKK)` at pointers.h:92) unconditionally -- it is not inside an #ifdef. Two corrections to the finding. (a) 'unlike every other KOKKOS style' is not accurate: src/KOKKOS/fix_nvt_sllod_kokkos.h:91 declares the same shadow member, so it is two styles, not one. (b) There is no behavioural consequence. ComputeTempSphereKokkos's constructor assigns the member at compute_temp_sphere_kokkos.cpp:36 (`atomKK = (AtomKokkos *) atom;`) exactly as other styles assign the inherited reference, so the shadow always holds the same value as lmp->atomKK; the only difference is that the assignment no longer writes through to lmp->atomKK, which is already correct. This is a cleanup/consistency item, not a defect.",
+  "severity_agreed": "low",
+  "fix": "Delete the line `class AtomKokkos *atomKK;` from the private section of src/KOKKOS/compute_temp_sphere_kokkos.h (and the same line from src/KOKKOS/fix_nvt_sllod_kokkos.h:91) so the styles use the inherited Pointers::atomKK reference; the existing `atomKK = (AtomKokkos *) atom;` in each constructor still compiles and keeps the same semantics as every other KOKKOS style."
+ },
+ {
+  "id": "F0151",
+  "file": "src/KOKKOS/remap_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 123,
+  "reasoning": "remap_3d_kokkos() (remap_kokkos.cpp:105-...) contains, unconditionally on every call when GPU-aware MPI is off:\n  if (!plan->usegpu_aware) {\n    plan->h_scratch = Kokkos::create_mirror_view(d_scratch);\n    plan->h_sendbuf = Kokkos::create_mirror_view(plan->d_sendbuf);\n(lines 123-127). On a GPU build the mirror space differs from the device space, so create_mirror_view allocates a fresh host View each time and the assignment drops the previous one -- a malloc/free pair of the full scratch and sendbuf size per remap. h_scratch and h_sendbuf are already persistent plan members (remap_kokkos.h:33,35) and their device counterparts are allocated once in remap_3d_create_plan (plan->d_sendbuf at lines 574 and 758, plan->d_scratch at lines 583 and 848), so nothing forces the per-call re-creation. The cost is real: FFT3dKokkos issues up to four remaps per 3d FFT and PPPMKokkos does several FFTs per timestep. Two mitigating notes: on a host-only Kokkos build create_mirror_view returns the source view without allocating, so this only costs on GPU builds without GPU-aware MPI; and when plan->memory == 0 the mirrored view is the caller-supplied d_buf (line 114), so a cached mirror must be size-checked rather than blindly reused.",
+  "severity_agreed": "low",
+  "fix": "Create plan->h_sendbuf once in remap_3d_create_plan right after plan->d_sendbuf is allocated (both the point-to-point path at line 574 and the collective path at line 758), and likewise plan->h_scratch after plan->d_scratch (lines 583/848). In remap_3d_kokkos, replace the unconditional creation with a size-guarded refresh, e.g.\n  if (!plan->usegpu_aware) {\n    if (plan->h_scratch.extent(0) < d_scratch.extent(0))\n      plan->h_scratch = Kokkos::create_mirror_view(d_scratch);\n    if (plan->h_sendbuf.extent(0) < plan->d_sendbuf.extent(0))\n      plan->h_sendbuf = Kokkos::create_mirror_view(plan->d_sendbuf);\n    ...\n  }\nso the buffers are reallocated only when they need to grow. Take care that the subview deep_copies at lines 167-168 and the full deep_copies at 209/244/262 still use matching ranges rather than the whole (possibly larger) cached view."
+ },
+ {
+  "id": "F0275",
+  "file": "src/KOKKOS/improper_umbrella_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 98,
+  "reasoning": "ImproperUmbrellaKokkos<DeviceType>::compute() contains, inside the per-timestep body under the comment `// zero warning flag`:\n  k_warning_flag = DAT::tdual_int_scalar(\"ImproperUmbrella::warning_flag\");\n  d_warning_flag = k_warning_flag.template view<DeviceType>();\n  h_warning_flag = k_warning_flag.view_host();\n  h_warning_flag() = 0;\n(lines 98-101). That is a fresh DualView allocation (host + device scalar) plus two view rebinds every timestep, where only the `h_warning_flag() = 0` is actually needed. Every KOKKOS dihedral style does it the right way: e.g. DihedralCharmmKokkos allocates it once in the constructor (dihedral_charmm_kokkos.cpp:50-52) and its compute() only does `h_warning_flag() = 0; k_warning_flag.modify_host(); k_warning_flag.template sync<DeviceType>();` (lines 118-120), the same three lines that already follow the allocation here. Grepping `tdual_int_scalar(\"` across src/KOKKOS shows exactly two styles that allocate it inside compute(): improper_umbrella_kokkos.cpp:98 and improper_fourier_kokkos.cpp:100 -- everything else does it in the constructor.",
+  "severity_agreed": "low",
+  "fix": "Move the three lines\n  k_warning_flag = DAT::tdual_int_scalar(\"ImproperUmbrella::warning_flag\");\n  d_warning_flag = k_warning_flag.template view<DeviceType>();\n  h_warning_flag = k_warning_flag.view_host();\nfrom compute() into the ImproperUmbrellaKokkos constructor (matching dihedral_charmm_kokkos.cpp:50-52), leaving only `h_warning_flag() = 0; k_warning_flag.modify_host(); k_warning_flag.template sync<DeviceType>();` in compute(). Apply the identical change to ImproperFourierKokkos (src/KOKKOS/improper_fourier_kokkos.cpp:100-102)."
+ },
+ {
+  "id": "F0416",
+  "file": "src/KOKKOS/pair_tersoff_mod_c_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 121,
+  "reasoning": "pair_tersoff_mod_c_kokkos.cpp:120-121 in PairTersoffMODCKokkos<DeviceType>::init_style reads `if (neighflag == FULL) error->all(FLERR,\"Must use half neighbor list style with pair tersoff/kk\");` -- naming tersoff/kk in the tersoff/mod/c/kk style. The same copy-paste is in pair_tersoff_mod_kokkos.cpp:121 (tersoff/mod/kk) and pair_tersoff_zbl_kokkos.cpp:134 (tersoff/zbl/kk); the genuine tersoff/kk message is pair_tersoff_kokkos.cpp:135. Note pair_tersoff_zbl_kokkos.cpp:76 shows the file already knows its own name elsewhere (\"Pair tersoff/zbl/kk requires metal or real units\"), so the mismatch is clearly unintentional. User-visible cosmetic defect: the message sends the user to the wrong pair style.",
+  "severity_agreed": "low",
+  "fix": "Correct the style name in each message: pair_tersoff_mod_c_kokkos.cpp:121 -> \"Must use half neighbor list style with pair tersoff/mod/c/kk\"; pair_tersoff_mod_kokkos.cpp:121 -> \"... pair tersoff/mod/kk\"; pair_tersoff_zbl_kokkos.cpp:134 -> \"... pair tersoff/zbl/kk\"."
+ }
+]

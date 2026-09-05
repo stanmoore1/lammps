@@ -69,3 +69,34 @@ F0141, F0265, F0399.  They are duplicates of the recovered batch-12 entries, not
 
 **Any aggregation over `progress_v*/verdicts.jsonl` must deduplicate by finding id.**  The
 per-batch `verdicts_NN.json` files are unaffected and are the authoritative record.
+
+## Reachability correction: pair_vashishta_kokkos FullA/FullB is DEAD CODE
+
+Findings F0421 / F0503 (and the orchestrator's own verification) reported the FullB
+3-body indexing bug — `d_numneigh_short_3body[jj]` / `d_neighbors_short_3body(jj,kk)` using
+the slot counter instead of the neighbour atom `j` — as a live, high-severity
+silently-wrong-forces defect "reached with neighflag FULL, the GPU default".
+
+**That reachability claim is wrong, established by running it, not reading it.**  Two
+guards cannot be satisfied at the same time:
+
+* `KokkosLMP::newton_check()` (`src/KOKKOS/kokkos.cpp:859-860`) — `neigh full` requires
+  `newton off`;
+* `PairVashishta::init_style()` (`src/MANYBODY/pair_vashishta.cpp:268-269`) — errors with
+  "Pair style Vashishta requires newton pair on", and
+  `PairVashishtaKokkos::init_style()` calls the base first.
+
+Observed directly:
+  `-pk kokkos neigh full newton off` -> ERROR: Pair style Vashishta requires newton pair on
+  `-pk kokkos neigh full`            -> ERROR: Must use 'newton off' with ... 'neigh full'
+
+So `neighflag == FULL` is unreachable for this style and the FullA/FullB kernels are dead
+code.  The indexing defect is real but **latent**, not live; severity drops from high to
+low.  The fix on this branch is kept because it makes the dead code correct and documents
+the intent, but it should not be described as fixing wrong forces.
+
+Lesson: three verifiers confirmed the code defect correctly and none checked reachability
+through the init_style chain.  "It's the GPU default" was assumed from
+`kokkos.cpp:345-348` without checking whether the style's own init_style permits it.  Every
+other finding whose severity rests on "FULL is the GPU default" needs the same check —
+notably pair_brownian (F0309) and pair_multi_lucy_rx (F0370).
