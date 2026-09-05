@@ -26,3 +26,17 @@ fix_rigid_nh_small remap x2lamda ordering; compute_coord_atom_kokkos dispatch on
 fix_rigid_small_kokkos DualView<...,DeviceType>::view_device() (correct); comm_kokkos forward/reverse_comm_device<LMPHostType>
 explicitly instantiated. pppm_kokkos.cpp:1328 + pppm_tip4p:218 + pair_exp6_rx 205/249: build-config #ifdef LMP_KOKKOS_GPU picks
 atomics vs duplicated-array path -> host instantiation on GPU build gets the atomics path: correct but suboptimal, NOT reported.
+NEW FINDING: compute_sna_grid_kokkos_impl.h:176 host fallback missing atomKK->sync(Host,...) before base compute_array
+(base reads atom->x at ML-SNAP/compute_sna_grid.cpp:213). Same omission applies to compute_sna_grid_local_kokkos_impl.h:159
+(folded into that finding's suggested_fix).
+Verified TransformView: h_view aliases h_viewkk when NEED_TRANSFORM==false (kokkos_type.h:700,751-755), so legacy-Host
+staleness only bites on GPU builds.
+Clean sweeps with no findings: atom_vec_*_kokkos sync/modified/sync_pinned HostKK-vs-Host branches (scan_hostkk.py, 26 branches,
+226 field lines, all transform fields use sync_hostkk/modify_hostkk and plain dual views use sync_host/modify_host);
+DAT::t_ members assigned from atomKK dual views (scan_rule3b.py / scan_rule3c.py: zero hits);
+Kokkos::View<> with defaulted (Default) execution space in templated classes (scan_defview.py: only 2 dead helpers in pair_uf3);
+neighbor request set_kokkos_host/device (only pair_dpd_fdt_energy_kokkos.cpp:118 hardcodes, inside a <LMPDeviceSpace> specialization).
+NEW FINDINGS (sibling pair): dynamical_matrix_kokkos.cpp:173 and third_order_kokkos.cpp:172 test only execution_space==Host,
+missing HostKK -> /kk/host force styles' contributions never merged (verlet_kokkos.cpp:692-713 host_force_styles is the
+correct reference; its merge at 509-518 uses sync_legacy_to_hostkk()+view_hostkk()).
+Checked OK: neighbor_kokkos.cpp:435-442 '== Host' is intentional (legacy pointers for non-Kokkos styles).

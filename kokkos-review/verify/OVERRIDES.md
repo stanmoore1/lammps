@@ -1,0 +1,43 @@
+# Orchestrator overrides on verifier verdicts
+
+Spot check of a stratified sample of CONFIRMED verdicts, re-derived from the source by the
+orchestrator before any fix was applied.
+
+## DO NOT APPLY — verifier verdict is wrong
+
+**F0249 / F0481 — `src/KOKKOS/mliap_unified_kokkos.cpp:144` "double Py_DECREF".**
+Both verifiers marked this CONFIRMED and recommend deleting the `Py_DECREF` from
+`~MLIAPDummyModelKokkos`.  **That fix would introduce a leak.**  Both verifiers read only
+the C++ and counted "one Py_INCREF at build_unified_kokkos:252-253".  They missed that
+`mliap_unified_connect_kokkos` is Cython-generated and returns a NEW reference
+(`__Pyx_INCREF` on the return path, from `mliap_unified_couple_kokkos.pyx:492-549`), which
+`build_unified` never releases.  The real count is 3 increfs vs 3 decrefs — balanced by
+accident.  Correct fix: keep the two explicit `Py_INCREF`s, ADD the missing `Py_DECREF`
+for the value returned by `mliap_unified_connect_kokkos()`, correct the wrong "Borrowed
+references" comment, and only then remove the duplicate at :144.  Establish this in one
+edit or not at all; a partial fix is worse than the current state.
+
+Lesson: a verdict that depends on evidence outside the two C++ files being diffed
+(generated code, Python, build system) needs that evidence actually consulted.
+
+## Confirmed sound on independent re-derivation
+
+- **F0022** `atom_vec_kokkos.cpp:1845` — `DEFORM_VREMAP` branch has no `else`, so `m` is
+  not advanced for atoms outside the deform group. Verified earlier by the orchestrator too.
+- **F0042** `bond_fene_expand_kokkos.cpp:191` — `d_flag() = 2` / `= 1` are plain unordered
+  stores to the same 0-d view; a later thread writing 1 can mask a 2, downgrading
+  `error->one("Bad FENE bond")` to a warning. Post-kernel dispatch at :133-138 confirms
+  the severity ordering matters.
+- **F0238** `fix_wall_gran_kokkos.cpp:227` — CPU `fix_wall_gran_old.cpp:901` has
+  `if (limit_damping && (ccel < 0.0)) ccel = 0.0;`; the KOKKOS kernel has no such line.
+- **F0424** `pair_uf3_kokkos.cpp:1647` — CPU `pair_uf3.cpp:1857` does
+  `fforce = factor_lj * force_2b;`. The KOKKOS `single()` scales only the returned energy
+  (`return factor_lj * value;`) and never scales `fforce`.
+- **F0091** `compute_temp_deform_kokkos.cpp:186` — KOKKOS brackets the kernel with
+  `domainKK->x2lamda(nlocal)` / `lamda2x(nlocal)`, mutating `atom->x` in place for every
+  local atom. The CPU style uses the per-atom two-argument form
+  `domain->x2lamda(atom->x[i], lamda)` writing into a local (`compute_temp_deform.cpp:313`)
+  and never touches `atom->x`. Genuine divergence: round-trip drift plus a dirtied X.
+
+Sample result: 4 of 5 sound, 1 wrong. Fix phase must re-read the code at each site rather
+than applying a verdict's `fix` string blind.
