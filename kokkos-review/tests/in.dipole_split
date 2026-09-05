@@ -1,0 +1,22 @@
+# proves pair lj/cut/dipole/cut/kk dropped the LJ force, virial and torque for
+# any pair with cut_coul <= r < cut_lj, because the accumulation sat inside the
+# "rsq < cut_coulsq" branch.  cut_lj is deliberately larger than cut_coul so
+# such pairs exist.
+units           lj
+atom_style      hybrid sphere dipole
+dimension       3
+lattice         fcc 0.8442
+region          box block 0 5 0 5 0 5
+create_box      1 box
+create_atoms    1 box
+set             type 1 diameter 1.0 density 1.0
+set             type 1 dipole/random 45678 0.75
+velocity        all create 1.0 12345 loop geom
+pair_style      lj/cut/dipole/cut 2.5 1.2
+pair_coeff      1 1 1.0 1.0
+neighbor        0.3 bin
+neigh_modify    delay 0 every 1 check no
+fix             1 all nve/sphere update dipole
+thermo_style    custom step temp epair etotal press
+thermo          25
+run             25
