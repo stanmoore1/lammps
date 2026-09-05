@@ -332,7 +332,7 @@ void PairMEAMKokkos<DeviceType>::reinit()
       h_scale(i,j) = scale[i][j];
   Kokkos::deep_copy(d_scale,h_scale);
 
-  meam_inst_kk->d_scale = d_scale;
+  // meam_inst_kk->d_scale is refreshed from this view on the next meam_dens_final()
 }
 
 /* ----------------------------------------------------------------------
