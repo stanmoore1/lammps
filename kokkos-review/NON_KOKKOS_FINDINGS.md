@@ -97,3 +97,39 @@ builds kept trimming against `cutsq_custom == 0` and discarded every pair.
 This is the one class of defect a line-by-line review structurally cannot find: both sides
 are internally coherent and neither looks wrong on its own.  Only the history reveals it.
 Worth a periodic `git log` sweep of `src/npair*.cpp` against `src/KOKKOS/npair*_kokkos.cpp`.
+
+## 5. Non-kokkosable `fix property/atom` corrupts the heap (NOT fixed -- needs a decision)
+
+Reproducer (either form; both abort identically on this branch and on upstream `develop`):
+
+    # KOKKOS active, a plain "fix property/atom" reaches Atom::add_custom
+    atom_style  atomic/kk
+    fix         p all property/atom d_foo      # run with: -k on t 1 -pk kokkos
+
+    realloc(): invalid pointer
+    ... Memory::srealloc
+    ... FixPropertyAtom::grow_arrays
+    ... Modify::add_fix
+
+`AtomKokkos::add_custom()` grows `dvector` with `memoryKK->grow_kokkos()`, so
+`atom->dvector[index]` points into a Kokkos allocation.  The base
+`FixPropertyAtom::grow_arrays()` then calls `memory->srealloc()` on that pointer.  The only
+reason this is normally unseen is the `/kk` suffix: `FixPropertyAtomKokkos` overrides
+`grow_arrays()`.  Reach the base class -- via `suffix off`, or by naming `atom_style
+atomic/kk` and not passing `-sf kk` -- and it is immediate heap corruption, not a wrong
+answer.
+
+`AtomKokkos::update_property_atom()` already carries a `kokkosable` guard with a good error
+message, and this review improved that message.  **The guard cannot catch this case**: it runs
+from `FixPropertyAtomKokkos::post_constructor()`, and a plain `fix property/atom` aborts
+inside its own constructor, before any of that.  An attempt during this review to make the
+guard reachable by calling `update_property_atom()` from `AtomKokkos::init()` was reverted --
+`init()` also runs long after `Modify::add_fix()`, so it was dead code.
+
+Placing the check correctly needs a maintainer's call, because none of the obvious spots work:
+`AtomKokkos::add_custom()` cannot see which fix is calling it (the fix is not yet in
+`modify->fix[]`, and `FixPropertyAtom`'s constructor runs before `FixPropertyAtomKokkos` sets
+`kokkosable`).  The alternatives are a check in `Modify::add_fix()`, which is core rather than
+KOKKOS, or making `AtomKokkos::add_custom()` hand back non-Kokkos memory and adopt it later.
+
+This is pre-existing, not a regression -- upstream `develop` aborts on the same inputs.

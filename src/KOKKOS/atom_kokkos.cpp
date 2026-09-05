@@ -154,13 +154,6 @@ void AtomKokkos::init()
 {
   Atom::init();
 
-  // refresh the list of fix property/atom instances.  This must happen here and
-  // not only from FixPropertyAtomKokkos, otherwise an input that defines *only*
-  // plain "fix property/atom" instances never reaches the check below and their
-  // per-atom data would silently not be kept in sync with the device.
-
-  update_property_atom();
-
   sort_legacy = lmp->kokkos->sort_legacy;
 }
 
