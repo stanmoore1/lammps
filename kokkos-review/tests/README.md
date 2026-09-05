@@ -27,7 +27,7 @@ the cpu reference exactly.
 | in.temp_region_bias | temp / c_t | 0.54286473 / 0.28128204 | SIGSEGV in `ComputeTempRegion::dof_remove` | 0.54286473 / 0.28128204 |
 | in.map_hash_dedup | E_total | 6.1118502 | `Kokkos::abort`, "Concurrent modification of host and device hashes" | 6.1118502 |
 
-`in.map_hash_dedup` needs the extra run option `-pk kokkos atom/map device`.  That is the
+`in.map_hash_dedup` NEEDS the extra run option `-pk kokkos atom/map device`.  That is the
 DEFAULT on a GPU build, so upstream `develop` aborts on the ordinary path there for any
 molecular system with special bonds; a CPU-only build has to ask for it explicitly.  This one
 is an upstream regression rather than a long-standing defect -- `map_clear()` gained its
@@ -51,6 +51,37 @@ differ only in the seed:
 kk and cpu are not expected to agree here: they draw from different generators.  Only
 seed sensitivity is under test.
 
+### CPU-side defects: pristine vs fixed, both builds
+
+These three are not KOKKOS defects; the KOKKOS variant mirrors a defective CPU parent, so kk
+and cpu agree with each other in BOTH builds and only a pristine-vs-fixed comparison shows
+anything.  See ../NON_KOKKOS_FINDINGS.md.
+
+`in.lj_expand_sphere_equiv` is self-checking: its two thermo lines are the same potential
+computed two ways and must agree.  Sum of squared forces, cpu and kk alike:
+
+| | lj/expand | lj/expand/sphere | |
+|---|---|---|---|
+| upstream | 1.0682863e+11 3.5069984e+09 9.3367809e+10 | 3.0885079e+09 1.6353346e+08 2.785233e+09 | disagree |
+| fixed | 1.0682863e+11 3.5069984e+09 9.3367809e+10 | 1.0682863e+11 3.5069984e+09 9.3367809e+10 | agree exactly |
+
+Energy is 980.35705 in every one of those runs: same potential, different gradient.
+
+`in.deform_remap_subgroup` (temp / c_tm / press at step 50):
+
+| | upstream | fixed |
+|---|---|---|
+| cpu and kk (identical within each build) | 0.66710764 / 0.39908086 / 1.3382274 | 0.66731388 / 0.39942296 / 1.3389962 |
+
+This one shows that the code path is live and that the change is real and deterministic; it
+does not by itself say which answer is right.  That rests on the code: `j = list[i]` is the
+atom, every other field in the loop is packed from `j`, and `mask[j]` is packed on the
+adjacent line.  Note the three conditions in the input header -- drop any one of them and the
+defect is invisible, which is why it survived.
+
+The `compute sna/grid` inner-cutoff fix has no input here.  It needs a SNAP potential file
+with `switchinnerflag 1`, and the shipped parameter sets do not exercise it.
+
 ## Traps worth remembering
 
 * `special_bonds coul 0.0` makes LAMMPS REMOVE those pairs from the neighbour list, so they
@@ -62,3 +93,10 @@ seed sensitivity is under test.
   divergence".  Check for a missing result, not just for a different one.
 * `pair_style brownian` needs seven or nine arguments (mu flaglog flagfld cut_inner cut
   t_target seed); a short list is rejected with a bare "Illegal pair_style command".
+* Packing the wrong value into a ghost buffer shows nothing unless something READS it.
+  `in.deform_remap_subgroup` was silent with `pair lj/cut`, which never looks at ghost
+  velocities; it needed a granular style before the defect could reach a number.
+* Prefer a deterministic style when the point is to compare two builds.  A stochastic style
+  (dpd) does show the divergence, but it cannot tell you which of the two answers is correct.
+* An extractor that reads "the last thermo line" silently reports only the second half of an
+  input with two `run` commands.
