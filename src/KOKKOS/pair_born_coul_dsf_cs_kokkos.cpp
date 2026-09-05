@@ -28,13 +28,20 @@
 #include "update.h"
 
 #include <cmath>
+#include <type_traits>
 
 using namespace LAMMPS_NS;
 
-// a minimal separation so that r = 0 core/shell pairs stay finite until the
-// special-bond factor removes them, taken verbatim from the CPU style
+// A minimal separation so that r = 0 core/shell pairs stay finite until the
+// special-bond factor removes them.  The CPU style uses 1.0e-20; that value
+// cannot be carried over unchanged when KK_FLOAT is float, because the Born
+// potential's steepest term goes as r^-8 and 1.0e-20 gives r^-8 = 1e80, which
+// is finite in double but overflows to infinity in single.  The zero
+// special-bond factor would then produce NaN rather than removing the pair.
+// 1.0e-8 keeps r^-8 at 1e32, well inside the range of float, and is still
+// small enough to sit below the type's epsilon at a normal separation.
 
-static constexpr double EPSILON = 1.0e-20;
+static constexpr double EPSILON = std::is_same_v<KK_FLOAT, float> ? 1.0e-8 : 1.0e-20;
 using MathConst::MY_PIS;
 
 /* ---------------------------------------------------------------------- */
@@ -187,10 +194,12 @@ KK_FLOAT PairBornCoulDSFCSKokkos<DeviceType>::
 compute_fpair(const KK_FLOAT& rsq_in, const int& /*i*/, const int& /*j*/,
               const int& itype, const int& jtype) const
 {
-  // r = 0 must stay finite here, exactly as in the CPU style, which adds
-  // EPSILON to rsq before evaluating either term of the pair
+  // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
+  // rather than an unconditional add: in double, adding EPSILON to a normal
+  // rsq is already a no-op, while in single it would be a real perturbation
 
-  const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);
+  const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
+    rsq_in : static_cast<KK_FLOAT>(EPSILON);
 
   const KK_FLOAT r2inv = static_cast<KK_FLOAT>(1.0)/rsq;
   const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
@@ -218,10 +227,12 @@ compute_fcoul(const KK_FLOAT& rsq_in, const int& /*i*/, const int& j,
               const int& /*itype*/, const int& /*jtype*/,
               const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const
 {
-  // r = 0 must stay finite here, exactly as in the CPU style, which adds
-  // EPSILON to rsq before evaluating either term of the pair
+  // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
+  // rather than an unconditional add: in double, adding EPSILON to a normal
+  // rsq is already a no-op, while in single it would be a real perturbation
 
-  const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);
+  const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
+    rsq_in : static_cast<KK_FLOAT>(EPSILON);
 
   const KK_FLOAT r = Kokkos::sqrt(rsq);
   const KK_FLOAT r2inv = static_cast<KK_FLOAT>(1.0)/rsq;
@@ -250,10 +261,12 @@ KK_FLOAT PairBornCoulDSFCSKokkos<DeviceType>::
 compute_evdwl(const KK_FLOAT& rsq_in, const int& /*i*/, const int& /*j*/,
                const int& itype, const int& jtype) const
 {
-  // r = 0 must stay finite here, exactly as in the CPU style, which adds
-  // EPSILON to rsq before evaluating either term of the pair
+  // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
+  // rather than an unconditional add: in double, adding EPSILON to a normal
+  // rsq is already a no-op, while in single it would be a real perturbation
 
-  const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);
+  const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
+    rsq_in : static_cast<KK_FLOAT>(EPSILON);
 
   const KK_FLOAT r2inv = static_cast<KK_FLOAT>(1.0)/rsq;
   const KK_FLOAT r6inv = r2inv*r2inv*r2inv;
@@ -281,10 +294,12 @@ compute_ecoul(const KK_FLOAT& rsq_in, const int& /*i*/, const int& j,
                const int& /*itype*/, const int& /*jtype*/,
                const KK_FLOAT& factor_coul, const KK_FLOAT& qtmp) const
 {
-  // r = 0 must stay finite here, exactly as in the CPU style, which adds
-  // EPSILON to rsq before evaluating either term of the pair
+  // r = 0 must stay finite here, as in the CPU style.  Applied as a floor
+  // rather than an unconditional add: in double, adding EPSILON to a normal
+  // rsq is already a no-op, while in single it would be a real perturbation
 
-  const KK_FLOAT rsq = rsq_in + static_cast<KK_FLOAT>(EPSILON);
+  const KK_FLOAT rsq = (rsq_in > static_cast<KK_FLOAT>(EPSILON)) ?
+    rsq_in : static_cast<KK_FLOAT>(EPSILON);
 
   const KK_FLOAT r = Kokkos::sqrt(rsq);
   const KK_FLOAT prefactor = qqrd2e*qtmp*q(j)/r;

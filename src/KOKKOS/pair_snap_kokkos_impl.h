@@ -979,7 +979,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
     iatom_shift = iatom_mod + yi_batch * iatom_div * vector_length;
   }
   if (iatom_shift >= chunk_size) return;
-  snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb, get_ielem_batch(iatom));
+  snaKK.template compute_bi<chemsnap, yi_batch>(iatom_shift, jjb, get_ielem_batch(iatom_shift));
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -993,9 +993,9 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
     iatom_shift = iatom_mod + yi_batch * iatom_div * vector_length;
   }
   if (iatom_shift >= chunk_size) return;
-  const Kokkos::Array<int, yi_batch> ielem = get_ielem_batch(iatom);
+  const Kokkos::Array<int, yi_batch> ielem = get_ielem_batch(iatom_shift);
   for (int jjb = 0; jjb < snaKK.idxb_max; jjb++)
-    snaKK.template compute_bi<chemsnap, yi_batch>(iatom, jjb, ielem);
+    snaKK.template compute_bi<chemsnap, yi_batch>(iatom_shift, jjb, ielem);
 }
 
 /* ----------------------------------------------------------------------
