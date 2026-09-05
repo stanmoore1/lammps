@@ -137,6 +137,15 @@ LAMMPS was built with that package.  See the :doc:`Build package
 Only spherical monodisperse particles are allowed for pair_style
 brownian.
 
+.. versionchanged:: TBD
+
+The KOKKOS versions of these styles require a half neighbor list and will
+stop with an error if a full neighbor list is requested, as it is by default
+on a GPU.  A full list would visit each pair twice and draw independent
+random numbers each time, so the stochastic part of the pair force would no
+longer be equal and opposite.  Use *package kokkos neigh half* with these
+styles.
+
 Only spherical particles are allowed for pair_style brownian/poly.  The
 volume fraction correction is not supported by pair_style brownian/poly.
 
