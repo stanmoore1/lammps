@@ -203,3 +203,85 @@ Several package-wide patterns were investigated and dismissed with reasons recor
   reported separately; the same reasoning applies.)
 * **`lj/class2/coul/long/cs` EPS_EWALD_SQR handling** — relative difference ~1e-12 at normal
   separations, and the r≈0 core/shell case is removed by `factor_lj`.
+
+---
+
+# Outcome of the fix and validation phase
+
+Everything below was written after the findings above were adversarially re-verified and
+then fixed.  Where it contradicts the sections above, this section is current.
+
+## Corrections to the report above
+
+* **The `if (eflag)` pattern was NOT benign.**  The section "What was checked and
+  deliberately *not* reported" argues that `eng_coul` is not read when `eflag_global == 0`
+  and is reset by `ev_init` on the next energy step.  That reasoning is wrong for a
+  per-atom-only energy request: `pair_kokkos.h:183` accumulates `ev.ecoul` under
+  `eflag_either`, which is set for a per-atom request, while `ev_init` only zeroes the
+  global on a *global* energy step.  All ten occurrences (four lj styles, six coul styles)
+  now use `eflag_global`; none remain in the package.
+* **`pair_vashishta` FullB indexing is latent, not live.**  `KokkosLMP::newton_check()`
+  runs unconditionally at startup and forces newton pair off whenever `neighflag == FULL`,
+  while `PairVashishta::init_style()` requires newton pair on.  The FULL path is therefore
+  unreachable for that style.  The fix is kept as dead-code correctness; the severity was
+  wrong.  The same recalibration was applied package-wide -- see `reachability.md`.
+* **The non-KOKKOS defect list is superseded** by `NON_KOKKOS_FINDINGS.md`, which carries
+  the fixes, the evidence, and one defect that is documented rather than fixed.
+
+## What the fixes are worth: measured, not asserted
+
+A fix counts as proven only when pristine `origin/develop` diverges AND the fixed build
+agrees with the CPU reference.  Agreement on the fixed build alone proves nothing: a test
+that exercises no code path looks exactly like a passing test.  Nine inputs in `tests/`
+meet that bar; three of them present as a crash rather than a wrong number.  See
+`tests/README.md` for the numbers.
+
+Two defects that the differential method structurally **cannot** find were caught anyway,
+and are worth remembering as method lessons:
+
+* **A defect the KOKKOS port faithfully copies from its CPU parent.**  kk and cpu agree in
+  both builds, so no accelerator comparison sees it.  `lj/expand/sphere` was found by
+  deriving the gradient, then proven by constructing a configuration where the style must
+  equal `lj/expand` exactly.
+* **An upstream fix that was never mirrored into KOKKOS.**  Commit `47cea8e1ba` added the
+  `cutsq_trim` fallback to four `src/npair*.cpp` files and touched no KOKKOS counterpart.
+  Both sides read as internally coherent; only the history reveals the gap.  A periodic
+  `git log` sweep of `src/npair*.cpp` against `src/KOKKOS/npair*_kokkos.cpp` would catch
+  this class.
+
+## One regression found on `develop` itself
+
+`AtomKokkos::map_clear()` gained a device branch without a matching `clear_sync_state()`,
+so a preceding `map_one()` leaves the host side dirty and the `modify_device()` trips
+`dual_hash_type`'s concurrent-modification abort.  `Special::dedup()` walks exactly that
+sequence, so **any molecular system with special bonds aborts** when the atom map lives on
+the device -- which is the default on a GPU build.  Reproduced on a CPU build with
+`-pk kokkos atom/map device`; see `tests/in.map_hash_dedup`.  This is recent breakage
+rather than a long-standing defect and deserves its own upstream report.
+
+## Still open
+
+* `fix property/atom` heap corruption -- documented with a reproducer in
+  `NON_KOKKOS_FINDINGS.md` section 5.  Pre-existing; the correct place for the guard needs
+  a maintainer's decision.
+* `fix nve/sphere/kk` has no DLM kernel.  It now refuses `update dipole/dlm` instead of
+  silently running the plain integrator, and the kokkos variants of
+  `fix-timestep-nve_sphere_dipole_dlm.yaml` are marked `skip_tests`.  Porting DLM is real
+  work and was not attempted.
+* `PairStyle.single` is skipped for `lj/expand/sphere`, so the matching fix in `single()`
+  is not covered by the regenerated fixture.
+* The regenerated `atomic-pair-lj_expand_sphere.yaml` was produced from the corrected code,
+  so it no longer independently validates that style.  Before the regeneration it failed
+  for exactly the three variants that were changed and for no others, which is the evidence
+  that the change is self-consistent.
+* The precision-dependent `EPSILON` in `pair_born_coul_dsf_cs_kokkos.cpp` was reasoned and
+  checked against float arithmetic directly, but not exercised at runtime: the validation
+  build is double precision.
+
+## Validation performed
+
+Out-of-source CMake build, `KOKKOS_PREC=double`, OpenMP backend, ML-PACE from a local
+checkout of `lammps-user-pace v.2025.12.4.p1`.  `make check-whitespace`,
+`check-permissions`, `check-homepage` and `check-errordocs` all clean.  Full `ctest` suite
+run; the only remaining failures are environmental -- two permission tests that cannot fail
+for the root user, and one missing PyYAML C-loader.
