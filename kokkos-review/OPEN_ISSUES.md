@@ -212,7 +212,7 @@ so compile coverage is complete in every one:
 | `KOKKOS_PREC=mixed` | clean | 985/989 |
 | `KOKKOS_PREC=single` | clean | 986/989 |
 | `KOKKOS_LAYOUT=default` (LayoutLeft) | clean | 986/989 |
-| `LAMMPS_SIZES=bigbig` | clean | see below |
+| `LAMMPS_SIZES=bigbig` | clean | 986/989 |
 
 Every failure in every configuration is one of the three environmental ones of section 6,
 plus one genuine test bug found this way and fixed (section 4.5).  All nine targeted
