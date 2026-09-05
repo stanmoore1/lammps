@@ -100,3 +100,36 @@ through the init_style chain.  "It's the GPU default" was assumed from
 `kokkos.cpp:345-348` without checking whether the style's own init_style permits it.  Every
 other finding whose severity rests on "FULL is the GPU default" needs the same check —
 notably pair_brownian (F0309) and pair_multi_lucy_rx (F0370).
+
+## Reachability sweep result — severities recalibrated package-wide
+
+A dedicated sweep established the governing rule and applied it to every style whose
+severity rested on a neighflag/newton configuration.  Full table in `reachability.md`.
+
+**C1: `neighflag == FULL` implies `newton_pair == 0`, always.**  `package kokkos` runs
+unconditionally at startup (`lammps.cpp:916`), so `newton_check()` (`kokkos.cpp:859-860`)
+always fires, and `input.cpp:1729` re-runs it after any later `newton` command.  Every
+`FULL && newton_pair` branch in the package is therefore dead code — a list of 15 such
+sites is in `reachability.md`.
+
+**C4 is the decisive test for a style:** does its KOKKOS `init_style()` call a CPU base
+`init_style()` that errors on newton off, before the neighbor request is adjusted?  If so,
+FULL is unreachable for that style even though FULL is the GPU default.
+
+UNREACHABLE (findings in these FULL paths are latent, not live): vashishta, uf3, mliap,
+tip4p variants, sw/sw-mod, all four tersoff variants, meam, snap, reaxff, pace,
+pace/extrapolation, pod, all four dpd variants, all three granular styles, fix shake.
+
+REACHABLE and the GPU default: brownian (base only WARNS at
+`COLLOID/pair_brownian.cpp:445-446`), multi/lucy/rx (no `init_style` override at all), and
+the plain pair family (lj/cut, coul/*, born/*, buck/*, eam*, adp, table, exp6/rx, table/rx,
+dpd/fdt/energy, ylz, colloid, bondval*, lj/cut/dipole/cut).
+
+IMPORTANT EXCEPTION: `fix qeq/reaxff/kk` and `fix acks2/reaxff/kk` read `neighflag_qeq`,
+which `newton_check()` never constrains and `neigh half` does not change.  There FULL
+coexists with newton pair ON, so C1 does not apply and findings in those kernels must not
+be dismissed.
+
+Also severity-lowering: every KOKKOS many-body style can only run on a GPU after an
+explicit `package kokkos neigh half newton on`, so a finding in one of their kernels is
+never "the GPU default path".
