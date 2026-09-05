@@ -1,0 +1,267 @@
+[
+ {
+  "id": "F0301",
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 50,
+  "reasoning": "Read both sides. src/KOKKOS/pair_brownian_kokkos.cpp:49-51 is verbatim 'PairBrownianKokkos<DeviceType>::PairBrownianKokkos(LAMMPS *lmp) : PairBrownian(lmp), rand_pool(seed + comm->me)'. src/COLLOID/pair_brownian.cpp:47-51 shows the base ctor sets only single_enable and random; 'int seed;' (pair_brownian.h:51) has no initializer anywhere, and the only assignments are in settings() (pair_brownian.cpp:368) and read_restart_settings() (:640/:652), both of which run after construction. grep over the KOKKOS file shows rand_pool appears only at :50 (construction), :278 (get_state) and :476 (free_state) - init_style() (which does call PairBrownian::init_style()) never re-creates it. So the pool is seeded from an indeterminate int and the user's seed never reaches the device RNG. Contrast pair_dpd_ext_kokkos.cpp:89 'rand_pool = decltype(rand_pool)(seed + comm->me,unique_token.size());' inside init_style(), which is the correct pattern.",
+  "severity_agreed": "high",
+  "fix": "Drop 'rand_pool(seed + comm->me)' from the member-initializer list (default-construct it) and add, at the end of PairBrownianKokkos::init_style() after PairBrownian::init_style(): 'typename Kokkos::Experimental::UniqueToken<DeviceType,Kokkos::Experimental::UniqueTokenScope::Global> unique_token; rand_pool = decltype(rand_pool)(seed + comm->me, unique_token.size());' mirroring src/KOKKOS/pair_dpd_ext_kokkos.cpp:86-89."
+ },
+ {
+  "id": "F0302",
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 114,
+  "reasoning": "Read pair_brownian_kokkos.cpp compute() and Pair::ev_setup. Line 114 is 'ev_init(eflag,vflag,0);'. grep for 'eatom' over the whole KOKKOS file returns nothing (only k_vatom at :69/:165-167/:259-260) and pair_brownian_kokkos.h declares only k_vatom/d_vatom (:77-78) - there is no k_eatom and no eatom allocation anywhere. In Pair::ev_setup (src/pair.cpp:988-995) the alloc=0 path still executes 'if (eflag_atom && atom->nmax > maxeatom) { maxeatom = atom->nmax; ... }' but skips the memory->create, and the zeroing loop at :1019 is guarded by '&& alloc', so ev_setup itself does not crash - Pair::eatom simply stays nullptr. ComputePEAtom::compute_peratom (src/compute_pe_atom.cpp:131-134) then does, with no null check: 'double *eatom = force->pair->eatom; for (i = 0; i < npair; i++) energy[i] += eatom[i];' -> null dereference. The CPU PairBrownian::compute uses the default alloc=1 ev_init, so eatom is allocated and read back as zeros. Note this same shape exists in the two sibling styles pair_dpd_tstat_kokkos.cpp and pair_dpd_ext_tstat_kokkos.cpp (the only other KOKKOS pair styles that combine ev_init(...,0) with no k_eatom), so the fix should be applied to all three.",
+  "severity_agreed": "medium",
+  "fix": "In PairBrownianKokkos::compute(), next to the existing vflag_atom block (:163-167), add: 'if (eflag_atom) { memoryKK->destroy_kokkos(k_eatom,eatom); memoryKK->create_kokkos(k_eatom,eatom,maxeatom,\"pair:eatom\"); d_eatom = k_eatom.view<DeviceType>(); }'; declare k_eatom/d_eatom in pair_brownian_kokkos.h beside k_vatom/d_vatom, destroy k_eatom in the destructor next to k_vatom, and modify/sync_host it where k_vatom is handled (:259-260) so the (identically zero) per-atom energies reach the host. Apply the same to pair_dpd_tstat_kokkos.cpp and pair_dpd_ext_tstat_kokkos.cpp."
+ },
+ {
+  "id": "F0309",
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 404,
+  "reasoning": "Read the whole kernel. Every write-back to atom j is guarded by '(NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD) && (NEWTON_PAIR || j < nlocal)' - at :404-408 for the force, :432-436 and :465-469 for the two torque terms - so under NEIGHFLAG==FULL atom j never receives the reaction. The force magnitude itself is drawn fresh inside the j-loop from rand_gen.drand() (Fbmag * randr * p1/p2/p3), so when the reversed pair (j,i) is visited from j's own list the draws are independent; the pair contribution is therefore not antisymmetric and the summed stochastic force over all atoms does not cancel. compute() does dispatch the FULL specializations in all four branches (:206-209, :217-220, :232-235, :243-246) and init_style() enables a full list ('if (neighflag == FULL) request->enable_full();'), so the path is live - and src/KOKKOS/kokkos.cpp:345-347 makes FULL the DEFAULT neighflag whenever ngpus > 0, i.e. every GPU run of brownian/kk takes it. The cited sibling behaviour is real: src/KOKKOS/pair_dpd_kokkos.cpp:139-140 does 'if (force->newton_pair == 0 || neighflag == FULL) error->all(FLERR,\"Must use half neighbor list style and newton on with pair dpd/kk\");'. The CPU PairBrownian uses a half list and applies -F to i / +F to j from one draw. Note the FULL virial path in ev_tally_xyz (:542-549) is written deliberately, so the FULL support was intended; the RNG antisymmetry was simply overlooked. Per-atom noise variance happens to come out right, so the failure is loss of pairwise correlation / momentum conservation rather than an obviously wrong temperature.",
+  "severity_agreed": "medium",
+  "fix": "Reject FULL in PairBrownianKokkos::init_style(), mirroring pair_dpd_kokkos.cpp:139-140: after PairBrownian::init_style() and after 'neighflag = lmp->kokkos->neighflag;', add 'if (neighflag == FULL) error->all(FLERR,\"Must use half neighbor list style with pair style brownian/kk\");' and drop the FULL dispatch branches plus the 'if (neighflag == FULL) request->enable_full();' line. (Making FULL correct instead would require a pair-symmetric RNG keyed on the two atom tags, which is a much larger change.)"
+ },
+ {
+  "id": "F0469",
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 50,
+  "reasoning": "Duplicate of F0301 and verified independently the same way: pair_brownian_kokkos.cpp:49-51 constructs rand_pool(seed + comm->me) in the member-init list; PairBrownian::PairBrownian (src/COLLOID/pair_brownian.cpp:47-51) never assigns seed, whose only assignments are settings():368 and read_restart_settings():640/652, both after construction. init_style() (pair_brownian_kokkos.cpp:78-100) calls PairBrownian::init_style(), adjusts neighflag and the neighbor request, but never touches rand_pool; grep confirms rand_pool has exactly three occurrences in the file (:50, :278 get_state, :476 free_state).",
+  "severity_agreed": "high",
+  "fix": "Same as F0301: default-construct rand_pool and re-create it in init_style() with 'rand_pool = decltype(rand_pool)(seed + comm->me, unique_token.size());' after PairBrownian::init_style()."
+ },
+ {
+  "id": "F0470",
+  "file": "src/KOKKOS/pair_brownian_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 114,
+  "reasoning": "Duplicate of F0302, verified the same way and its extra claim about ev_setup is accurate: with alloc=0 Pair::ev_setup (src/pair.cpp:988-994) still executes 'if (eflag_atom && atom->nmax > maxeatom) maxeatom = atom->nmax;' while skipping memory->create, and the zero loop is '&& alloc'-guarded so no crash occurs there. The style allocates only k_vatom (pair_brownian_kokkos.cpp:163-167; header declares only k_vatom/d_vatom at :77-78) and has no eatom handling at all. ComputePEAtom (src/compute_pe_atom.cpp:131-134) reads force->pair->eatom with no null guard.",
+  "severity_agreed": "medium",
+  "fix": "Same as F0302: allocate k_eatom/eatom under 'if (eflag_atom)' alongside the existing vflag_atom block in compute(), declare k_eatom/d_eatom in the header, destroy it in the destructor and modify/sync_host it with k_vatom."
+ },
+ {
+  "id": "F0248",
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 758,
+  "reasoning": "Both sides read. KOKKOS: mliap_so3_kokkos.cpp:758 'int weight = t_wjelem[jelem];' in the spectrum kernel, used at :776 'double sfac_weight = compute_sfac(r, t_rcut)*double(weight);'; and :893 'int weight = t_wjelem[jelem];' in the spectrum_dxdr descriptor loop, used at :911 in the identical sfac_weight expression. t_wjelem is 'float_1d t_wjelem' (mliap_so3_kokkos.h:75) with 'using float_1d = Kokkos::View<double *, Kokkos::LayoutRight, MemoryDeviceType>' (:37), i.e. a genuine double view, so the int conversion truncates. CPU: src/ML-IAP/mliap_so3.cpp declares 'double weight;' (in both spectrum, decl at the top of the function, and spectrum_dxdr) and does 'weight = wjelem[jelem];' at :871 and :1005. The values are not integral by construction: MLIAPDescriptorSO3::read_paramfile parses them with utils::numeric (src/ML-IAP/mliap_descriptor_so3.cpp:152) into 'double *wjelem' (mliap_descriptor.h:39), so any fractional element weight (0.5, 0.9, ...) truncates to 0 and any weight < 1 is zeroed outright. There is a third 'int weight' at :933 but it is dead there (grep shows no use of 'weight' between :933 and the end of that loop) - and it is dead in the CPU original at :1063 too.",
+  "severity_agreed": "high",
+  "fix": "Change 'int weight' to 'double weight' at mliap_so3_kokkos.cpp:758 and :893 (and drop the now-pointless 'double(weight)' cast in the two 'sfac_weight' expressions at :776 and :911). The dead declaration at :933 should be widened too or, better, deleted."
+ },
+ {
+  "id": "F0255",
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 806,
+  "reasoning": "spectrum_dxdr (:806-819) has 'if (nlocal > (int)m_clisttot_r.extent(0)) { create m_clisttot_r/m_clisttot_i with nlocal rows; int num_of_temp = std::min(nlocal, m_chunk_size); int delta = num_of_temp - m_ulist_r.extent(0); if (delta > 0) { create m_ulist_r, m_ulist_i, m_dYlm_r, m_dYlm_i with num_of_temp rows } }'. m_dclist is absent from that block, yet the MLIAPSO3SpectrumDXDRTag kernel subviews it by the same chunk index: :879 'int ii_chunk = ii%m_chunk_size;' and :886 'auto dclist = Kokkos::subview(m_dclist,ii_chunk,Kokkos::ALL,Kokkos::ALL,Kokkos::ALL);'. m_dclist is created only in init_arrays (:244) with the same num_of_temp used for m_ulist_r (:232), so the two views are normally the same height - the dxdr growth path is the only place that breaks the invariant. Reachability: init_arrays is called only from spectrum() (:679), and pair_mliap_kokkos.cpp:114-116 calls compute_descriptors (hence spectrum) only 'if (model->nonlinearflag || eflag)', while compute_forces (hence spectrum_dxdr) is called unconditionally. So with a LINEAR mliap model on a step where energy is not requested, spectrum_dxdr runs alone; if nlistatoms has grown since the last allocation but is still below m_chunk_size (m_temp_memory_size = 512 MB / (sum_of_temps*8), typically tens of thousands - mliap_so3_kokkos.h:83), delta > 0, ulist/dYlm/clisttot are grown and m_dclist is left at the old, smaller first extent -> out-of-bounds device write for ii_chunk beyond the old height.",
+  "severity_agreed": "medium",
+  "fix": "Inside the 'if (delta > 0)' block of spectrum_dxdr (mliap_so3_kokkos.cpp:811-819) add the missing reallocation, mirroring init_arrays:244: 'memoryKK->create_kokkos(m_dclist, num_of_temp, m_nmax, m_numYlms, 3, \"MLIAP_SO3Kokkos:k_dclist_r\"); alloc_arrays += m_nmax * m_numYlms * 3 * delta * sizeof(double);'. Cleaner still: have spectrum_dxdr call init_arrays(nlocal, ncoefs) like spectrum does, so one code path owns all the chunk-sized temporaries."
+ },
+ {
+  "id": "F0262",
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 697,
+  "reasoning": "mliap_so3_kokkos.cpp:697-701: 'totali = (bigint) totaln * ncoefs * 3; if (totali > (bigint)k_dplist_r.extent(0)) { memoryKK->realloc_kokkos(k_dplist_r, \"MLIAP_SO3Kokkos:m_dplist_r\", (int)totaln, ncoefs, 3); alloc_arrays += 2.0 * totali * sizeof(double); }'. k_dplist_r is 'float_3d k_dplist_r' (mliap_so3_kokkos.h:45), i.e. View<double***>, so extent(0) == totaln after the allocation while the test value is totaln*ncoefs*3. Since ncoefs*3 > 1 always, the condition is true on every call regardless of whether the view is already large enough. realloc_kokkos is unconditionally destructive - src/KOKKOS/memory_kokkos.h:426-430 'data = TYPE(); data = TYPE(Kokkos::NoInit(std::string(name)), ns...);' - so the descriptor-gradient array is freed and reallocated on every spectrum() call, and alloc_arrays is incremented every call so memory_usage() grows without bound. No correctness consequence: spectrum() itself never reads k_dplist_r, and spectrum_dxdr zeroes it with deep_copy at :858 before use. The two neighbouring tests immediately above (:684 m_sbes_array, :691 m_rip_array) are correct because those are 1-D views.",
+  "severity_agreed": "low",
+  "fix": "Compare against the actual element count: 'if (totali > (bigint)k_dplist_r.size())' (or test '(bigint)totaln > (bigint)k_dplist_r.extent(0) || ncoefs > (int)k_dplist_r.extent(1)'), and move the 'alloc_arrays +=' inside so it only accumulates on a real reallocation."
+ },
+ {
+  "id": "F0267",
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 597,
+  "reasoning": "Both sides read. KOKKOS: 'int ipair = t_ij(ii);' at :581 (MLIAPSO3GetSBESArrayTag) and :642 (MLIAPSO3GetRipArrayTag), and 'int ipair = t_ij(ii);' at :755 (MLIAPSO3SpectrumTag). The pair-major offsets are then all int products: :596-597 'const int findex = m_Nmax * (m_lmax + 1); const int gindex = (ipair - 1) * findex;'; :659/:661 'm_sbes_array[(ipair - 1) * m_Nmax * (m_lmax + 1) + (bigint) i * (m_lmax + 1) + l]' (the leading product is evaluated entirely in int before the bigint term is added); :664/:666 the same shape for m_rip_array; :776 'int gindex = (ipair - 1) * findex;'. The arrays are sized with bigint: spectrum() :684 'totali = (bigint) totaln * m_Nmax * (m_lmax + 1)' and :691 for m_rip_array. CPU original: src/ML-IAP/mliap_so3.cpp declares 'bigint ipair = 0;' and 'bigint gindex;' (:704, :824, :949) so :722/:895/:1031 'gindex = (ipair - 1) * findex;' is bigint arithmetic throughout. So the KOKKOS port genuinely narrowed the index type. Only the spectrum_dxdr kernel kept it right (:912 'bigint gindex = (bigint) (ipair - 1) * findex;'). REACHABILITY caveat: overflow needs totaln*Nmax*(lmax+1) > 2^31, which is exactly the element count of m_sbes_array, i.e. a >16 GB single allocation (and m_sbes_darray doubles that) - so this is a latent type defect, not something a realistic run hits.",
+  "severity_agreed": "low",
+  "fix": "Make ipair a bigint in the three kernels (':581', ':642', ':755' -> 'bigint ipair = t_ij(ii);') or, minimally, widen the offsets: ':597' -> 'const bigint gindex = (bigint)(ipair - 1) * findex;', ':659/:661/:664/:666' -> cast '(bigint)(ipair - 1) * ...', ':776' -> 'bigint gindex = (bigint)(ipair - 1) * findex;', matching :912 and the CPU original."
+ },
+ {
+  "id": "F0268",
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 879,
+  "reasoning": "Read the constructor (mliap_so3_kokkos.cpp:44-56): it sets m_rcut, m_alpha, m_lmax, m_nmax, m_Nmax, m_numYlms, m_init_arrays, m_dfac_l1/l2, m_pfac_l1/l2, m_idxu_count/m_idxy_count and alloc_init/alloc_arrays - m_chunk_size is not among them, and mliap_so3_kokkos.h:84 declares a bare 'int m_chunk_size;' with no in-class initializer. The only assignment is init_arrays():223 'm_chunk_size = m_temp_memory_size/(sum_of_temps * sizeof(double));', and init_arrays is called from exactly one place, spectrum():679. spectrum_dxdr does not call it yet uses m_chunk_size at :810 ('std::min(nlocal, m_chunk_size)'), :859-860 (the chunk loop) and, in the kernel, :879 'int ii_chunk = ii%m_chunk_size;' - a modulus that is UB (or a device fault) for an indeterminate/zero value. The path is real in principle because pair_mliap_kokkos.cpp:114-116 guards compute_descriptors with 'if (model->nonlinearflag || eflag)' while compute_forces (spectrum_dxdr) is unconditional. However I could not construct a first-call-is-spectrum_dxdr scenario: Verlet::setup calls ev_set() and computes with eflag set, so the very first pair compute always runs spectrum() first, and ComputeMLIAP::compute_peratom (src/ML-IAP/compute_mliap.cpp:238) also calls compute_descriptors before any gradient call. So the defect is real but latent.",
+  "severity_agreed": "low",
+  "fix": "Initialize m_chunk_size in the MLIAP_SO3Kokkos constructor (e.g. 'm_chunk_size = 0;' next to 'm_init_arrays = 0;' at :50, or better an in-class initializer in mliap_so3_kokkos.h:84), and have spectrum_dxdr call init_arrays(nlocal, ncoefs) at its start the way spectrum() does at :679 - which also fixes the missing m_dclist growth reported in F0255."
+ },
+ {
+  "id": "F0480",
+  "file": "src/KOKKOS/mliap_so3_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 758,
+  "reasoning": "The core claim is right and identical to F0248: 'int weight = t_wjelem[jelem];' at :758 and :893 truncates a genuine double (t_wjelem is Kokkos::View<double*>, mliap_so3_kokkos.h:37/:75) fed from wjelem, which mliap_descriptor_so3.cpp:152 fills with utils::numeric into 'double *wjelem'. CPU mliap_so3.cpp uses 'double weight' at :871 and :1005. ADJUSTMENT: the finding lists :933 as a third truncation site with observable effect; it is not - 'weight' declared at :933 is never read again in that loop (awk over :930-1050 finds no further occurrence), and the CPU original has the same dead assignment at :1063. So only two of the three sites can change results; the third is dead code.",
+  "severity_agreed": "high",
+  "fix": "'int weight' -> 'double weight' at :758 and :893, removing the redundant 'double(weight)' casts at :776 and :911; delete (or likewise widen) the unused declaration at :933."
+ },
+ {
+  "id": "F0435",
+  "file": "src/KOKKOS/npair_halffull_kokkos.h",
+  "verdict": "NOT_FOUND",
+  "real_line": 221,
+  "reasoning": "Already fixed in this branch. npair_halffull_kokkos.h:219-223 now reads 'using NPairKokkosHalffullNewtonTriTrimDevice = NPairHalffullKokkos<LMPDeviceType,1,1,1>; NPairStyle(halffull/newton/tri/trim/skip/kk/device, NPairKokkosHalffullNewtonTriTrimDevice, ... NP_ORTHO | NP_TRI | NP_SKIP | NP_TRIM | NP_KOKKOS_DEVICE);' - i.e. the triclinic class is registered, matching the NP_TRI in the mask. 'git diff origin/develop -- src/KOKKOS/npair_halffull_kokkos.h' shows exactly this one-line change ('-NPairKokkosHalffullNewtonTrimDevice' / '+NPairKokkosHalffullNewtonTriTrimDevice'), applied by commit f9f47595c5 ('the tri/trim/skip device style was registered with the TRI=0 class while its mask carries NP_TRI'). The finding was correct against origin/develop; nothing remains to do.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0531",
+  "file": "src/KOKKOS/npair_halffull_kokkos.h",
+  "verdict": "NOT_FOUND",
+  "real_line": 221,
+  "reasoning": "Already fixed in this branch - same site as F0435. The registration at npair_halffull_kokkos.h:220-223 now names NPairKokkosHalffullNewtonTriTrimDevice (= NPairHalffullKokkos<LMPDeviceType,1,1,1>, aliased on :219), consistent with the NP_TRI bit in its mask. 'git diff origin/develop -- src/KOKKOS/npair_halffull_kokkos.h' is precisely this substitution, applied in commit f9f47595c5. Correct against upstream develop, no longer present here.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0532",
+  "file": "src/KOKKOS/npair_halffull_kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 262,
+  "reasoning": "Still present. npair_halffull_kokkos.h:259-265 is under the comment '// Newton, no triclinic' and reads 'using NPairKokkosHalffullNewtonTrimDevice = NPairHalffullKokkos<LMPDeviceType,1,0,1>; NPairStyle(halffull/newton/tri/trim/ghost/kk/device, NPairKokkosHalffullNewtonTrimDevice, NP_HALF_FULL | NP_NEWTON | NP_HALF | NP_NSQ | NP_BIN | NP_MULTI | NP_ORTHO | NP_GHOST | NP_TRIM | NP_KOKKOS_DEVICE);' - TRI template parameter 0 and no NP_TRI in the mask, yet the key string contains 'tri/'. Its own host twin on :268 is correctly named 'halffull/newton/trim/ghost/kk/host'. The genuine triclinic entry at :287-291 uses the identical key string 'halffull/newton/tri/trim/ghost/kk/device' with NPairHalffullKokkos<LMPDeviceType,1,1,1> and NP_TRI, so the two registrations collide by name. IMPACT: none functionally. Neighbor::init_styles (src/neighbor.cpp:783-786) stores names/masks in parallel arrays and Neighbor::choose_pair (:2188-2250) selects purely by bitmask; pairnames[] is read only at :1952 for the 'pair build: {}' info line. So the only symptom is that an orthogonal box using that list reports itself as triclinic.",
+  "severity_agreed": "low",
+  "fix": "Rename the key on npair_halffull_kokkos.h:262 from 'halffull/newton/tri/trim/ghost/kk/device' to 'halffull/newton/trim/ghost/kk/device', matching its host twin on :268 and the TRI=0 class it registers."
+ },
+ {
+  "id": "F0538",
+  "file": "src/KOKKOS/npair_halffull_kokkos.h",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 182,
+  "reasoning": "I enumerated every NPairStyle key in src/npair_*.h (80 distinct CPU keys) and in src/KOKKOS/npair_*.h (84 keys), stripped the '/kk/device'|'/kk/host' suffix from the KOKKOS ones and compared. 48 KOKKOS keys - not 40 - have no identically named CPU counterpart. The naming divergences are real and systematic: CPU src/npair_halffull.h uses 'halffull/trim/newton/tri/skip' and 'halffull/newton/skip/tri', while the KOKKOS file uses 'halffull/newton/tri/trim/skip' and 'halffull/newton/tri/skip' (trim moved from second token to fourth, skip and tri transposed); npair_kokkos.h uses 'half/bin/newton/size' where the CPU has 'half/size/bin/newton'; npair_ssa_kokkos.h uses 'half/bin/newton/ssa' vs the CPU 'half/bin/newton/ssa'-shaped name, etc. ADJUSTMENT to severity/impact: this is cosmetic only. Neighbor::choose_pair (src/neighbor.cpp:2188-2250) matches requests against pairmasks[] bitmasks and never looks at pairnames[]; pairnames[] is consumed at exactly one place, neighbor.cpp:1952 'pair build: {}' in the neighbor-list info output. So the consequence is precisely the one the finding names - a CPU run and a KOKKOS run of the same input report differently spelled build methods - and nothing more.",
+  "severity_agreed": "low",
+  "fix": "If pursued, rename the KOKKOS keys so that stripping '/kk/device' or '/kk/host' yields the exact CPU key (e.g. :182 'halffull/newton/trim/kk/device' -> 'halffull/trim/newton/kk/device'; :220 'halffull/newton/tri/trim/skip/kk/device' -> 'halffull/trim/newton/tri/skip/kk/device'). Purely a rename of the string literal in the NPairStyle macro - the class alias and bitmask stay as they are. Note the keys appear in reference output of neighbor-list info, so any regression/unit tests that match on 'pair build:' text would need updating."
+ },
+ {
+  "id": "F0280",
+  "file": "src/KOKKOS/npair_kokkos.h",
+  "verdict": "NOT_FOUND",
+  "real_line": 261,
+  "reasoning": "Already fixed in this branch. npair_kokkos.h:261 now reads 'const double xprd_half, yprd_half, zprd_half;' and the constructor parameters at :303 are 'const double & _xprd_half, ...'. 'git diff origin/develop -- src/KOKKOS/npair_kokkos.h' is exactly that widening ('-  const int xprd_half, yprd_half, zprd_half;' / '+  const double xprd_half, yprd_half, zprd_half;'), applied by commit f9f47595c5. The use site the finding names is still there and now correct: :421 'if (xperiodic && fabs(dx) > xprd_half) return 1;' inside minimum_image_check. The finding was valid against upstream develop.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0486",
+  "file": "src/KOKKOS/npair_kokkos.h",
+  "verdict": "NOT_FOUND",
+  "real_line": 261,
+  "reasoning": "Already fixed in this branch, including the NPairSSAKokkosExecute half of the claim. npair_kokkos.h:261 is now 'const double xprd_half, yprd_half, zprd_half;' (ctor params double at :303, member init at :329, used in the float comparison at :421 'fabs(dx) > xprd_half'), and npair_ssa_kokkos.h:175 is likewise 'const double xprd_half, yprd_half, zprd_half;' with double ctor params at :237 and the same comparison at :343. 'git diff origin/develop' shows both files carrying exactly this widening, from commit f9f47595c5. Valid against upstream develop; nothing left here.",
+  "severity_agreed": "high"
+ },
+ {
+  "id": "F0336",
+  "file": "src/KOKKOS/pair_gran_hertz_history_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 350,
+  "reasoning": "Both sides read. KOKKOS kernel: :274 'const KK_FLOAT imass = rmass[i];', :306 'const KK_FLOAT jmass = rmass[j];', :350-352 'KK_FLOAT meff = imass*jmass / (imass+jmass); if (mask_i & freeze_group_bit) meff = jmass; if (mask[j] & freeze_group_bit) meff = imass;'. 'grep -n rigid' over pair_gran_hertz_history_kokkos.cpp/.h and pair_gran_hooke_history_kokkos.cpp returns NOTHING - there is no mass_rigid array, no fix_rigid extraction, no error or warning. CPU PairGranHertzHistory::compute (src/GRANULAR/pair_gran_hertz_history.cpp:68-80, :176-183) builds mass_rigid each reneighbouring from fix_rigid->extract(\"body\")/extract(\"masstotal\") and then does 'if (fix_rigid) { if (mass_rigid[i] > 0.0) mi = mass_rigid[i]; if (mass_rigid[j] > 0.0) mj = mass_rigid[j]; } meff = mi*mj/(mi+mj);' - the same substitution appears in single() at :395-401 and in the base PairGranHookeHistory (:237-239, :696-699). The KOKKOS init_style does call PairGranHertzHistory::init_style() (pair_gran_hertz_history_kokkos.cpp:82), which finds and stores fix_rigid and sets comm_forward, but the KOKKOS compute() overrides the base entirely and never allocates, forward-communicates or reads mass_rigid, so the rigid-body masses are silently dropped. No guard elsewhere compensates. The sibling gran/hooke/history/kk has exactly the same shape (its meff line is at :350 as well) and needs the same fix.",
+  "severity_agreed": "high",
+  "fix": "Port the CPU mass_rigid handling into the KOKKOS styles: in compute(), when fix_rigid && neighbor->ago == 0, extract 'body' and 'masstotal', fill a device-resident d_mass_rigid (nmax entries, 0.0 for atoms in no body), forward-communicate it, and in the kernel use 'KK_FLOAT imass = (d_mass_rigid.extent(0) && d_mass_rigid[i] > 0.0) ? d_mass_rigid[i] : rmass[i];' (and likewise for j) before computing meff. Apply identically to src/KOKKOS/pair_gran_hooke_history_kokkos.cpp. If that is too large a change for now, the minimum acceptable stop-gap is an error in init_style() when fix_rigid is set, so the wrong answer is not produced silently."
+ },
+ {
+  "id": "F0340",
+  "file": "src/KOKKOS/pair_gran_hertz_history_kokkos.cpp",
+  "verdict": "NOT_FOUND",
+  "real_line": 142,
+  "reasoning": "Already fixed in this branch. The code cited is still there - pair_gran_hertz_history_kokkos.cpp:142-145 copy force->special_lj[0..3] into the inherited member, and :297 reads 'KK_FLOAT factor_lj = static_cast<KK_FLOAT>(special_lj[sbmask(j)]);' - but the member is no longer an int: src/pair.h:247 now declares 'double special_lj[4];    // copied from force->special_lj for Kokkos', changed from 'int special_lj[4]' by commit f9f47595c5 ('pair.h: Pair::special_lj was int[4]; the four styles that do not shadow it truncated fractional special-bonds weights to zero'). I confirmed by grep that neither pair_gran_hertz_history_kokkos.h nor pair_gran_hooke_history_kokkos.h shadows special_lj with a narrower declaration, so both styles now pick up the double base member. The truncation the finding describes is real against origin/develop and gone here.",
+  "severity_agreed": "medium"
+ },
+ {
+  "id": "F0342",
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 563,
+  "reasoning": "Diffed the two settings() bodies. CPU PairHybridScaled::settings (src/pair_hybrid_scaled.cpp:284ff) has, immediately after 'compute_tally[nstyles] = 1;' (:386): 'if ((styles[nstyles]->suffix_flag & (Suffix::INTEL | Suffix::GPU | Suffix::OMP)) != 0) error->all(FLERR, \"Pair style hybrid/scaled does not support accelerator styles\");' (:388-391). PairHybridScaledKokkos::settings (src/KOKKOS/pair_hybrid_scaled_kokkos.cpp:459ff) is otherwise a line-for-line copy - same narg check, same avec->forceclearflag check, same hybrid/none rejections at :561-564, same 'styles[nstyles] = force->new_pair(...); keywords[...]; special_lj[...] = special_coul[...] = nullptr; compute_tally[nstyles] = 1;' at :566-569 - and then goes straight to the '// determine list of arguments' comment with the accelerator guard missing. 'grep -n \"suffix_flag|Suffix::\"' over pair_hybrid_scaled_kokkos.cpp, pair_hybrid_kokkos.cpp and pair_hybrid_overlay_kokkos.cpp returns nothing, so nothing compensates elsewhere in the KOKKOS hybrid family. The path is reachable: force->new_pair(arg,1,dummy) only *prefers* the suffix, and a user can name 'lj/cut/omp' or 'lj/cut/intel' explicitly as a sub-style of hybrid/scaled/kk, which the CPU style refuses and the KOKKOS one accepts.",
+  "severity_agreed": "medium",
+  "fix": "Insert the CPU guard into PairHybridScaledKokkos::settings() right after 'compute_tally[nstyles] = 1;' (pair_hybrid_scaled_kokkos.cpp:569): 'if ((styles[nstyles]->suffix_flag & (Suffix::INTEL | Suffix::GPU | Suffix::OMP)) != 0) error->all(FLERR, \"Pair style hybrid/scaled does not support accelerator styles\");' and add the '#include \"suffix.h\"' that the CPU file has."
+ },
+ {
+  "id": "F0347",
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 658,
+  "reasoning": "The described code is exactly there. PairHybridScaledKokkos::single (:643-668): 'for (int m = 0; m < nmap[itype][jtype]; m++) { auto pstyle = styles[map[itype][jtype][m]]; ... double scale = scaleval[map[itype][jtype][m]]; ... if (scaleidx[m] < 0 || atomvar[m] < 0) { fforce += scale * fone; } else { update_atomscale(m); ... } }' - scaleval is indexed by the sub-style index map[itype][jtype][m] while scaleidx/atomvar/update_atomscale use the bare loop counter m, which is a position within that type pair's map, not a sub-style index. born_matrix (:723-748) repeats it verbatim. ADJUSTMENT - this is NOT a KOKKOS port defect: the CPU parent has the identical mismatch. src/pair_hybrid_scaled.cpp single() uses 'double scale = scaleval[map[itype][jtype][m]];' followed by 'if (scaleidx[m] < 0 || atomvar[m] < 0)' and 'input->variable->compute_atom(atomvar[m], igroupall, atomscale, 1, 0);', and born_matrix does the same. So this is a pre-existing upstream bug faithfully copied, and per the project's own guidance both copies should be fixed together. Impact is limited: it only bites when the sub-style serving a type pair is not at the same ordinal as its position in map[itype][jtype][], and only through single()/born_matrix() consumers (pair_write, compute pair/local, born-matrix computes) with an atom-style scale variable.",
+  "severity_agreed": "low",
+  "fix": "In both files, hoist the sub-style index: 'const int ms = map[itype][jtype][m];' at the top of the loop body and use it uniformly - 'scaleval[ms]', 'scaleidx[ms]', 'atomvar[ms]', 'update_atomscale(ms)' (KOKKOS) / 'input->variable->compute_atom(atomvar[ms], ...)' (CPU), in single() and born_matrix() of src/KOKKOS/pair_hybrid_scaled_kokkos.cpp and src/pair_hybrid_scaled.cpp."
+ },
+ {
+  "id": "F0352",
+  "file": "src/KOKKOS/pair_hybrid_scaled_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 662,
+  "reasoning": "The allocation claim is exactly right: 'atomscale' and 'k_atomscale' are created in one place only, inside PairHybridScaledKokkos::compute() at :298-302 'if (atomscaleflag && (atom->nmax > nmaxatomscale)) { nmaxatomscale = atom->nmax; memory->destroy(atomscale); memory->create(atomscale, nmaxatomscale, \"pair:atomscale\"); MemKK::realloc_kokkos(k_atomscale, \"pair:atomscale\", nmaxatomscale); }'. The constructor (:37) leaves atomscale nullptr and k_atomscale default-constructed (zero extent). update_atomscale (:211-223) writes through both - 'input->variable->compute_atom(atomvar[m], igroupall, atomscale, 1, 0);' then 'h_atomscale(i) = atomscale[i]' - and is called from single() at :662 and born_matrix() at :743, which are reachable without compute() ever having run (pair_write before a run; the k_atomscale reads at :664-665 and :745-746 would also be out of bounds). TWO ADJUSTMENTS. (1) This is largely inherited, not a port defect: src/pair_hybrid_scaled.cpp allocates atomscale only in compute() (:122-126) and dereferences it in single() (:492) and born_matrix() (:572) exactly the same way, so both copies need the fix. (2) The KOKKOS version adds a hazard the CPU does not have, and it is the sharper symptom: update_atomscale ends with 'comm->forward_comm(this);' (:222). In compute() that is called once per sub-style and is properly collective, but single()/born_matrix() are called per pair from callers such as compute pair/local, whose pair counts differ from rank to rank - so an MPI-parallel run with an atom-style scale variable will make an unequal number of collective forward_comm calls and hang. The CPU single() only calls compute_atom, with no communication.",
+  "severity_agreed": "medium",
+  "fix": "Two parts. (a) Allocate lazily: factor the :298-302 block into a small 'grow_atomscale()' helper and call it at the top of update_atomscale() (guarding on atom->nmax > nmaxatomscale), so single()/born_matrix() cannot hit a null atomscale or a zero-extent k_atomscale; make the same change in src/pair_hybrid_scaled.cpp. (b) Do not communicate from single()/born_matrix(): move 'comm->forward_comm(this);' out of update_atomscale() into its compute() call site (pair_hybrid_scaled_kokkos.cpp:372), leaving the single()/born_matrix() paths to use local values only, as the CPU style does."
+ },
+ {
+  "id": "F0003",
+  "file": "src/KOKKOS/angle_dipole_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 155,
+  "reasoning": "angle_dipole_kokkos.cpp:31 'static constexpr double SMALL = 1.0e-100;' and the two guards :155 'if (r2 < static_cast<KK_FLOAT>(SMALL)*static_cast<KK_FLOAT>(SMALL)) return;' and :183 'if (len2 < static_cast<KK_FLOAT>(SMALL)*static_cast<KK_FLOAT>(SMALL)) return;'. src/KOKKOS/kokkos_type.h:400-408 makes KK_FLOAT a float under LMP_KOKKOS_SINGLE_SINGLE and under LMP_KOKKOS_SINGLE_DOUBLE (double only under LMP_KOKKOS_DOUBLE_DOUBLE), so in those two supported build modes static_cast<float>(1.0e-100) underflows to 0.0f and both tests degenerate to 'x < 0.0f', which is false even for an exact zero. The CPU original guards correctly: src/DIPOLE/angle_dipole.cpp:95 'r = sqrt(...); if (r < SMALL) continue;' and :121 'len = sqrt(fx*fx+fy*fy+fz*fz); if (len < SMALL) continue;' in double. In double KOKKOS builds the r2 form is equivalent (1e-200 is a normal double), so this is purely an fp32 defect - but a reachable one, and the second guard is the dangerous one: f = del x delT = tangle * del x (del x mu), so whenever mu is parallel to del - which is exactly the equilibrium this angle style restrains toward (gamma0 = 0) - delT and f are both zero, giving fmod_len = sqrt(0)/(r*sqrt(0)) = 0/0 = NaN at :185, which then propagates into a_f for both atoms. The CPU 'continue' and the double-precision KOKKOS build both skip that case.",
+  "severity_agreed": "medium",
+  "fix": "Use a threshold that survives the KK_FLOAT conversion. Either compare in double, or replace the constant, e.g. at the top of angle_dipole_kokkos.cpp add 'static constexpr KK_FLOAT SMALLSQ = std::numeric_limits<KK_FLOAT>::min();' and change :155 to 'if (r2 < SMALLSQ) return;' and :183 to 'if (len2 < SMALLSQ) return;'. Grep the rest of src/KOKKOS for the same 'static_cast<KK_FLOAT>(SMALL)' pattern with a sub-fp32 SMALL - this shape was copied around."
+ },
+ {
+  "id": "F0095",
+  "file": "src/KOKKOS/compute_temp_sphere_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 55,
+  "reasoning": "The code is as described: compute_temp_sphere_kokkos.cpp:52-58 and :79-83 (compute_scalar) and :127-131 and :153-157 (compute_vector) all do the unguarded 'atomKK->sync(tbias->execution_space, tbias->datamask_read); tbias->remove_bias_all(); atomKK->modified(tbias->execution_space, tbias->datamask_modify); atomKK->sync(execution_space, V_MASK);' with no 'if (tbias->kokkosable) tbias->remove_bias_all_kk();' branch. The guarded pattern really is the house style - src/KOKKOS/fix_temp_rescale_kokkos.cpp:138-145 and :161-168, and src/KOKKOS/fix_nh_kokkos.cpp:558 and :716 - and Compute declares the hooks at src/compute.h:154/:159. ADJUSTMENT to the described consequence: I traced the DualView flags and there is no 'device->host->device round trip' and no correctness bug. A KOKKOS bias compute implements remove_bias_all() as 'remove_bias_all_kk(); atomKK->sync(Host,V_MASK);' (compute_temp_ramp_kokkos.cpp:167-171, restore likewise at :212-216), so the kernel still runs on the device; the only waste is the device->host copy of v inside that wrapper. The following 'modified(Device,V_MASK)' then 'sync(Device,V_MASK)' is a no-op, so nothing is copied back. Net cost: two superfluous device-to-host copies of v per compute_scalar()/compute_vector() call. Purely a performance/consistency defect, not a wrong answer, so I downgrade it from medium to low.",
+  "severity_agreed": "low",
+  "fix": "At each of the four sites in compute_temp_sphere_kokkos.cpp (:53-58, :79-83, :128-131, :154-157) use the fix_temp_rescale_kokkos.cpp:138-145 shape: 'if (tbias->kokkosable) tbias->remove_bias_all_kk(); else { atomKK->sync(tbias->execution_space, tbias->datamask_read); tbias->remove_bias_all(); atomKK->modified(tbias->execution_space, tbias->datamask_modify); atomKK->sync(execution_space, V_MASK); }', and the mirror for restore_bias_all()."
+ },
+ {
+  "id": "F0179",
+  "file": "src/KOKKOS/fix_acks2_reaxff_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 343,
+  "reasoning": "The line is exactly as reported: fix_acks2_reaxff_kokkos.cpp:343 'if (execution_space == HostKK || 1) { // CPU', so the whole '} else { // GPU, use teams' block at :356-378 (deep_copy(d_mfill_offset,0), the TeamPolicy and the three team-based FixACKS2ReaxFFKokkosComputeXFunctor instantiations) is unreachable. The immediately preceding compute_H dispatch at :303 has the same shape WITHOUT the '|| 1', confirming the disjunct is not idiomatic here, and the sibling fix_qeq_reaxff_kokkos.cpp:579 also has a clean 'if (execution_space == HostKK)'. TWO ADJUSTMENTS. (1) Provenance: 'git log -L' shows the '|| 1' has been present since the file was first added in commit 8b9dd6b0c1 (Sep 2021, 'Add ACKS2 charge equilibration method to REAXFF'); it is not a recent regression, and the team path has therefore never executed in any release - so simply deleting '|| 1' is NOT a safe fix, since that code has never been validated. (2) The claim that GPU runs 'fall back to the serialized parallel_scan range policy' overstates it: Kokkos::parallel_scan over a RangePolicy on a CUDA/HIP backend is a genuine multi-pass parallel scan, not a serial loop. So the real defect is an always-true condition plus a large block of dead, never-exercised code, with a possible (unquantified) performance loss relative to the intended team implementation - no wrong answers.",
+  "severity_agreed": "low",
+  "fix": "Do not just drop '|| 1'. Either (a) delete the dead '} else { // GPU, use teams' block at :356-378 together with the vestigial condition, leaving 'if (neighflag == FULL) ... parallel_scan ...' unconditionally plus a comment noting that the team-based compute_X was never enabled; or (b) if the team path is wanted, restore 'if (execution_space == HostKK)' and validate the team ComputeX functor against the scan version on a GPU first (compare d_X_diag and the resulting charges) before merging."
+ },
+ {
+  "id": "F0360",
+  "file": "src/KOKKOS/pair_lj_cut_coul_wolf_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 119,
+  "reasoning": "pair_lj_cut_coul_wolf_kokkos.cpp:88 does 'atomKK->sync(execution_space,datamask_read);' where datamask_read includes Q_MASK (:46) and execution_space is Device for the device instantiation - that makes the DEVICE copy of q current and does nothing for the host mirror. Lines 119-123 then run a HOST loop 'for (int i = 0; i < nlocal; i++) { double qisq = atom->q[i]*atom->q[i]; eng_coul += -(e_shift/2.0 + m_alf/MY_PIS) * qisq * qqrd2e; }', and :146-151 repeats it into eatom[i] after k_eatom.sync_host(). atom->q is the host pointer. The host mirror is genuinely made stale on the device side: AtomKokkos::sort_device (src/KOKKOS/atom_kokkos.cpp:397-441) calls avecKK->sort_kokkos(Sorter), which ends with 'atomKK->modified(Device, ALL_MASK & ~F_MASK);' (e.g. src/KOKKOS/atom_vec_full_kokkos.cpp:279) - Q_MASK included - so after any device-side atom sort the host q holds the pre-sort permutation, and a device-side charge update (fix qeq/reaxff/kk) leaves it outright wrong. Consequence: the global sum is permutation-invariant so it survives a mere reordering, but the per-atom loop at :146-151 attributes each atom the wrong charge's self energy, and any device-side change of q corrupts both. The decisive comparison is the sibling: src/KOKKOS/pair_coul_wolf_kokkos.cpp:230-238 computes exactly the same self energy INSIDE the device kernel from the device view ('const KK_FLOAT qtmp = q[i]; ... e_self ...; ev.ecoul += e_self; v_eatom[i] += e_self;'), which is what the CPU style does inline in its i-loop (src/EXTRA-PAIR/pair_lj_cut_coul_wolf.cpp:117-119). Minor extra observation: the KOKKOS eng_coul loop is not guarded by 'if (eflag)' as the CPU ev_tally is, so it also accumulates on non-energy steps (harmless, because ev_setup rezeroes eng_coul on the next energy step).",
+  "severity_agreed": "medium",
+  "fix": "Move the self-energy into the kernel, mirroring src/KOKKOS/pair_coul_wolf_kokkos.cpp:230-238: in the per-i part of the compute functor add 'const KK_FLOAT qisq = q[i]*q[i]; const KK_FLOAT e_self = -(e_shift/2.0 + m_alf/MY_PIS)*qisq*qqrd2e; if (eflag_global) ev.ecoul += e_self; if (eflag_atom) v_eatom[i] += e_self;' and delete the two host loops at :119-123 and :146-151. If keeping the host loops for now, they must be preceded by 'atomKK->sync(Host, Q_MASK);' and guarded by 'if (eflag)'."
+ },
+ {
+  "id": "F0049",
+  "file": "src/KOKKOS/bond_harmonic_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 264,
+  "reasoning": "All three sub-claims check out. (1) bond_harmonic_kokkos.cpp:264-265 carries a leftover developer note: '// FIX: Removed \"DAT::tdual_kkfloat_1d\" to use the class members / instead of creating local shadowed variables.' - a comment about an edit rather than about the code. A grep for '// FIX:' over all of src/KOKKOS finds this one occurrence only. (2) The re-creation right below it (:266-271 'k_k = DAT::tdual_kkfloat_1d(\"BondHarmonic::k\", n+1); k_r0 = ...; d_k = ...; d_r0 = ...;') is genuinely redundant: BondHarmonicKokkos::read_restart first calls BondHarmonic::read_restart(fp) (:261), whose first statement is 'allocate();' (src/MOLECULE/bond_harmonic.cpp), and allocate() is virtual (bond_harmonic.h:44 'virtual void allocate();', bond_harmonic_kokkos.h:90 'void allocate() override;'), so BondHarmonicKokkos::allocate (:213-228) has already created k_k/k_r0 at n+1 and set d_k/d_r0. Harmless but wasteful. (3) The per-atom memory tags are mislabelled: :77 'memoryKK->create_kokkos(k_eatom,eatom,maxeatom,\"improper:eatom\");' and :84 '...,\"improper:vatom\");' inside a bond style. The copy-paste is wider than the finding says - the same 'improper:' tags appear in bond_class2_kokkos.cpp:77/:84, bond_quartic_exp_kokkos.cpp:72/:79 and angle_charmm_kokkos.cpp:77/:84. These strings surface in memory-usage reporting only, so the impact is cosmetic.",
+  "severity_agreed": "low",
+  "fix": "Delete the '// FIX:' comment at bond_harmonic_kokkos.cpp:264-265 and the four redundant lines :266-271 that re-create k_k/k_r0 and re-take d_k/d_r0 (allocate() has already done it). Correct the memory tags to 'bond:eatom'/'bond:vatom' at bond_harmonic_kokkos.cpp:77/:84, bond_class2_kokkos.cpp:77/:84 and bond_quartic_exp_kokkos.cpp:72/:79, and to 'angle:eatom'/'angle:vatom' at angle_charmm_kokkos.cpp:77/:84."
+ },
+ {
+  "id": "F0133",
+  "file": "src/KOKKOS/kokkos.h",
+  "verdict": "CONFIRMED",
+  "real_line": 29,
+  "reasoning": "'grep -rn neighflag_qeq_set /home/user/lammps/src/' returns exactly one hit, the declaration itself: src/KOKKOS/kokkos.h:29 'int neighflag_qeq_set;'. It is never assigned (the KokkosLMP constructor at kokkos.cpp:342-367 sets neigh_thread_set, neighflag, neighflag_qeq, neigh_transpose etc. but not this) and never read. The analogous neigh_thread_set on kokkos.h:58 IS live - written at kokkos.cpp:343 and :690 and read at :527, tune_kokkos.cpp:68-69 and pair_kokkos.h:900 - which is presumably the member this one was cloned from. So it is dead, and because it is never initialized any future reader would also get an indeterminate value.",
+  "severity_agreed": "low",
+  "fix": "Delete the declaration 'int neighflag_qeq_set;' at src/KOKKOS/kokkos.h:29."
+ },
+ {
+  "id": "F0259",
+  "file": "src/KOKKOS/fix_wall_piston_kokkos.cpp",
+  "verdict": "CONFIRMED",
+  "real_line": 38,
+  "reasoning": "fix_wall_piston_kokkos.cpp:35-41 'FixWallPistonKokkos<DeviceType>::FixWallPistonKokkos(LAMMPS *lmp, int narg, char **arg) : FixWallPiston(lmp, narg, arg), rand_pool(tseed + comm->me)' (and the LMP_KOKKOS_DEBUG_RNG variant, plus 'rand_pool.init(randomt, tseed + comm->me);' at :50). src/SHOCK/fix_wall_piston.h:40 declares 'int tempflag, tseed;'; the base constructor sets 'tempflag = 0;' at fix_wall_piston.cpp:44 but assigns tseed only inside the optional 'temp' keyword branch at :87. Ordering is fine - the base subobject is fully constructed before rand_pool, so with 'temp' given the seed IS the user's - but without 'temp' tseed is never written, so 'tseed + comm->me' reads an indeterminate int, which is UB and will be flagged by MSan. There is no observable numerical consequence: the RNG is only consumed under 'if (tempflag)' (the Langevin dispatch at :173 leading to the kernel at :257-261), and 'rand_pool.init(randomt, ...)' at :50 is likewise only meaningful when randomt exists. So this is latent UB, not a wrong answer.",
+  "severity_agreed": "low",
+  "fix": "Initialize tseed in the base constructor - add 'tseed = 0;' next to 'tempflag = 0;' at src/SHOCK/fix_wall_piston.cpp:44 (or give it an in-class initializer in fix_wall_piston.h:40). That removes the indeterminate read for every derived class at once. Alternatively, default-construct rand_pool in the KOKKOS constructor and (re)seed it only when tempflag is set."
+ },
+ {
+  "id": "F0364",
+  "file": "src/KOKKOS/pair_lj_expand_sphere_kokkos.cpp",
+  "verdict": "CONFIRMED_ADJUSTED",
+  "real_line": 155,
+  "reasoning": "The expression is there and is wrong. pair_lj_expand_sphere_kokkos.cpp compute_fpair (:138-155): 'const KK_FLOAT r = Kokkos::sqrt(rsq); const KK_FLOAT rshift = r - radius(i) - radius(j); ... const KK_FLOAT r2inv = 1.0/(rshift*rshift); const KK_FLOAT r6inv = r2inv*r2inv*r2inv; return r6inv*(lj1*r6inv - lj2) * rshift / r;'. pair_kokkos.h:166 uses that return value directly as fpair (f += del*fpair), so it must equal -(1/r)dU/dr. Derivation with the style's own coefficients (init_one: lj1 = 48 eps sigma^12, lj2 = 24 eps sigma^6, identical to lj/expand): U = 4 eps[(sigma/rs)^12-(sigma/rs)^6], -dU/drs = r6inv*(lj1*r6inv - lj2)/rs, and since rs = r - const, fpair = -(1/r)dU/dr = forcelj/(rs*r). The canonical implementation confirms it: src/pair_lj_expand.cpp:115 'fpair = factor_lj * forcelj / rshift / r;' and :409 the same in single(). The doc (doc/src/pair_lj_expand_sphere.rst:46-53) gives exactly the lj/expand energy with Delta = (d_i+d_j)/2, so there is no alternative reading. The force is therefore too large by a factor rshift^2. The finding's own caveat is accurate - CPU src/EXTRA-PAIR/pair_lj_expand_sphere.cpp:122 'fpair = factor_lj * forcelj * rshift / r;' and :396 in single() have the identical error, so this is an upstream defect (style added 15Jun2023) faithfully carried into the port, not a KOKKOS regression. ADJUSTMENTS: (a) src/OPENMP/pair_lj_expand_sphere_omp.cpp:149 has it too, so three implementations plus two single() copies are affected; (b) severity: a plainly wrong pair force in a documented, user-facing style is high, not low, however it got there.",
+  "severity_agreed": "high",
+  "fix": "Replace '* rshift / r' with '/ rshift / r' in all five places: src/KOKKOS/pair_lj_expand_sphere_kokkos.cpp:155 (compute_fpair), src/EXTRA-PAIR/pair_lj_expand_sphere.cpp:122 (compute) and :396 (single), src/OPENMP/pair_lj_expand_sphere_omp.cpp:149. Because this changes results of an existing released style, it needs a note in the docs and should be raised with upstream rather than slipped in as a KOKKOS cleanup; any force-style YAML reference data for lj/expand/sphere must be regenerated."
+ }
+]

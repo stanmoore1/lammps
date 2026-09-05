@@ -55,3 +55,17 @@ on its own.
 Batch 08 adds a supporting detail that is easy to misread as confirmation: the sibling
 descriptor destructor has the same call *deliberately commented out*.  That is consistent
 with the balanced-by-accident reading, not with a double release.
+
+## Checkpoint contamination (batch 12 / batch 13)
+
+A shared helper script in the scratchpad was overwritten by a sibling verifier mid-run, so
+16 batch-12 verdicts were appended to `progress_v13/` instead of `progress_v12/`.  The
+batch-12 agent recovered them into its own directory and deliberately did NOT rewrite
+`progress_v13/` (which was still being written by a live sibling).
+
+Consequence: `progress_v13/verdicts.jsonl` contains 16 ids that do not belong to batch 13 —
+F0124, F0125, F0126, F0370, F0373, F0525, F0178, F0294, F0514, F0097, F0235, F0371, F0087,
+F0141, F0265, F0399.  They are duplicates of the recovered batch-12 entries, not lost work.
+
+**Any aggregation over `progress_v*/verdicts.jsonl` must deduplicate by finding id.**  The
+per-batch `verdicts_NN.json` files are unaffected and are the authoritative record.
