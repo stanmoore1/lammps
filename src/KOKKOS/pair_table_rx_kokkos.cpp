@@ -668,7 +668,7 @@ void PairTableRXKokkos<DeviceType>::compute_style(int eflag_in, int vflag_in)
 
   atomKK->sync(execution_space,datamask_read);
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
-  else atomKK->modified(execution_space,F_MASK);
+  else atomKK->modified(execution_space,F_MASK | UCG_MASK | UCGNEW_MASK);
 
   x = atomKK->k_x.view<DeviceType>();
   f = atomKK->k_f.view<DeviceType>();

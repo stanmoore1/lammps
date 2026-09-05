@@ -35,7 +35,7 @@ FixWallFlowKokkos<DeviceType>::FixWallFlowKokkos(LAMMPS *lmp, int narg, char **a
   exchange_comm_device = sort_device = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
-  datamask_read = X_MASK | RMASS_MASK | TYPE_MASK | MASK_MASK;
+  datamask_read = X_MASK | V_MASK | RMASS_MASK | TYPE_MASK | MASK_MASK;
   datamask_modify = V_MASK;
 
   memory->destroy(current_segment);

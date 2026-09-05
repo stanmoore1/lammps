@@ -102,6 +102,8 @@ void NPairSkipKokkos<DeviceType,TRIM>::build(NeighList *list)
     list->gnum = inum - num;
   }
   copymode = 0;
+
+  k_list->k_ilist.template modify<DeviceType>();
 }
 
 template<class DeviceType, int TRIM>

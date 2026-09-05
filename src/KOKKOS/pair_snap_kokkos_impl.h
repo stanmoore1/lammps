@@ -552,6 +552,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
   Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(team,num_neighs),
     [&] (const int jj, int& count) {
     T_INT j = d_neighbors(i,jj);
+    j &= NEIGHMASK;
     const double dx = static_cast<double>(x(j,0)) - xtmp;
     const double dy = static_cast<double>(x(j,1)) - ytmp;
     const double dz = static_cast<double>(x(j,2)) - ztmp;
@@ -579,6 +580,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
     if (jtype >= 0) {
       if (final) {
         T_INT j = d_neighbors(i,jj);
+        j &= NEIGHMASK;
         const double dx = static_cast<double>(x(j,0)) - xtmp;
         const double dy = static_cast<double>(x(j,1)) - ytmp;
         const double dz = static_cast<double>(x(j,2)) - ztmp;
@@ -632,6 +634,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
       [&] (const int jj, int& count) {
     Kokkos::single(Kokkos::PerThread(team), [&] () {
       T_INT j = d_neighbors(i,jj);
+      j &= NEIGHMASK;
       const double dx = static_cast<double>(x(j,0)) - xtmp;
       const double dy = static_cast<double>(x(j,1)) - ytmp;
       const double dz = static_cast<double>(x(j,2)) - ztmp;
@@ -651,6 +654,7 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
       [&] (const int jj, int& offset, bool final) {
   //for (int jj = 0; jj < num_neighs; jj++) {
     T_INT j = d_neighbors(i,jj);
+    j &= NEIGHMASK;
     const double dx = static_cast<double>(x(j,0)) - xtmp;
     const double dy = static_cast<double>(x(j,1)) - ytmp;
     const double dz = static_cast<double>(x(j,2)) - ztmp;

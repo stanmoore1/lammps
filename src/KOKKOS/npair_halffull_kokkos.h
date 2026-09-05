@@ -218,7 +218,7 @@ NPairStyle(halffull/newton/tri/trim/kk/host,
 
 using NPairKokkosHalffullNewtonTriTrimDevice = NPairHalffullKokkos<LMPDeviceType,1,1,1>;
 NPairStyle(halffull/newton/tri/trim/skip/kk/device,
-           NPairKokkosHalffullNewtonTrimDevice,
+           NPairKokkosHalffullNewtonTriTrimDevice,
            NP_HALF_FULL | NP_NEWTON | NP_HALF | NP_NSQ | NP_BIN | NP_MULTI |
            NP_ORTHO | NP_TRI | NP_SKIP | NP_TRIM | NP_KOKKOS_DEVICE);
 

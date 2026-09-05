@@ -24,7 +24,10 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-NPairTrimKokkos<DeviceType>::NPairTrimKokkos(LAMMPS *lmp) : NPair(lmp) {}
+NPairTrimKokkos<DeviceType>::NPairTrimKokkos(LAMMPS *lmp) : NPair(lmp) {
+  atomKK = (AtomKokkos *) atom;
+  execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
+}
 
 /* ----------------------------------------------------------------------
    create list which is simply a copy of parent list

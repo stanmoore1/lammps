@@ -220,13 +220,17 @@ compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
   const KK_FLOAT f_shift_kk = static_cast<KK_FLOAT>(f_shift);
   const KK_FLOAT r2inv = static_cast<KK_FLOAT>(1.0)/rsq;
   const KK_FLOAT r = Kokkos::sqrt(rsq);
-  const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);
+  const KK_FLOAT prefactor = qqrd2e * qtmp * q(j) / r;
   const KK_FLOAT erfcd = Kokkos::exp(-alpha_kk*alpha_kk*rsq);
   const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) / (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P)*alpha_kk*r);
   const KK_FLOAT erfcc = t * (static_cast<KK_FLOAT>(A1)+t*(static_cast<KK_FLOAT>(A2)+t*(static_cast<KK_FLOAT>(A3)+t*(static_cast<KK_FLOAT>(A4)+t*static_cast<KK_FLOAT>(A5))))) * erfcd;
 
-  return prefactor * (erfcc/r + static_cast<KK_FLOAT>(2.0)*alpha_kk/static_cast<KK_FLOAT>(MY_PIS) * erfcd + r*f_shift_kk) *
-          r2inv;
+  KK_FLOAT forcecoul = prefactor * (erfcc/r + static_cast<KK_FLOAT>(2.0)*alpha_kk/static_cast<KK_FLOAT>(MY_PIS) * erfcd +
+                                    r*f_shift_kk) * r;
+  if (factor_coul < static_cast<KK_FLOAT>(1.0))
+    forcecoul -= (static_cast<KK_FLOAT>(1.0)-factor_coul)*prefactor;
+
+  return forcecoul * r2inv;
 }
 
 /* ----------------------------------------------------------------------
@@ -245,12 +249,16 @@ compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
   const KK_FLOAT e_shift_kk = static_cast<KK_FLOAT>(e_shift);
   const KK_FLOAT f_shift_kk = static_cast<KK_FLOAT>(f_shift);
   const KK_FLOAT r = Kokkos::sqrt(rsq);
-  const KK_FLOAT prefactor = factor_coul * qqrd2e * qtmp * q(j);
+  const KK_FLOAT prefactor = qqrd2e * qtmp * q(j) / r;
   const KK_FLOAT erfcd = Kokkos::exp(-alpha_kk*alpha_kk*rsq);
   const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) / (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P)*alpha_kk*r);
   const KK_FLOAT erfcc = t * (static_cast<KK_FLOAT>(A1)+t*(static_cast<KK_FLOAT>(A2)+t*(static_cast<KK_FLOAT>(A3)+t*(static_cast<KK_FLOAT>(A4)+t*static_cast<KK_FLOAT>(A5))))) * erfcd;
 
-  return prefactor * (erfcc - r*e_shift_kk - rsq*f_shift_kk) / r;
+  KK_FLOAT ecoul = prefactor * (erfcc - r*e_shift_kk - rsq*f_shift_kk);
+  if (factor_coul < static_cast<KK_FLOAT>(1.0))
+    ecoul -= (static_cast<KK_FLOAT>(1.0)-factor_coul)*prefactor;
+
+  return ecoul;
 
 }
 

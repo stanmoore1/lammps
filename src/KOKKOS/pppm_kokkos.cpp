@@ -910,7 +910,7 @@ void PPPMKokkos<DeviceType>::deallocate()
   delete fft1;
   fft1 = nullptr;
   delete fft2;
-  fft1 = nullptr;
+  fft2 = nullptr;
   delete remap;
   remap = nullptr;
 }
@@ -2415,7 +2415,7 @@ void PPPMKokkos<DeviceType>::operator()(TagPPPM_unpack_forward2, const int &i) c
   const int iz = static_cast<int>(dlist/(nx*ny));
   const int iy = static_cast<int>((dlist - iz*nx*ny)/nx);
   const int ix = d_list_index[i] - iz*nx*ny - iy*nx;
-  if (eflag_atom) d_u_brick(iz,iy,ix) = d_buf[7*i];
+  if (eflag_atom) d_u_brick(iz,iy,ix) = d_buf[7*i + unpack_offset];
   if (vflag_atom) {
     d_v0_brick(iz,iy,ix) = d_buf[7*i+1 + unpack_offset];
     d_v1_brick(iz,iy,ix) = d_buf[7*i+2 + unpack_offset];
