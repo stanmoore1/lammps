@@ -10,7 +10,7 @@ because someone will patch working code on the strength of it.
 
 ## For each finding
 
-1. Open the named file and read the cited code **and its surrounding context** — the whole
+1. Open the named file and read the cited code **and its surrounding context** -- the whole
    function, and the caller if the claim depends on how it is called.
    **Line numbers in the findings may be off by up to ~100 lines.  Locate the code by
    symbol name, not by line number.**  If you cannot find the described code at all, that
@@ -32,14 +32,14 @@ because someone will patch working code on the strength of it.
 
 ## Verdicts
 
-- `CONFIRMED` — you read both sides and the defect is real as described. Say what the fix is.
-- `CONFIRMED_ADJUSTED` — a real defect, but the description, severity, or location is
+- `CONFIRMED` -- you read both sides and the defect is real as described. Say what the fix is.
+- `CONFIRMED_ADJUSTED` -- a real defect, but the description, severity, or location is
   wrong. Give the corrected version.
-- `REFUTED` — the code does not do what the finding says, or it does but it is not a
+- `REFUTED` -- the code does not do what the finding says, or it does but it is not a
   defect. **Explain what actually happens.**
-- `UNCERTAIN` — you could not settle it by reading (needs a run, a build, or domain
+- `UNCERTAIN` -- you could not settle it by reading (needs a run, a build, or domain
   knowledge you do not have). Say exactly what would settle it.
-- `NOT_FOUND` — the described code is not in the file under any name.
+- `NOT_FOUND` -- the described code is not in the file under any name.
 
 Do not use `UNCERTAIN` as a hedge for findings you did not investigate.  If you ran out of
 budget, leave them out of `done.txt` so a successor picks them up.
@@ -58,7 +58,7 @@ budget, leave them out of `done.txt` so a successor picks them up.
 original.  Downgrade freely: a latent issue with no reachable failure is `low`.
 For `REFUTED` and `NOT_FOUND`, `fix` may be omitted.
 
-## Checkpointing (REQUIRED — this session can be killed by a usage limit at any moment)
+## Checkpointing (REQUIRED -- this session can be killed by a usage limit at any moment)
 
 Your progress directory is given in your prompt.  After **every single finding**, before
 starting the next one:
@@ -66,7 +66,7 @@ starting the next one:
 1. append the finding id to `done.txt`
 2. append its verdict object as one line to `verdicts.jsonl`
 
-Never batch.  First thing you do: `cat done.txt` and skip anything already listed — you may
+Never batch.  First thing you do: `cat done.txt` and skip anything already listed -- you may
 be resuming a killed predecessor.  When your whole batch is done, `touch COMPLETE`.
 
 At the end, also write the full verdict array to the output file named in your prompt, and
