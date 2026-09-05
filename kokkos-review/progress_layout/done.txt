@@ -1,1 +1,2 @@
 dynamical_matrix_kokkos.cpp third_order_kokkos.cpp verlet_kokkos.cpp min_*_kokkos.cpp memory_kokkos.h comm_kokkos.cpp comm_tiled_kokkos.cpp atom_vec_kokkos.cpp kokkos_type.h
+min_*_kokkos pair_pace_kokkos neigh_list_kokkos npair_* mliap_* compute_centro/hexorder/orientorder sna/snap pppm/grid3d/fft3d/remap fix_neigh_history fix_minimize atom_vec_* fix_shardlow compute_temp_profile pair_eam pair_pod

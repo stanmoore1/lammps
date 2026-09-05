@@ -34,3 +34,39 @@ TransformView<KKType,LegacyType,KKLayout>: NEED_TRANSFORM unless (same type && L
  guarded by `if constexpr (F_LAYOUTRIGHT)` (min_kokkos.h:27) with an (i,0..2) fallback:
  min_cg 68/125/178, min_kokkos 624/661/698, min_linesearch 191/286/442, min_sd 51.
  min_fire/min_quickmin assign fvec but never use it. => min_* is layout-clean.
+[SWEPT, no layout defect found]
+ comm_kokkos.cpp:189/318 and comm_tiled_kokkos.cpp:147/311 alias x/f flat for direct MPI
+   send/recv but are guarded by `!atomKK->k_x.NEED_TRANSFORM` / `!atomKK->k_f.NEED_TRANSFORM`,
+   which is false exactly when the KK layout is not LayoutRight (kokkos_type.h:700). SAFE.
+ memory_kokkos.h: every legacy-pointer aliasing overload carries
+   static_assert(is_same_v<TYPE::array_layout,Kokkos::LayoutRight>); TransformView::array_layout
+   is the LEGACY layout (kokkos_type.h:718) so the assert is meaningful for plain DualViews and
+   vacuously true (and correct) for TransformViews, which alias view_host(). SAFE.
+ All comm/exchange buffers (pack_*_kokkos / unpack_*_kokkos signatures) are DAT::tdual_double_2d_lr
+   or tdual_double_1d, so flattening buf.data() to (maxsend,elements) in atom_vec*_kokkos and the
+   buffer_view<>() helper is layout-independent. SAFE.
+ fix_minimize_kokkos.h:50 k_vectors is ttransform_kkfloat_2d_lr with an explicit
+   "d_vectors needs to be LayoutRight for subviews" comment -> subview(d_vectors,m,ALL) contiguous. SAFE.
+ neigh_list_kokkos.h:88-112 + npair_{halffull,skip,trim}: d_neighbors is *_dl
+   (LMPDeviceType::array_layout -> LayoutLeft on GPU in BOTH layout modes) but every row pointer
+   is paired with a runtime stride &d_neighbors(i,1)-&d_neighbors(i,0). SAFE.
+ pair_pace_kokkos.cpp: raw row pointers (&fr(ii,jj,0), &A_sph(ii,mu_j,0,0), fr_sl=1/fr_sn=lmax+1)
+   are all inside host-only paths, additionally fenced by #ifndef LMP_KK_DEVICE_COMPILE and a
+   static_assert(t_ace_4c::array_layout == LayoutRight) at pair_pace_kokkos.cpp:2025; device paths
+   use gr.stride(2)/weights.stride(2..3). SAFE (and deliberately layout-aware).
+ mliap_*: raw f[i*3+k] pointer math is legal because mliap_data_kokkos.h:27-33 #errors unless
+   LMP_KOKKOS_DOUBLE_DOUBLE and LMP_KOKKOS_LAYOUT_LEGACY; cmake/Modules/Packages/KOKKOS.cmake:269
+   FATAL_ERRORs for PKG_ML-IAP with a non-legacy layout, and legacy is also the compiled-in default
+   for the traditional make build. SAFE.
+ compute_centro/hexorder_atom: subview(d_distsq,ii,ALL) of a LMPDeviceLayout 2D view becomes
+   LayoutStride under default layout, but it is held in `auto` and only element-indexed. SAFE.
+ sna_kokkos.h/pair_snap: t_sna_*_ll / _lr are deliberate fixed layouts independent of KOKKOS_LAYOUT.
+ pppm/grid3d/fft3d/remap: all FFT views are tdual_FFT_SCALAR_{1,2,3}d with explicit LayoutRight
+   (fftdata_kokkos.h:206-252); pppm a_density_brick unmanaged alias also LayoutRight. SAFE.
+ Scans saved: scan.py/scan_out.json (member typedef vs atomKK field layout class - only false
+   positive fix_shardlow h_v, which is a view_host() legacy mirror), scan2.py (deep_copy pairs
+   with mismatched declared typedefs - none).
+ OFF-AXIS, not reported (pre-existing upstream, dead template): memory_kokkos.h:137 leftover
+   debug printf("^^^^^ memoryKK->create_4d_offset_kokkos\n") in create4d_offset_kokkos, which has
+   no callers in src/. Also memory_kokkos.h:316 3-D create_kokkos(TYPE,HTYPE,***&,n1,n2,n3)
+   constructs `TYPE(name,n1,n2)` with only two extents - also never instantiated.
