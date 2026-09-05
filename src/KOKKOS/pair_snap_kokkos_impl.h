@@ -716,8 +716,9 @@ void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator(
   const int iatom = iatom_mod + iatom_div * vector_length;
   if (iatom >= chunk_size) return;
 
-  int itype = type(iatom);
-  int ielem = d_map[itype];
+  const int i = d_ilist[iatom + chunk_offset];
+  const int itype = type[i];
+  const int ielem = d_map[itype];
 
   snaKK.pre_ui(iatom, j, ielem);
 }
@@ -728,8 +729,9 @@ KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator() (TagPairSNAPPreUi, const int& iatom, const int& j) const {
   if (iatom >= chunk_size) return;
 
-  int itype = type(iatom);
-  int ielem = d_map[itype];
+  const int i = d_ilist[iatom + chunk_offset];
+  const int itype = type[i];
+  const int ielem = d_map[itype];
 
   snaKK.pre_ui(iatom, j, ielem);
 }
@@ -740,7 +742,8 @@ KOKKOS_INLINE_FUNCTION
 void PairSNAPKokkos<DeviceType, real_type, accum_type, vector_length>::operator() (TagPairSNAPPreUi, const int& iatom) const {
   if (iatom >= chunk_size) return;
 
-  const int itype = type(iatom);
+  const int i = d_ilist[iatom + chunk_offset];
+  const int itype = type[i];
   const int ielem = d_map[itype];
 
   for (int j = 0; j <= twojmax; j++)

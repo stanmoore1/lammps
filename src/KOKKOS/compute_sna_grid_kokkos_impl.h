@@ -706,7 +706,7 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::ope
   // all grid points are type 1, see ComputeSNAGrid::compute_array()
   const int itype = 1;
   const Kokkos::Array<int, 1> ielem = {{ chemflag ? d_map[itype] : 0 }};
-  snaKK.template compute_bi<chemsnap>(iatom, jjb, ielem);
+  snaKK.template compute_bi<chemsnap, 1>(iatom, jjb, ielem);
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -717,7 +717,7 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::ope
   // all grid points are type 1, see ComputeSNAGrid::compute_array()
   const int itype = 1;
   const Kokkos::Array<int, 1> ielem = {{ chemflag ? d_map[itype] : 0 }};
-  snaKK.template compute_bi<chemsnap>(iatom, jjb, ielem);
+  snaKK.template compute_bi<chemsnap, 1>(iatom, jjb, ielem);
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
@@ -729,7 +729,7 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::ope
   const int itype = 1;
   const Kokkos::Array<int, 1> ielem = {{ chemflag ? d_map[itype] : 0 }};
   for (int jjb = 0; jjb < snaKK.idxb_max; jjb++)
-    snaKK.template compute_bi<chemsnap>(iatom, jjb, ielem);
+    snaKK.template compute_bi<chemsnap, 1>(iatom, jjb, ielem);
 }
 
 template<class DeviceType, typename real_type, typename accum_type, int vector_length>
