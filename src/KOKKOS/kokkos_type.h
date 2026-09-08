@@ -802,6 +802,13 @@ struct TransformView {
 
   static constexpr int SINGLE_DEVICE = 0;
 
+  // see kk_poison_exempt() in dual_view_kokkos.h: a caller that uses one side
+  // of this array as a second accumulator outside the coherence protocol takes
+  // it out of poison mode for the duration
+
+  void poison_exempt_begin() const { k_view.poison_exempt_begin(); }
+  void poison_exempt_end() const { k_view.poison_exempt_end(); }
+
 #else
 
   static constexpr int SINGLE_DEVICE =
