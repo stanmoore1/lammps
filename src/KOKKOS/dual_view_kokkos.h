@@ -71,6 +71,45 @@ void datamask_audit_note_claim(const void *device_data);
 // These live outside the class because a static member of a template belongs
 // to each instantiation, and the census has to be one table for the whole run.
 
+/* ----------------------------------------------------------------------
+   arrays that are outside the coherence protocol for the moment
+
+   one array is a second accumulator on purpose: while VerletKokkos runs its
+   overlap path the host side of the force array is zeroed by force_clear(),
+   the styles that run on the host add into it, and run() merges it into the
+   device copy afterwards -- deliberately outside this class's bookkeeping,
+   see the clear_sync_state()/modify_device() pair at the end of that merge.
+   Poisoning it traps on every host style that adds a force, about a hundred
+   sites per run, all of them correct, and buries the real findings.
+   VerletKokkos names the array while that path is active, and both detectors
+   leave it alone: there is no coherence state to judge it against.
+------------------------------------------------------------------------- */
+
+inline std::vector<std::string> &kk_protocol_exempt()
+{
+  static std::vector<std::string> labels;
+  return labels;
+}
+
+inline void kk_protocol_exempt_add(const std::string &label)
+{
+  kk_protocol_exempt().push_back(label);
+}
+
+inline void kk_protocol_exempt_remove(const std::string &label)
+{
+  auto &labels = kk_protocol_exempt();
+  for (auto it = labels.begin(); it != labels.end(); ++it)
+    if (*it == label) { labels.erase(it); return; }
+}
+
+inline bool kk_protocol_exempted(const std::string &label)
+{
+  for (const auto &l : kk_protocol_exempt())
+    if (l == label) return true;
+  return false;
+}
+
 inline bool kk_copystats_wanted()
 {
   static const bool want = std::getenv("LMP_KOKKOS_COPYSTATS") != nullptr;
@@ -225,6 +264,10 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // hand those subviews a buffer the device never wrote to.
   t_host h_split;
 
+  // a stale hand-out that has not been confirmed yet, see stale_check()
+  mutable int stale_pending_dir = -1;    // -1 none, 0 host side, 1 device side
+  mutable std::vector<void *> stale_pending_frames;
+
   // lmp_flags(0) counts modifications of the host side, lmp_flags(1) of the
   // device side, exactly like Kokkos::DualView::modified_flags.  Held in a View
   // so that copies of this object share one set of counters.
@@ -326,6 +369,10 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
     if constexpr (SPLIT) {
       if (!poison_mode() || !lmp_flags.data() || !h_split.data()) return false;
       if (h_split.data() == base_type::view_host().data()) return false;    // alias mode
+      // the empty check keeps the string work out of the common case
+      if (!kk_protocol_exempt().empty() &&
+          kk_protocol_exempted(base_type::view_device().label()))
+        return false;
       return true;
     }
     return false;
@@ -370,6 +417,28 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   };
 
  public:
+  // Take this array out of poison mode for a caller that uses one of its two
+  // sides as a second accumulator outside the coherence protocol, see the
+  // comment on kk_protocol_exempt().  The bytes have to be opened here: once the
+  // exemption is registered, poison_open() and poison_apply() both do nothing.
+  void protocol_exempt_begin() const
+  {
+    if constexpr (SPLIT) {
+      // open the bytes first: once the exemption is registered poison_open()
+      // and poison_apply() both do nothing
+      if (poison_active()) poison_open();
+      kk_protocol_exempt_add(base_type::view_device().label());
+    }
+  }
+
+  void protocol_exempt_end() const
+  {
+    if constexpr (SPLIT) {
+      kk_protocol_exempt_remove(base_type::view_device().label());
+      if (poison_active()) poison_apply();
+    }
+  }
+
   DualView() : base_type() {}
 
   // The constructors seed the watch shadows right away.  Without this the
@@ -1055,6 +1124,11 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!f) return;
       if (!lmp_flags.data() || !h_split.data()) return;
       if (h_split.data() == base_type::view_host().data()) return;    // alias mode
+      // An array that is outside the protocol for the moment has no coherence
+      // state to be stale against, see kk_protocol_exempt().
+      if (!kk_protocol_exempt().empty() &&
+          kk_protocol_exempted(base_type::view_device().label()))
+        return;
       // A sync is owed in the direction of this read and has not run: the plain
       // missing copy.
       bool behind = want_device ? need_sync_device() : need_sync_host();
@@ -1103,17 +1177,39 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
                        h_split.span() * sizeof(typename t_host::value_type)))
         return;
 
+      // Handing out a view of the stale side is not yet a fault.  The ordinary
+      // pattern is to take the view and sync the array on the next line, so by
+      // the time a kernel or host code touches it the copy has run; reporting
+      // here made every one of those look like a finding.  Hold it instead,
+      // and let stale_settle() decide: the sync that was owed cancels it, a
+      // claim or a sync the other way confirms that the stale data was used.
       void *frames[24];
       const int nframes = backtrace(frames, 24);
+      stale_pending_dir = want_device ? 1 : 0;
+      stale_pending_frames.assign(frames, frames + nframes);
+    }
+  }
+
+  // Turn a held finding into a reported one.
+  void stale_report_pending() const
+  {
+    if constexpr (SPLIT) {
+      if (stale_pending_dir < 0) return;
+      const bool want_device = (stale_pending_dir == 1);
+      const std::vector<void *> frames = stale_pending_frames;
+      stale_pending_dir = -1;
+      stale_pending_frames.clear();
+
+      const std::string label = base_type::view_device().label();
       size_t key = 1469598103934665603ull;
-      for (int i = 0; i < nframes; i++) {
-        key ^= (size_t) frames[i];
+      for (void *fr : frames) {
+        key ^= (size_t) fr;
         key *= 1099511628211ull;
       }
 
       StaleSite &site = stale_counts()[label][key];
       if (site.count++ == 0) {
-        site.frames.assign(frames, frames + nframes);
+        site.frames = frames;
         static bool registered = false;
         if (!registered) {
           registered = true;
@@ -1134,6 +1230,24 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
                      stale_site_name(site.frames).c_str(), lmp_flags(0), lmp_flags(1));
         watch_backtrace();
       }
+    }
+  }
+
+  // A coherence call says what the held finding was.  The copy the stale read
+  // was waiting for cancels it -- that is the "take the view, sync on the next
+  // line" pattern.  A claim on either side, or a copy the other way, means the
+  // stale data was used before anything settled it, and the finding stands.
+  // Pass 1 for a device sync, 0 for a host sync, -2 for a claim.
+  void stale_settle(int synced_dir) const
+  {
+    if constexpr (SPLIT) {
+      if (stale_pending_dir < 0) return;
+      if (stale_pending_dir == synced_dir) {
+        stale_pending_dir = -1;
+        stale_pending_frames.clear();
+        return;
+      }
+      stale_report_pending();
     }
   }
 
@@ -1201,6 +1315,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void modify_device()
   {
     PoisonScope pscope(this);
+    stale_settle(-2);
     datamask_audit_note_claim(base_type::view_device().data());
     trace("modify_device");
     watch("modify_device", OP_MODIFY_DEVICE);
@@ -1225,6 +1340,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void modify_host()
   {
     PoisonScope pscope(this);
+    stale_settle(-2);
     datamask_audit_note_claim(base_type::view_device().data());
     trace("modify_host");
     watch("modify_host", OP_MODIFY_HOST);
@@ -1259,6 +1375,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void sync_device()
   {
     PoisonScope pscope(this);
+    stale_settle(1);
     trace("sync_device");
     verify("sync_device");
     watch("sync_device", OP_SYNC_DEVICE);
@@ -1280,6 +1397,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void sync_host()
   {
     PoisonScope pscope(this);
+    stale_settle(0);
     trace("sync_host");
     verify("sync_host");
     watch("sync_host", OP_SYNC_HOST);

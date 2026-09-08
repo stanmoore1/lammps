@@ -294,6 +294,15 @@ void VerletKokkos::run(int n)
 
   timer->init_timeout();
   DatamaskAudit::enable(1);
+
+  // while the overlap path is active the host side of the force array is a
+  // second accumulator that this class fills and merges itself, so both detectors
+  // have to leave it alone or it traps on every host style that adds a force
+
+  const bool exempt_force = lmp->kokkos->allow_overlap &&
+      (atomKK->k_f.view_hostkk().data() != atomKK->k_f.view_device().data());
+  if (exempt_force) atomKK->k_f.protocol_exempt_begin();
+
   for (int i = 0; i < n; i++) {
     if (timer->check_timeout(i)) {
       update->nsteps = i;
@@ -567,6 +576,8 @@ void VerletKokkos::run(int n)
       timer->stamp(Timer::OUTPUT);
     }
   }
+
+  if (exempt_force) atomKK->k_f.protocol_exempt_end();
 
   DatamaskAudit::enable(0);
   DatamaskAudit::report(lmp);
