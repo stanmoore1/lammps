@@ -10,11 +10,30 @@ decision, a change that needs a second opinion, or a hole in what was actually t
 
 ---
 
-## 1. Defects that are NOT fixed
+## 1. Defects that were open at the time of the review
+
+Two of the three have since been fixed on the upstreamable branch
+`claude/kokkos-bugfixes`; the status line under each heading says which.
 
 ### 1.1 `fix property/atom` corrupts the heap under KOKKOS
 
-**Severity: high.  Pre-existing -- upstream `develop` aborts identically.**
+**FIXED** on `claude/kokkos-bugfixes`.  Original severity: high; pre-existing,
+upstream `develop` aborts identically.
+
+The fix is not either of the placements discussed below.  Overriding
+`grow_arrays()` cannot work, for the reason given here -- the object being
+constructed is a plain `FixPropertyAtom`, so the KOKKOS override is never
+reached.  Instead the *style* is promoted at creation: `Modify::add_fix()` now
+selects `property/atom/kk` whenever `lmp->kokkos` is active, in the same place
+and the same shape as the existing suffix handling, including the
+style-string rewrite.  The promotion is limited to `property/atom`, the one
+style whose plain version is unsafe under KOKKOS.
+
+The previously-crashing input now runs and gives results identical to the same
+input without KOKKOS.  The `kokkosable` guard in
+`AtomKokkos::update_property_atom()` is kept as a backstop and should now be
+unreachable.  The rest of this section is the original analysis, kept because
+it explains why the obvious placements do not work.
 
 Reproducer (either form):
 
@@ -63,7 +82,7 @@ That is an architectural choice, so it was left to you.
 
 ### 1.2 `fix nve/sphere/kk` has no DLM integrator
 
-**Severity: medium.  Behaviour changed by this branch.**
+**STILL OPEN.**  Severity: medium.  Behaviour changed by this branch.
 
 Upstream `fix_nve_sphere_kokkos.cpp` contains no reference to `dlm` at all.  It inherits the
 keyword parsing from `FixNVESphere`, then ignores the flag and runs the plain orientation
@@ -79,7 +98,15 @@ genuine piece of work and was not attempted.
 
 ### 1.3 `math_special_kokkos.cpp` is never compiled by CMake
 
-**Severity: low now, a trap later.**
+**FIXED** on `claude/kokkos-bugfixes`: the file is added to
+`KOKKOS_PKG_SOURCES` and the package builds and links with it (1100/1100
+targets, no undefined references).
+
+The dangling `factorial` declaration described below is removed rather than
+implemented: the CPU `src/math_special.cpp` defines both `erfcx_y100` and
+`factorial`, but the KOKKOS adaptation kept only `erfcx_y100`, so the header
+promised a symbol that exists nowhere in the tree.  Original severity: low
+now, a trap later.
 
 `cmake/Modules/Packages/KOKKOS.cmake:178` builds `KOKKOS_PKG_SOURCES` from an **explicit
 list**, and `math_special_kokkos.cpp` (479 lines) is not in it, nor added by any package
