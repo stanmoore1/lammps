@@ -1227,7 +1227,9 @@ typedef TransformView<KK_FLOAT*, double*, Kokkos::LayoutRight> ttransform_kkfloa
 KOKKOS_DEVICE_DUALVIEW(int**, LMPDeviceLayout, int_2d)
 KOKKOS_DEVICE_DUALVIEW(int**, Kokkos::LayoutRight, int_2d_lr)
 KOKKOS_DEVICE_DUALVIEW(int**, LMPDeviceType::array_layout, int_2d_dl)
+KOKKOS_DEVICE_DUALVIEW(int*[2], LMPDeviceLayout, int_1d_2)
 KOKKOS_DEVICE_DUALVIEW(int*[3], LMPDeviceLayout, int_1d_3)
+KOKKOS_DEVICE_DUALVIEW(int*[4], LMPDeviceLayout, int_1d_4)
 KOKKOS_DEVICE_DUALVIEW(tagint**, LMPDeviceLayout, tagint_2d)
 KOKKOS_DEVICE_DUALVIEW(double**, Kokkos::LayoutRight, double_2d_lr)
 KOKKOS_DEVICE_DUALVIEW(double**, LMPDeviceLayout, double_2d)
@@ -1267,6 +1269,7 @@ KOKKOS_DEVICE_DUALVIEW(int***, LMPDeviceLayout, int_3d)
 KOKKOS_DEVICE_DUALVIEW(int***, Kokkos::LayoutRight, int_3d_lr)
 KOKKOS_DEVICE_DUALVIEW(double***, Kokkos::LayoutRight, double_3d_lr)
 KOKKOS_DEVICE_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
+KOKKOS_DEVICE_DUALVIEW(KK_FLOAT***, Kokkos::LayoutRight, kkfloat_3d_lr)
 
 typedef TransformView<KK_FLOAT***, double***, LMPDeviceLayout> ttransform_kkfloat_3d;
 
@@ -1323,7 +1326,9 @@ KOKKOS_HOST_DUALVIEW(KK_ACC_FLOAT*, Kokkos::LayoutRight, kkacc_1d)
 KOKKOS_HOST_DUALVIEW(int**, LMPDeviceLayout, int_2d)
 KOKKOS_HOST_DUALVIEW(int**, Kokkos::LayoutRight, int_2d_lr)
 KOKKOS_HOST_DUALVIEW(int**, LMPDeviceType::array_layout, int_2d_dl)
+KOKKOS_HOST_DUALVIEW(int*[2], LMPDeviceLayout, int_1d_2)
 KOKKOS_HOST_DUALVIEW(int*[3], LMPDeviceLayout, int_1d_3)
+KOKKOS_HOST_DUALVIEW(int*[4], LMPDeviceLayout, int_1d_4)
 KOKKOS_HOST_DUALVIEW(tagint**, LMPDeviceLayout, tagint_2d)
 KOKKOS_HOST_DUALVIEW(double**, Kokkos::LayoutRight, double_2d_lr)
 KOKKOS_HOST_DUALVIEW(double**, LMPDeviceLayout, double_2d)
@@ -1349,6 +1354,7 @@ KOKKOS_HOST_DUALVIEW(int***, LMPDeviceLayout, int_3d)
 KOKKOS_HOST_DUALVIEW(int***, Kokkos::LayoutRight, int_3d_lr)
 KOKKOS_HOST_DUALVIEW(double***, Kokkos::LayoutRight, double_3d_lr)
 KOKKOS_HOST_DUALVIEW(KK_FLOAT***, LMPDeviceLayout, kkfloat_3d)
+KOKKOS_HOST_DUALVIEW(KK_FLOAT***, Kokkos::LayoutRight, kkfloat_3d_lr)
 
 // 4D view types
 
