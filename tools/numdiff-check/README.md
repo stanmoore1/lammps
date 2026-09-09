@@ -125,8 +125,8 @@ because it interpolates energy and force independently.
 
 ## Reading the results
 
-Some inconsistencies the sweep reports are documented behaviour, not defects, and
-the report is meant to be read with that in mind:
+Some inconsistencies the sweep reports are documented behaviour or a limit of the
+method, not defects, and the report is meant to be read with that in mind:
 
 - `coul/charmm` applies the energy switching function to the Coulomb force
   without the product-rule term.  This reproduces what CHARMM historically did
@@ -137,10 +137,33 @@ the report is meant to be read with that in mind:
 - The `coul/long` family shows a residual around `1e-6`.  With tabulation off the
   energy uses the Abramowitz-Stegun rational approximation of `erfc`, while the
   force term is the exact derivative of the true `erfc`; the mismatch is the
-  approximation error, not a coding defect.
+  approximation error, not a coding defect.  It is an *absolute* deviation of
+  about `3.6e-5`, so how large it looks depends on how big the forces are: the
+  same number is `6e-6` relative for `coul/long` and `6e-8` for
+  `lj/cut/coul/long`.
 - Dipole and spin styles pass on the force channel but not on the virial: the
   strain derivative holds the dipole and spin vectors fixed, which is a different
   quantity from the virial LAMMPS tallies for a non-central force.
+- Some styles evaluate their functions from an internal grid and then derive the
+  force from the interpolated value, so the force is not the derivative of the
+  interpolant: `edip` (grid density 8000 per distance unit, giving about `2e-4`,
+  while the ungridded `edip/multi` is clean), `tersoff/table`, `vashishta/table`.
+
+Two limits of the method itself are worth knowing:
+
+- **A style that calls `domain->minimum_image()`** cannot be virial-checked.
+  `fix numdiff/virial` strains the atom coordinates but not the box, so a pair
+  reconstructed across a periodic boundary picks up an unstrained box length.
+  `hbond/dreiding` does this; with a box three times larger, so no triplet
+  wraps, its virial residual falls from `3.5e-1` to `1.2e-9`.  The force channel
+  is unaffected, because displacing one atom by `delta` never changes which
+  image is nearest.
+- **An expensive potential may sit above the default step size's noise floor.**
+  `pair pace` looks inconsistent at `delta = 1e-5` but converges cleanly at
+  `1e-3` (`3.7e-8`, ratio `3.73`).  When a verdict comes with a ratio *below*
+  one -- the error grew when the step was halved -- re-run with `--fdelta 1e-3
+  --vdelta 1e-4` before believing it.
 
 A real defect looks like `lj/expand/sphere` did before it was fixed: a relative
-error of order one on *both* channels, with a step-size ratio of exactly `1.00`.
+error of order one on *both* channels, with a step-size ratio of exactly `1.00`,
+unchanged whatever step size you choose.

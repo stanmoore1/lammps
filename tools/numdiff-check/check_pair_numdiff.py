@@ -69,6 +69,10 @@ SKIPS = [
      'energy and force are splined from independent columns of a table file'),
     ('atomic-pair-sw_angle_table', 'hard', 'hybrid/overlay includes a table sub-style'),
     ('atomic-pair-threebody_table', 'hard', 'hybrid/overlay includes a table sub-style'),
+    ('re:^(edip|tersoff/table|vashishta/table)$', 'soft',
+     'the style evaluates its functions from an internal grid but derives the '
+     'force from the interpolated value, so the force is not the derivative of '
+     'the interpolant'),
     ('re:^ldd$', 'soft',
      'some local-density potential modes tabulate energy and force independently'),
     ('atomic-pair-reaxff-acks2_efield', 'hard',
