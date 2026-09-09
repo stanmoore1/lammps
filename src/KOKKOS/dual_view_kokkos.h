@@ -110,6 +110,96 @@ inline bool kk_protocol_exempted(const std::string &label)
   return false;
 }
 
+/* ----------------------------------------------------------------------
+   stale findings that are held rather than reported straight away
+
+   Handing out a view of the stale side is not a fault by itself: the ordinary
+   pattern is to take the view and sync the array on the next line, so by the
+   time anything reads it the copy has run.  stale_check() holds the finding
+   and the next coherence call settles it.
+
+   The hold lives here rather than in the object.  Copies of a DualView share
+   one array and one coherence state, and the accessor that hands out the view
+   need not be reached through the same copy as the sync that settles it -- a
+   member would leave the finding with whichever copy happened to see it, and
+   a copy that carried one and was destroyed would take it away unreported.
+   Keyed on the array and then on the call site, so a site that keeps handing
+   out the same view holds one finding instead of a new one each time, and two
+   different sites hold two rather than the second overwriting the first.
+------------------------------------------------------------------------- */
+
+struct KKStalePending {
+  int dir;                          // 0 the host side was read, 1 the device side
+  unsigned host_count, dev_count;   // the counters as they stood at the hand-out
+  std::vector<void *> frames;
+};
+
+inline std::map<std::string, std::map<size_t, KKStalePending>> &kk_stale_pending()
+{
+  static std::map<std::string, std::map<size_t, KKStalePending>> pending;
+  return pending;
+}
+
+// Name the function a backtrace was taken in, skipping the wrapper's own frames.
+inline std::string kk_stale_site_name(const std::vector<void *> &frames)
+{
+  if (frames.empty()) return "unknown";
+  char **syms = backtrace_symbols(frames.data(), (int) frames.size());
+  if (!syms) return "unknown";
+  std::string out = "unknown";
+  for (size_t i = 0; i < frames.size(); i++) {
+    const char *open = std::strchr(syms[i], '(');
+    const char *plus = open ? std::strchr(open, '+') : nullptr;
+    if (!open || !plus || plus == open + 1) continue;
+    const std::string mangled(open + 1, plus - open - 1);
+    int status = 0;
+    char *pretty = abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status);
+    const std::string name = (status == 0 && pretty) ? pretty : mangled;
+    if (pretty) std::free(pretty);
+    if (name.find("DualView") != std::string::npos) continue;
+    if (name.find("TransformView") != std::string::npos) continue;
+    out = name;
+    break;
+  }
+  std::free(syms);
+  return out;
+}
+
+inline void kk_stale_print(const std::string &label, const KKStalePending &p)
+{
+  const bool want_device = (p.dir == 1);
+  std::fprintf(stderr,
+               "[stale] %s: %s side read while %s side is newer, from %s\n"
+               "        counters are (host %u, device %u)\n",
+               label.c_str(), want_device ? "device" : "host",
+               want_device ? "host" : "device",
+               kk_stale_site_name(p.frames).c_str(), p.host_count, p.dev_count);
+}
+
+// A finding that no coherence call ever settled is still a finding: the stale
+// view was handed out and nothing copied over it before the run ended.  Without
+// this the hold would simply be dropped, which is the one way this scheme can
+// lose a fault the immediate report would have caught.  Idempotent, so it can
+// be reached from atexit and from the summary in either order.
+
+inline void kk_stale_flush_pending()
+{
+  auto &pending = kk_stale_pending();
+  if (pending.empty()) return;
+  auto held = pending;
+  pending.clear();
+  for (const auto &c : held)
+    for (const auto &site : c.second) kk_stale_print(c.first, site.second);
+}
+
+inline void kk_stale_flush_register()
+{
+  static bool registered = false;
+  if (registered) return;
+  registered = true;
+  std::atexit(kk_stale_flush_pending);
+}
+
 inline bool kk_copystats_wanted()
 {
   static const bool want = std::getenv("LMP_KOKKOS_COPYSTATS") != nullptr;
@@ -263,10 +353,6 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // the base has to yield device data.  Splitting the device side instead would
   // hand those subviews a buffer the device never wrote to.
   t_host h_split;
-
-  // a stale hand-out that has not been confirmed yet, see stale_check()
-  mutable int stale_pending_dir = -1;    // -1 none, 0 host side, 1 device side
-  mutable std::vector<void *> stale_pending_frames;
 
   // lmp_flags(0) counts modifications of the host side, lmp_flags(1) of the
   // device side, exactly like Kokkos::DualView::modified_flags.  Held in a View
@@ -822,6 +908,15 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!lmp_flags.data() || !h_split.data()) return;
       if (h_split.data() == base_type::view_host().data()) return;    // alias mode
 
+      // An array that is outside the protocol for the moment has no coherence
+      // state to be judged against, see kk_protocol_exempt().  Only the reports
+      // are held back: the shadows and the agreed snapshots still have to
+      // follow every call, or the first write after the exemption ends would be
+      // measured against a picture taken before it began and look like a claim
+      // somebody lost.
+      const bool exempt = !kk_protocol_exempt().empty() &&
+          kk_protocol_exempted(base_type::view_device().label());
+
       const t_dev &dev = base_type::view_device();
       if (same_shape(shadow_h, h_split)) {
         const bool host_wrote =
@@ -886,7 +981,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
           if ((at != NO_DIFFERENCE) &&
               first_difference(dev.data(), h_split.data(), nbytes) != NO_DIFFERENCE) {
             const std::string label = base_type::view_device().label();
-            if (empty_sync_seen(label)) {
+            if (!exempt && empty_sync_seen(label)) {
               std::fprintf(stderr,
                            "[watch] %s: the %s side was written without a claim and this %s "
                            "has nothing to copy -- the %s keeps stale data\n"
@@ -899,9 +994,9 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
           }
         }
 
-        if (host_wrote && host_lost && lmp_flags(2) == shadow_flags(2))
+        if (!exempt && host_wrote && host_lost && lmp_flags(2) == shadow_flags(2))
           watch_report("host", op, h_split, shadow_h);
-        if (dev_wrote && device_lost && lmp_flags(3) == shadow_flags(3)) {
+        if (!exempt && dev_wrote && device_lost && lmp_flags(3) == shadow_flags(3)) {
           t_host dev_now = Kokkos::create_mirror(dev);
           Kokkos::deep_copy(dev_now, dev);
           watch_report("device", op, dev_now, shadow_d);
@@ -1072,26 +1167,7 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   // so take what sits between the parenthesis and the plus and demangle it.
   static std::string stale_site_name(const std::vector<void *> &frames)
   {
-    if (frames.empty()) return "unknown";
-    char **syms = backtrace_symbols(frames.data(), (int) frames.size());
-    if (!syms) return "unknown";
-    std::string out = "unknown";
-    for (size_t i = 0; i < frames.size(); i++) {
-      const char *open = std::strchr(syms[i], '(');
-      const char *plus = open ? std::strchr(open, '+') : nullptr;
-      if (!open || !plus || plus == open + 1) continue;
-      const std::string mangled(open + 1, plus - open - 1);
-      int status = 0;
-      char *pretty = abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status);
-      const std::string name = (status == 0 && pretty) ? pretty : mangled;
-      if (pretty) std::free(pretty);
-      if (name.find("DualView") != std::string::npos) continue;
-      if (name.find("TransformView") != std::string::npos) continue;
-      out = name;
-      break;
-    }
-    std::free(syms);
-    return out;
+    return kk_stale_site_name(frames);
   }
 
   // Not async-signal-safe -- it resolves symbols, which allocates -- but this
@@ -1106,6 +1182,8 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
 
   static void stale_report_at_exit()
   {
+    // a hold that no coherence call ever settled is still a finding
+    kk_stale_flush_pending();
     std::fprintf(stderr, "\n[stale] arrays read while the other side was newer:\n");
     for (const auto &c : stale_counts())
       for (const auto &site : c.second)
@@ -1185,50 +1263,56 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       // claim or a sync the other way confirms that the stale data was used.
       void *frames[24];
       const int nframes = backtrace(frames, 24);
-      stale_pending_dir = want_device ? 1 : 0;
-      stale_pending_frames.assign(frames, frames + nframes);
+      size_t key = 1469598103934665603ull;
+      for (int i = 0; i < nframes; i++) {
+        key ^= (size_t) frames[i];
+        key *= 1099511628211ull;
+      }
+      KKStalePending &p = kk_stale_pending()[label][key];
+      p.dir = want_device ? 1 : 0;
+      p.host_count = lmp_flags(0);
+      p.dev_count = lmp_flags(1);
+      p.frames.assign(frames, frames + nframes);
+      kk_stale_flush_register();
     }
   }
 
-  // Turn a held finding into a reported one.
-  void stale_report_pending() const
+  // Turn the held findings for this array into reported ones.  Every call site
+  // that is holding one is reported: two sites that both handed out the stale
+  // view are two findings, and folding them into one loses whichever came
+  // second.
+  void stale_report_pending(int keep_dir = -1) const
   {
     if constexpr (SPLIT) {
-      if (stale_pending_dir < 0) return;
-      const bool want_device = (stale_pending_dir == 1);
-      const std::vector<void *> frames = stale_pending_frames;
-      stale_pending_dir = -1;
-      stale_pending_frames.clear();
+      auto &pending = kk_stale_pending();
+      auto it = pending.find(base_type::view_device().label());
+      if (it == pending.end()) return;
+      const std::string label = it->first;
+      const std::map<size_t, KKStalePending> held = it->second;
+      pending.erase(it);
 
-      const std::string label = base_type::view_device().label();
-      size_t key = 1469598103934665603ull;
-      for (void *fr : frames) {
-        key ^= (size_t) fr;
-        key *= 1099511628211ull;
-      }
+      for (const auto &entry : held) {
+        // the copy this hand-out was waiting for has run, so it was ordinary
+        if (entry.second.dir == keep_dir) continue;
 
-      StaleSite &site = stale_counts()[label][key];
-      if (site.count++ == 0) {
-        site.frames = frames;
-        static bool registered = false;
-        if (!registered) {
-          registered = true;
-          std::atexit(stale_report_at_exit);
-          // A run that dies takes MPI_Abort, and that never reaches atexit --
-          // yet a run that dies is exactly the one whose totals are wanted.
-          std::signal(SIGABRT, stale_report_on_signal);
-          std::signal(SIGSEGV, stale_report_on_signal);
+        StaleSite &site = stale_counts()[label][entry.first];
+        if (site.count++ == 0) {
+          site.frames = entry.second.frames;
+          static bool registered = false;
+          if (!registered) {
+            registered = true;
+            std::atexit(stale_report_at_exit);
+            // A run that dies takes MPI_Abort, and that never reaches atexit --
+            // yet a run that dies is exactly the one whose totals are wanted.
+            std::signal(SIGABRT, stale_report_on_signal);
+            std::signal(SIGSEGV, stale_report_on_signal);
+          }
+          // Everything that identifies the finding goes on one line -- which
+          // array, which way round, and who read it -- so that a run can be
+          // compared against a clean one with a single pass over the output.
+          kk_stale_print(label, entry.second);
+          watch_backtrace();
         }
-        // Everything that identifies the finding goes on one line -- which
-        // array, which way round, and who read it -- so that a run can be
-        // compared against a clean one with a single pass over the output.
-        std::fprintf(stderr,
-                     "[stale] %s: %s side read while %s side is newer, from %s\n"
-                     "        counters are (host %u, device %u)\n",
-                     label.c_str(), want_device ? "device" : "host",
-                     want_device ? "host" : "device",
-                     stale_site_name(site.frames).c_str(), lmp_flags(0), lmp_flags(1));
-        watch_backtrace();
       }
     }
   }
@@ -1241,13 +1325,8 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
   void stale_settle(int synced_dir) const
   {
     if constexpr (SPLIT) {
-      if (stale_pending_dir < 0) return;
-      if (stale_pending_dir == synced_dir) {
-        stale_pending_dir = -1;
-        stale_pending_frames.clear();
-        return;
-      }
-      stale_report_pending();
+      if (kk_stale_pending().empty()) return;
+      stale_report_pending(synced_dir);
     }
   }
 
