@@ -423,9 +423,11 @@ def channel_verdict(e1, e2, eR, scale, units, opts):
         # residual is the former and is nothing to report.
         return ('OK' if rel['relR'] <= opts.tol_bad else 'NOISE_LIMITED'), rel
     if 2.5 <= ratio <= 6.0:
-        # truncation is behaving like O(delta^2) yet a residual survives the
-        # extrapolation, so it is not truncation
-        return 'INCONSISTENT', rel
+        # truncation is behaving like O(delta^2).  A residual that survives the
+        # extrapolation anyway is not truncation, but only once it is well clear
+        # of the round-off floor -- an expensive potential evaluated at a step
+        # size near its own noise level leaves a small one behind either way
+        return ('INCONSISTENT' if rel['relR'] > opts.tol_bad else 'SUSPECT'), rel
     if ratio < 2.5:
         # the error does not shrink with delta at all
         return 'INCONSISTENT' if rel['relR'] > opts.tol_bad else 'SUSPECT', rel
