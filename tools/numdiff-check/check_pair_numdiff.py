@@ -86,6 +86,10 @@ SKIPS = [
      'charges are equilibrated by a fix, which fix numdiff never re-invokes'),
     ('re:qeq', 'soft', 'charges are equilibrated by a fix, which fix numdiff never re-invokes'),
     ('re:^coul/(streitz|ctip)', 'soft', 'variable-charge model; the charges stay frozen'),
+    ('re:^hbond/dreiding', 'soft',
+     'the style rebuilds its vectors with domain->minimum_image(), which the '
+     'unstrained box of fix numdiff/virial cannot follow: only the force channel '
+     'is meaningful here'),
     ('re:^(gayberne|resquared|ylz)', 'soft',
      'orientations are held fixed, so only the translational gradient is tested'),
     ('re:^spin/', 'soft',
