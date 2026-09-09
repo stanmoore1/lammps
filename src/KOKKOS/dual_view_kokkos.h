@@ -72,7 +72,7 @@ void datamask_audit_note_claim(const void *device_data);
 // to each instantiation, and the census has to be one table for the whole run.
 
 /* ----------------------------------------------------------------------
-   arrays that poison mode has to leave alone
+   arrays that are outside the coherence protocol for the moment
 
    one array is a second accumulator on purpose: while VerletKokkos runs its
    overlap path the host side of the force array is zeroed by force_clear(),
@@ -81,30 +81,31 @@ void datamask_audit_note_claim(const void *device_data);
    see the clear_sync_state()/modify_device() pair at the end of that merge.
    Poisoning it traps on every host style that adds a force, about a hundred
    sites per run, all of them correct, and buries the real findings.
-   VerletKokkos names the array while that path is active.
+   VerletKokkos names the array while that path is active, and both detectors
+   leave it alone: there is no coherence state to judge it against.
 ------------------------------------------------------------------------- */
 
-inline std::vector<std::string> &kk_poison_exempt()
+inline std::vector<std::string> &kk_protocol_exempt()
 {
   static std::vector<std::string> labels;
   return labels;
 }
 
-inline void kk_poison_exempt_add(const std::string &label)
+inline void kk_protocol_exempt_add(const std::string &label)
 {
-  kk_poison_exempt().push_back(label);
+  kk_protocol_exempt().push_back(label);
 }
 
-inline void kk_poison_exempt_remove(const std::string &label)
+inline void kk_protocol_exempt_remove(const std::string &label)
 {
-  auto &labels = kk_poison_exempt();
+  auto &labels = kk_protocol_exempt();
   for (auto it = labels.begin(); it != labels.end(); ++it)
     if (*it == label) { labels.erase(it); return; }
 }
 
-inline bool kk_poison_exempted(const std::string &label)
+inline bool kk_protocol_exempted(const std::string &label)
 {
-  for (const auto &l : kk_poison_exempt())
+  for (const auto &l : kk_protocol_exempt())
     if (l == label) return true;
   return false;
 }
@@ -369,8 +370,8 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!poison_mode() || !lmp_flags.data() || !h_split.data()) return false;
       if (h_split.data() == base_type::view_host().data()) return false;    // alias mode
       // the empty check keeps the string work out of the common case
-      if (!kk_poison_exempt().empty() &&
-          kk_poison_exempted(base_type::view_device().label()))
+      if (!kk_protocol_exempt().empty() &&
+          kk_protocol_exempted(base_type::view_device().label()))
         return false;
       return true;
     }
@@ -418,23 +419,23 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
  public:
   // Take this array out of poison mode for a caller that uses one of its two
   // sides as a second accumulator outside the coherence protocol, see the
-  // comment on kk_poison_exempt().  The bytes have to be opened here: once the
+  // comment on kk_protocol_exempt().  The bytes have to be opened here: once the
   // exemption is registered, poison_open() and poison_apply() both do nothing.
-  void poison_exempt_begin() const
+  void protocol_exempt_begin() const
   {
     if constexpr (SPLIT) {
-      if (!poison_active()) return;
-      poison_open();
-      kk_poison_exempt_add(base_type::view_device().label());
+      // open the bytes first: once the exemption is registered poison_open()
+      // and poison_apply() both do nothing
+      if (poison_active()) poison_open();
+      kk_protocol_exempt_add(base_type::view_device().label());
     }
   }
 
-  void poison_exempt_end() const
+  void protocol_exempt_end() const
   {
     if constexpr (SPLIT) {
-      if (!poison_mode()) return;
-      kk_poison_exempt_remove(base_type::view_device().label());
-      poison_apply();
+      kk_protocol_exempt_remove(base_type::view_device().label());
+      if (poison_active()) poison_apply();
     }
   }
 
@@ -1123,6 +1124,11 @@ class DualView : public Kokkos::DualView<DataType, Properties...> {
       if (!f) return;
       if (!lmp_flags.data() || !h_split.data()) return;
       if (h_split.data() == base_type::view_host().data()) return;    // alias mode
+      // An array that is outside the protocol for the moment has no coherence
+      // state to be stale against, see kk_protocol_exempt().
+      if (!kk_protocol_exempt().empty() &&
+          kk_protocol_exempted(base_type::view_device().label()))
+        return;
       // A sync is owed in the direction of this read and has not run: the plain
       // missing copy.
       bool behind = want_device ? need_sync_device() : need_sync_host();

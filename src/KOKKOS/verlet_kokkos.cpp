@@ -326,11 +326,11 @@ void VerletKokkos::run(int n)
   DatamaskAudit::enable(1);
 
   // while the overlap path is active the host side of the force array is a
-  // second accumulator that this class fills and merges itself, so poison mode
-  // has to leave it alone or it traps on every host style that adds a force
+  // second accumulator that this class fills and merges itself, so both detectors
+  // have to leave it alone or it traps on every host style that adds a force
 
   const bool exempt_force = overlap_possible();
-  if (exempt_force) atomKK->k_f.poison_exempt_begin();
+  if (exempt_force) atomKK->k_f.protocol_exempt_begin();
 
   for (int i = 0; i < n; i++) {
     if (timer->check_timeout(i)) {
@@ -563,7 +563,7 @@ void VerletKokkos::run(int n)
     }
   }
 
-  if (exempt_force) atomKK->k_f.poison_exempt_end();
+  if (exempt_force) atomKK->k_f.protocol_exempt_end();
 
   DatamaskAudit::enable(0);
   DatamaskAudit::report(lmp);
