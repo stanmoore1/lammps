@@ -1,0 +1,17 @@
+---
+lammps_version: 
+tags:
+date_generated: 
+epsilon: 1e-08
+timestep: 5e-03
+skip_tests:
+prerequisites: |
+  atom edpd
+  compute edpd/temp/atom
+pre_commands: ""
+post_commands: |
+  pair_coeff * *
+  compute test all edpd/temp/atom
+input_file: in.edpd
+natoms: 64
+...

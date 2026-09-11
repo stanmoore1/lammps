@@ -1,0 +1,21 @@
+---
+lammps_version: 
+date_generated: 
+epsilon: 5e-13
+tags:
+skip_tests:
+prerequisites: |
+  atom dpd
+  pair dpd/fdt
+  fix shardlow
+pre_commands: ""
+post_commands: |
+  fix ssafix all shardlow
+  fix 1 all nve
+input_file: in.dpd-fdt
+pair_style: dpd/fdt 300.0 7.0 234324
+pair_coeff: |
+  * * 0.075 0.022 7.0
+extract: ""
+natoms: 32
+...

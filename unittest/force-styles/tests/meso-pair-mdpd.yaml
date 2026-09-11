@@ -1,0 +1,24 @@
+---
+lammps_version: 
+date_generated: 
+epsilon: 5e-13
+tags:
+skip_tests:
+prerequisites: |
+  atom mdpd
+  pair mdpd
+  pair mdpd/rhosum
+pre_commands: ""
+post_commands: ""
+input_file: in.mdpd
+pair_style: hybrid/overlay mdpd/rhosum mdpd 1.0 1.0 65689
+pair_coeff: |
+  1 1 mdpd/rhosum 0.75
+  1 2 mdpd/rhosum 0.75
+  2 2 mdpd/rhosum 0.75
+  1 1 mdpd -40.0 25.0 18.0 1.0 0.75
+  1 2 mdpd -35.0 22.0 15.0 1.0 0.75
+  2 2 mdpd -30.0 20.0 12.0 1.0 0.75
+extract: ""
+natoms: 64
+...

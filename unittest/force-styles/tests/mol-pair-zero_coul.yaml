@@ -1,0 +1,22 @@
+---
+lammps_version: 
+date_generated: 
+epsilon: 7.5e-14
+tags:
+skip_tests:
+prerequisites: ! |
+  atom full
+  pair zero/coul
+  kspace ewald
+pre_commands: ! ""
+post_commands: ! |
+  kspace_style ewald 1.0e-6
+  kspace_modify gewald 0.3
+input_file: in.fourmol
+pair_style: zero/coul 8.0
+pair_coeff: ! |
+  * *
+extract: ! |
+  cut_coul 0
+natoms: 29
+...

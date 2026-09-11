@@ -1,0 +1,44 @@
+---
+lammps_version: 
+tags: single_thread
+date_generated: 
+epsilon: 5e-13
+skip_tests: extract extract_omp single
+prerequisites: |
+  atom dpd
+  pair hybrid/overlay
+  pair dpd/fdt/energy
+  pair multi/lucy
+  fix rx
+  fix eos/table/rx
+pre_commands: ""
+post_commands: |
+  if "$(is_defined(fix,rxfix))==0" then "fix rxfix all rx ${input_dir}/dpd_rx_kinetics.txt none dense lammps_rk4 1"
+  pair_coeff * * multi/lucy ${input_dir}/dpd_rx_multibody_table.txt KEYWORD 4.4
+  set type 1 d_rdx 0.30
+  set type 1 d_hcn 0.20
+  set type 1 d_no2 0.10
+  set type 1 d_no 0.15
+  set type 1 d_h2o 0.15
+  set type 1 d_n2 0.05
+  set type 1 d_h2 0.03
+  set type 1 d_co 0.01
+  set type 1 d_co2 0.01
+  set type 2 d_rdx 0.10
+  set type 2 d_hcn 0.30
+  set type 2 d_no2 0.20
+  set type 2 d_no 0.05
+  set type 2 d_h2o 0.10
+  set type 2 d_n2 0.10
+  set type 2 d_h2 0.05
+  set type 2 d_co 0.05
+  set type 2 d_co2 0.05
+  fix eosfix all eos/table/rx linear ${input_dir}/dpd_rx_eos_table.txt 21 KEYWORD ${input_dir}/dpd_rx_thermo.txt
+  fix_modify rxfix rx_chemistry off
+input_file: in.dpd-rx-dense
+pair_style: hybrid/overlay dpd/fdt/energy 4.4 234324 multi/lucy linear 1000
+pair_coeff: |
+  * * dpd/fdt/energy 0.0 0.0 10.0 4.4
+extract: ""
+natoms: 32
+...

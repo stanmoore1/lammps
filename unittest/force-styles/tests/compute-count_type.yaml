@@ -1,0 +1,17 @@
+---
+lammps_version: 
+tags:
+date_generated: 
+epsilon: 1e-08
+timestep: 0.25
+skip_tests:
+prerequisites: |
+  atom full
+  compute count/type
+pre_commands: ""
+post_commands: |
+  compute test all count/type bond
+input_file: in.fourmol
+input_coeffs: coeffs.fourmol
+natoms: 29
+...

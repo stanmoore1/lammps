@@ -1,0 +1,17 @@
+---
+lammps_version: 
+tags:
+date_generated: 
+epsilon: 1e-08
+timestep: 5e-04
+skip_tests:
+prerequisites: |
+  atom sph
+  compute sph/rho/atom
+pre_commands: ""
+post_commands: |
+  pair_coeff * *
+  compute test all sph/rho/atom
+input_file: in.sph
+natoms: 64
+...
