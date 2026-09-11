@@ -81,11 +81,14 @@ case "${1:-all}" in
     cmake --build build-regression -j "${NPROCS}"
     ;;&
   build-kokkos|all)
-    # the same package set plus KOKKOS on the Serial backend.  C++20 is forced
-    # for both builds (KOKKOS requires it) so that the two share ccache entries
-    # instead of missing on every translation unit over a different -std flag.
-    # RelWithDebInfo rather than Release: the crashes this run is looking for
-    # are triaged from backtraces.
+    # The same package set plus KOKKOS on the Serial backend.  The compiler flags
+    # of the two builds must match exactly, for two reasons: a difference in -std
+    # or -O misses on every ccache entry and doubles the build, and comparing a
+    # binary built at -O3 against one built at -O2 puts a second variable into a
+    # comparison whose whole purpose is to isolate one.  So C++20 (which KOKKOS
+    # requires) and Release are used for both.  Debug information is deliberately
+    # not added here for the same reason; rebuild an individual case with -g when
+    # a crash actually needs a backtrace.
     cmake -S cmake -B build-kokkos -G Ninja \
         -C cmake/presets/gcc.cmake -C cmake/presets/all_on.cmake \
         -C cmake/presets/download.cmake -C cmake/presets/kokkos-serial.cmake \
@@ -95,7 +98,7 @@ case "${1:-all}" in
         -D FFT=FFTW3 -D WITH_JPEG=on -D WITH_PNG=on -D DOWNLOAD_POTENTIALS=on \
         -D MLIAP_ENABLE_ACE=on -D MLIAP_ENABLE_PYTHON=on \
         -D CMAKE_CXX_COMPILER_LAUNCHER=ccache -D CMAKE_C_COMPILER_LAUNCHER=ccache \
-        -D CMAKE_CXX_STANDARD=20 -D CMAKE_BUILD_TYPE=RelWithDebInfo \
+        -D CMAKE_CXX_STANDARD=20 -D CMAKE_BUILD_TYPE=Release \
         -D CMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold \
         -D CMAKE_SHARED_LINKER_FLAGS=-fuse-ld=mold \
         ${CMAKE_EXTRA_ARGS:-}
