@@ -1,7 +1,7 @@
 ---
-lammps_version: 
+lammps_version: 2 Sep 2026
 tags:
-date_generated: 
+date_generated: Fri Sep 11 23:27:38 2026
 epsilon: 1e-08
 timestep: 0.25
 skip_tests:
@@ -23,4 +23,6 @@ post_commands: |
 input_file: in.fourmol
 input_coeffs: coeffs.fourmol
 natoms: 29
+global_vector: |-
+  2  3.0666837779824907e+00  2.5240818356915508e+01
 ...

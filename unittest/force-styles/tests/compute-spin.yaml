@@ -1,7 +1,7 @@
 ---
-lammps_version: 
+lammps_version: 2 Sep 2026
 tags:
-date_generated: 
+date_generated: Fri Sep 11 23:28:24 2026
 epsilon: 1e-08
 timestep: 1e-04
 skip_tests:
@@ -20,4 +20,6 @@ post_commands: |
   compute test all spin
 input_file: in.spin
 natoms: 54
+global_vector: |-
+  6  3.7496564871433345e-02  1.9820296777634382e-04 -1.5020073176336843e-01  1.5481050185250805e-01  6.1214523096087534e+00 -2.7943915053503088e+03
 ...
