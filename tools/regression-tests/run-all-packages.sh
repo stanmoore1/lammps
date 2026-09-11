@@ -49,6 +49,14 @@ export LAMMPS_POTENTIALS=${LAMMPS_DIR}/potentials
 #   $5 extra run_tests.py arguments
 run_regression_tests() {
     local lmpbin=$1 prefix=$2 config=$3 tree=$4 extra=${5:-}
+    # Resume where a previous attempt stopped.  A full sweep takes hours, and in
+    # a container that can be reclaimed mid-run the progress file is the only
+    # thing that makes a restart cheap: run_tests.py skips every input already
+    # recorded in it.  Set RESUME=0 to start over.
+    if [ "${RESUME:-1}" = "1" ] && [ -s "${WORK}/${prefix}-progress.yaml" ]; then
+        extra="${extra} --resume"
+        echo "resuming ${prefix}: $(grep -c ': {' "${WORK}/${prefix}-progress.yaml") inputs already recorded"
+    fi
     ${PYTHON} "${RUNNER}" \
         --lmp-bin="${lmpbin}" \
         --config-file="${LAMMPS_DIR}/tools/regression-tests/${config}" \
@@ -114,9 +122,13 @@ case "${1:-all}" in
     # examples/eim/ffield.eim -> ../../potentials/ffield.eim.  Those only resolve
     # when the copy is at the same depth, and a dangling potential file turns into
     # a test failure that has nothing to do with the code under test.
-    rm -rf "${EXAMPLES_REF}"
-    cp -a examples "${EXAMPLES_REF}"
-    find "${EXAMPLES_REF}" -name 'log.*' -delete
+    if [ "${RESUME:-1}" = "1" ] && [ -d "${EXAMPLES_REF}" ]; then
+        echo "keeping the existing ${EXAMPLES_REF} for a resumed run"
+    else
+        rm -rf "${EXAMPLES_REF}"
+        cp -a examples "${EXAMPLES_REF}"
+        find "${EXAMPLES_REF}" -name 'log.*' -delete
+    fi
     dangling=$(find "${EXAMPLES_REF}" -type l ! -exec test -e {} \; -print | wc -l)
     [ "${dangling}" -eq 0 ] || { echo "${dangling} dangling symlinks in ${EXAMPLES_REF}"; exit 1; }
     run_regression_tests build-regression/lmp cpu config_mpi4_t120.yaml \
