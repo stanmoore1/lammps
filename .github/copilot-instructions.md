@@ -85,8 +85,11 @@ python3 tools/regression-tests/run_tests.py --lmp-bin=build/lmp \
 
 GitHub Actions workflows in `.github/workflows/`.  On every PR to `develop`:
 `style-check.yml` (coding standards), `unittest-linux.yml` (CTest), and
-`quick-regression.yml` (regression subset); see that directory for the further
-platform, style, and regression workflows.
+`check-examples.yml` (parses and sets up every example input with `-skiprun`);
+see that directory for the further platform, style, and regression workflows.
+The full example regression runs are `kokkos-regression.yaml` and
+`all-packages-regression.yaml`, which are scheduled rather than attached to
+pull requests.
 
 **Debugging CI failures:** style-check -> run the matching `make check-*` target in
 `src/` and the corresponding `make fix-*`; build failures -> check for `-S cmake`,

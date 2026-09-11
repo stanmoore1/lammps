@@ -84,7 +84,12 @@ if(DOWNLOAD_N2P2)
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ""
     PATCH_COMMAND sed -i -e "s/\\(MPI_\\(P\\|Unp\\)ack(\\)/\\1(void *) /" src/libnnpif/LAMMPS/InterfaceLammps.cpp
-    BUILD_COMMAND ${N2P2_MAKE} -C <SOURCE_DIR>/src -f makefile libnnpif ${N2P2_BUILD_OPTIONS}
+    # --no-print-directory is required: "make -C" implies --print-directory, which
+    # propagates through MAKEFLAGS into the n2p2 makefile, where the application list
+    # is collected with $(shell ... $(MAKE) $(MFLAGS) list-libnnp).  The captured value
+    # then starts with "make: Entering directory '...'" and the colons in it make the
+    # rule using it fail with "multiple target patterns".
+    BUILD_COMMAND ${N2P2_MAKE} --no-print-directory -C <SOURCE_DIR>/src -f makefile libnnpif ${N2P2_BUILD_OPTIONS}
     INSTALL_COMMAND ""
     BUILD_IN_SOURCE 1
     LOG_BUILD ON

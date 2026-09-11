@@ -1,0 +1,108 @@
+# GitHub action to build LAMMPS with every package that can be built on a
+# GitHub runner and then compare the KOKKOS Serial backend against the plain
+# CPU styles over the whole examples tree.
+#
+# This differs from kokkos-regression.yaml in two ways, and both are the point:
+#
+#   1. It builds all_on.cmake rather than most.cmake, so that the examples of
+#      the packages the other regression runs leave out are exercised at all.
+#   2. The CPU pass runs with --gen-ref in a copy of the examples tree that has
+#      had the bundled reference logs removed, and the KOKKOS pass then compares
+#      against those.  The bundled logs come from other machines and compilers,
+#      so comparing against them mixes floating point differences into every
+#      verdict; with a reference produced by the same build on the same runner
+#      the Serial backend does the same arithmetic in the same order as the
+#      plain CPU code, and a deviation beyond roundoff is a real difference
+#      between a style and its KOKKOS variant.
+#
+# This is a long run, so it is not attached to pull requests.
+name: "All-packages KOKKOS Serial vs CPU Regression"
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.event_name }}-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    name: Build all packages and compare KOKKOS Serial with the CPU styles
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      # the step counts the parameterized example inputs fall back to
+      NSTEPS: 100
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+      with:
+        show-progress: false
+
+    - name: Install extra packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ccache mold ninja-build gfortran \
+                     libeigen3-dev libcurl4-openssl-dev libfftw3-dev \
+                     libjpeg-dev libpng-dev libzstd-dev libyaml-dev \
+                     libblas-dev liblapack-dev libnetcdf-dev libpnetcdf-dev \
+                     libhdf5-dev libgsl-dev python3-dev \
+                     ocl-icd-opencl-dev opencl-headers pocl-opencl-icd \
+                     mpi-default-bin mpi-default-dev
+        python3 -m pip install --upgrade numpy pyyaml junit_xml cython
+
+    - name: Set up ccache
+      uses: actions/cache@v6
+      with:
+        path: ${{ env.CCACHE_DIR }}
+        key: linux-allpackages-ccache-${{ github.sha }}
+        restore-keys: linux-allpackages-ccache-
+
+    - name: Build LAMMPS with all packages
+      shell: bash
+      run: |
+        ccache -z -M 10
+        ./tools/regression-tests/run-all-packages.sh build-cpu
+
+    - name: Build LAMMPS with all packages and KOKKOS Serial
+      shell: bash
+      run: ./tools/regression-tests/run-all-packages.sh build-kokkos
+
+    - name: Report build settings and cache use
+      shell: bash
+      run: |
+        ./build-regression/lmp -h | sed -n '/Installed packages/,/^$/p'
+        ccache -s
+
+    # generates the reference logs the KOKKOS pass below is compared against
+    - name: Run the examples with the plain CPU styles
+      shell: bash
+      run: ./tools/regression-tests/run-all-packages.sh cpu
+
+    - name: Run the examples with KOKKOS on the Serial backend
+      shell: bash
+      run: ./tools/regression-tests/run-all-packages.sh kokkos
+
+    - name: Sort the KOKKOS results into crashes, rejections and disagreements
+      if: ${{ !cancelled() }}
+      shell: bash
+      run: |
+        ./tools/regression-tests/run-all-packages.sh classify
+        cat regression-work/kokkos-classification.md >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload results
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: all-packages-regression-results
+        retention-days: 14
+        path: |
+          regression-work/*.yaml
+          regression-work/*.xml
+          regression-work/*.out
+          regression-work/*.md
