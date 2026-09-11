@@ -38,12 +38,28 @@ LOST_ATOMS_RE = re.compile(r'Lost atoms', re.IGNORECASE)
 
 
 def load_progress(path):
+    """Read a progress file into {(folder, input): entry}.
+
+    Each line is "<input>: {flow style mapping}", but the input name alone is
+    not unique: PACKAGES/fep has in.fep01.lmp in several subdirectories, and
+    loading the file as one YAML mapping silently keeps only the last of them.
+    Parsing line by line and keying on the folder as well as the name keeps all
+    of them, which matters because those duplicates are exactly the long running
+    inputs this is meant to report on.
+    """
+    entries = {}
     with open(path) as f:
-        # every line is "<input>: {flow style mapping}", and the header lines
-        # written at the start of a run are not part of the mapping
-        text = '\n'.join(l for l in f.read().split('\n') if not l.startswith('~'))
-    data = yaml.safe_load(text)
-    return data if isinstance(data, dict) else {}
+        for line in f:
+            if line.startswith('~') or ': ' not in line:
+                continue
+            name, _, value = line.partition(': ')
+            try:
+                entry = yaml.safe_load(value)
+            except yaml.YAMLError:
+                continue
+            if isinstance(entry, dict):
+                entries[(str(entry.get('folder', '')), name)] = entry
+    return entries
 
 
 def passed(entry):
@@ -119,16 +135,17 @@ def main():
 
     buckets = {'crashed': [], 'unsupported': [], 'differs': [], 'agrees': [], 'other': []}
     cpu_broken = []
-    for name, entry in sorted(kokkos.items()):
-        cpu_entry = cpu.get(name)
+    for key, entry in sorted(kokkos.items()):
+        folder, name = key
+        cpu_entry = cpu.get(key)
         if cpu_entry is None:
             continue
         if not passed(cpu_entry):
             # not a KOKKOS problem: it does not work with the plain styles either
-            cpu_broken.append((name, str(cpu_entry.get('status', ''))))
+            cpu_broken.append((os.path.join(folder, name), str(cpu_entry.get('status', ''))))
             continue
         bucket, detail = classify(name, entry, args.examples)
-        buckets[bucket].append((os.path.join(str(entry.get('folder', '')), name), detail))
+        buckets[bucket].append((os.path.join(folder, name), detail))
 
     titles = {
         'crashed': '1. Crashed (segfault, lost atoms, NaN, timeout)',
