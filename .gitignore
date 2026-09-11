@@ -71,3 +71,7 @@ src/Makefile.package.settings-e
 /CLAUDE.local.md
 /.claude/settings.local.json
 /.claude/scheduled_tasks.lock
+
+# scratch tree and results of tools/regression-tests/run-all-packages.sh
+# (the build directories it creates are already covered by /build* above)
+/regression-work/
