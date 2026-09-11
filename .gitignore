@@ -75,3 +75,8 @@ src/Makefile.package.settings-e
 # scratch tree and results of tools/regression-tests/run-all-packages.sh
 # (the build directories it creates are already covered by /build* above)
 /regression-work/
+
+/examples-ref/
+input-list-*.txt
+folder-list-*.txt
+walltime-ref.txt

@@ -25,6 +25,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 LAMMPS_DIR=$PWD
 WORK=${WORK:-${LAMMPS_DIR}/regression-work}
+WORKREL=$(basename "${WORK}")     # run_tests.py resolves its output paths against $PWD
+EXAMPLES_REF=${LAMMPS_DIR}/examples-ref
 PYTHON=${PYTHON:-python3}
 NPROCS=${NPROCS:-4}          # MPI ranks per test
 NWORKERS=${NWORKERS:-1}      # tests running at the same time
@@ -52,10 +54,10 @@ run_regression_tests() {
         --config-file="${LAMMPS_DIR}/tools/regression-tests/${config}" \
         --examples-top-level="${tree}" \
         --num-workers="${NWORKERS}" \
-        --output-file="${WORK}/${prefix}.xml" \
-        --progress-file="${WORK}/${prefix}-progress.yaml" \
-        --failure-file="${WORK}/${prefix}-failure.yaml" \
-        --log-file="${WORK}/${prefix}-run.log" \
+        --output-file="${WORKREL}/${prefix}.xml" \
+        --progress-file="${WORKREL}/${prefix}-progress.yaml" \
+        --failure-file="${WORKREL}/${prefix}-failure.yaml" \
+        --log-file="${WORKREL}/${prefix}-run.log" \
         ${extra} 2>&1 | tee "${WORK}/${prefix}.out"
     # a timed out test can leave its MPI ranks behind, and they would compete
     # with every test that follows
@@ -100,24 +102,32 @@ case "${1:-all}" in
     cmake --build build-kokkos -j "${NPROCS}"
     ;;&
   cpu|all)
-    # a copy of the examples tree without the bundled reference logs, so that
+    # A copy of the examples tree without the bundled reference logs, so that
     # --gen-ref leaves exactly one reference log per input and find_reference_logs()
-    # in run_tests.py cannot pick up a log from another machine by mistake
-    rm -rf "${WORK}/examples-ref"
-    cp -a examples "${WORK}/examples-ref"
-    find "${WORK}/examples-ref" -name 'log.*' -delete
+    # in run_tests.py cannot pick up a log from another machine by mistake.
+    #
+    # The copy has to sit next to examples/ rather than inside a subdirectory:
+    # 154 files in the tree are relative symlinks that reach outside it, such as
+    # examples/eim/ffield.eim -> ../../potentials/ffield.eim.  Those only resolve
+    # when the copy is at the same depth, and a dangling potential file turns into
+    # a test failure that has nothing to do with the code under test.
+    rm -rf "${EXAMPLES_REF}"
+    cp -a examples "${EXAMPLES_REF}"
+    find "${EXAMPLES_REF}" -name 'log.*' -delete
+    dangling=$(find "${EXAMPLES_REF}" -type l ! -exec test -e {} \; -print | wc -l)
+    [ "${dangling}" -eq 0 ] || { echo "${dangling} dangling symlinks in ${EXAMPLES_REF}"; exit 1; }
     run_regression_tests build-regression/lmp cpu config_mpi4_t120.yaml \
-        "${WORK}/examples-ref" "--gen-ref"
+        examples-ref "--gen-ref"
     ;;&
   kokkos|all)
     run_regression_tests build-kokkos/lmp kokkos config_kokkos_serial_mpi4.yaml \
-        "${WORK}/examples-ref"
+        examples-ref
     ;;&
   classify|all)
     ${PYTHON} "${LAMMPS_DIR}/tools/regression-tests/classify_kokkos.py" \
         --cpu "${WORK}/cpu-progress.yaml" \
         --kokkos "${WORK}/kokkos-progress.yaml" \
-        --examples "${WORK}/examples-ref" \
+        --examples "${EXAMPLES_REF}" \
         --output "${WORK}/kokkos-classification.md"
     ;;
 esac

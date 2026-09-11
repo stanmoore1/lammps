@@ -2956,7 +2956,10 @@ if __name__ == "__main__":
     pwd = os.getcwd()
     print("\nWorking directory: " + pwd)
 
-    progress_file_abs = pwd + "/" + progress_file
+    # os.path.join rather than string concatenation, so that an absolute path
+    # given on the command line is used as it is instead of being appended to the
+    # working directory, which produces a path that does not exist
+    progress_file_abs = os.path.join(pwd, progress_file)
     last_progress = {}
     if resume == False:
         progress = open(progress_file_abs, "w")
@@ -2981,7 +2984,7 @@ if __name__ == "__main__":
         walltime_ref = get_reference_walltime(lmp_binary, config, example_toplevel)
 
     # record all the failure cases (overwrite if the file exists)
-    failure_file_abs = pwd + "/" + failure_file
+    failure_file_abs = os.path.join(pwd, failure_file)
     failure = open(failure_file_abs, "w")
     failure.close()
 
