@@ -103,9 +103,10 @@ fix 3 all rigid/small molecule
 #   total (particle plus fluid) momentum in the system.
 #----------------------------------------------------------------------------
 fix   4 all lb/momentum 100000 linear 1 1 1
+variable        nsteps index 10000
 
 
 #dump  1 ForceAtoms custom 10 trapped_polymer.lammpstrj id x y z vx vy vz
 
 #run		2000001
-run 10000  
+run ${nsteps}  

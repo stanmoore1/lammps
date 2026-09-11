@@ -99,5 +99,6 @@ variable tz equal torque(all,z)
 
 thermo_style   custom v_vx v_vy v_vz v_omegax v_omegay v_omegaz v_fx v_fy v_fz v_tx v_ty v_tz
 thermo         100
+variable        nsteps index 7500
 
-run   7500
+run   ${nsteps}

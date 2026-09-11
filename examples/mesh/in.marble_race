@@ -27,8 +27,10 @@ fix pull mobile addforce 0.0 -0.05 0.0 region particles
 fix dir  mobile oneway 10 lid -y
 fix move mobile nve
 fix load all balance 1000 1.1 shift xyz 10 1.01 weight neigh 0.5 weight group 2 mesh 0.1 mobile 1.0
+variable        maxiter index 1000
+variable        maxeval index 1000
 
-minimize 0.0 0.0 1000 1000
+minimize 0.0 0.0 ${maxiter} ${maxeval}
 
 reset_timestep 0 time 0.0
 
@@ -37,7 +39,8 @@ compute ptemp mobile temp
 thermo_modify temp ptemp
 
 thermo 1000
+variable        nsteps index 10000
 
 # dump 1 all atom 1000 race.lammpstrj
-run 10000
+run ${nsteps}
 

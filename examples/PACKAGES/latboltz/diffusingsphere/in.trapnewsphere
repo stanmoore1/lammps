@@ -61,10 +61,11 @@ region mysphere sphere 0 0 0 5.28756
 fix wall all wall/region mysphere lj93 15.0 1.5 5.28
 
 fix 2 all nve
+variable        nsteps1 index 20000
 
 #dump mydump all atom 10000 dump.trapnewsphere.lammpstrj
 
-run 20000
+run ${nsteps1}
 
 unfix wall
 fix wall all wall/region mysphere lj93 50.0 1.5 5.68
@@ -84,10 +85,13 @@ fix 3 all langevin 1.5 0.01 100.0 5678
 neighbor 0.3 bin
 neigh_modify delay 0 every 1 check yes
 comm_modify cutoff 2.5
+variable        nsteps2 index 500000
 
-run 500000
+run ${nsteps2}
+variable        maxiter index 1000
+variable        maxeval index 100000
 
-minimize 0.0 1.0e-8 1000 100000
+minimize 0.0 1.0e-8 ${maxiter} ${maxeval}
 
 unfix wall
 unfix 2
@@ -169,9 +173,10 @@ if "${is_bonded} == 1" then &
    "fix   3 all nve" &
 else & 
    "fix   3 all rigid group 1 all" 
+variable        nsteps3 index 10000
 
 #equilibration run
-run 10000
+run ${nsteps3}
 
 unfix 2
 unfix FL
@@ -200,8 +205,9 @@ if "${is_bonded} == 1" then &
    "variable comdatafile string trap_nb${n_nodes}_st${stpts}_dt${tstep}.out" &
 else &
    "variable comdatafile string trap_n${n_nodes}_st${stpts}_dt${tstep}.out" 
+variable        nsteps4 index 10000
 
 #fix printCM all print 10 "$(step) $(f_FL) ${cmx} ${cmy} ${cmz} ${vcmx} ${vcmy} ${vcmz}" file ${comdatafile} screen no
 
-run 10000
+run ${nsteps4}
 #run 25000000

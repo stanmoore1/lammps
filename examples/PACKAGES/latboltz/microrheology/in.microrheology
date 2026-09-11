@@ -108,6 +108,7 @@ variable z2 equal z[242]
 #fix printCM all print 100 "$(step) ${x1} ${y1} ${z1} ${x2} ${y2} ${z2}" file twocolloid.out screen no
 thermo_style custom step v_x1 v_y1 v_z1 v_x2 v_y2 v_z2
 thermo       100
+variable        nsteps index 2000
 
-run 2000
+run ${nsteps}
 #run	       2000000000

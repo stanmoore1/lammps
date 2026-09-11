@@ -31,13 +31,15 @@ fix             1 all nve/bpm/sphere update dipole
 
 variable        bz equal 0.25*ramp(0,1)
 fix             2 magnets efield 0.0 0.0 v_bz
+variable        nequil index 100000
 
-run             100000
+run             ${nequil}
 
 variable        bz equal 0.25
 fix             2 magnets efield 0.0 0.0 v_bz
 
 fix             3 all viscous 1e-3
 fix             4 all viscous/sphere 1e-3
+variable        nprod index 50000
 
-run             50000
+run             ${nprod}

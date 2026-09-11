@@ -42,5 +42,6 @@ thermo_modify   lost ignore
 #                 amap 0.5 1.0 cf 0.0 5 min white 0.25 yellow 0.5 orange 0.75 firebrick max purple
 
 fix             5 corkscrew move rotate 0 0 0 0 1 0 1000 units box
+variable        nsteps index 80000
 
-run             80000
+run             ${nsteps}

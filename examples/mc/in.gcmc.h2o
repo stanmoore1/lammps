@@ -63,8 +63,9 @@ fix             wshake h2o shake 0.0001 50 0 b 1 a 1 mol h2omol
 
 compute_modify  thermo_temp dynamic/dof yes
 compute_modify  mynvt_temp dynamic/dof yes
+variable        nequil index 1000
 
-run 1000
+run ${nequil}
 reset_timestep 0
 
 # gcmc
@@ -90,8 +91,9 @@ variable	dacc equal f_mygcmc[6]/(f_mygcmc[5]+0.1)
 variable	racc equal f_mygcmc[8]/(f_mygcmc[7]+0.1)
 thermo_style    custom step temp press pe ke density atoms v_iacc v_dacc v_tacc v_racc v_nO v_nH
 thermo          1000
+variable        nprod index 20000
 
 # run
 
-run             20000
+run             ${nprod}
 
