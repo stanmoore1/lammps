@@ -328,7 +328,9 @@ in this group uses a dpd pair style or a spin thermostat:
 ```
 
 They are now in the `skip` list, next to `in.dpdrx-shardlow`, which was already
-there for the same reason.
+there for the same reason.  The counts in the table above are from the run that
+found them, so they still appear under "disagrees" there; a rerun moves those
+eight into the skipped set and leaves everything else unchanged.
 
 **An under-converged charge-equilibration solve (6).**  The remaining six are all
 ReaxFF, and the difference is not in the forces but in where the iterative QEq or

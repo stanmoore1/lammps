@@ -73,6 +73,10 @@ jobs:
       shell: bash
       run: ./tools/regression-tests/run-all-packages.sh build-kokkos
 
+    - name: Install the OpenKIM models the examples need
+      shell: bash
+      run: ./tools/regression-tests/run-all-packages.sh kim-models
+
     - name: Report build settings and cache use
       shell: bash
       run: |
