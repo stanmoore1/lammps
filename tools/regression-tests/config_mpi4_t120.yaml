@@ -58,6 +58,18 @@
       in.spin.nvt_lattice,
       in.spin.nvt_spin,
       in.widom.spce,
+      # these two ask query.openkim.org for a lattice constant at run time.  The
+      # service answers a documented query with HTTP 200 and
+      # {"error": "string indices must be integers"} after about two minutes, so
+      # they cannot pass anywhere until openkim.org is fixed.  Nothing to do with
+      # the code under test.
+      in.kim-query,
+      in.kim-pm-query.melt,
+      # the only published version of the KIM simulator model this uses,
+      # Sim_LAMMPS_ReaxFF_StrachanVanDuinChakraborty_2003_CHNO__SM_107643900657_000,
+      # issues "pair_style reax/c" and "fix qeq/reax", both renamed in LAMMPS in
+      # 2021 and removed since, so it cannot run on any current version
+      in.kim-sm.melt,
     ]
 
   timeout: 120

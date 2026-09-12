@@ -95,6 +95,23 @@ case "${1:-all}" in
         ${CMAKE_EXTRA_ARGS:-}
     cmake --build build-regression -j "${NPROCS}"
     ;;&
+  kim-models|all)
+    # The KIM package downloads and builds the KIM API, but not the interatomic
+    # models the examples in examples/kim name, so without this step all five of
+    # them stop at "KIM Model name not found".  The two examples that query
+    # openkim.org for a model at run time need no installation and are not
+    # helped by it.
+    if [ -x "${LAMMPS_DIR}/build-regression/kim_build-prefix/bin/kim-api-collections-management" ]; then
+        "${LAMMPS_DIR}/tools/regression-tests/install-kim-models.sh" \
+            "${LAMMPS_DIR}/build-regression/kim_build-prefix" > "${WORK}/kim-models.log" 2>&1 \
+            || echo "installing the KIM models failed, see ${WORK}/kim-models.log"
+    fi
+    # examples/kim/in.kim-pm-property writes a KIM property instance through the
+    # kim-property Python module
+    ${PYTHON} -c 'import kim_property' 2>/dev/null \
+        || ${PYTHON} -m pip install --quiet kim-property \
+        || echo "kim-property is not available, examples/kim/in.kim-pm-property will fail"
+    ;;&
   build-kokkos|all)
     # The same package set plus KOKKOS on the Serial backend.  The compiler flags
     # of the two builds must match exactly, for two reasons: a difference in -std
