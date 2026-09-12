@@ -33,9 +33,11 @@ thermo_style    custom step ke pe pxx pyy pzz
 thermo          100
 
 timestep        0.1
-variable        nequil index 20000
-
-run             ${nequil}
+# NOTE: this equilibration is a precondition for the replicate below, not just a
+# warm-up: with a much shorter run the pillar has not settled inside the box and
+# replicate fails with "did not assign all atoms correctly".  So the count stays
+# literal here, where the production run below can still be shortened.
+run             20000
 unfix           wtemp
 
 # Replicate cylinder and add bonds
