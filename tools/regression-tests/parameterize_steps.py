@@ -37,9 +37,31 @@ VAR_RE = re.compile(r'^\s*variable\s+(\S+)\s+(\S+)', re.IGNORECASE)
 # "run 0" is a single point evaluation that must not be turned into a real run
 MIN_STEPS_TO_PARAMETERIZE = 10
 
+# A comment carrying this phrase directly above a run or minimize command marks
+# that command as one whose length other commands depend on, so it keeps its
+# literal count.  Rerunning this script must not undo such a deliberate
+# exception, which is what the marker is for.
+KEEP_MARKER = 'do not parameterize'
+
 # names follow the convention already used by the example inputs: a single run
 # is "nsteps", an equilibration followed by production is "nequil"/"nprod"
 NAMES_BY_COUNT = {1: ['nsteps'], 2: ['nequil', 'nprod']}
+
+
+def marked_to_keep(lines, index):
+    """True if the comment block directly above lines[index] says to keep it."""
+    i = index - 1
+    while i >= 0:
+        text = lines[i].strip()
+        if not text:
+            i -= 1
+            continue
+        if not text.startswith('#'):
+            return False
+        if KEEP_MARKER in text.lower():
+            return True
+        i -= 1
+    return False
 
 
 def run_targets(lines):
@@ -49,7 +71,7 @@ def run_targets(lines):
         match = RUN_RE.match(line)
         if match and match.group(2).isdigit():
             steps = int(match.group(2))
-            if steps > MIN_STEPS_TO_PARAMETERIZE:
+            if (steps > MIN_STEPS_TO_PARAMETERIZE) and (not marked_to_keep(lines, i)):
                 targets.append((i, steps))
     return targets
 
@@ -59,7 +81,8 @@ def minimize_targets(lines):
     targets = []
     for i, line in enumerate(lines):
         match = MIN_RE.match(line)
-        if match and match.group(6).isdigit() and match.group(8).isdigit():
+        if (match and match.group(6).isdigit() and match.group(8).isdigit()
+                and (not marked_to_keep(lines, i))):
             targets.append((i, int(match.group(6)), int(match.group(8))))
     return targets
 

@@ -10,7 +10,7 @@
 # the very same "-var" settings or the number of steps will not match.
   lmp_binary: ""
   nprocs: "4"
-  args: "-cite none -var nsteps 100 -var nequil 100 -var nprod 100 -var maxiter 100 -var maxeval 1000"
+  args: "-cite none -var nsteps 100 -var nsteps1 100 -var nsteps2 100 -var nsteps3 100 -var nsteps4 100 -var nsteps5 100 -var nsteps6 100 -var nsteps7 100 -var nequil 100 -var nprod 100 -var maxiter 100 -var maxeval 1000"
   kokkos: false
   mpiexec: "mpirun"
   mpiexec_numproc_flag: "--host localhost:4 -np"
