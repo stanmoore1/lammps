@@ -18,7 +18,7 @@ post_commands: |
   comm_style brick
   comm_modify mode single vel yes
 input_file: in.colloid
-pair_style: lubricate 1.5 1 0 0.61 2.5
+pair_style: lubricate 1.5 1 1 0.61 2.5
 pair_coeff: |
   * *
 extract: ""
