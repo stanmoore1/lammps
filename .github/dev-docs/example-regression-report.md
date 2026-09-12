@@ -231,14 +231,39 @@ Kokkos::Impl::host_abort(char const*)
 Signal: Aborted (6)
 ```
 
-`nlocal_body` goes negative inside `FixRigidSmall::copy_arrays()`, reached from
-`FixGCMC::attempt_molecule_deletion_full()`.  It needs multiple MPI ranks *and*
-KOKKOS, which is exactly this configuration.  Instrumenting the failing step ruled
-out the obvious suspect: `pack_exchange_kokkos()` is never called during it, and
-`bodyown[j]` is already set to an out-of-range value before the fatal decrement,
-so the corruption happens in the host `copy_arrays`/`set_molecule` sequence
-FixGCMC drives.  Overriding `copy_arrays`/`set_arrays` with sync-in/modify-out
-does not fix it.  **Still open.**
+It needs multiple MPI ranks *and* KOKKOS, which is exactly this configuration.
+This run took the diagnosis further, by instrumenting `FixRigidSmall` with a
+check of its own invariant - for every body, `bodyown[body[ibody].ilocal]` must
+be `ibody`, and every atom with `bodyown[i] >= 0` must satisfy
+`bodytag[i] == tag[i]` - and calling it at each host/device boundary:
+
+1. **The bookkeeping is sound on the CPU.**  The same base-class code path runs
+   10266 deletions in this input with the plain styles and never once violates
+   the invariant.  Under KOKKOS it is violated 121 times before the abort.
+2. **What breaks is `body[ibody].ilocal`.**  The first violation is
+   `body1.ilocal=6` with `nlocal=6`: a local atom that owned a body disappeared
+   without `FixRigidSmall::copy_arrays()` running for it, and `copy_arrays()` is
+   the only host path that keeps `bodyown`, `body.ilocal` and `nlocal_body` in
+   step when an atom is deleted.
+3. **How that becomes the abort.**  When a body-owning atom is later deleted,
+   `copy_arrays()` re-stamps ownership through
+   `bodyown[body[nlocal_body-1].ilocal] = bodyown[j]`.  With a stale `ilocal`
+   that stamps `bodyown` onto the wrong atom, leaving a second atom claiming the
+   same body.  Deleting that one decrements `nlocal_body` once too often - the
+   trace ends with `delete i=2 j=1 bodyown[j]=0 nlocal_body=0`, taking it to
+   `-1` - and `FixRigidSmallKokkos::pre_neighbor()` then launches
+   `Range1D(0, nlocal_body)`.
+
+Two candidate explanations were tested and ruled out.  The device exchange is not
+involved: `exchange_comm_device=0` and `exchange_comm_legacy=true` on all four
+ranks, so `CommBrick::exchange()` and the host `pack_exchange`/`copy_arrays` are
+what run.  Neither is the atom sort, even though `sort_kokkos()` re-links
+`body.ilocal` only in the device copy and never in the separate host `body[]`
+buffer that `copy_arrays()` reads: adding a `copy_body_host()` after that
+re-link does not fix the crash, and neither does `atom_modify sort 0 0.0`.
+**Still open**, but the invariant check above is the tool to finish it with -
+what is left is to find which path drops a body-owning atom without calling
+`copy_arrays()`.
 
 ### 2. Stopped with a LAMMPS error (78)
 
