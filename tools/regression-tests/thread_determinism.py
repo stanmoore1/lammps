@@ -21,6 +21,19 @@ there is worth a debugger.  Comparing across thread counts instead would confoun
 the question, because changing the thread count changes the reduction order even
 in a program with no races at all.
 
+Why this rather than ThreadSanitizer: TSan models happens-before through atomic
+operations on particular addresses and does not model a standalone
+"atomic_thread_fence", which is how desul -- and therefore the whole Kokkos
+OpenMP backend -- synchronises.  GCC says so at compile time ("atomic_thread_fence
+is not supported with -fsanitize=thread"), and it is not a GCC limitation: a
+race-free program that hands data between two threads with a relaxed flag and a
+pair of fences is reported as a race by clang too.  A Kokkos program consisting
+of nothing but one parallel_for writing a(i)=i, a fence, and a parallel_reduce
+produced 28 "data race" reports under GCC's TSan, including one inside Kokkos
+zeroing a freshly allocated View.  So a TSan report on this code proves nothing
+without proving each report individually, while an unreproducible run is
+evidence on its own terms.
+
 Usage:
   thread_determinism.py --lmp-bin build-kokkos-omp/lmp --examples examples-ref \\
       --nprocs 1 --nthreads 4 --package-args "neigh full" [--repeats 2] \\
@@ -81,13 +94,40 @@ def run_once(lmp, folder, script, nprocs, nthreads, package_args, timeout, extra
     return thermo_lines(text), None
 
 
-def first_difference(a, b):
+def worst_relative_difference(a, b):
+    """Largest relative difference between two thermo tables, and where.
+
+    The magnitude is what separates the two explanations.  A sum whose order
+    changed between runs moves the last bits of a column, so the difference is
+    around 1e-16 relative and grows only as the trajectory amplifies it.  A read
+    of memory another thread was writing moves whatever it moved, and lands
+    orders of magnitude above that.
+    """
+    worst, where = 0.0, None
     for n, (x, y) in enumerate(zip(a, b)):
-        if x != y:
-            return n, x.strip()[:90], y.strip()[:90]
+        if x == y:
+            continue
+        for u, v in zip(x.split(), y.split()):
+            if u == v:
+                continue
+            try:
+                fu, fv = float(u), float(v)
+            except ValueError:
+                return float('inf'), (n, x.strip()[:80], y.strip()[:80])
+            scale = max(abs(fu), abs(fv))
+            rel = abs(fu - fv) / scale if scale else 0.0
+            if rel > worst:
+                worst, where = rel, (n, x.strip()[:80], y.strip()[:80])
     if len(a) != len(b):
-        return min(len(a), len(b)), f'{len(a)} rows', f'{len(b)} rows'
-    return None
+        return float('inf'), (min(len(a), len(b)), f'{len(a)} rows', f'{len(b)} rows')
+    return worst, where
+
+
+def first_difference(a, b):
+    worst, where = worst_relative_difference(a, b)
+    if where is None:
+        return None
+    return where[0], where[1], where[2], worst
 
 
 def main():
@@ -141,15 +181,19 @@ def main():
                 break
         if diff:
             nondeterministic.append((script, diff))
-            print(f'  DIFFERS {script}: row {diff[0]}\n'
+            print(f'  DIFFERS {script}: row {diff[0]}, worst relative {diff[3]:.2e}\n'
                   f'      run 1: {diff[1]}\n      run 2: {diff[2]}', flush=True)
         else:
             ok += 1
 
     print(f'\n{len(scripts)} inputs: {ok} reproducible, '
           f'{len(nondeterministic)} nondeterministic, {len(failed)} not run')
-    for script, _ in nondeterministic:
-        print(f'  nondeterministic: {script}')
+    nondeterministic.sort(key=lambda e: -e[1][3])
+    print('\nnondeterministic, worst relative difference between two identical runs:')
+    for script, diff in nondeterministic:
+        print(f'  {diff[3]:9.2e}  {script}')
+    big = [e for e in nondeterministic if e[1][3] > 1e-8]
+    print(f'\n{len(big)} above 1e-8, which is too large to be a reordered sum')
     return 1 if nondeterministic else 0
 
 
