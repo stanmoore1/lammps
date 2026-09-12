@@ -66,6 +66,11 @@ def passed(entry):
     return str(entry.get('status', '')).startswith('completed')
 
 
+def skipped(entry):
+    """A test that never ran, as opposed to one that ran and failed."""
+    return str(entry.get('status', '')).startswith('skipped')
+
+
 def read_log(tree, entry, name):
     """Return the text of the log the run just wrote, if it is still there."""
     folder = entry.get('folder')
@@ -135,10 +140,15 @@ def main():
 
     buckets = {'crashed': [], 'unsupported': [], 'differs': [], 'agrees': [], 'other': []}
     cpu_broken = []
+    cpu_skipped = []
     for key, entry in sorted(kokkos.items()):
         folder, name = key
         cpu_entry = cpu.get(key)
         if cpu_entry is None:
+            continue
+        if skipped(cpu_entry):
+            # never ran with the plain styles, so there is nothing to compare against
+            cpu_skipped.append((os.path.join(folder, name), str(cpu_entry.get('status', ''))))
             continue
         if not passed(cpu_entry):
             # not a KOKKOS problem: it does not work with the plain styles either
@@ -156,7 +166,8 @@ def main():
     }
     out = ['# KOKKOS Serial vs plain CPU, whole examples tree', '',
            f'Tests run under KOKKOS: {len(kokkos)}',
-           f'Of those, already failing with the plain CPU styles (not counted below): {len(cpu_broken)}',
+           f'Of those, failing with the plain CPU styles too (not a KOKKOS problem): {len(cpu_broken)}',
+           f'Of those, never run with the plain CPU styles, so nothing to compare against: {len(cpu_skipped)}',
            '']
     out.append('| bucket | tests |')
     out.append('|---|---|')

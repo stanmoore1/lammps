@@ -196,8 +196,9 @@ are genuine input problems worth a closer look.
 
 ## KOKKOS Serial against those logs
 
-606 inputs ran under KOKKOS.  82 of them already fail with the plain CPU
-styles and are excluded below, since those are not KOKKOS problems.
+606 inputs ran under KOKKOS.  82 are excluded below: 29 fail with the plain CPU
+styles too, so they are not KOKKOS problems, and 53 never ran with the plain
+styles at all, so there is nothing to compare them against.
 
 | | count |
 |---|---|
