@@ -1,0 +1,546 @@
+# KOKKOS Serial vs plain CPU, whole examples tree
+
+Tests run under KOKKOS: 606
+Of those, already failing with the plain CPU styles (not counted below): 82
+
+| bucket | tests |
+|---|---|
+| 1. Crashed (segfault, lost atoms, NaN, timeout) | 3 |
+| 2. Stopped with a LAMMPS error: exclude from KOKKOS testing | 73 |
+| 3. Ran but disagrees with the CPU reference: candidate bugs | 4 |
+| 4. Agrees with the CPU reference | 443 |
+
+## 1. Crashed (segfault, lost atoms, NaN, timeout) (3)
+
+- `examples-ref/PACKAGES/fep/C7inEthanol/fep01/in.insertion` - timed out
+- `examples-ref/PACKAGES/fep/C7inEthanol/fep10/in.deletion` - timed out
+- `examples-ref/mc/in.gcmc.co2` - died with a signal or abort
+
+## 2. Stopped with a LAMMPS error: exclude from KOKKOS testing (73)
+
+- `examples-ref/ASPHERE/superellipsoid_gran/in.bowling` - Atom style ellipsoid/kk does not support the superellipsoid option (src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:70)
+- `examples-ref/ASPHERE/superellipsoid_gran/in.drop_test` - Atom style ellipsoid/kk does not support the superellipsoid option (src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:70)
+- `examples-ref/ASPHERE/superellipsoid_gran/in.ellipsoid_gran` - Atom style ellipsoid/kk does not support the superellipsoid option (src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:70)
+- `examples-ref/ASPHERE/superellipsoid_gran/in.super_table` - Atom style ellipsoid/kk does not support the superellipsoid option (src/KOKKOS/atom_vec_ellipsoid_kokkos.cpp:70)
+- `examples-ref/PACKAGES/brownian/align_self/in.alignself_quat` - Cannot (yet) use fix propel/self/kk with option quat (src/KOKKOS/fix_propel_self_kokkos.cpp:63)
+- `examples-ref/PACKAGES/cgspica/sds-monolayer/in.sds-hybrid` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/PACKAGES/class2xe/in.NVT_class2xe.script` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/dielectric/in.confined.dof` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/PACKAGES/dielectric/in.confined.gmres` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/PACKAGES/dielectric/in.confined.icc` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/PACKAGES/dielectric/in.nopbc.dof` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/PACKAGES/dielectric/in.nopbc.gmres` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/PACKAGES/dielectric/in.nopbc.icc` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/PACKAGES/dpd-react/dpd-shardlow/in.dpd-shardlow` - Must use pair_style dpd/fdt/energy/kk with fix shardlow/kk (src/KOKKOS/fix_shardlow_kokkos.cpp:93)
+- `examples-ref/PACKAGES/dpd-react/dpdp-shardlow/in.dpdp-shardlow` - Must use pair_style dpd/fdt/energy/kk with fix shardlow/kk (src/KOKKOS/fix_shardlow_kokkos.cpp:93)
+- `examples-ref/PACKAGES/grem/lj-single/in.gREM-npt` - Compute ID fxgREM_ke for fix grem does not compute kinetic energy (src/REPLICA/fix_grem.cpp:160)
+- `examples-ref/PACKAGES/grem/lj-single/in.gREM-nvt` - Compute ID fxgREM_ke for fix grem does not compute kinetic energy (src/REPLICA/fix_grem.cpp:160)
+- `examples-ref/PACKAGES/ilves/in.covid` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/mofff/in.hkust1` - Must use only Kokkos-enabled angle styles with angle_style hybrid/kk (src/KOKKOS/angle_hybrid_kokkos.cpp:209)
+- `examples-ref/PACKAGES/mofff/in.hkust1_long` - Must use only Kokkos-enabled angle styles with angle_style hybrid/kk (src/KOKKOS/angle_hybrid_kokkos.cpp:209)
+- `examples-ref/PACKAGES/phonon/4-Graphene/in.graphene` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/PACKAGES/reaction/create_atoms_polystyrene/in.grow_styrene` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/nylon,6-6_melt/in.large_nylon_melt` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_epoxy/in.tiny_epoxy.stabilized` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_nylon/in.tiny_nylon.stabilized` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_nylon/in.tiny_nylon.stabilized_variable_probability` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_nylon/in.tiny_nylon.unstabilized` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_nylon_json/in.tiny_nylon.stabilized` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_nylon_wildcards/in.tiny_nylon.stabilized` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/reaction/tiny_polystyrene/in.tiny_polystyrene.stabilized` - Label maps are currently not supported with Kokkos (src/atom.cpp:2325)
+- `examples-ref/PACKAGES/tally/in.force` - Cannot yet use compute tally with Kokkos (src/pair.cpp:859)
+- `examples-ref/PACKAGES/tally/in.pe` - Cannot yet use compute tally with Kokkos (src/pair.cpp:859)
+- `examples-ref/PACKAGES/tally/in.stress` - Cannot yet use compute tally with Kokkos (src/pair.cpp:859)
+- `examples-ref/bpm/impact/in.bpm.impact.rotational` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/bpm/peri/benchmark/in.bench.legacy.pmb` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/granregion/in.granregion.box` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/granregion/in.granregion.funnel` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/granregion/in.granregion.mixer` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/gransurf/in.line.gran.data` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.line.gran.global` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/gransurf/in.line.gran.surf` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.screwfeeder.local` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.tri.gran.data` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.tri.gran.global` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/gransurf/in.tri.gran.global.stl` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/gransurf/in.tri.gran.surf` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.tri.gran.surf.stl` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.tribox.gran.data` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.tribox.gran.global` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/gransurf/in.tribox.gran.global.stl` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/gransurf/in.tribox.gran.surf` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/gransurf/in.tribox.gran.surf.stl` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/granular/in.pour.drum` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/granular/in.pour.flatwall` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/granular/in.pour.heat` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/granular/in.sync_verlet` - Illegal wall/gran command, unrecognized damping model (src/KOKKOS/fix_wall_gran_old.cpp:203)
+- `examples-ref/grid/in.sph` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/mc/in.sgcmc.eam` - Fix sgcmc requires the keyword 'atomic/energy yes' when used with a KOKKOS EAM pair style (src/MC/fix_sgcmc.cpp:269)
+- `examples-ref/micelle/in.micelle-rigid` - fix rigid/small/kk does not yet support 2d systems (src/KOKKOS/fix_rigid_small_kokkos.cpp:208)
+- `examples-ref/mliap/in.mliap.ace.compute` - Cannot (yet) use KOKKOS package with ACE descriptors (src/ML-IAP/compute_mliap.cpp:109)
+- `examples-ref/mliap/in.mliap.quadratic.compute` - Cannot (yet) use KOKKOS package with SNAP descriptors (src/ML-IAP/compute_mliap.cpp:99)
+- `examples-ref/mliap/in.mliap.snap.compute` - Cannot (yet) use KOKKOS package with SNAP descriptors (src/ML-IAP/compute_mliap.cpp:99)
+- `examples-ref/pour/in.pour` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/pour/in.pour.2d` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/pour/in.pour.2d.molecule` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/rigid/in.rigid.gravity` - Cannot yet use fix pour with the KOKKOS package (src/GRANULAR/fix_pour.cpp:60)
+- `examples-ref/srd/in.srd.mixture` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/template/in.template-mix` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/template/in.tmpl-data-mix` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/template/in.tmpl-restart-mix` - KOKKOS package requires a Kokkos-enabled atom_style (src/KOKKOS/atom_kokkos.cpp:611)
+- `examples-ref/vashishta/in.vashishta.inp` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/voronoi/in.voronoi.2d` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+- `examples-ref/voronoi/in.voronoi.data` - KOKKOS package only supports 'bin' neighbor lists (src/KOKKOS/neighbor_kokkos.cpp:138)
+
+## 3. Ran but disagrees with the CPU reference: candidate bugs (4)
+
+- `examples-ref/PACKAGES/pedone/in.pedone.relax` - thermo checks skipped due to mismatched number of steps in the log files
+- `examples-ref/indent/in.indent.min` - thermo checks skipped due to mismatched number of steps in the log files
+- `examples-ref/min/in.min` - thermo checks skipped due to mismatched number of steps in the log files
+- `examples-ref/min/in.min.box` - thermo checks skipped due to mismatched number of steps in the log files
+
+## 4. Agrees with the CPU reference (443)
+
+- `examples-ref/ASPHERE/flat_membrane/in.flat_membrane`
+- `examples-ref/ASPHERE/vesicle/in.vesicle`
+- `examples-ref/LEPTON/in.efield-lepton`
+- `examples-ref/PACKAGES/addtorque_group/in.addtorque`
+- `examples-ref/PACKAGES/baoab/in.baoab_lj`
+- `examples-ref/PACKAGES/bocs/in.methanol`
+- `examples-ref/PACKAGES/bocs/1_site_just_pair_LD/in.basic_ldd`
+- `examples-ref/PACKAGES/bocs/4_sites_LD_SG/in.ldd_create_data`
+- `examples-ref/PACKAGES/bocs/4_sites_LD_SG/in.ldd_molecule`
+- `examples-ref/PACKAGES/bondval/in.hexbto`
+- `examples-ref/PACKAGES/brownian/2d_velocity/in.2d.velocity`
+- `examples-ref/PACKAGES/brownian/align_self/in.alignself_dipole`
+- `examples-ref/PACKAGES/brownian/asphere/in.2d.ellipsoid`
+- `examples-ref/PACKAGES/brownian/asphere/in.3d.ellipsoid`
+- `examples-ref/PACKAGES/brownian/point/in.2d.point`
+- `examples-ref/PACKAGES/brownian/point/in.3d.point`
+- `examples-ref/PACKAGES/brownian/sphere/in.2d.sphere`
+- `examples-ref/PACKAGES/brownian/sphere/in.3d.sphere`
+- `examples-ref/PACKAGES/brownian/spherical_ABP/in.2d.abp`
+- `examples-ref/PACKAGES/brownian/spherical_ABP/in.3d.ideal_abp`
+- `examples-ref/PACKAGES/cauchy/in.cauchystat`
+- `examples-ref/PACKAGES/cgspica/sds-monolayer/in.sds-regular`
+- `examples-ref/PACKAGES/charge_regulation/in.chreg-acid`
+- `examples-ref/PACKAGES/charge_regulation/in.chreg-acid-real`
+- `examples-ref/PACKAGES/charge_regulation/in.chreg-polymer`
+- `examples-ref/PACKAGES/cnp/in.cnp`
+- `examples-ref/PACKAGES/diffraction/in.BulkNi`
+- `examples-ref/PACKAGES/dispersion/in.d2`
+- `examples-ref/PACKAGES/dispersion/in.d3`
+- `examples-ref/PACKAGES/dpd-basic/dpd/in.dpd`
+- `examples-ref/PACKAGES/dpd-basic/dpd_coul_slater_long/in.dpd_coul_slater_long`
+- `examples-ref/PACKAGES/dpd-basic/dpd_tstat/in.dpd_tstat`
+- `examples-ref/PACKAGES/dpd-basic/dpdext/in.dpdext`
+- `examples-ref/PACKAGES/dpd-basic/dpdext_tstat/in.dpdext_tstat`
+- `examples-ref/PACKAGES/dpd-react/dpd-vv/in.dpd-vv`
+- `examples-ref/PACKAGES/dpd-react/dpde-shardlow/in.dpde-shardlow`
+- `examples-ref/PACKAGES/dpd-react/dpde-vv/in.dpde-vv`
+- `examples-ref/PACKAGES/dpd-react/dpdh-shardlow/in.dpdh-shardlow`
+- `examples-ref/PACKAGES/dpd-react/multi-lucy/in.multi-lucy`
+- `examples-ref/PACKAGES/drude/butane/in.butane.lang`
+- `examples-ref/PACKAGES/drude/butane/in.butane.nh`
+- `examples-ref/PACKAGES/drude/butane/in.butane.tgnh`
+- `examples-ref/PACKAGES/drude/ethanol/in.ethanol.lang`
+- `examples-ref/PACKAGES/drude/ethanol/in.ethanol.nh`
+- `examples-ref/PACKAGES/drude/ethanol/in.ethanol.tgnh`
+- `examples-ref/PACKAGES/drude/ethylene_glycol/in.ethylene_glycol`
+- `examples-ref/PACKAGES/drude/swm4-ndp/in.swm4-ndp.lang`
+- `examples-ref/PACKAGES/drude/swm4-ndp/in.swm4-ndp.nh`
+- `examples-ref/PACKAGES/drude/toluene/in.toluene.lang`
+- `examples-ref/PACKAGES/drude/toluene/in.toluene.nh`
+- `examples-ref/PACKAGES/e3b/in.e3b-tip4p2005`
+- `examples-ref/PACKAGES/edip/in.edip-SiC`
+- `examples-ref/PACKAGES/ees/in.fix_wall`
+- `examples-ref/PACKAGES/ees/in.fix_wall_region`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-conp`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-conq`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-conq2`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-etypes`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-ffield`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-ramp`
+- `examples-ref/PACKAGES/electrode/graph-il/in.graph-il-thermo`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-cg`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-eta`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-eta_cg`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-eta_mix`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-ewald-ew2d`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-ewald-ew3dc`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-ewald-ffield`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-pppm-ew3dc`
+- `examples-ref/PACKAGES/electrode/madelung/in.madelung-pppm-ffield`
+- `examples-ref/PACKAGES/electrode/planar/in.planar-ewald-ew2d`
+- `examples-ref/PACKAGES/electrode/planar/in.planar-ewald-ew3dc`
+- `examples-ref/PACKAGES/electrode/planar/in.planar-ewald-ffield`
+- `examples-ref/PACKAGES/electrode/planar/in.planar-pppm-ew3dc`
+- `examples-ref/PACKAGES/electrode/planar/in.planar-pppm-ffield`
+- `examples-ref/PACKAGES/electron_stopping/in.cascade_AlCu`
+- `examples-ref/PACKAGES/electron_stopping/in.cascade_SiSi`
+- `examples-ref/PACKAGES/electron_stopping/in.elstop`
+- `examples-ref/PACKAGES/electron_stopping/in.elstop.only`
+- `examples-ref/PACKAGES/entropy/in.entropy`
+- `examples-ref/PACKAGES/extep/in.extep-bn`
+- `examples-ref/PACKAGES/flow_gauss/in.GD`
+- `examples-ref/PACKAGES/frenkel/in.frenkel`
+- `examples-ref/PACKAGES/gjf/in.gjf.vfull`
+- `examples-ref/PACKAGES/gjf/in.gjf.vhalf`
+- `examples-ref/PACKAGES/gle/in.h2o-quantum`
+- `examples-ref/PACKAGES/gle/in.h2o-smart`
+- `examples-ref/PACKAGES/hdnnp/in.hdnnp`
+- `examples-ref/PACKAGES/hdnnp/in.hybrid`
+- `examples-ref/PACKAGES/hma/in.hma`
+- `examples-ref/PACKAGES/ilves/in.cg-polymers`
+- `examples-ref/PACKAGES/ilves/in.dimer`
+- `examples-ref/PACKAGES/ilves/in.peptide-allbonds`
+- `examples-ref/PACKAGES/ilves/in.peptide-fixed`
+- `examples-ref/PACKAGES/ilves/in.peptide-ilves`
+- `examples-ref/PACKAGES/ilves/in.peptide-mix`
+- `examples-ref/PACKAGES/ilves/in.peptide-rattle`
+- `examples-ref/PACKAGES/ilves/in.peptide-shake`
+- `examples-ref/PACKAGES/ilves/in.polymelt`
+- `examples-ref/PACKAGES/ilves/in.rhodo-allbonds`
+- `examples-ref/PACKAGES/ilves/in.rhodo-ilves`
+- `examples-ref/PACKAGES/ilves/in.rhodo-shake`
+- `examples-ref/PACKAGES/interlayer/aip_water_2dm/in.gr_water`
+- `examples-ref/PACKAGES/interlayer/aip_water_2dm/in.gr_water.opt`
+- `examples-ref/PACKAGES/interlayer/drip/in.CH_drip`
+- `examples-ref/PACKAGES/interlayer/drip/in.C_drip`
+- `examples-ref/PACKAGES/interlayer/ilp_graphene_hbn/in.bilayer-graphene`
+- `examples-ref/PACKAGES/interlayer/ilp_graphene_hbn/in.bilayer-hBN`
+- `examples-ref/PACKAGES/interlayer/ilp_graphene_hbn/in.grhBN`
+- `examples-ref/PACKAGES/interlayer/ilp_graphene_hbn/in.ilp_graphene_hbn`
+- `examples-ref/PACKAGES/interlayer/ilp_tmds/in.mos2`
+- `examples-ref/PACKAGES/interlayer/kolmogorov_crespi_full/in.bilayer-graphene`
+- `examples-ref/PACKAGES/interlayer/kolmogorov_crespi_z/in.atom-diffusion`
+- `examples-ref/PACKAGES/interlayer/kolmogorov_crespi_z/in.bilayer-graphene`
+- `examples-ref/PACKAGES/interlayer/saip_metal/in.gold_gr`
+- `examples-ref/PACKAGES/interlayer/saip_metal_tmd/in.au_mos2`
+- `examples-ref/PACKAGES/latboltz/microrheology/in.microrheology`
+- `examples-ref/PACKAGES/latboltz/pit_geometry/in.pits`
+- `examples-ref/PACKAGES/latboltz/planewall/in.planewall`
+- `examples-ref/PACKAGES/latboltz/polymer/in.polymer`
+- `examples-ref/PACKAGES/latboltz/translocation/in.translocation`
+- `examples-ref/PACKAGES/local_density/benzene_water/in.benzene_water`
+- `examples-ref/PACKAGES/local_density/methanol_implicit_water/in.methanol_implicit_water`
+- `examples-ref/PACKAGES/manybody_table/in.spce`
+- `examples-ref/PACKAGES/manybody_table/in.spce2`
+- `examples-ref/PACKAGES/manybody_table/in.spce_sw`
+- `examples-ref/PACKAGES/meam_spline/in.meam-spline.Si`
+- `examples-ref/PACKAGES/meam_spline/in.meam-spline.TiO2`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.bcc`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.bcc_relax`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.dc`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.dc_relax`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.energy_conservation.meam.sw`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.fcc`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.fcc_relax`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.hcp_relax`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.sc`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.sc_relax`
+- `examples-ref/PACKAGES/meam_sw_spline/Si/in.single_atom`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.alpha`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.alpha_relaxation`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.beta`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.energy_conservation.meam.sw`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.fcc`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.hexagonal`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.omega`
+- `examples-ref/PACKAGES/meam_sw_spline/Ti/in.single_atom`
+- `examples-ref/PACKAGES/mesont/in.film_mesocnt`
+- `examples-ref/PACKAGES/mgpt/in.bcc0`
+- `examples-ref/PACKAGES/mgpt/in.vac0-bcc`
+- `examples-ref/PACKAGES/mgpt/in.vacmin-bcc`
+- `examples-ref/PACKAGES/momb/in.system`
+- `examples-ref/PACKAGES/moments/in.converge`
+- `examples-ref/PACKAGES/moments/in.simple`
+- `examples-ref/PACKAGES/moments/in.valtest`
+- `examples-ref/PACKAGES/momentum/in.momentum`
+- `examples-ref/PACKAGES/mop/in.compute_stress_mop`
+- `examples-ref/PACKAGES/neighbor-swap/in.KMC_pulse_center`
+- `examples-ref/PACKAGES/neighbor-swap/in.KMC_pulse_edge`
+- `examples-ref/PACKAGES/orient_eco/in.orient_eco`
+- `examples-ref/PACKAGES/pace/in.pace.product`
+- `examples-ref/PACKAGES/pace/in.pace.recursive`
+- `examples-ref/PACKAGES/pace/compute/in.compute`
+- `examples-ref/PACKAGES/pafi/in.pafi`
+- `examples-ref/PACKAGES/pedone/in.pedone.melt`
+- `examples-ref/PACKAGES/phonon/1-1D-mono/in.Ana`
+- `examples-ref/PACKAGES/phonon/2-1D-diatomic/in.Ana`
+- `examples-ref/PACKAGES/phonon/3-3D-FCC-Cu-EAM/in.EAM3D`
+- `examples-ref/PACKAGES/pod/Ta/in.fitpod`
+- `examples-ref/PACKAGES/pod/Ta/in.pod`
+- `examples-ref/PACKAGES/ptm/in.ptm`
+- `examples-ref/PACKAGES/qtb/alpha_quartz_qbmsst/in.alpha_quartz_qbmsst`
+- `examples-ref/PACKAGES/qtb/alpha_quartz_qtb/in.alpha_quartz_qtb`
+- `examples-ref/PACKAGES/qtb/methane_qbmsst/in.methane_qbmsst`
+- `examples-ref/PACKAGES/qtb/methane_qtb/in.methane_qtb`
+- `examples-ref/PACKAGES/relres/in.22DMH.real`
+- `examples-ref/PACKAGES/relres/in.22DMH.relres`
+- `examples-ref/PACKAGES/relres/in.22DMH.respa`
+- `examples-ref/PACKAGES/rhok/in.crystal`
+- `examples-ref/PACKAGES/rhok/in.pinning`
+- `examples-ref/PACKAGES/rhok/in.setup`
+- `examples-ref/PACKAGES/shock/hugoniostat/in.hugoniostat`
+- `examples-ref/PACKAGES/shock/msst/in.msst`
+- `examples-ref/PACKAGES/shock/nemd/in.nemd`
+- `examples-ref/PACKAGES/slater/in.slater`
+- `examples-ref/PACKAGES/sna_nnn_slcsa/in.slcsa`
+- `examples-ref/PACKAGES/srp/in.srp`
+- `examples-ref/PACKAGES/srp_react/in.srp_react`
+- `examples-ref/PACKAGES/stressprofile/in.cylinder`
+- `examples-ref/PACKAGES/stressprofile/in.flat`
+- `examples-ref/PACKAGES/stressprofile/in.sphere`
+- `examples-ref/PACKAGES/ti/in.ti_spring`
+- `examples-ref/PACKAGES/tmd/in.tmd`
+- `examples-ref/PACKAGES/tracker/in.track`
+- `examples-ref/PACKAGES/uef/npt_biaxial/in.npt_biaxial`
+- `examples-ref/PACKAGES/uef/nvt_uniaxial/in.nvt_uniaxial`
+- `examples-ref/PACKAGES/uf3/in.uf3.Nb`
+- `examples-ref/PACKAGES/vtk/in.vtk`
+- `examples-ref/PACKAGES/vtk/in.vtp`
+- `examples-ref/PACKAGES/yaff/mil53al/in.mil53a`
+- `examples-ref/PACKAGES/yaff/mof5/in.mof5`
+- `examples-ref/SPIN/bfo/in.spin.bfo`
+- `examples-ref/SPIN/cobalt_fcc/in.spin.cobalt_fcc`
+- `examples-ref/SPIN/cobalt_hcp/in.spin.cobalt_hcp`
+- `examples-ref/SPIN/dipole_spin/in.spin.iron_dipole_cut`
+- `examples-ref/SPIN/dipole_spin/in.spin.iron_dipole_ewald`
+- `examples-ref/SPIN/dipole_spin/in.spin.iron_dipole_pppm`
+- `examples-ref/SPIN/iron/in.spin.iron`
+- `examples-ref/SPIN/iron/in.spin.iron_cubic`
+- `examples-ref/SPIN/nickel/in.spin.nickel`
+- `examples-ref/SPIN/nickel/in.spin.nickel_cubic`
+- `examples-ref/SPIN/read_restart/in.spin.read_data`
+- `examples-ref/SPIN/read_restart/in.spin.restart`
+- `examples-ref/SPIN/read_restart/in.spin.write_restart`
+- `examples-ref/UNITS/in.ar.lj`
+- `examples-ref/UNITS/in.ar.metal`
+- `examples-ref/UNITS/in.ar.real`
+- `examples-ref/airebo/in.airebo`
+- `examples-ref/airebo/in.airebo-0-0`
+- `examples-ref/airebo/in.airebo-bc`
+- `examples-ref/airebo/in.airebo-m`
+- `examples-ref/airebo/in.rebo2`
+- `examples-ref/atm/in.atm`
+- `examples-ref/balance/in.balance`
+- `examples-ref/balance/in.balance.bond.fast`
+- `examples-ref/balance/in.balance.bond.slow`
+- `examples-ref/balance/in.balance.clock.dynamic`
+- `examples-ref/balance/in.balance.clock.static`
+- `examples-ref/balance/in.balance.group.dynamic`
+- `examples-ref/balance/in.balance.group.static`
+- `examples-ref/balance/in.balance.kspace`
+- `examples-ref/balance/in.balance.neigh.dynamic`
+- `examples-ref/balance/in.balance.neigh.rcb`
+- `examples-ref/balance/in.balance.neigh.static`
+- `examples-ref/balance/in.balance.var.dynamic`
+- `examples-ref/bpm/impact/in.bpm.impact.spring`
+- `examples-ref/bpm/peri/in.bpm.peri.eps`
+- `examples-ref/bpm/peri/in.bpm.peri.lps`
+- `examples-ref/bpm/peri/in.bpm.peri.pmb`
+- `examples-ref/bpm/peri/in.bpm.peri.ves`
+- `examples-ref/bpm/peri/benchmark/in.bench.bpm.pmb`
+- `examples-ref/bpm/plasticity/in.bpm.plasticity`
+- `examples-ref/charmmfsw/in.charmmfsw`
+- `examples-ref/cmap/in.cmap`
+- `examples-ref/comb/in.comb.Cu`
+- `examples-ref/comb/in.comb.Cu2O.elastic`
+- `examples-ref/comb/in.comb.HfO2`
+- `examples-ref/comb/in.comb.Si`
+- `examples-ref/comb/in.comb.Si.elastic`
+- `examples-ref/comb/in.comb3`
+- `examples-ref/controller/in.controller.temp`
+- `examples-ref/controller/in.controller.wall`
+- `examples-ref/coreshell/in.coreshell`
+- `examples-ref/coreshell/in.coreshell.dsf`
+- `examples-ref/coreshell/in.coreshell.thermostats`
+- `examples-ref/coreshell/in.coreshell.wolf`
+- `examples-ref/crack/in.crack`
+- `examples-ref/deposit/in.deposit.atom`
+- `examples-ref/deposit/in.deposit.molecule`
+- `examples-ref/deposit/in.deposit.molecule.rigid-nve-small`
+- `examples-ref/deposit/in.deposit.molecule.rigid-nvt-small`
+- `examples-ref/deposit/in.deposit.molecule.rigid-small`
+- `examples-ref/deposit/in.deposit.molecule.shake`
+- `examples-ref/dipole/in.charge_dipole`
+- `examples-ref/dipole/in.dipole`
+- `examples-ref/eim/in.eim`
+- `examples-ref/ellipse/in.ellipse.gayberne`
+- `examples-ref/ellipse/in.ellipse.resquared`
+- `examples-ref/fire/in.abcfire`
+- `examples-ref/fire/in.abcfire_mod`
+- `examples-ref/fire/in.cg`
+- `examples-ref/fire/in.fire`
+- `examples-ref/fire/in.fire_mod`
+- `examples-ref/fire/in.meam.abcfire`
+- `examples-ref/fire/in.meam.fire`
+- `examples-ref/flow/in.flow.couette`
+- `examples-ref/flow/in.flow.pois`
+- `examples-ref/friction/in.friction`
+- `examples-ref/granular/in.restitution`
+- `examples-ref/granular/in.tableting.200`
+- `examples-ref/granular/in.triaxial.compaction.12`
+- `examples-ref/grid/in.grid.2d`
+- `examples-ref/grid/in.grid.3d`
+- `examples-ref/hyper/in.hyper.global`
+- `examples-ref/hyper/in.hyper.local`
+- `examples-ref/indent/in.indent`
+- `examples-ref/kim/in.kim-ex.melt`
+- `examples-ref/kim/in.lammps.melt`
+- `examples-ref/mc/in.gcmc.h2o`
+- `examples-ref/mc/in.gcmc.region`
+- `examples-ref/mc/in.hmc.flexible.melt`
+- `examples-ref/mc/in.hmc.rigid`
+- `examples-ref/mc/in.mixed`
+- `examples-ref/mc/in.pure`
+- `examples-ref/mc/in.widom.lj`
+- `examples-ref/meam/in.meam`
+- `examples-ref/meam/in.meam.shear`
+- `examples-ref/meam/msmeam/in.msmeam`
+- `examples-ref/melt/in.melt`
+- `examples-ref/mesh/in.marble_race`
+- `examples-ref/mesh/in.mesh_box`
+- `examples-ref/micelle/in.micelle`
+- `examples-ref/mliap/in.mliap.nn.Cu`
+- `examples-ref/mliap/in.mliap.nn.Ta06A`
+- `examples-ref/mliap/in.mliap.snap.Ta06A`
+- `examples-ref/mliap/in.mliap.snap.WBe.PRB2019`
+- `examples-ref/mliap/in.mliap.snap.chem`
+- `examples-ref/mliap/in.mliap.snap.quadratic`
+- `examples-ref/mliap/in.mliap.so3.Ni_Mo`
+- `examples-ref/mliap/in.mliap.so3.nn.Si`
+- `examples-ref/nb3b/in.nb3b`
+- `examples-ref/nb3b/in.nb3b.screened`
+- `examples-ref/nemd/in.nemd`
+- `examples-ref/numdiff/in.numdiff`
+- `examples-ref/obstacle/in.obstacle`
+- `examples-ref/peptide/in.peptide`
+- `examples-ref/python/in.pair_python_coulomb`
+- `examples-ref/python/in.pair_python_harmonic`
+- `examples-ref/python/in.pair_python_hybrid`
+- `examples-ref/python/in.pair_python_long`
+- `examples-ref/python/in.pair_python_melt`
+- `examples-ref/python/in.pair_python_spce`
+- `examples-ref/python/in.pair_python_table`
+- `examples-ref/python/in.python.wrap`
+- `examples-ref/qeq/in.qeq.buck`
+- `examples-ref/qeq/in.qeq.reaxff`
+- `examples-ref/rdf-adf/in.spce`
+- `examples-ref/rdf-adf/in.spce.hbond`
+- `examples-ref/reaxff/in.reaxff.rdx`
+- `examples-ref/reaxff/in.reaxff.rdx-shielded`
+- `examples-ref/reaxff/in.reaxff.tatb`
+- `examples-ref/reaxff/in.reaxff.tatb-shielded`
+- `examples-ref/reaxff/AB/in.AB`
+- `examples-ref/reaxff/AuO/in.AuO`
+- `examples-ref/reaxff/CHO/in.CHO`
+- `examples-ref/reaxff/FC/in.FC`
+- `examples-ref/reaxff/FeOH3/in.FeOH3`
+- `examples-ref/reaxff/HNS/in.reaxff.hns`
+- `examples-ref/reaxff/RDX/in.RDX`
+- `examples-ref/reaxff/VOH/in.VOH`
+- `examples-ref/reaxff/ZnOH2/in.ZnOH2`
+- `examples-ref/reaxff/ci-reaxFF/in.ci-reax.CH`
+- `examples-ref/reaxff/water/in.water.acks2`
+- `examples-ref/reaxff/water/in.water.acks2.field`
+- `examples-ref/reaxff/water/in.water.qeq`
+- `examples-ref/reaxff/water/in.water.qeq.field`
+- `examples-ref/reaxff/water/in.water.qeqr`
+- `examples-ref/reaxff/water/in.water.qeqr.field`
+- `examples-ref/reaxff/water/in.water.qtpie`
+- `examples-ref/reaxff/water/in.water.qtpie.field`
+- `examples-ref/replicate/in.replicate.bond.x`
+- `examples-ref/replicate/in.replicate.bond.x.noloop`
+- `examples-ref/replicate/in.replicate.bond.x.y`
+- `examples-ref/replicate/in.replicate.bond.xy`
+- `examples-ref/replicate/in.replicate.cnt`
+- `examples-ref/rigid/in.rigid`
+- `examples-ref/rigid/in.rigid.atomfile`
+- `examples-ref/rigid/in.rigid.atomvar`
+- `examples-ref/rigid/in.rigid.cubes`
+- `examples-ref/rigid/in.rigid.cubes.gravity`
+- `examples-ref/rigid/in.rigid.cubes.langevin`
+- `examples-ref/rigid/in.rigid.cubes.multirun`
+- `examples-ref/rigid/in.rigid.cubes.nph`
+- `examples-ref/rigid/in.rigid.cubes.npt`
+- `examples-ref/rigid/in.rigid.cubes.nve`
+- `examples-ref/rigid/in.rigid.cubes.nvt`
+- `examples-ref/rigid/in.rigid.cubes.partial`
+- `examples-ref/rigid/in.rigid.cubes.tri`
+- `examples-ref/rigid/in.rigid.dipoles`
+- `examples-ref/rigid/in.rigid.early`
+- `examples-ref/rigid/in.rigid.ellipsoids`
+- `examples-ref/rigid/in.rigid.infile`
+- `examples-ref/rigid/in.rigid.molecule`
+- `examples-ref/rigid/in.rigid.nve`
+- `examples-ref/rigid/in.rigid.nve.early`
+- `examples-ref/rigid/in.rigid.property`
+- `examples-ref/rigid/in.rigid.small`
+- `examples-ref/rigid/in.rigid.small.infile`
+- `examples-ref/rigid/in.rigid.spheres`
+- `examples-ref/rigid/in.rigid.tnr`
+- `examples-ref/shear/in.shear`
+- `examples-ref/shear/in.shear.void`
+- `examples-ref/snap/in.C_SNAP`
+- `examples-ref/snap/in.gaussian.grid`
+- `examples-ref/snap/in.snap.InP.JCPA2020`
+- `examples-ref/snap/in.snap.Mo_Chen`
+- `examples-ref/snap/in.snap.Ta06A`
+- `examples-ref/snap/in.snap.W.2940`
+- `examples-ref/snap/in.snap.WBe.PRB2019`
+- `examples-ref/snap/in.snap.compute`
+- `examples-ref/snap/in.snap.compute.quadratic`
+- `examples-ref/snap/in.snap.grid`
+- `examples-ref/snap/in.snap.grid.triclinic`
+- `examples-ref/snap/in.snap.hybrid.WSNAP.HePair`
+- `examples-ref/snap/in.snap.scale.Ni_Zuo_JCPA2020`
+- `examples-ref/srd/in.srd.pure`
+- `examples-ref/steinhardt/in.bcc`
+- `examples-ref/steinhardt/in.fcc`
+- `examples-ref/steinhardt/in.icos`
+- `examples-ref/streitz/in.ctip`
+- `examples-ref/streitz/in.gan`
+- `examples-ref/streitz/in.streitz.ewald`
+- `examples-ref/streitz/in.streitz.wolf`
+- `examples-ref/stress_vcm/in.stress_vcm`
+- `examples-ref/template/in.mol-data-mix`
+- `examples-ref/template/in.mol-restart-mix`
+- `examples-ref/template/in.molecular-mix`
+- `examples-ref/tersoff/in.hBN_shift`
+- `examples-ref/tersoff/in.tersoff`
+- `examples-ref/threebody/in.mos2-bulk`
+- `examples-ref/threebody/in.mos2.rebomos`
+- `examples-ref/threebody/in.mos2.sw.mod`
+- `examples-ref/threebody/in.threebody`
+- `examples-ref/triclinic/in.bcc.orthog`
+- `examples-ref/triclinic/in.bcc.primitive`
+- `examples-ref/triclinic/in.data.general`
+- `examples-ref/triclinic/in.fcc.orthog`
+- `examples-ref/triclinic/in.fcc.primitive`
+- `examples-ref/triclinic/in.hex.orthog`
+- `examples-ref/triclinic/in.hex.primitive`
+- `examples-ref/triclinic/in.sq2.orthog`
+- `examples-ref/triclinic/in.sq2.primitive`
+- `examples-ref/ttm/in.ttm`
+- `examples-ref/ttm/in.ttm.cascade`
+- `examples-ref/ttm/in.ttm.grid`
+- `examples-ref/ttm/in.ttm.mod`
+- `examples-ref/ttm/in.ttm.thermal`
+- `examples-ref/vashishta/in.vashishta.sio2`
+- `examples-ref/vashishta/in.vashishta.table.inp`
+- `examples-ref/vashishta/in.vashishta.table.sio2`
+- `examples-ref/voronoi/in.voronoi`
+- `examples-ref/wall/in.wall.block`
+- `examples-ref/wall/in.wall.ccl`
+- `examples-ref/wall/in.wall.diffusive`
+- `examples-ref/wall/in.wall.flow`
+- `examples-ref/wall/in.wall.harmonic.2d`
+- `examples-ref/wall/in.wall.harmonic.outside.2d`
+- `examples-ref/wall/in.wall.lepton`
+- `examples-ref/wall/in.wall.maxwell`
+- `examples-ref/wall/in.wall.specular`
+- `examples-ref/wall/in.wall.sphere`
+- `examples-ref/wall/in.wall.table`
+- `examples-ref/yaml/in.yaml`

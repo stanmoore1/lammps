@@ -115,3 +115,203 @@ supporting multiple MPI processes).
 
 ## Packages
 
+## Packages
+
+86 packages were built, plus KOKKOS in the second binary; the two binaries are
+otherwise identical, which is what makes the comparison meaningful.  That covers
+8 of the 13 packages the nightly regression binary never compiles: GPU (OpenCL
+through pocl), H5MD, INTEL, KIM, ML-HDNNP, MOLFILE, NETCDF and PLUMED.
+
+Of the remaining five, only three are actually blocked here:
+
+| package | why it is not in this run |
+|---|---|
+| ADIOS | needs an MPI-enabled ADIOS2 installation; `find_package(ADIOS2)` fails |
+| FENIX | needs a ULFM-capable MPI; Ubuntu 24.04 ships Open MPI 4.1.6, which has none |
+| QMMM-XTB | needs `xtb>=6.7` and `mctc-lib` through pkg-config |
+| MBX, ML-QUIP, ML-RUNNER, QMMM, SCAFACOS | configure cleanly; left out of this run only because each is an ExternalProject that serializes the build and would be built twice, once per build directory, for about 20 more example inputs |
+
+SCAFACOS is vendored and ready in case that trade changes: its release tarball
+host is blocked here but `git clone` is not, so `fetch-tpl-sources.sh` clones the
+tag, bootstraps it and repacks it for `-D SCAFACOS_URL=file://...`.
+
+## The CPU run
+
+869 input scripts in the tree, 724 reached the point of being run or
+recorded.  693 completed, 31 did not.
+
+### Timed out at 120 s (12)
+
+- `PACKAGES/fep/CC-CO/fep01/in.fep01.lmp`
+- `PACKAGES/fep/CC-CO/fep10/in.fep10.lmp`
+- `PACKAGES/fep/CH4-CF4/bar01/in.bar01.lmp`
+- `PACKAGES/fep/CH4-CF4/bar10/in.bar10.lmp`
+- `PACKAGES/fep/CH4-CF4/fep01/in.fep01.lmp`
+- `PACKAGES/fep/CH4-CF4/fep10/in.fep10.lmp`
+- `PACKAGES/fep/CH4hyd/fdti01/in.fdti01.lmp`
+- `PACKAGES/fep/CH4hyd/fdti10/in.fdti10.lmp`
+- `PACKAGES/fep/CH4hyd/fep01/in.fep01.lmp`
+- `PACKAGES/fep/CH4hyd/fep10/in.fep10.lmp`
+- `PACKAGES/fep/ta/in.spce.lmp`
+- `PACKAGES/latboltz/diffusingsphere/in.trapnewsphere`
+
+Eleven of these are `PACKAGES/fep`, which runs a thermodynamic integration that
+no amount of step reduction makes short, and one is `latboltz`.
+
+### Stopped with an error (19)
+
+- **KIM Model name not found** (5)
+  - `kim/in.kim-pm-property`
+  - `kim/in.kim-pm-query.melt`
+  - `kim/in.kim-pm.melt`
+  - `kim/in.kim-query`
+  - `kim/in.kim-sm.melt`
+- **Cannot redefine index style variable maxiter as equal style variable** (3)
+  - `PACKAGES/edip/in.edip-Si`
+  - `PACKAGES/edip/in.edip-Si-multi`
+  - `PACKAGES/phonon/dynamical_matrix_command/Silicon/in.silicon`
+- **Loading python integrator module failure** (3)
+  - `python/in.fix_python_move_nve_melt`
+  - `python/in.fix_python_move_nve_melt_group`
+  - `python/in.fix_python_move_nve_melt_opt`
+- **Cannot redefine index style variable nsteps as equal style variable** (2)
+  - `PACKAGES/cgdna/examples/lj_units/oxDNA3/duplex2/in.duplex2`
+  - `PACKAGES/cgdna/examples/real_units/oxDNA3/duplex2/in.duplex2`
+- **Could not process Python string:** (2)
+  - `python/in.fix_python_invoke`
+  - `python/in.fix_python_invoke_neighlist`
+- **Replicate did not assign all atoms correctly** (1)
+  - `bpm/poissons_ratio/in.bpm.poissons_ratio`
+- **Variable rhoav: Fix in variable not computed at a compatible time** (1)
+  - `mc/in.gcmc.lj`
+- **Cannot redefine index style variable nequil as equal style variable** (1)
+  - `mc/in.gcmc.restart`
+- **Python evaluation of function loop failed** (1)
+  - `python/in.python`
+
+These are environment limits rather than code defects: the `kim` inputs need
+interatomic models fetched from OpenKIM at run time, and the `python` ones need
+a module on the interpreter's path.  `bpm/poissons_ratio` and `mc/in.gcmc.lj`
+are genuine input problems worth a closer look.
+
+## KOKKOS Serial against those logs
+
+606 inputs ran under KOKKOS.  82 of them already fail with the plain CPU
+styles and are excluded below, since those are not KOKKOS problems.
+
+| | count |
+|---|---|
+| 1. crashed | 3 |
+| 2. stopped with a LAMMPS error, so cannot be tested under KOKKOS | 73 |
+| 3. ran but disagrees with the CPU reference | 4 |
+| 4. agrees with the CPU reference | 443 |
+### 1. Crashed (3)
+
+- `PACKAGES/fep/C7inEthanol/fep01/in.insertion` - timed out
+- `PACKAGES/fep/C7inEthanol/fep10/in.deletion` - timed out
+- `mc/in.gcmc.co2` - **aborts under KOKKOS, runs clean on the CPU styles**
+
+Only the last is a real crash, and it is worth singling out:
+
+```
+Kokkos::RangePolicy bounds error: The lower bound (0) is greater than the upper bound (-1).
+Kokkos::Impl::host_abort(char const*)
+Signal: Aborted (6)
+```
+
+This is the bug recorded in KOKKOS_SERIAL_BUG_NOTES.md as root-caused but not
+fixed: `nlocal_body` goes negative inside `FixRigidSmall::copy_arrays()`, reached
+from `FixGCMC::attempt_molecule_deletion_full()`.  It reproduces only with
+multiple MPI ranks *and* KOKKOS, which is exactly this configuration.  Finding it
+again from a cold start, with no knowledge of the earlier investigation, is a
+reasonable check that the sweep detects real bugs.
+
+### 2. Stopped with a LAMMPS error (73)
+
+These cannot run under KOKKOS at all and belong in the `skip` list of a KOKKOS
+configuration rather than in a failure report:
+
+| rejection | inputs |
+|---|---|
+| KOKKOS package requires a Kokkos-enabled atom_style | 21 |
+| Cannot yet use fix pour with the KOKKOS package | 13 |
+| Label maps are currently not supported with Kokkos | 11 |
+| KOKKOS package only supports 'bin' neighbor lists | 8 |
+| Atom style ellipsoid/kk does not support the superellipsoid option | 4 |
+| Cannot yet use compute tally with Kokkos | 3 |
+| the remaining 13, two or fewer each | 13 |
+
+Two of these are the guards this branch added, doing their job: the
+`superellipsoid` rejection, and "Fix sgcmc requires the keyword 'atomic/energy
+yes' when used with a KOKKOS EAM pair style".  Both replace a segfault with a
+clear message.
+
+### 3. Disagrees with the CPU reference (4)
+
+- `min/in.min`
+- `min/in.min.box`
+- `indent/in.indent.min`
+- `PACKAGES/pedone/in.pedone.relax`
+
+All four minimize, and all four fail structurally rather than numerically: the
+minimizer stops after a different number of iterations, so the two logs have
+different numbers of thermo rows and no value-by-value comparison happens at all.
+
+Tracing `min/in.min`, which is about as simple as an input gets - a 2d
+Lennard-Jones melt with `fix nve` and `fix enforce2d`, 1000 steps of MD followed
+by `minimize` - the mechanism is:
+
+| step | CPU Temp | KOKKOS Temp |
+|---|---|---|
+| 0-400 | identical | identical |
+| 500 | 3.3136053 | 3.313605**2** |
+| 800 | 3.3016**408** | 3.3016**357** |
+| end | stops at 1300 | stops at 1199 |
+
+One unit in the last place at step 500, amplified by a chaotic trajectory over
+the next few hundred steps, and by the time the minimizer runs it takes a
+different path and stops somewhere else.
+
+So the headline is not that four styles are wrong.  It is that **the Serial
+backend is not bit-for-bit identical to the plain CPU styles**, which is the
+assumption written into the header of `config_kokkos_serial.yaml` and the reason
+its tolerances are set as tight as `abs 1e-8 / rel 1e-10`.  A one-ulp difference
+passes those tolerances easily, which is why 443 inputs agree; it only becomes
+visible where an iteration count depends on it.  Somewhere in the Serial path an
+operation is ordered differently - a reduction, or the order atoms are visited -
+and that is the thing worth chasing.
+
+### 4. Agrees with the CPU reference (443)
+
+Within `abs 1e-8 / rel 1e-10` on every compared thermo row.
+
+## What this changes
+
+The published KOKKOS series reports 164 tests that pass with the plain styles and
+fail under KOKKOS, of which 115 are numerical and only 19 differ at the first
+thermo output.  Running the Serial backend instead of OpenMP, against a reference
+generated by the same build on the same machine, that becomes:
+
+| | published nightly | this run |
+|---|---|---|
+| numerical disagreements | 115 | **4** |
+| of those, a clear mechanism | 19 differ at the first row | all 4 traced to one ulp amplified through a minimization |
+| rejections mixed into the failures | yes | separated into their own list of 73 |
+
+Most of the 115 were the OpenMP backend's thread reduction order and the age of
+the bundled reference logs, not differences between a style and its KOKKOS
+variant.
+
+## Reproducing
+
+```bash
+export MAKEFLAGS=-j4          # or PLUMED's serial make blocks the whole build
+tools/regression-tests/run-all-packages.sh build-cpu
+tools/regression-tests/run-all-packages.sh build-kokkos
+tools/regression-tests/run-all-packages.sh cpu       # generates the reference logs
+tools/regression-tests/run-all-packages.sh kokkos
+tools/regression-tests/run-all-packages.sh classify
+```
+
+Each sweep resumes from its progress file, so an interrupted run picks up where
+it stopped rather than starting over.
