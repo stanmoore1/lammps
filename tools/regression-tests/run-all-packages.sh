@@ -32,6 +32,16 @@ NPROCS=${NPROCS:-4}          # MPI ranks per test
 NWORKERS=${NWORKERS:-1}      # tests running at the same time
 RUNNER=${LAMMPS_DIR}/tools/regression-tests/run_tests.py
 
+# all_on.cmake turns on every package, and these eight cannot be built here:
+# ADIOS needs an MPI-enabled ADIOS2 installation, FENIX a ULFM-capable MPI and
+# QMMM-XTB xtb>=6.7 through pkg-config, while MBX, ML-QUIP, ML-RUNNER, QMMM and
+# SCAFACOS configure cleanly but are each an ExternalProject that serialises the
+# build and would be built once per build directory for about 20 more example
+# inputs.  Override with BLOCKED_PACKAGES= to build them anyway.
+BLOCKED_PACKAGES=${BLOCKED_PACKAGES-"-D PKG_ADIOS=off -D PKG_FENIX=off \
+  -D PKG_QMMM-XTB=off -D PKG_MBX=off -D PKG_ML-QUIP=off -D PKG_ML-RUNNER=off \
+  -D PKG_QMMM=off -D PKG_SCAFACOS=off"}
+
 mkdir -p "${WORK}"
 
 # Open MPI refuses to run as root and will not oversubscribe by default; both
@@ -101,7 +111,7 @@ case "${1:-all}" in
         -D CMAKE_CXX_STANDARD=20 -D CMAKE_BUILD_TYPE=Release \
         -D CMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold \
         -D CMAKE_SHARED_LINKER_FLAGS=-fuse-ld=mold \
-        ${CMAKE_EXTRA_ARGS:-}
+        ${BLOCKED_PACKAGES} ${CMAKE_EXTRA_ARGS:-}
     cmake --build build-regression -j "${NPROCS}"
     ;;&
   kim-models|all)
@@ -147,8 +157,28 @@ case "${1:-all}" in
         -D CMAKE_CXX_STANDARD=20 -D CMAKE_BUILD_TYPE=Release \
         -D CMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold \
         -D CMAKE_SHARED_LINKER_FLAGS=-fuse-ld=mold \
-        ${CMAKE_EXTRA_ARGS:-}
+        ${BLOCKED_PACKAGES} ${CMAKE_EXTRA_ARGS:-}
     cmake --build build-kokkos -j "${NPROCS}"
+    ;;&
+  build-kokkos-omp|all)
+    # The same package set again on the OpenMP backend, for the threading tests.
+    # Everything else matches build-kokkos exactly -- same ranks in the
+    # configuration, same reference logs, same tolerances -- so that whatever
+    # differs between the two passes is attributable to the threads.
+    cmake -S cmake -B build-kokkos-omp -G Ninja \
+        -C cmake/presets/gcc.cmake -C cmake/presets/all_on.cmake \
+        -C cmake/presets/download.cmake -C cmake/presets/kokkos-openmp.cmake \
+        -D PKG_KOKKOS=on -D FFT_KOKKOS=KISS -D KOKKOS_PREC=double \
+        -D PKG_GPU=on -D GPU_API=opencl \
+        -D BUILD_MPI=on -D BUILD_OMP=on -D BUILD_SHARED_LIBS=on -D BUILD_TOOLS=off \
+        -D FFT=FFTW3 -D WITH_JPEG=on -D WITH_PNG=on -D DOWNLOAD_POTENTIALS=on \
+        -D MLIAP_ENABLE_ACE=on -D MLIAP_ENABLE_PYTHON=on \
+        -D CMAKE_CXX_COMPILER_LAUNCHER=ccache -D CMAKE_C_COMPILER_LAUNCHER=ccache \
+        -D CMAKE_CXX_STANDARD=20 -D CMAKE_BUILD_TYPE=Release \
+        -D CMAKE_EXE_LINKER_FLAGS=-fuse-ld=mold \
+        -D CMAKE_SHARED_LINKER_FLAGS=-fuse-ld=mold \
+        ${BLOCKED_PACKAGES} ${CMAKE_EXTRA_ARGS:-}
+    cmake --build build-kokkos-omp -j "${NPROCS}"
     ;;&
   cpu|all)
     # A copy of the examples tree without the bundled reference logs, so that
@@ -175,6 +205,11 @@ case "${1:-all}" in
   kokkos|all)
     run_regression_tests build-kokkos/lmp kokkos config_kokkos_serial_mpi4.yaml \
         examples-ref
+    ;;&
+  kokkos-omp|all)
+    # 4 ranks x 2 threads against the same reference logs as the Serial pass
+    run_regression_tests build-kokkos-omp/lmp kokkos-omp \
+        config_kokkos_openmp_mpi4.yaml examples-ref
     ;;&
   classify|all)
     ${PYTHON} "${LAMMPS_DIR}/tools/regression-tests/classify_kokkos.py" \
