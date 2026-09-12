@@ -82,26 +82,6 @@ void AtomVecEllipsoidKokkos::init()
 }
 
 /* ----------------------------------------------------------------------
-   process sub-style args
-------------------------------------------------------------------------- */
-
-void AtomVecEllipsoidKokkos::process_args(int narg, char **arg)
-{
-  // AtomVecEllipsoidKokkos has no bonus_super array and none of its
-  // pack/unpack/exchange/border Kokkos kernels know about the superellipsoid
-  // shape/block/inertia bonus data, so the base class's "superellipsoid"
-  // sub-style (which dynamically registers a "radius" field and switches
-  // set_shape()/etc. over to bonus_super) has no device-side counterpart.
-  // Fail fast here instead of segfaulting later in create_atoms/set/etc.
-
-  for (int iarg = 0; iarg < narg; iarg++)
-    if (strcmp(arg[iarg], "superellipsoid") == 0)
-      error->all(FLERR, "Cannot (yet) use atom_style ellipsoid superellipsoid with KOKKOS");
-
-  AtomVecEllipsoid::process_args(narg, arg);
-}
-
-/* ----------------------------------------------------------------------
    grow atom arrays
    n = 0 grows arrays by a chunk
    n > 0 allocates arrays to size n

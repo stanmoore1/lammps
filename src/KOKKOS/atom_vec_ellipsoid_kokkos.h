@@ -65,7 +65,6 @@ class AtomVecEllipsoidKokkos : public AtomVecKokkos, public AtomVecEllipsoid {
   ~AtomVecEllipsoidKokkos() override;
   void process_args(int, char **) override;
   void init() override;
-  void process_args(int, char **) override;
 
   void grow(int) override;
   void grow_pointers() override;
