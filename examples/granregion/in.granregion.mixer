@@ -90,7 +90,10 @@ fix		ins all pour 1000 1 42424 region insreg &
 
 thermo_style	custom step cpu atoms ke v_theta
 thermo_modify	flush yes lost warn
+variable        nequil index 200000
 
-run		200000 
+run		${nequil} 
 unfix 		ins
-run		200000
+variable        nprod index 200000
+
+run		${nprod}

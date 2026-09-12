@@ -57,14 +57,16 @@ fix          1 all npt/asphere temp 2.0 2.0 0.1 iso 0.0 1.0 1.0 &
 fix          2 all enforce2d
 
 compute_modify 1_temp extra/dof ${dof}
+variable        nequil index 2000
 
 # equilibrate to shrink box around dilute system
 
-run          2000
+run          ${nequil}
 
 # run dynamics on dense system
 
 unfix        1
 fix          1 all nve/asphere
+variable        nprod index 2000
 
-run          2000
+run          ${nprod}

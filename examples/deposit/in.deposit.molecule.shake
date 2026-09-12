@@ -42,6 +42,7 @@ fix             6 all shake 0.0001 20 1000 b 1 mol dimer
 thermo_style	custom step atoms temp epair etotal press
 thermo          100
 thermo_modify	temp add lost/bond ignore lost warn
+variable        nsteps index 10000
 
 #dump		1 all atom 50 dump.deposit_shake
 
@@ -57,4 +58,4 @@ thermo_modify	temp add lost/bond ignore lost warn
 #dump_modify     viz backcolor black backcolor2 white adiam * 0.75 adiam 1 1.5 &
 #                color myred 0.9 0.05 0.05 acolor 1 myred acolor 2 forestgreen boxcolor gold
 
-run             10000
+run             ${nsteps}

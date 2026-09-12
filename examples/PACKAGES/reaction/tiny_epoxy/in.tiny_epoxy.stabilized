@@ -48,8 +48,9 @@ fix 1 statted_grp_REACT nvt temp 300 300 100
 
 thermo_style custom step temp f_rxns[*]
 thermo_modify colname auto
+variable        nsteps index 2000
 
-run 2000
+run ${nsteps}
 
 # write_restart restart_longrun
 # write_data restart_longrun.data nofix

@@ -16,5 +16,8 @@ thermo_modify format 4*6 %14.10f
 #dump equilibration all custom 1 dump.equilibration id type xu yu zu #v_Adam_m
 
 min_style fire
-minimize 0 1e-8 2000 2000
+variable        maxiter index 2000
+variable        maxeval index 2000
+
+minimize 0 1e-8 ${maxiter} ${maxeval}
 

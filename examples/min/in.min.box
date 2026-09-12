@@ -34,8 +34,9 @@ fix		2 all enforce2d
 #dump_modify	3 pad 4
 
 thermo		100
+variable        nsteps index 1000
 
-run		1000
+run		${nsteps}
 
 # perform the box relaxation by progressively
 # adding more degrees of freedom, for smoother
@@ -45,10 +46,12 @@ neigh_modify	delay 0 every 1 check yes
 
 velocity	all create 0.0 1
 thermo		50
+variable        maxiter index 1000
+variable        maxeval index 10000
 
 # atoms only
 
-minimize	1.0e-6 0.001 1000 10000
+minimize	1.0e-6 0.001 ${maxiter} ${maxeval}
 
 # isotropic volume relaxation to hydrostatic target
 
@@ -56,28 +59,40 @@ fix             3 all box/relax iso 1.5 vmax 1.0e-3
 
 variable        emin equal pe+f_3/atoms
 thermo_style    custom step temp pe pxx pyy pxy f_3 v_emin
+variable        maxiter index 10000
+variable        maxeval index 100000
 
 # anisotropic volume relaxation to hydrostatic target
 
-minimize	0.0 10.0e0 10000 100000
+minimize	0.0 10.0e0 ${maxiter} ${maxeval}
 
 fix             3 all box/relax aniso 1.5 vmax 1.0e-3
+variable        maxiter index 10000
+variable        maxeval index 100000
 
-minimize	0.0 10.0 10000 100000
+minimize	0.0 10.0 ${maxiter} ${maxeval}
 
 # anisotropic volume relaxation to non-hydrostatic target
 
 fix             3 all box/relax x 1.0 y 2.0 vmax 1.0e-3
+variable        maxiter index 10000
+variable        maxeval index 100000
 
-minimize	0.0 10.0 10000 100000
+minimize	0.0 10.0 ${maxiter} ${maxeval}
+variable        maxiter index 10000
+variable        maxeval index 100000
 
-minimize	0.0 1.0 10000 100000
+minimize	0.0 1.0 ${maxiter} ${maxeval}
+variable        maxiter index 10000
+variable        maxeval index 100000
 
-minimize	0.0 1.0e-2 10000 100000
+minimize	0.0 1.0e-2 ${maxiter} ${maxeval}
 
 # Final refinement uses nreset to eliminate stress offset
 
 fix             3 all box/relax x 1.0 y 2.0 vmax 1.0e-3 nreset 100
+variable        maxiter index 10000
+variable        maxeval index 100000
 
-minimize	0.0 1.0e-4 10000 100000
+minimize	0.0 1.0e-4 ${maxiter} ${maxeval}
 

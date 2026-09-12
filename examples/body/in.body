@@ -26,4 +26,6 @@ fix		2 all enforce2d
 #dump_modify    2 pad 5
 
 thermo          100
-run		10000
+variable        nsteps index 10000
+
+run		${nsteps}

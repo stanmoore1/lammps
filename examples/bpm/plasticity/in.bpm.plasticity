@@ -31,7 +31,9 @@ thermo_style    custom step ke pe pxx pyy pzz
 thermo          100
 
 timestep        0.1
-run             20000
+variable        nsteps1 index 20000
+
+run             ${nsteps1}
 unfix           wtemp
 
 # Replicate cylinder and add bonds
@@ -87,17 +89,23 @@ compute         zmin3 c3 reduce min z
 compute         zmin4 c4 reduce min z
 
 thermo_style    custom step ke c_zmin1 c_zmin2 c_zmin3 c_zmin4
+variable        nsteps2 index 30000
+
 #dump            1 all custom 1000 atomDump id type x y z
 
-run             30000
+run             ${nsteps2}
 
 # hold load
 
 unfix           3
 fix             3 load addforce 0.0 0.0 -0.0005
-run             50000
+variable        nsteps3 index 50000
+
+run             ${nsteps3}
 
 # remove load
 
 unfix           3
-run             60000
+variable        nsteps4 index 60000
+
+run             ${nsteps4}

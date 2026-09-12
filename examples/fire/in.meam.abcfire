@@ -17,5 +17,8 @@ thermo_modify format 4*6 %14.10f
 
 min_style fire
 min_modify abcfire yes
-minimize 0 1e-8 2000 2000
+variable        maxiter index 2000
+variable        maxeval index 2000
+
+minimize 0 1e-8 ${maxiter} ${maxeval}
 

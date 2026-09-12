@@ -47,4 +47,6 @@ thermo          100
 
 timestep        0.0001
 thermo          50
-run             10000
+variable        nsteps index 10000
+
+run             ${nsteps}

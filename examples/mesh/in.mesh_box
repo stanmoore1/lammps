@@ -40,10 +40,12 @@ thermo_modify temp ptemp
 
 thermo 200
 compute ke all ke/atom
+variable        nsteps index 5000
+
 #dump 2 all movie 200 mesh.mkv c_ke radius size 960 1440 zoom 1.5 box no 0.0 view 120 180
 #dump_modify 2 bitrate 4000 framerate 12 color orange 1.0 0.5 0.0 amap min max cf 0.0 6 min blue 0.1 fuchsia 0.2 red 0.4 orange 0.6 yellow max white
 #dump 1 all custom 500 open_box.lammpstrj id type mol x y z vx vy vz
 
 
-run 5000
+run ${nsteps}
 

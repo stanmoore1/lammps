@@ -42,18 +42,24 @@
 #------------------------- Running the simulation -----------------------------#
   # Setup initial velocities to accelerate equilibration.
   velocity          all create 200.0 9999 mom yes rot yes dist gaussian
+variable        nsteps1 index 1000
 
   # Forward nonequilibrium thermodynamic integration.
-  run               1000 # Equilibrate system at lambda = 0.
+  run               ${nsteps1} # Equilibrate system at lambda = 0.
   fix               f4 all print 1 "${step} ${dU} ${lambda} ${dlambda}" & 
                     screen no file forward.dat title '# step dU lambda dlambda'
-  run               2000 # Lambda switching: 0 -> 1.
+variable        nsteps2 index 2000
+
+  run               ${nsteps2} # Lambda switching: 0 -> 1.
   unfix             f4
+variable        nsteps3 index 1000
 
   # Backward nonequilibrium thermodynamic integration.
-  run               1000 # Equilibrate system at lambda = 1.
+  run               ${nsteps3} # Equilibrate system at lambda = 1.
   fix               f4 all print 1 "${step} ${dU} ${lambda} ${dlambda}" & 
                     screen no file backward.dat title '# step dU lambda dlambda'
-  run               2000 # Lambda switching: 1 -> 0.
+variable        nsteps4 index 2000
+
+  run               ${nsteps4} # Lambda switching: 1 -> 0.
   unfix             f4
 #------------------------------------------------------------------------------#

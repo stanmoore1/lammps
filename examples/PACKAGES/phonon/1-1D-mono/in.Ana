@@ -46,5 +46,6 @@ thermo_modify temp MyTemp
 thermo   100
 
 dump    	4 all atom 50000 dump_LJ_ANA.lammpstrj 
+variable        nsteps index 2000000
 
-run 		2000000
+run 		${nsteps}

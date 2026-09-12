@@ -28,4 +28,6 @@ comm_modify     vel yes
 thermo          3000
 thermo_style    custom step ke
 run_style       verlet
-run             300000
+variable        nsteps index 300000
+
+run             ${nsteps}

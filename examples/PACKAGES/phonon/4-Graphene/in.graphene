@@ -39,7 +39,8 @@ thermo       100
 restart      1000000 restart.one restart.two
 
 dump   1 all xyz 50000 dump.graphene.xyz
+variable        nsteps index 6000000
 
 # execution
-run 	 6000000
+run 	 ${nsteps}
 write_restart Restart.final

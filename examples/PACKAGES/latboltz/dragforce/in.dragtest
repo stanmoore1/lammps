@@ -133,9 +133,10 @@ if "${is_bonded} == 1" then &
    "variable comdatafile string drag_nb${n_nodes}_st${stpts}_dt${tstep}.out" &
 else &
    "variable comdatafile string drag_n${n_nodes}_st${stpts}_dt${tstep}.out" 
+variable        nsteps index 10000
 
 #fix printCM all print 100 "$(step) ${cmx} ${cmy} ${cmz} ${vcmx} ${vcmy} ${vcmz}" file ${comdatafile} screen no
 
-run    10000
+run    ${nsteps}
 #run   100000
 

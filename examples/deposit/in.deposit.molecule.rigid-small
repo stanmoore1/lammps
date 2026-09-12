@@ -42,6 +42,7 @@ fix		5 addatoms wall/reflect zhi EDGE
 thermo_style	custom step atoms temp epair etotal press
 thermo          100
 thermo_modify	temp add lost/bond ignore lost warn
+variable        nsteps index 10000
 
 #dump		1 all atom 50 dump.deposit.atom
 
@@ -53,4 +54,4 @@ thermo_modify	temp add lost/bond ignore lost warn
 #		axes yes 0.8 0.02 view 80 -30
 #dump_modify	3 pad 5
 
-run             10000
+run             ${nsteps}

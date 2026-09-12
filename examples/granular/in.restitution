@@ -39,5 +39,6 @@ variable        dz equal c_z1 - c_z2
 
 thermo          10000
 thermo_style	custom step ke v_dz c_v1 c_v2 c_f1 c_f2
+variable        nsteps index 1000000
 
-run		        1000000
+run		        ${nsteps}

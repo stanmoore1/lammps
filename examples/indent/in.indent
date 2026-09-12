@@ -48,6 +48,7 @@ fix             5 all enforce2d
 
 thermo          1000
 thermo_modify   temp new
+variable        nequil index 30000
 
 #dump           1 all atom 250 dump.indent
 
@@ -59,13 +60,15 @@ thermo_modify   temp new
 #               zoom 1.6 adiam 1.5
 #dump_modify    3 pad 5
 
-run             30000
+run             ${nequil}
 
 # run without indenter
 
 unfix           4
+variable        nprod index 30000
+
 #undump          2
 #dump           2 all image 1000 image.*.jpg type type &
 #               zoom 1.6 adiam 1.5
 #dump_modify    2 pad 5
-run             30000
+run             ${nprod}

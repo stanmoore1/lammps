@@ -27,4 +27,6 @@ thermo_modify   lost warn
 
 ###### Run molecular dynamics ######
 fix             thermostat all nve
-run             5000
+variable        nsteps index 5000
+
+run             ${nsteps}

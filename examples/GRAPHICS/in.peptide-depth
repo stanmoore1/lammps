@@ -71,5 +71,6 @@ dump_modify  viz pad 6 element C C O H N C C C O H H S O H &
                 adiam 11 1.92 adiam 12 2.88 adiam 13 2.432 adiam 14 1.92 &
                 color nightsky 0.11 0.11 0.15 backcolor black backcolor2 nightsky &
                 ssaosamples 16 specular tight boxcolor steelblue 
+variable        nsteps index 30000
 
-run             30000
+run             ${nsteps}

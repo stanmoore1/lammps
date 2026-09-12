@@ -110,9 +110,12 @@ thermo_style custom step temp etotal v_Lcnt v_Fcnt v_lbot v_ltop
 thermo_modify temp Tmid line yaml
 
 timestep 0.0005
-run 10000
+variable        nequil index 10000
+
+run ${nequil}
 
 velocity cnt_top set 0.75 0 0
 velocity cnt_bot set -0.75 0 0
+variable        nprod index 40000
 
-run 40000
+run ${nprod}

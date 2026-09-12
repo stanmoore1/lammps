@@ -13,8 +13,10 @@ read_restart molecular-mix.restart
 thermo 100
 
 fix 1 all nvt temp 300.0 300.0 1.0
+variable        nsteps index 2000
+
 # dump 1 all custom 100 custom template-mix.lammpstrj id xu yu zu
-run 2000
+run ${nsteps}
 
 # clean up
 shell rm molecular-mix.restart

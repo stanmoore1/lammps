@@ -31,5 +31,6 @@ velocity        all create 0.0 12345678 dist uniform
 thermo          1000
 thermo_style    custom step ecoul evdwl ebond eangle edihed f_cmap eimp
 timestep        2.0
+variable        nsteps index 100000
 
-run             100000
+run             ${nsteps}

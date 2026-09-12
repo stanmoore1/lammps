@@ -91,5 +91,6 @@ dump     viz   all image 100 obstacle-*.ppm type type size 800 500 zoom 3.0 &
 dump_modify  viz  pad 6 backcolor darkgray adiam * 1.3 &
                   amap 0 8 cf 0.0 5 min blue 0.25 purple 0.5 red 0.75 orange max gold &
                   fcolor lines silver &
+variable        nsteps index 30000
 
-run             30000
+run             ${nsteps}

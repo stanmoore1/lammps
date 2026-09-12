@@ -67,6 +67,7 @@ fix		9 all enforce2d
 timestep	0.003
 thermo		1000
 thermo_modify	temp mobile
+variable        nsteps index 25000
 
 #dump		1 all atom 100 dump.obstacle
 
@@ -78,4 +79,4 @@ thermo_modify	temp mobile
 #		zoom 1.6 adiam 1.5
 #dump_modify	3 pad 5
 
-run		25000
+run		${nsteps}

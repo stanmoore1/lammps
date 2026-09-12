@@ -133,12 +133,15 @@ fix		ins all pour 2000 1 42424 region insreg &
 
 thermo_style	custom step cpu atoms ke
 thermo_modify	flush yes lost warn
+variable        nsteps1 index 20000
 
 # Initial run to fill up the cone
 
-run		20000 
+run		${nsteps1} 
 unfix 		ins
-run		150000
+variable        nsteps2 index 150000
+
+run		${nsteps2}
 
 # remove "plug" - need to redefine cylinder region & union
 
@@ -153,5 +156,6 @@ region		hopreg union 2 cylreg conereg
 unfix		hopper3
 fix		hopper3 all wall/gran/region hertz/history &
 		${kn} ${kt} ${gamma_n} ${gamma_t} ${coeffFric} 1 region hopreg
+variable        nsteps3 index 100000
 
-run		100000
+run		${nsteps3}

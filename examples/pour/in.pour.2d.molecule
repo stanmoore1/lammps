@@ -49,6 +49,7 @@ thermo_modify   lost ignore norm no temp Tsphere
 compute_modify  Tsphere dynamic/dof yes
 
 thermo          1000
+variable        nsteps index 25000
 
 #dump           id all atom 100 tmp.dump
 
@@ -57,4 +58,4 @@ thermo          1000
 #dump_modify     viz pad 6 boxcolor slategray adiam 1 1.4 &
 #                amap 1 1000 sa 1.0 10 firebrick darkcyan forestgreen darkgray violet midnightblue yellow purple silver orange
 
-run             25000
+run             ${nsteps}

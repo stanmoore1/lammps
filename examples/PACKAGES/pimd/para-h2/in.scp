@@ -22,9 +22,10 @@ fix 1 all pimd/nvt method nmpimd fmass 1.0 temp 25.0 nhc 4
 thermo_style    custom step temp pe etotal pzz f_1[1] f_1[2] f_1[3]
 thermo_modify   colname f_1[1] espring colname f_1[2] T_ring colname f_1[3] virial
 thermo          ${out_freq}
+variable        nsteps index 10000
 
 #dump dcd all dcd ${out_freq} ${job_name}_${ibead}.dcd
 
 #restart ${out_freq} ${job_name}_${ibead}.restart1 ${job_name}_${ibead}.restart2
 
-run 10000
+run ${nsteps}

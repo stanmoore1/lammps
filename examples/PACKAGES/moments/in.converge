@@ -31,5 +31,7 @@ fix 3 all halt 100 v_conv == 1
 thermo_style custom step temp press etotal f_2[*][1] f_2[*][5] v_conv
 
 thermo 100
-run 10000
+variable        nsteps index 10000
+
+run ${nsteps}
 

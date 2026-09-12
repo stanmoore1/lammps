@@ -53,10 +53,11 @@ fix 4 bond_react_MASTER_group temp/rescale 1 300 300 10 1
 
 thermo_style custom step temp press density f_myrxns[*]
 thermo_modify colname auto
+variable        nsteps index 10000
 
 # restart 100 restart1 restart2
 
-run 10000
+run ${nsteps}
 
 # write_restart restart_longrun
 # write_data restart_longrun.data

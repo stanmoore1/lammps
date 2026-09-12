@@ -15,7 +15,10 @@ mass            * 28.085
 
 fix                     relax all box/relax aniso 0
 thermo          1
-minimize        0 0 10000 100000
+variable        maxiter index 10000
+variable        maxeval index 100000
+
+minimize        0 0 ${maxiter} ${maxeval}
 
 variable        cohesive_energy equal pe/atoms
 variable        atmVol equal vol/atoms

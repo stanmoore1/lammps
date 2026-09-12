@@ -24,4 +24,6 @@ fix             1 all rigid/nve/small molecule
 thermo_style    custom step temp pe ke etotal
 thermo          200
 timestep        0.0005
-run             4000
+variable        nsteps index 4000
+
+run             ${nsteps}

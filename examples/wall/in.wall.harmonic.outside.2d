@@ -57,4 +57,6 @@ thermo_style   custom step temp etotal press f_w2[1]
 #dump              2 all image 5000 image.wall.harmonic.outside.2d.*.jpg type type zoom 1.6 region inVol blue frame 0.5
 
 timestep       0.01
-run            20000
+variable        nsteps index 20000
+
+run            ${nsteps}

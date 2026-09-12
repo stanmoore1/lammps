@@ -48,8 +48,9 @@ timestep        2e-3
 fix	            fix_nve all nve
 
 thermo		    100
+variable        nsteps1 index 500
 
-run             500
+run             ${nsteps1}
 
 #--------------------------------------#
 # Chunk, Stress, and VCM removal steps #
@@ -89,6 +90,7 @@ group          	piston region piston
 fix 			fix_piston piston move linear 5 0 0 units box # strain rate ~ 8e10 1/s 
 
 thermo_style    custom step temp ke pe lx ly lz pxx pyy pzz econserve 
+variable        nsteps2 index 500
 
 # Atom dump
 
@@ -106,8 +108,9 @@ thermo_style    custom step temp ke pe lx ly lz pxx pyy pzz econserve
 # 		        axes yes 0.8 0.02 view 60 -30
 # dump_modify	    3 pad 1
 
-run	            500
+run	            ${nsteps2}
 
 unfix           fix_piston
+variable        nsteps3 index 1500
 
-run             1500
+run             ${nsteps3}

@@ -32,9 +32,10 @@ thermo          100
 #dump            1 all atom 10 dump.hmc_rigid
 
 fix             1 all rigid/small molecule
+variable        nequil index 1000
 
 # equilibrate a bit
-run             1000
+run             ${nequil}
 
 # start HMC run
 
@@ -42,5 +43,6 @@ timestep        3.0  # large timestep
 fix             2 all hmc 200 654123 300.0 rigid 1
 
 thermo_style    custom step temp pe ke etotal f_2 f_2[*]
+variable        nprod index 5000
 
-run             5000
+run             ${nprod}

@@ -101,8 +101,9 @@ fix             stress_curve all print 10 "${strain} ${stress}" file stress_stra
 
 thermo          100
 thermo_style    custom step dt f_dtfix v_strain
+variable        nsteps index 2500
 
 ####################################################################################################
 # RUN SIMULATION
 ####################################################################################################
-run             2500
+run             ${nsteps}

@@ -71,7 +71,8 @@ variable        dacc equal f_mygcmc[6]/(f_mygcmc[5]+${nugget})
 compute_modify  thermo_temp dynamic/dof yes
 thermo_style    custom step atoms v_ninreg v_iacc v_dacc v_tacc press
 thermo          100
+variable        nsteps index 5000
 
 # run
 
-run             5000
+run             ${nsteps}

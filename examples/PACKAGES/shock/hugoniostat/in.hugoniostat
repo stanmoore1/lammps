@@ -42,7 +42,10 @@ thermo          100
 thermo_style    custom step temp pe etotal pxx pyy pzz lx ly lz
 
 min_modify      line quadratic
-minimize        0.0 1.0e-6 10000 100000
+variable        maxiter index 10000
+variable        maxeval index 100000
+
+minimize        0.0 1.0e-6 ${maxiter} ${maxeval}
 
 # Define initial velocity
 
@@ -80,6 +83,7 @@ thermo          1000
 thermo_style custom step temp ke epair econserve pzz v_tau lz f_myhug v_dele v_us v_up
 
 fix stress all print 10 "${time} ${pzz} ${tau} " screen no append stress_vs_t.dat title '#time pzz tau (no drag)'
+variable        nsteps1 index 10000
 
 #dump           id all atom 500 dump.hugoniostat
 
@@ -91,7 +95,7 @@ fix stress all print 10 "${time} ${pzz} ${tau} " screen no append stress_vs_t.da
 #               axes yes 0.8 0.02 view 60 -30
 #dump_modify    3 pad 5
 
-run             10000
+run             ${nsteps1}
 
 # Start Run #2
 
@@ -124,8 +128,9 @@ thermo          1000
 thermo_style custom step temp ke epair econserve pzz v_tau lz f_myhug v_dele v_us v_up
 
 fix stress all print 10 "${time} ${pzz} ${tau} " screen no append stress_vs_t.dat title '#time pzz tau (with drag)'
+variable        nsteps2 index 10000
 
-run             10000
+run             ${nsteps2}
 
 # Start Run #3
 
@@ -158,6 +163,7 @@ thermo          1000
 thermo_style custom step temp ke epair econserve pzz v_tau lz f_myhug v_dele v_us v_up
 
 fix stress all print 10 "${time} ${pzz} ${tau} " screen no append stress_vs_t.dat title '#time pzz tau (Nose-Hoover chain)'
+variable        nsteps3 index 10000
 
-run             10000
+run             ${nsteps3}
 

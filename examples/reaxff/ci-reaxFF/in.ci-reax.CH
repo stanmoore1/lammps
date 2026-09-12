@@ -13,7 +13,8 @@ pair_coeff      2 2 table ci-reaxFF_ZBL.dat HH_cireaxFF
 timestep        0.25
 fix             1 all nve
 fix             2 all temp/berendsen 500.0 500.0 100.0
+variable        nsteps index 3000
 
 #dump           1 all atom 30 dump.ci-reax.lammpstrj
 
-run             3000
+run             ${nsteps}

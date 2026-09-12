@@ -74,7 +74,9 @@ thermo          100
 timestep        0.001
 
 compute        1 all property/atom temperature heatflow
+variable        nsteps index 100000
+
 #dump           1 all custom 1000 ${name}.dump id type radius mass x y z c_1[*]
 
-run             100000
+run             ${nsteps}
 

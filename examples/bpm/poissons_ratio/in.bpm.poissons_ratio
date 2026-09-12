@@ -33,7 +33,9 @@ thermo_style    custom step ke pe pxx pyy pzz
 thermo          100
 
 timestep        0.1
-run             20000
+variable        nequil index 20000
+
+run             ${nequil}
 unfix           wtemp
 
 # Replicate cylinder and add bonds
@@ -85,6 +87,8 @@ fix             3 top setforce 0.0 0.0 0.0
 compute         zmax all reduce max z
 
 thermo_style    custom step ke pe pxx pyy pzz c_zmax
+variable        nprod index 10000
+
 #dump            1 all custom 100 atomDump id type x y z
 
-run             10000
+run             ${nprod}

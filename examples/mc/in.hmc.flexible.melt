@@ -19,7 +19,9 @@ velocity        all create 3.0 321654 loop geom
 fix             1 all nve
 
 thermo          50
-run             1000  # equilibrate a bit
+variable        nequil index 1000
+
+run             ${nequil}  # equilibrate a bit
 
 fix             2 all hmc 100 6234 1.5 resample yes
 
@@ -36,4 +38,6 @@ fix             2 all hmc 100 6234 1.5 resample yes
 thermo_style    custom step temp pe ke etotal f_2 f_2[*]
 
 timestep        0.005
-run             50000
+variable        nprod index 50000
+
+run             ${nprod}

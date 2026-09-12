@@ -34,4 +34,6 @@ fix ywalls all wall/reflect/stochastic maxwell 29839 &
 # run
 
 thermo		1000
-run		10000
+variable        nsteps index 10000
+
+run		${nsteps}

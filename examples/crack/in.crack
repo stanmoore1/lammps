@@ -63,6 +63,7 @@ thermo          200
 thermo_modify   temp new
 
 neigh_modify    exclude type 2 3
+variable        nsteps index 5000
 
 #dump           1 all atom 500 dump.crack
 
@@ -91,4 +92,4 @@ neigh_modify    exclude type 2 3
 #                amap 0 8.0 cf 0.0 5 min map1 0.25 map2 0.5 map3 0.75 map4 max map5
 #
 
-run             5000
+run             ${nsteps}

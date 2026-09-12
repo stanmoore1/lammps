@@ -80,7 +80,10 @@ reset_timestep	0
 thermo 1
 thermo_style custom step pe c_eatoms
 min_style cg
-minimize	1e-15 1e-15 1000 2000
+variable        maxiter index 1000
+variable        maxeval index 2000
+
+minimize	1e-15 1e-15 ${maxiter} ${maxeval}
 variable eminimum equal "c_eatoms / count(all)"
 print "%%e(it,1)=${eminimum}"
 
@@ -97,14 +100,17 @@ fix 1 all nve
 # Set thermo output
 thermo 100
 thermo_style custom step lx ly lz press pxx pyy pzz pe temp
+variable        nsteps1 index 2000
 
 # Run for at least 2 picosecond (assuming 1 fs timestep)
-run 2000
+run ${nsteps1}
 
 # Loop to run until pressure is below the variable eqpress (defined at beginning of file)
 label loopeq 
 variable eq loop 100 
-run 250
+variable        nsteps2 index 250
+
+run ${nsteps2}
 variable converge equal press
 if "${converge} <= 0" then "variable converge equal -press" else "variable converge equal press" 
 if "${converge} <= 50" then "jump ${fname} breakeq" 
@@ -154,7 +160,9 @@ restart 50000 output.restart
 variable runtime equal 0
 label loop
 displace_atoms	all ramp x 0.0 ${srate1} z 10 100 units box
-run		100
+variable        nsteps3 index 100
+
+run		${nsteps3}
 variable runtime equal ${runtime}+100
 if "${runtime} < 100000" then "jump ${fname} loop"
 

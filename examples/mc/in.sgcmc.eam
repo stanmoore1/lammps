@@ -43,6 +43,8 @@ fix             mc all sgcmc ${nsteps_mc} ${swap_fraction} ${temperature_mc} ${d
 thermo          100
 thermo_style    custom step temp atoms pe press &
                 lx ly lz f_mc[1] f_mc[2] f_mc[3] f_mc[4]
+variable        nsteps index 2000
+
 #dump            1 all custom 200 mc.*.dump id type x y z
 
-run             2000
+run             ${nsteps}

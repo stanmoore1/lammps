@@ -33,8 +33,9 @@ fix             2 all enforce2d
 #dump_modify    3 pad 4
 
 thermo          100
+variable        nsteps index 1000
 
-run             1000
+run             ${nsteps}
 
 neigh_modify    delay 0 every 1 check yes
 
@@ -43,4 +44,7 @@ neigh_modify    delay 0 every 1 check yes
 thermo          50
 min_style       fire
 min_modify      abcfire yes
-minimize        0.0 1.0e-6 10000 10000
+variable        maxiter index 10000
+variable        maxeval index 10000
+
+minimize        0.0 1.0e-6 ${maxiter} ${maxeval}

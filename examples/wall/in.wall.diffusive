@@ -33,4 +33,6 @@ fix ywalls all wall/reflect/stochastic diffusive 2308 &
 # run
 
 thermo		1000
-run		10000
+variable        nsteps index 10000
+
+run		${nsteps}

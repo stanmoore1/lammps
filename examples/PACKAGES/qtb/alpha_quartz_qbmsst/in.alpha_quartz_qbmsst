@@ -31,7 +31,9 @@ variable                T_qm equal f_shock[5]                                   
 thermo_style            custom step v_T_qm press econserve vol lx ly lz pzz v_dhug v_dray v_lgr_vel v_lgr_pos
 thermo                  200
 timestep                ${delta_t}
-run                     1000
+variable        nequil index 1000
+
+run                     ${nequil}
 write_restart           restart.1000
 
 #Compression restart 2
@@ -49,6 +51,8 @@ variable                T_qm equal f_shock[5]                                   
 thermo_style            custom step v_T_qm press econserve vol lx ly lz pzz v_dhug v_dray v_lgr_vel v_lgr_pos
 thermo                  500
 timestep                ${delta_t}
+variable        nprod index 10000
+
 #restart                 1000 restart
-run                     10000                                                                                   #10 ps
+run                     ${nprod}                                                                                   #10 ps
 shell rm restart.1000

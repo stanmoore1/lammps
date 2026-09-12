@@ -25,4 +25,6 @@ compute         erot all erotate/asphere
 thermo_style    custom step pe f_1 c_erot
 thermo          200
 timestep        0.002
-run             2000
+variable        nsteps index 2000
+
+run             ${nsteps}

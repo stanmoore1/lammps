@@ -22,6 +22,12 @@ neigh_modify	every 1 delay 0 check yes
 
 thermo          1
 fix            boxmin all box/relax iso 1.0
-minimize       1.0e-8 1.0e-10 10000 100000
+variable        maxiter index 10000
+variable        maxeval index 100000
+
+minimize       1.0e-8 1.0e-10 ${maxiter} ${maxeval}
 unfix boxmin
-minimize       1.0e-8 1.0e-10 10000 100000
+variable        maxiter index 10000
+variable        maxeval index 100000
+
+minimize       1.0e-8 1.0e-10 ${maxiter} ${maxeval}

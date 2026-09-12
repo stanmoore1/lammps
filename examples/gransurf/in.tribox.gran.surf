@@ -47,26 +47,35 @@ thermo          100
 thermo_style    custom step atoms temp c_1 c_2 press
 thermo_modify   lost ignore
 compute_modify  thermo_temp dynamic/dof yes
+variable        nsteps1 index 5000
 
 #dump           2 all image 100 tmp.image.*.ppm type type &
 #               zoom 1.4 adiam 1.0 tri type 2 0.2
 #dump_modify        2 pad 5
 
-run             5000
+run             ${nsteps1}
 
 fix             1 tri move rotate 0 0 0 0 0 1 25
-run             5000
+variable        nsteps2 index 5000
+
+run             ${nsteps2}
 
 unfix           1
 set             group tri angmom 0.0 0.0 0.0
 velocity        tri set 0.0 0.0 0.0
-run             5000
+variable        nsteps3 index 5000
+
+run             ${nsteps3}
 
 fix             1 tri move rotate 0 0 0 1 1 1 25
-run             5000
+variable        nsteps4 index 5000
+
+run             ${nsteps4}
 
 unfix           1
 set             group tri angmom 0.0 0.0 0.0
 velocity        tri set 0.0 0.0 0.0
-run             5000
+variable        nsteps5 index 5000
+
+run             ${nsteps5}
 
