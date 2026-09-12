@@ -107,9 +107,12 @@ case "${1:-all}" in
             || echo "installing the KIM models failed, see ${WORK}/kim-models.log"
     fi
     # examples/kim/in.kim-pm-property writes a KIM property instance through the
-    # kim-property Python module
+    # kim-property Python module.  --no-deps is deliberate: kim-property depends
+    # on numpy, and letting pip resolve that reinstalls the numpy run_tests.py
+    # itself imports, which on a system with more than one Python can leave it
+    # importing an extension module built for the other interpreter.
     ${PYTHON} -c 'import kim_property' 2>/dev/null \
-        || ${PYTHON} -m pip install --quiet kim-property \
+        || ${PYTHON} -m pip install --quiet --no-deps kim-edn kim-property \
         || echo "kim-property is not available, examples/kim/in.kim-pm-property will fail"
     ;;&
   build-kokkos|all)
