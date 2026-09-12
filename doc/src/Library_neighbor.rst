@@ -10,6 +10,15 @@ LAMMPS or querying of their properties:
 - :cpp:func:`lammps_neighlist_num_elements`
 - :cpp:func:`lammps_neighlist_element_neighbors`
 
+.. versionchanged:: TBD
+
+   A neighbor list built by the :ref:`KOKKOS package <PKG-KOKKOS>` keeps its
+   data in device memory, and the per-atom arrays these functions hand out are
+   not filled in for it.  :cpp:func:`lammps_neighlist_num_elements` and
+   :cpp:func:`lammps_neighlist_element_neighbors` now report an error for such a
+   list instead of describing it as empty.  Run without the ``kk`` suffix to
+   read neighbor lists through this interface.
+
 -----------------------
 
 .. doxygenfunction:: lammps_find_compute_neighlist

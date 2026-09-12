@@ -29,6 +29,7 @@
 #include "neighbor.h"
 #include "respa.h"
 #include "update.h"
+#include "utils.h"
 
 #include <cmath>
 #include <cstring>
@@ -200,17 +201,19 @@ FixWallGranOld::FixWallGranOld(LAMMPS *lmp, int narg, char **arg) :
         } else if (strcmp(arg[iarg+1], "tsuji") == 0) {
           damping_model = TSUJI;
           iarg += 1;
-        } else error->all(FLERR, "Illegal wall/gran command, "
-                          "unrecognized damping model");
+        } else
+          error->all(FLERR, iarg + 1,
+                     "Damping model {} is not available in fix wall/gran/kk; it "
+                     "supports velocity, mass_velocity, viscoelastic and tsuji. "
+                     "Run this input without the KOKKOS suffix to use the other "
+                     "damping models of fix wall/gran", arg[iarg + 1]);
         iarg += 1;
       } else if (strcmp(arg[iarg], "tangential") == 0) {
         if (iarg + 1 >= narg)
-          error->all(FLERR,"Illegal pair_coeff command, "
-                     "must specify tangential model after tangential keyword");
+          utils::missing_cmd_args(FLERR, "fix wall/gran tangential", error);
         if (strcmp(arg[iarg+1], "linear_nohistory") == 0) {
           if (iarg + 3 >= narg)
-            error->all(FLERR,"Illegal pair_coeff command, "
-                       "not enough parameters provided for tangential model");
+            utils::missing_cmd_args(FLERR, "fix wall/gran tangential linear_nohistory", error);
           tangential_model = TANGENTIAL_NOHISTORY;
           tangential_coeffs[0] = 0;
           // gammat and friction coeff
@@ -223,8 +226,7 @@ FixWallGranOld::FixWallGranOld(LAMMPS *lmp, int narg, char **arg) :
             (strcmp(arg[iarg+1], "mindlin/force") == 0) ||
             (strcmp(arg[iarg+1], "mindlin_rescale/force") == 0)) {
           if (iarg + 4 >= narg)
-            error->all(FLERR,"Illegal pair_coeff command, "
-                       "not enough parameters provided for tangential model");
+            utils::missing_cmd_args(FLERR, fmt::format("fix wall/gran tangential {}", arg[iarg + 1]), error);
           if (strcmp(arg[iarg+1], "linear_history") == 0)
             tangential_model = TANGENTIAL_HISTORY;
           else if (strcmp(arg[iarg+1], "mindlin") == 0)
@@ -255,8 +257,12 @@ FixWallGranOld::FixWallGranOld(LAMMPS *lmp, int narg, char **arg) :
           tangential_coeffs[2] = utils::numeric(FLERR,arg[iarg+4],false,lmp);
           iarg += 5;
         } else {
-          error->all(FLERR, "Illegal pair_coeff command, "
-                     "tangential model not recognized");
+          error->all(FLERR, iarg + 1,
+                     "Tangential model {} is not available in fix wall/gran/kk; "
+                     "it supports linear_nohistory, linear_history, mindlin, "
+                     "mindlin/force, mindlin_rescale and mindlin_rescale/force. "
+                     "Run this input without the KOKKOS suffix to use the other "
+                     "tangential models of fix wall/gran", arg[iarg + 1]);
         }
       } else if (strcmp(arg[iarg], "rolling") == 0) {
         if (iarg + 1 >= narg)
@@ -325,11 +331,9 @@ FixWallGranOld::FixWallGranOld(LAMMPS *lmp, int narg, char **arg) :
         tangential_model == TANGENTIAL_MINDLIN_RESCALE_FORCE) size_history += 1;
 
     if (limit_damping && normal_model == JKR)
-      error->all(FLERR,"Illegal pair_coeff command, "
-          "cannot limit damping with JRK model");
+      error->all(FLERR, "Fix wall/gran cannot limit damping with the JKR normal model");
     if (limit_damping && normal_model == DMT)
-      error->all(FLERR,"Illegal pair_coeff command, "
-          "Cannot limit damping with DMT model");
+      error->all(FLERR, "Fix wall/gran cannot limit damping with the DMT normal model");
   }
 
   // wallstyle args

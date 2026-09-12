@@ -6590,6 +6590,23 @@ int lammps_neighlist_num_elements(void *handle, int idx) {
   }
 
   NeighList *list = neighbor->lists[idx];
+
+  // A KOKKOS neighbor list keeps its data in device views, and ilist/numneigh/
+  // firstneigh -- the host arrays this interface hands out -- are not filled in.
+  // Reporting inum for such a list would claim data that cannot be read here:
+  // examples/python/in.fix_python_invoke_neighlist prints 96 neighbor lists with
+  // the plain styles and none at all under "-sf kk".  Say so instead.
+  if (list->kokkos) {
+    BEGIN_CAPTURE
+    {
+      lmp->error->all(FLERR, Error::NOLASTLINE,
+                      "{}(): neighbor list {} is built by the KOKKOS package and cannot be "
+                      "accessed through this interface", FNERR, idx);
+    }
+    END_CAPTURE
+    return -1;
+  }
+
   return list->inum;
 }
 
@@ -6626,6 +6643,18 @@ void lammps_neighlist_element_neighbors(void *handle, int idx, int element, int 
   }
 
   NeighList *list = neighbor->lists[idx];
+
+  // see the note in lammps_neighlist_num_elements()
+  if (list->kokkos) {
+    BEGIN_CAPTURE
+    {
+      lmp->error->all(FLERR, Error::NOLASTLINE,
+                      "{}(): neighbor list {} is built by the KOKKOS package and cannot be "
+                      "accessed through this interface", FNERR, idx);
+    }
+    END_CAPTURE
+    return;
+  }
 
   if (element < 0 || element >= list->inum) {
     return;
