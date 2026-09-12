@@ -3133,8 +3133,35 @@ void FixRigidSmallKokkos<DeviceType>::copy_body_host(){
   // d_body is written directly by device kernels (integrate/comm) without
   // updating DualView modify flags, so copy explicitly device -> host
   Kokkos::deep_copy(k_body.view_host(), k_body.view_device());
+
+  // Body::ilocal is the index of the atom that owns the body.  Which side keeps
+  // it up to date follows the exchange path, and init() ties sort_device to
+  // exchange_comm_device so the two never disagree:
+  //
+  //   host exchange   copy_arrays(), unpack_exchange() and set_molecule() keep
+  //                   ilocal in step with bodyown[] as atoms are deleted and
+  //                   migrated, and no device kernel touches it.  The device
+  //                   copy is therefore stale, and bringing it down undoes what
+  //                   the host has just recorded.  With fix gcmc that is fatal:
+  //                   copy_arrays() moves a body from a deleted atom to the atom
+  //                   copied over it, the next copy_body_host() puts the deleted
+  //                   atom's index back, and bodyown[] and body.ilocal then name
+  //                   different atoms.  Deleting a body-owning atom stamps
+  //                   ownership onto an atom that does not own it, and that
+  //                   second spurious owner decrements nlocal_body once too
+  //                   often until pre_neighbor() launches a range of (0,-1).
+  //   device exchange unpack_exchange_kokkos() and sort_kokkos() maintain ilocal
+  //                   on the device and the host copy is the stale one, so it
+  //                   has to come down with the rest of the body.
+  const bool host_owns_ilocal = !(exchange_comm_device && !commKK->exchange_comm_legacy);
+
+  // only for the local bodies: a ghost body's ilocal is written by the forward
+  // communication that creates it, on whichever side ran that comm, and the host
+  // bookkeeping above never touches it.
   for(int ibody = 0; ibody < nlocal_body + nghost_body; ibody++){
+    const int ilocal = body[ibody].ilocal;
     copy_body(&body[ibody], &k_body.view_host()(ibody));
+    if (host_owns_ilocal && (ibody < nlocal_body)) body[ibody].ilocal = ilocal;
   }
   Kokkos::Profiling::popRegion();
 }
