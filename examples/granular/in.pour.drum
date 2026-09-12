@@ -79,9 +79,8 @@ timestep        0.001
 compute         1 all property/atom radius
 variable        zmax atom z+c_1>0.5*${drum_height}
 group           delgroup dynamic all var zmax every 10000
-variable        nequil index 2000
 
-run             ${nequil}
+run             2000
 
 #Remove any particles that are above z > 0.5*drum_height
 delete_atoms    group delgroup
@@ -97,6 +96,4 @@ unfix           ins2
 fix             grav all gravity 10 vector 0 -1 0
 
 variable        theta equal 2*PI*elapsed/20000.0
-variable        nprod index 3000
-
-run             ${nprod}
+run             3000

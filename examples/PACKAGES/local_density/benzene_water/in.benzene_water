@@ -35,11 +35,9 @@ fix recentering all recenter 0.0 0.0 0.0 units box
 timestep        2.0
 thermo          100
 thermo_style    custom temp ke pe etotal ebond eangle edihed evdwl
-variable        maxiter index 10000
-variable        maxeval index 10000
 
 # Minimization
-minimize        1.e-4 0.0 ${maxiter} ${maxeval}
+minimize        1.e-4 0.0 10000 10000
 
 # Set up integration parameters
 fix             timeintegration all nve
@@ -47,14 +45,11 @@ fix             thermostat all langevin  3.0000e+02  3.0000e+02  1.0000e+02 8189
 
 # Equilibration (for realistic results, run for 5000000 steps)
 reset_timestep  0
-variable        nequil index 5000
-
-run             ${nequil}
+run             5000
 
 # Turn off recentering during production phase
 unfix recentering
 reset_timestep  0
-variable        nprod index 1000
 
 # Setup trajectory output
 #dump            myDump all custom 100 benzene_water.lammpstrj.gz id type x y z element
@@ -62,6 +57,6 @@ variable        nprod index 1000
 #dump_modify     myDump sort id
 
 # Production (for realistic results, run for 10000000 steps)
-run             ${nprod}
+run             1000
 
 

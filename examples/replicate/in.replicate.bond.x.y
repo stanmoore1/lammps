@@ -26,10 +26,9 @@ write_data      tmp.data.x.y
 dump		1 all image 100 tmp.image.x.y.*.ppm type type &
                 adiam 0.2 bond type 0.1 zoom 1.6
 dump_modify	1 pad 5
-variable        nsteps index 5000
 
 #dump		2 all movie 100 tmp.movie.x.y.mpg type type &
 #                adiam 0.2 bond type 0.1 zoom 1.6
 #dump_modify	2 pad 5
 
-run             ${nsteps}
+run             5000

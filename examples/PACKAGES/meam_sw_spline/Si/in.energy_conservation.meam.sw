@@ -40,7 +40,6 @@ thermo_modify   format 7 %14.8f
 
 timestep        0.002
 thermo          10
-variable        nsteps index 2000
 
-run             ${nsteps}
+run             2000
 

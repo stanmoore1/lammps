@@ -107,6 +107,5 @@ fix             ave all ave/grid 50 5 250 10 10 1 vx vy
 neigh_modify       every 5 delay 0 check no
 variable           skin equal 0.3*${h}
 neighbor           ${skin} bin
-variable        nsteps index 6000
 
-run                ${nsteps}
+run                6000

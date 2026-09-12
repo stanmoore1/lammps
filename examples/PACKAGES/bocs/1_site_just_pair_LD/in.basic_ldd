@@ -44,7 +44,6 @@ thermo          1000
 fix             1  all      nvt        temp       270  270 100.0 #iso 0.986 0.986 1000.0
 
 run_style       verlet
-variable        nsteps index 10000
 
 # Printing various stats in gmx/bocs units
 # fix             print_temp all print 500 "${STEP} ${TEMP}" file temp.dat screen no
@@ -63,4 +62,4 @@ variable        nsteps index 10000
 # restart 100000 state1.restart state2.restart
 
 ## Run for this many steps
-run ${nsteps}
+run 10000

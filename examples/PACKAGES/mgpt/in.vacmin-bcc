@@ -49,10 +49,7 @@ thermo_style custom step vol temp pe etotal press
 
 # minimize total energy
 min_style cg
-variable        maxiter index 5000
-variable        maxeval index 10000
-
-minimize 1.0e-10 1.0e-10 ${maxiter} ${maxeval}
+minimize 1.0e-10 1.0e-10 5000 10000
 
 # Convert energy to rydbergs and pressure to gpa
 

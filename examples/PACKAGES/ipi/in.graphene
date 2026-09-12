@@ -29,8 +29,6 @@ thermo_style    custom step temp pe etotal press pxx pyy pzz
 
 # --------------- i-PI interface -----------------
 fix 1 all ipi graphene 31415 unix   # UNIX socket
-variable        nsteps index 5000000
-
 #fix 1 all ipi localhost 31415        # Internet socket
-run		${nsteps}
+run		5000000
 

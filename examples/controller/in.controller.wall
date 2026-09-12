@@ -32,18 +32,15 @@ fix             ave all ave/time 10 10 100 v_pzz
 
 thermo_style    custom  step temp pxx pyy pzz f_ave v_zhi
 thermo           500
-variable        nequil index 2500
-
-run             ${nequil}
+run             2500
 
 # use time averaged pressure for control
 #fix             10 all controller 100 -0.05 20.0 0.0 0.0 f_ave 1.5 zhi
 
 # use instantaneous pressure for control
 fix             10 all controller 100 -0.05 50.0 0.0 0.0 v_pzz 1.5 zhi
-variable        nprod index 5000
 
 # run with controller
 
-run             ${nprod}
+run             5000
 

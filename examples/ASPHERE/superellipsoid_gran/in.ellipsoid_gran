@@ -42,6 +42,4 @@ fix 3 all nve/asphere
 
 thermo 10
 timestep 0.001
-variable        nsteps index 3000
-
-run             ${nsteps}
+run             3000

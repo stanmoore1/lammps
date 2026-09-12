@@ -27,8 +27,7 @@ fix             ensemble all npt temp 300.0 300.0 100.0 aniso 1.0 1.0 1000.0 dra
 
 # IMD setup.
 fix  comm       all imd 5678 unwrap on trate 10 filter 20 2
-variable        nsteps index 5000000
 
-run ${nsteps}
+run 5000000
 
 

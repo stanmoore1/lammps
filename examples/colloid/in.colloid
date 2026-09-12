@@ -49,6 +49,5 @@ thermo_style	custom step temp epair etotal press vol
 thermo		1000
 
 timestep	0.005
-variable        nsteps index 50000
 
-run		${nsteps}
+run		50000

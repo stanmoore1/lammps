@@ -17,17 +17,13 @@ neighbor	8.0 bin
 neigh_modify	every 1 delay 0 check yes
 
 thermo          1
-variable        maxiter index 10000
-variable        maxeval index 100000
-
-minimize       1.0e-8 1.0e-10 ${maxiter} ${maxeval}
+minimize       1.0e-8 1.0e-10 10000 100000
 
 velocity            all create 600.0 761341 rot yes mom yes
 
 fix		1 all nve
 thermo		10
 timestep	0.005
-variable        nsteps index 10000
 
 #dump		1 all atom 50 dump.smatb
 
@@ -39,4 +35,4 @@ variable        nsteps index 10000
 #		axes yes 0.8 0.02 view 60 -30
 #dump_modify	3 pad 3 element Ag Cu
 
-run		${nsteps}
+run		10000

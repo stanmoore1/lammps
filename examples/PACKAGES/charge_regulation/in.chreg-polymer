@@ -30,6 +30,4 @@ thermo          100
 thermo_style    custom step pe c_dtemp f_chareg1[3] f_chareg1[4] f_chareg1[7] f_chareg1[8] f_chareg2[7] f_chareg2[8]
 
 timestep        0.005
-variable        nsteps index 2000
-
-run             ${nsteps}
+run             2000

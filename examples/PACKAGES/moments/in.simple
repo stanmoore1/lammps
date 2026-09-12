@@ -23,7 +23,5 @@ fix 2 all ave/moments 5 200 100 v_toteng mean stddev variance skew kurtosis
 thermo_style custom step temp press etotal f_2[*]
 
 thermo 100
-variable        nsteps index 10000
-
-run ${nsteps}
+run 10000
 

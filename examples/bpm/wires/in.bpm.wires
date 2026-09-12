@@ -69,16 +69,14 @@ thermo_style    custom step ke pe pxx pyy pzz
 
 compute         quat all property/atom quatw quati quatj quatk
 compute         tq all property/atom tqx tqy tqz
-variable        nequil index 20000
 
 #dump            1 all custom 400 atomDump id radius xs ys zs c_quat[*] mux muy muz
 
-run             ${nequil}
+run             20000
 
 unfix           4
 unfix           5
 unfix           6
 unfix           7
-variable        nprod index 30000
 
-run             ${nprod}
+run             30000

@@ -114,9 +114,8 @@ variable        etot equal c_alleint+ke+pe
 ####################################################################################################
 thermo          100
 thermo_style    custom step dt f_dtfix ke pe c_alleint v_etot
-variable        nsteps index 5000
 
 ####################################################################################################
 # PERFORM INITIAL LOAD BALANCING AND RUN SIMULATION
 ####################################################################################################
-run             ${nsteps}
+run             5000

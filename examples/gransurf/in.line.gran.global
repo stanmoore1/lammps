@@ -49,10 +49,9 @@ thermo          100
 thermo_style    custom step atoms temp c_1 c_2 press
 thermo_modify   lost ignore
 compute_modify  thermo_temp dynamic/dof yes
-variable        nsteps index 10000
 
 #dump           2 all image 100 tmp.image.*.ppm type type &
 #               zoom 1.6 adiam 1.0 fix 20 type 0.5 0.0
 #dump_modify    2 pad 5
 
-run             ${nsteps}
+run             10000

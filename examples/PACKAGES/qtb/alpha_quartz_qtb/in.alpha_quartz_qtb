@@ -74,8 +74,6 @@ fix                     scapegoat_qtb all nph iso ${pressure} ${pressure} ${p_da
 fix                     quartz_qtb all qtb temp ${temperature} damp ${damp_qtb} seed 35082 f_max 120.00 N_f 100 #Change f_max (THz) if your Debye frequency is higher
 thermo_style            custom step temp press etotal vol lx ly lz pxx pyy pzz pxy pyz pxz
 thermo                  500
-variable        nsteps index 10000
-
-run                     ${nsteps}                                                                                   # 20 ps
+run                     10000                                                                                   # 20 ps
 unfix                   quartz_qtb
 unfix                   scapegoat_qtb

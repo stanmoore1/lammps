@@ -29,6 +29,4 @@ fix             1 all nve
 fix  comm       all imd 5678 unwrap off fscale 20.0 trate 20 nowait on
 
 thermo          500
-variable        nsteps index 5000000
-
-run             ${nsteps}
+run             5000000

@@ -49,7 +49,6 @@ thermo          100
 thermo_style    custom step atoms temp c_1 c_2 press
 thermo_modify   lost ignore
 compute_modify  thermo_temp dynamic/dof yes
-variable        nsteps1 index 5000
 
 #dump           viz all image 100 tri.gran.global-*.ppm type diameter &
 #                   size 800 600 zoom 1.5 shiny 0.4 fsaa yes view 70 10 box yes 0.025 &
@@ -57,14 +56,10 @@ variable        nsteps1 index 5000
 #dump_modify    viz pad 6 acolor 1 orange boxcolor midnightblue backcolor black &
 #                   backcolor2 white lights 0.2 0.9 0.45 0.9 fcolor 20 silver ftrans 20 1 
 
-run             ${nsteps1}
+run             5000
 
 fix_modify      20 move * rotate 0 0 0 0 0 1 25
-variable        nsteps2 index 5000
-
-run             ${nsteps2}
+run             5000
 
 fix_modify      20 move * none
-variable        nsteps3 index 5000
-
-run             ${nsteps3}
+run             5000

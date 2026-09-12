@@ -25,10 +25,8 @@ set             region half   type 2
 group           ball   dynamic all   region ball
 
 neigh_modify    delay 2  every 1  check yes
-variable        maxiter index 1000
-variable        maxeval index 10000
 
-minimize        0.0  0.0    ${maxiter}  ${maxeval}
+minimize        0.0  0.0    1000  10000
 reset_timestep  0
 
 velocity        all create 1.2 12351235
@@ -49,23 +47,18 @@ variable r_ke_z equal c_2[1][3]*c_2[1][3]*c_3[1][3]*0.5
 
 thermo_style custom step ke pe c_3[1][1] c_3[1][2] c_3[1][3] c_2[1][1] c_2[1][2] c_2[1][3] v_r_ke_x v_r_ke_y v_r_ke_z
 thermo 500
-variable        nsteps1 index 1000
 
 # dump 1 all atom 100 dump.lammpstrj
 
 # dump 2 all movie 10 ball.mp4 type mass
 
 # equilibration w/o torque added
-run ${nsteps1} post no
+run 1000 post no
 
 # start spinning the ball. rotation around z should increase and Erot_z should grow
 fix 4 ball addtorque/group 0.0 0.0 200.0
-variable        nsteps2 index 10000
-
-run ${nsteps2} upto  post no
+run 10000 upto  post no
 
 # continue without adding more torque. rotation continues at fixed speed
 unfix 4
-variable        nsteps3 index 5000
-
-run ${nsteps3}
+run 5000

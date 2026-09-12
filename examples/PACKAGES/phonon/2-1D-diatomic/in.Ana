@@ -42,7 +42,6 @@ fix_modify 4 temp MyTemp
 thermo_style  custom step temp pe etotal
 thermo_modify temp MyTemp
 thermo   100
-variable        nsteps index 2000000
 
 #
-run              ${nsteps}
+run              2000000

@@ -25,6 +25,4 @@ fix             cons all ilves 1.0e-4 25 500 b 1
 
 thermo_style    custom step temp epair etotal press
 thermo          250
-variable        nsteps index 2000
-
-run             ${nsteps}
+run             2000

@@ -31,8 +31,7 @@ fix             ensemble all npt temp 300.0 300.0 100.0 iso 1.0 1.0 1000.0 drag 
 
 # IMD setup.
 fix  comm       peptide imd 5678 unwrap on trate 10
-variable        nsteps index 5000000
 
-run ${nsteps}
+run 5000000
 
 

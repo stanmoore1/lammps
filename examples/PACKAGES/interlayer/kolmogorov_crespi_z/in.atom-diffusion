@@ -40,7 +40,6 @@ compute   COM2 adsorbant com
 thermo          100
 thermo_style    custom step time etotal pe temp c_COM1[3] c_COM2[3] # spcpu
 thermo_modify   line one format float %14.8f
-variable        nsteps index 10000
 
 ###### Run molecular dynamics ######
-run ${nsteps}
+run 10000

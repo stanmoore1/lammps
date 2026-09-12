@@ -28,6 +28,4 @@ fix             2 all momentum 100 linear 1 1 1
 thermo_style    custom step c_1_press[1] c_1_press[2] c_1_press[3]
 
 thermo		50
-variable        nsteps index 10000
-
-run		${nsteps}
+run		10000

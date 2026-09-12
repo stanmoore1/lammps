@@ -37,7 +37,6 @@ thermo_style custom step time temp press
 thermo       100
 
 fix 1 all    nve
-variable        nsteps index 5000
 
-run          ${nsteps}
+run          5000
 

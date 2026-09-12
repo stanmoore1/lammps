@@ -33,6 +33,4 @@ fix chareg      all charge/regulation 2 3 acid_type 1 pH ${pH} pKa ${pKa} pIp ${
 thermo          100
 thermo_style custom step pe c_dtemp f_chareg[1] f_chareg[2] f_chareg[3] f_chareg[4] f_chareg[5] f_chareg[6] f_chareg[7] f_chareg[8]
 timestep        0.005
-variable        nsteps index 2000
-
-run             ${nsteps}
+run             2000

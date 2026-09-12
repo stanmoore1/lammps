@@ -17,10 +17,7 @@ comm_modify     vel yes
 
 min_style       cg
 min_modify      line quadratic 
-variable        maxiter index 10000
-variable        maxeval index 100000
-
-minimize        0 1.0e-6 ${maxiter} ${maxeval}
+minimize        0 1.0e-6 10000 100000
 
 # dynamics
 compute         effTemp all temp/eff
@@ -35,14 +32,11 @@ fix             1 all nvt/eff temp 300.0 300.0 0.1
  
 # the custom dump includes the radii
 compute         1 all property/atom spin eradius
-variable        nequil index 1000000
-
 #dump            1 all custom 100 ${sname}.nvt.lammpstrj id type x y z c_1[1] c_1[2]
 #dump           2 all xyz 100 ${sname}.nvt.xyz 
 
-run             ${nequil}
+run             1000000
 
 fix             2 all nve/eff
-variable        nprod index 1000000
 
-run             ${nprod} 
+run             1000000 

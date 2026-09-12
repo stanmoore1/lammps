@@ -30,14 +30,11 @@ thermo_style    custom step temp pe ke etotal press
 thermo          100
 
 timestep        0.005
-variable        nequil index 1000
 
 # short equilibration
-run             ${nequil}
+run             1000
 
 reset_timestep  0
 
 thermo          100
-variable        nprod index 2000
-
-run             ${nprod}
+run             2000

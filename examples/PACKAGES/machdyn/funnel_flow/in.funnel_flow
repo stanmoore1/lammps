@@ -135,6 +135,4 @@ thermo_style    custom step dt f_dtfix pe ke v_etot
 ####################################################################################################
 balance          1.1 rcb
 fix              balance_fix all balance 200 1.1 rcb
-variable        nsteps index 5000
-
-run              ${nsteps}
+run              5000

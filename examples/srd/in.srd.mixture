@@ -29,9 +29,8 @@ neigh_modify	delay 0 every 1 check yes
 
 fix		1 big nve
 fix		2 all enforce2d
-variable        nequil index 1000
 
-run		${nequil}
+run		1000
 
 unfix		1
 unfix		2
@@ -96,7 +95,6 @@ thermo_style	custom step temp f_2[7] etotal v_pebig v_ebig press &
 
 thermo_modify	temp tbig
 thermo		100
-variable        nprod index 5000
 
 #dump		1 all atom 250 dump.srd.mixture
 
@@ -106,4 +104,4 @@ variable        nprod index 5000
 #dump		3 all movie 250 movie.mpg type type zoom 1.6
 #dump_modify	3 pad 4 adiam 1 1 adiam 2 0.2
 
-run		${nprod}
+run		5000

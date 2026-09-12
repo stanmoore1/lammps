@@ -36,10 +36,7 @@ pair_coeff      * * ldd ABCD_mol.ldd A B C D
 thermo 1000
 
 fix 0 all box/relax aniso 100.0
-variable        maxiter index 10000
-variable        maxeval index 100000
-
-minimize 1.0e-10 1.0e-10 ${maxiter} ${maxeval}
+minimize 1.0e-10 1.0e-10 10000 100000
 
 # write_data data.ldd_molecule nocoeff
 

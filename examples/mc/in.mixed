@@ -39,7 +39,6 @@ fix                3 all mol/swap 100 1 1 2 482794 1.0
 compute            p all pressure thermo_temp
 thermo             1000
 thermo_style       custom step temp etotal press f_3[1] f_3[2] v_count1 v_count2
-variable        nsteps index 50000
 
-run                ${nsteps}
+run                50000
 

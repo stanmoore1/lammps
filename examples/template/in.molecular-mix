@@ -31,17 +31,12 @@ angle_coeff     1  63.0   112.40
 dihedral_coeff  1  2.0 1 3
 
 thermo 100
-variable        maxiter index 500
-variable        maxeval index 1000
-
-minimize 0.001 0.001 ${maxiter} ${maxeval}
+minimize 0.001 0.001 500 1000
 reset_timestep 0
 
 velocity all create 100.0 6234235
 fix 1 all nvt temp 100.0 300.0 1.0
-variable        nsteps index 2500
-
 # dump 1 all custom 100 cychex-methane.lammpstrj id xu yu zu
-run ${nsteps}
+run 2500
 #write_data molecular-mix.data
 #write_restart molecular-mix.restart

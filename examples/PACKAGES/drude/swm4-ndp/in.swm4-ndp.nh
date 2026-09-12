@@ -45,7 +45,6 @@ fix DTINV all drude/transform/inverse
 
 thermo_style custom step etotal ke pe ebond eangle evdwl ecoul elong press vol temp c_TEMP[1] c_TEMP[2]
 thermo 20
-variable        nsteps index 2000
 
-run ${nsteps}
+run 2000
 

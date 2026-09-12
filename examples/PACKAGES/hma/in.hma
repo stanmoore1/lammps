@@ -31,10 +31,6 @@ fix settemp all nvt temp 1.0 1.0 0.5
 thermo_style custom elapsed temp c_u c_hma[1] c_p c_hma[2] c_hma[3]
 thermo_modify format float '%22.15e'
 thermo 500
-variable        nequil index 20000
-
-run ${nequil}
+run 20000
 thermo 20
-variable        nprod index 200000
-
-run ${nprod}
+run 200000

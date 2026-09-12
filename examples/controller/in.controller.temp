@@ -25,15 +25,12 @@ fix             tstat all langevin v_tcontrol 0.5 0.5 2938940
 # equilibrate
 
 thermo          50
-variable        nequil index 500
-
-run		${nequil}
+run		500
 
 # instantaneous temp for control
 
 fix             10 all controller 100 1.0 0.5 0.0 0.0 &
                 c_thermo_temp 1.5 tcontrol
-variable        nprod index 2500
 
 # time-average temp for control
 		
@@ -43,5 +40,5 @@ variable        nprod index 2500
 
 # run with controller
 
-run             ${nprod}
+run             2500
 

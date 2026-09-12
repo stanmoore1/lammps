@@ -60,6 +60,4 @@ thermo_style   custom step temp etotal press f_w2[1]
 # dump           2 all image 5000 image.wall.harmonic.2d.*.ppm type type zoom 1.6 region inVol red frame 0.5
 
 timestep       0.01
-variable        nsteps index 20000
-
-run            ${nsteps}
+run            20000

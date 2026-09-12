@@ -59,8 +59,7 @@ compute            rho all rheo/property/atom rho
 
 thermo             200
 thermo_style       custom step time ke press
-variable        nsteps index 10000
 
 #dump               1 all custom 200 atomDump id type x y vx vy fx fy c_rho
 
-run ${nsteps}
+run 10000

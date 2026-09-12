@@ -34,7 +34,6 @@ thermo_style    custom step atoms ke c_1 vol
 thermo          1000
 thermo_modify   lost ignore norm no
 compute_modify  thermo_temp dynamic/dof yes
-variable        nequil index 25000
 
 #dump           id all atom 1000 dump.pour
 
@@ -54,11 +53,9 @@ variable        nequil index 25000
 #dump_modify     viz pad 6 color brown 0.596002 0.416007 0.267002 fcolor grav orange &
 #                acolor 1 brown boxcolor slategray backcolor2 white ftrans grav 0
 
-run             ${nequil}
+run             25000
 
 unfix           ins
 fix             2 all gravity 1.0 chute 26.0
-variable        nprod index 25000
-
 #dump_modify     viz ftrans grav 1.0
-run             ${nprod}
+run             25000

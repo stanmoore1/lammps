@@ -62,7 +62,6 @@ thermo_style    custom step atoms c_davg
 # thermo_modify): drop atoms that leave the box and skip their now-dangling bonds
 thermo_modify   lost ignore
 thermo_modify   lost/bond ignore
-variable        nsteps index 2000
 
 #dump            1 all custom 200 dump.peri.ves id type x y z c_dmg
-run             ${nsteps}
+run             2000

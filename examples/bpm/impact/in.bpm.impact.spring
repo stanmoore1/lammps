@@ -45,8 +45,6 @@ timestep        0.1
 thermo_style    custom step ke pe pxx pyy pzz c_tbond
 thermo          100
 thermo_modify   lost ignore lost/bond ignore
-variable        nsteps index 7500
-
 #dump            1 all custom 100 atomDump id x y z c_nbond
 
 #dump            2 all local 100 brokenDump f_brkbond[1] f_brkbond[2] f_brkbond[3]
@@ -59,4 +57,4 @@ variable        nsteps index 7500
 #                size 800 800 zoom 1.7 view 90 0 box no 0.0
 #dump_modify     3 bmap 0.0 0.04 ca 0.0 2 min blue max red backcolor white
 
-run             ${nsteps}
+run             7500

@@ -61,6 +61,5 @@ compute mom_red liquid reduce sum v_mx v_my v_mz
 timestep	0.003
 thermo		1000
 thermo_style custom step c_mom_red[*] c_mom[*]
-variable        nsteps index 100000
 
-run		${nsteps}
+run		100000

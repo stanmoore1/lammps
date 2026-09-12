@@ -34,11 +34,9 @@ fix recentering all recenter 0.0 0.0 0.0 units box
 timestep        1.0
 thermo          100
 thermo_style    custom etotal ke pe temp evdwl
-variable        maxiter index 1000
-variable        maxeval index 1000
 
 #minimization
-minimize        1.e-4 0.0 ${maxiter} ${maxeval}
+minimize        1.e-4 0.0 1000 1000
 
 #set up integration parameters
 fix             timeintegration all nve
@@ -48,10 +46,9 @@ fix             thermostat all langevin  3.0000e+02  3.0000e+02  1.0000e+02 5991
 reset_timestep  0
 thermo          200
 thermo_style    custom etotal ke pe temp evdwl
-variable        nequil index 2000
 
 #run equilibration
-run             ${nequil}
+run             2000
 
 #turn off recentering during production run
 unfix recentering
@@ -65,8 +62,6 @@ reset_timestep  0
 #run production (for realistic results, run for 10000000 steps)
 thermo          1000
 thermo_style    custom etotal ke pe temp  evdwl
-variable        nprod index 10000
-
-run             ${nprod}
+run             10000
 
 

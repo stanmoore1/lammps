@@ -16,13 +16,10 @@ compute myKE all ke
 compute myPE all pe
 
 fix lang all gjf 10 10 1 26488 vel vfull method 1
-variable        nequil index 5000
 
-run ${nequil}
+run 5000
 
 fix energies all ave/time 1 20000 20000 c_myKE c_myPE #file ave.out
 
 thermo 2000
-variable        nprod index 35000
-
-run ${nprod}
+run 35000

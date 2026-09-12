@@ -83,6 +83,4 @@ thermo_style custom step cpu etotal ke temp pe ebond eangle edihed eimp evdwl ec
 thermo 20
 
 timestep 0.5
-variable        nsteps index 2000
-
-run ${nsteps}
+run 2000

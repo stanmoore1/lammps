@@ -44,8 +44,7 @@ variable        etotal equal "ke + c_erot + pe" # thermo etotal doesn't include 
 thermo_style    custom step temp ke c_erot pe v_etotal
 thermo          500
 thermo_modify   norm no
-variable        nsteps index 10000
 
 #dump           1 all custom 500 dump.dipole id x y z diameter mux muy muz fx fy fz tqx tqy tqz
 
-run             ${nsteps}
+run             10000

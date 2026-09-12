@@ -64,7 +64,6 @@ fix	     7 all enforce2d
 timestep	0.003
 thermo		500
 thermo_modify	temp mobile
-variable        nsteps index 10000
 
 #dump		1 all atom 500 dump.flow
 
@@ -76,4 +75,4 @@ variable        nsteps index 10000
 #		zoom 1.6 adiam 1.5
 #dump_modify	3 pad 5
 
-run		${nsteps}
+run		10000

@@ -25,7 +25,6 @@ thermo_style    custom step temp pe ke etotal
 # smart sampling with GLE: best efficiency on slow diffusive modes, 
 # and as good as possible on higher-frequency modes
 fix             1 all gle 6 300.0 300.0 31415 smart.A
-variable        nsteps index 10000
 
 #dump           1 all atom 100 h2o-smart.lammpstrj
 
@@ -37,5 +36,5 @@ variable        nsteps index 10000
 #               zoom 1.4
 #dump_modify    3 pad 5 element O H
 
-run             ${nsteps}
+run             10000
 

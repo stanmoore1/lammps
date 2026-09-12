@@ -31,7 +31,6 @@ timestep	0.005
 compute		erot all erotate/sphere
 thermo_style	custom step temp epair c_erot etotal press
 thermo		500
-variable        nsteps index 10000
 
 #dump		1 all custom 500 dump.dipole id type x y z mux muy
 
@@ -44,4 +43,4 @@ variable        nsteps index 10000
 #                box yes 0.015 fix arrows const 0 0  center s 0.5 0.5 0
 #dump_modify viz pad 6 fcolor arrows steelblue ftrans arrows 1
 
-run		${nsteps}
+run		10000

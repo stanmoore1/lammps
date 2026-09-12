@@ -40,7 +40,6 @@ thermo_style	custom step atoms ke c_1 vol
 thermo		1000
 thermo_modify	lost ignore norm no
 compute_modify	thermo_temp dynamic/dof yes
-variable        nsteps index 25000
 
 #dump		id all atom 250 dump.pour
 
@@ -52,4 +51,4 @@ variable        nsteps index 25000
 #		zoom 1.6 adiam 1.5
 #dump_modify	3 pad 5
 
-run		${nsteps}
+run		25000

@@ -34,9 +34,7 @@ thermo_style    custom step ke pe c_press
 #equilibration
 timestep        0.0000000001
 thermo          100
-variable        nequil index 5000
-
-run             ${nequil}
+run             5000
 reset_timestep  0
 
 # MSD to demonstrate expected diffusive behaviour for ideal active
@@ -53,10 +51,9 @@ thermo_style    custom step ke pe c_msd[*] c_press
 
 timestep        0.00001
 thermo          1000
-variable        nprod index 12000
 
 # main run
-run             ${nprod}
+run             12000
 
 # if you want to check that rotational diffusion is behaving as expected,
 # uncomment next three lines for dump output and then plot <e(t).e(0)>,

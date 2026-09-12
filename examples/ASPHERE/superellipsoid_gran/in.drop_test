@@ -79,6 +79,4 @@ thermo          1000
 thermo_style  custom time step ke c_rke 
 
 timestep        0.0001
-variable        nsteps index 20000
-
-run             ${nsteps}
+run             20000

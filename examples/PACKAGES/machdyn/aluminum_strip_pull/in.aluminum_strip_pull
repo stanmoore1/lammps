@@ -129,10 +129,9 @@ fix             stress_curve all print 10 "${time} ${strain} ${stress}" file str
 
 thermo          100
 thermo_style    custom step dt f_dtfix time v_strain
-variable        nsteps index 2000
 
 ####################################################################################################
 # RUN SIMULATION
 ####################################################################################################
 #fix            2 all enforce2d
-run             ${nsteps}
+run             2000

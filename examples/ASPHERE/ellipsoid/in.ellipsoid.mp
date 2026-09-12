@@ -41,9 +41,8 @@ compute         0 all property/atom quatw quati quatj quatk shapex shapey shapez
 
 thermo_style    custom step temp c_rot epair etotal press
 thermo          100
-variable        nequil index 1000
 
-run             ${nequil}
+run             1000
 
 #undump         1
 unfix           1
@@ -110,7 +109,6 @@ thermo_style    custom step temp c_rot f_2[9] etotal v_pebig v_ebig press &
 
 thermo_modify   temp tbig
 thermo          1000
-variable        nprod index 10000
 
 #dump           1 all custom 500 dump.ellipsoid id type x y z c_0[*]
 #dump_modify    1 colname c_0[1] quatw colname c_0[2] quati colname c_0[3] quatj colname c_0[4] quatk &
@@ -120,4 +118,4 @@ variable        nprod index 10000
 #                    size 800 800 zoom 1.8 shiny 0.2 fsaa yes ssao yes 453983 0.6 box yes 0.015
 #dump_modify    viz pad 5 adiam 1 1.33631 adiam 2 0.2
 
-run             ${nprod}
+run             10000

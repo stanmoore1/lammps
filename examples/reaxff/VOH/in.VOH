@@ -20,6 +20,4 @@ timestep        0.25
 
 #dump           1 all atom 30 dump.reax.voh
 thermo 100
-variable        nsteps index 2000
-
-run             ${nsteps}
+run             2000

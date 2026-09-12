@@ -40,9 +40,8 @@ timestep        0.005
 fix     1       rods    rigid molecule
 fix     2       tethers nve
 fix     3       all     langevin 1.4 1.4 1.0 437624
-variable        nsteps1 index 5000
 
-run     ${nsteps1}
+run     5000
 
 # Replace fix rigid and fix langevin with new ones
 
@@ -55,16 +54,12 @@ fix     3       tethers langevin 1.4 1.4 1.0 198450
 
 fix     1 rods  rigid/nve molecule
 print   "rigid/nve"
-variable        nsteps2 index 1000
-
-run     ${nsteps2}
+run     1000
 unfix   1
 
 fix     1 rods  rigid/nvt molecule temp 1.4 1.4 1.0
 print   "rigid/nvt"
-variable        nsteps3 index 1000
-
-run     ${nsteps3}
+run     1000
 unfix   1
 
 compute myTemp all temp
@@ -73,29 +68,22 @@ fix     1 rods  rigid/npt molecule temp 1.4 1.4 1.0 iso 0.05 0.05 1.0 &
         dilate all
 print   "rigid/npt iso"
 fix_modify 1 temp myTemp
-variable        nsteps4 index 1000
 
-run     ${nsteps4}
+run     1000
 unfix   1
 
 fix     1 rods  rigid/npt molecule temp 1.4 1.4 1.0 x 0.05 0.05 1.0 dilate all
 print   "rigid/npt x"
-variable        nsteps5 index 1000
-
-run     ${nsteps5}
+run     1000
 unfix   1
 
 fix     1 rods  rigid/nph molecule iso 0.05 0.05 1.0 dilate all
 print   "rigid/nph iso"
-variable        nsteps6 index 1000
-
-run     ${nsteps6}
+run     1000
 unfix   1
 
 fix     1 rods  rigid/nph molecule x 0.05 0.05 1.0 y 0.05 0.05 1.0 &
         couple xy dilate all
 print   "rigid/nph xy couple"
-variable        nsteps7 index 1000
-
-run     ${nsteps7}
+run     1000
 

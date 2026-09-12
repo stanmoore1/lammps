@@ -38,38 +38,29 @@ thermo		100
 thermo_style	custom step atoms temp c_1 c_2 press
 thermo_modify   lost ignore
 compute_modify  thermo_temp dynamic/dof yes
-variable        nsteps1 index 5000
 
 #dump		2 all image 100 image.*.jpg type type &
 #		zoom 1.4 adiam 1.0 box no 0.0 axes yes 0.9 0.03
 #dump_modify	2 pad 5
 
-run	        ${nsteps1}
+run	        5000
 
 region          container delete
 variable        theta equal (step-5000)*(4.0*PI/5000)
 region          container block -6 6 -6 6 -6 6 units box &
                 rotate v_theta 0 0 0 0 0 1
-variable        nsteps2 index 5000
-
-run	        ${nsteps2}
+run	        5000
 
 region          container delete
 region          container block -6 6 -6 6 -6 6 units box
-variable        nsteps3 index 5000
-
-run             ${nsteps3}
+run             5000
 
 region          container delete
 variable        theta equal (step-15000)*(4.0*PI/5000)
 region          container block -6 6 -6 6 -6 6 units box &
                 rotate v_theta 0 0 0 1 1 1
-variable        nsteps4 index 5000
-
-run	        ${nsteps4}
+run	        5000
 
 region          container delete
 region          container block -6 6 -6 6 -6 6 units box
-variable        nsteps5 index 5000
-
-run             ${nsteps5}
+run             5000

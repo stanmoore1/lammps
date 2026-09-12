@@ -44,8 +44,7 @@ thermo_style custom step temp press density f_myrxns[*]
 thermo_modify colname auto
 
 thermo 100
-variable        nsteps index 8000
 
-run ${nsteps}
+run 8000
 
 # write_data final.data nofix
