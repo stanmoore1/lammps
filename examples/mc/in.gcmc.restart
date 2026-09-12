@@ -7,8 +7,8 @@ variable        mu equal -1.25
 variable        temp equal 2.0
 variable        disp equal 1.0
 variable        lbox equal 5.0
-variable        nequil equal 100
-variable        nsteps equal 1000
+variable        nequil index 100
+variable        nsteps index 1000
 variable        restartfile string restart.gcmc.lj
 
 # global model settings
@@ -88,8 +88,8 @@ variable	disp equal 0.5
 variable        temp equal 338.0
 variable        lbox equal 10.0
 variable        spacing equal 5.0
-variable        nequil equal 100
-variable        nsteps equal 100
+variable        nequil index 100
+variable        nsteps index 100
 variable        nevery equal 10
 variable        restartfile string restart.gcmc.h2o
 

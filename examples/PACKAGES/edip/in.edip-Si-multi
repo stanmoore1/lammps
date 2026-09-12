@@ -18,8 +18,8 @@ variable r equal 2.835
 
 variable etol equal 1.0e-5
 variable ftol equal 1.0e-5
-variable maxiter equal 100
-variable maxeval equal 100
+variable maxiter index 100
+variable maxeval index 100
 variable dmax equal 1.0e-1
 
 # diamond unit cell

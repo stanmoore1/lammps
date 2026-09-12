@@ -3,7 +3,7 @@ variable ofreq	equal 1000
 variable efreq	equal 100
 variable T      equal 0.1
 variable rhos   equal 0.2
-variable nsteps equal 500000
+variable nsteps index 500000
 
 units lj
 
