@@ -49,13 +49,22 @@ export LAMMPS_POTENTIALS=${LAMMPS_DIR}/potentials
 # like a test failure but is only a missing path.  BUILD_SHARED_LIBS is what
 # makes liblammps.so available to load in the first place.
 export PYTHONPATH=${LAMMPS_DIR}/python${PYTHONPATH:+:${PYTHONPATH}}
-export LD_LIBRARY_PATH=${LAMMPS_DIR}/build-regression:${LAMMPS_DIR}/build-kokkos${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+BASE_LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}
 
 # run one full set of regression tests
 #   $1 LAMMPS binary, $2 output prefix, $3 config file, $4 examples tree,
 #   $5 extra run_tests.py arguments
 run_regression_tests() {
     local lmpbin=$1 prefix=$2 config=$3 tree=$4 extra=${5:-}
+    # Both builds install a liblammps.so.0 with the same soname, and
+    # LD_LIBRARY_PATH is searched before the RUNPATH the binary was linked with.
+    # So the directory of the binary being tested has to come first, or the
+    # KOKKOS binary loads the plain CPU library and every test dies with "Cannot
+    # use -kokkos on without KOKKOS installed".  The Python package examples need
+    # the library on this path in the first place: they load it through ctypes.
+    local builddir
+    builddir=$(cd "$(dirname "${lmpbin}")" && pwd)
+    export LD_LIBRARY_PATH=${builddir}${BASE_LD_LIBRARY_PATH:+:${BASE_LD_LIBRARY_PATH}}
     # Resume where a previous attempt stopped.  A full sweep takes hours, and in
     # a container that can be reclaimed mid-run the progress file is the only
     # thing that makes a restart cheap: run_tests.py skips every input already
