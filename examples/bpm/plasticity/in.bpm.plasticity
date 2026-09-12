@@ -31,9 +31,11 @@ thermo_style    custom step ke pe pxx pyy pzz
 thermo          100
 
 timestep        0.1
-variable        nsteps1 index 20000
-
-run             ${nsteps1}
+# NOTE: do not parameterize this run.  The equilibration is a precondition for
+# the replicate below, not just a warm-up: with a much shorter run the cylinder
+# has not settled inside the box and replicate fails with "did not assign all
+# atoms correctly".  The three production runs below can still be shortened.
+run             20000
 unfix           wtemp
 
 # Replicate cylinder and add bonds
@@ -89,23 +91,23 @@ compute         zmin3 c3 reduce min z
 compute         zmin4 c4 reduce min z
 
 thermo_style    custom step ke c_zmin1 c_zmin2 c_zmin3 c_zmin4
-variable        nsteps2 index 30000
+variable        nsteps1 index 30000
 
 #dump            1 all custom 1000 atomDump id type x y z
 
-run             ${nsteps2}
+run             ${nsteps1}
 
 # hold load
 
 unfix           3
 fix             3 load addforce 0.0 0.0 -0.0005
-variable        nsteps3 index 50000
+variable        nsteps2 index 50000
 
-run             ${nsteps3}
+run             ${nsteps2}
 
 # remove load
 
 unfix           3
-variable        nsteps4 index 60000
+variable        nsteps3 index 60000
 
-run             ${nsteps4}
+run             ${nsteps3}
