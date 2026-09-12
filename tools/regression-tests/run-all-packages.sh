@@ -52,6 +52,11 @@ export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=${OMPI_ALLOW_RUN_AS_ROOT_CONFIRM:-1}
 export OMPI_MCA_rmaps_base_oversubscribe=${OMPI_MCA_rmaps_base_oversubscribe:-1}
 export OMP_NUM_THREADS=1
 export OMP_PROC_BIND=false
+# The threaded configuration runs more threads than this host has cores (4 MPI
+# ranks x 2 threads on 4 cores), and an OpenMP runtime that spins while waiting
+# turns that into a tenfold slowdown rather than a twofold one.  Let idle threads
+# sleep instead.
+export OMP_WAIT_POLICY=${OMP_WAIT_POLICY:-passive}
 export LAMMPS_POTENTIALS=${LAMMPS_DIR}/potentials
 
 # The PYTHON package examples embed the interpreter and import the lammps module
