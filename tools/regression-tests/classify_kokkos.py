@@ -62,13 +62,40 @@ def load_progress(path):
     return entries
 
 
+def failed_checks(entry):
+    """Number of thermo comparisons that came out beyond tolerance.
+
+    run_tests.py does not record a numerical disagreement as a failure: the
+    status stays "completed, N abs diff and M rel diff checks failed" and the
+    counts go into a failed_checks mapping.  Reading only the first word of the
+    status therefore files every disagreeing test under "passed", which is the
+    opposite of what this script is for.
+    """
+    checks = entry.get('failed_checks')
+    if isinstance(checks, dict):
+        return int(checks.get('abs_diff_failed', 0) or 0) + int(checks.get('rel_diff_failed', 0) or 0)
+    return 0
+
+
 def passed(entry):
-    return str(entry.get('status', '')).startswith('completed')
+    return (str(entry.get('status', '')).startswith('completed')
+            and failed_checks(entry) == 0)
 
 
 def skipped(entry):
     """A test that never ran, as opposed to one that ran and failed."""
     return str(entry.get('status', '')).startswith('skipped')
+
+
+def diverged_suffix(entry):
+    """Where the two thermo tables first part company, when it is recorded."""
+    checks = entry.get('failed_checks')
+    step = None
+    if isinstance(checks, dict):
+        step = checks.get('diverged_at')
+    if step is None:
+        step = entry.get('diverged_at')
+    return f' (first differs at step {step})' if step is not None else ''
 
 
 def read_log(tree, entry, name):
@@ -116,10 +143,10 @@ def classify(name, entry, tree):
         if 'timeout' in status:
             return 'crashed', 'timed out'
         detail = status[len('failed,'):].strip() if status.startswith('failed,') else status
-        diverged_at = entry.get('diverged_at')
-        if diverged_at is not None:
-            detail += f' (first differs at step {diverged_at})'
-        return 'differs', detail
+        return 'differs', detail + diverged_suffix(entry)
+    if failed_checks(entry):
+        detail = status[len('completed,'):].strip() if status.startswith('completed,') else status
+        return 'differs', detail + diverged_suffix(entry)
     if passed(entry):
         return 'agrees', ''
     return 'other', status

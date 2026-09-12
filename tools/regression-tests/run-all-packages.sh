@@ -110,11 +110,13 @@ case "${1:-all}" in
     # them stop at "KIM Model name not found".  The two examples that query
     # openkim.org for a model at run time need no installation and are not
     # helped by it.
-    if [ -x "${LAMMPS_DIR}/build-regression/kim_build-prefix/bin/kim-api-collections-management" ]; then
+    # each build has its own KIM API prefix with its own model collection
+    for kimprefix in "${LAMMPS_DIR}"/build-*/kim_build-prefix; do
+        [ -x "${kimprefix}/bin/kim-api-collections-management" ] || continue
         "${LAMMPS_DIR}/tools/regression-tests/install-kim-models.sh" \
-            "${LAMMPS_DIR}/build-regression/kim_build-prefix" > "${WORK}/kim-models.log" 2>&1 \
-            || echo "installing the KIM models failed, see ${WORK}/kim-models.log"
-    fi
+            "${kimprefix}" >> "${WORK}/kim-models.log" 2>&1 \
+            || echo "installing the KIM models in ${kimprefix} failed, see ${WORK}/kim-models.log"
+    done
     # examples/kim/in.kim-pm-property writes a KIM property instance through the
     # kim-property Python module.  --no-deps is deliberate: kim-property depends
     # on numpy, and letting pip resolve that reinstalls the numpy run_tests.py

@@ -76,6 +76,19 @@
       in.spin.iron-nve,
       in.spin.nvt_lattice,
       in.spin.nvt_spin,
+      # the same, measured: pair_dpd draws its random force from RanMars while
+      # pair_dpd/kk draws it from Kokkos' Random_XorShift64 pool, so the two
+      # differ in the pair virial of the very first step - 6 % to 40 % of the
+      # initial pressure.  Every input below either uses a dpd pair style or a
+      # spin thermostat.
+      in.dpd,
+      in.dpd_tstat,
+      in.dpdext,
+      in.dpdext_tstat,
+      in.dpde-vv,
+      in.slater,
+      in.srp,
+      in.spin.restart,
     ]
 
   timeout: 120

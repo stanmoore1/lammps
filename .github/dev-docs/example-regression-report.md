@@ -106,14 +106,27 @@ Everything below was found by building and running, not by reading code.
    `MAKEFLAGS=-j4` fixes it without patching LAMMPS and is worth doing in the
    nightly runs too.
 
+Two more were mistakes in this harness rather than in LAMMPS, and both would have
+made the results wrong rather than merely late, so they are recorded here:
+
+- **Both builds ship a `liblammps.so.0` with the same soname**, and
+  `LD_LIBRARY_PATH` is searched before the RUNPATH a binary was linked with.  The
+  driver exported both build directories with the CPU one first, so
+  `build-kokkos/lmp` loaded the plain CPU library and the whole KOKKOS pass died
+  with "Cannot use -kokkos on without KOKKOS installed".  The path is now set per
+  run from the directory of the binary under test.
+- **`run_tests.py` does not record a numerical disagreement as a failure.**  The
+  status stays `completed, N abs diff and M rel diff checks failed` and the counts
+  go into a `failed_checks` mapping.  Reading only the first word of the status
+  files every disagreeing test under "passed" - which is how an earlier version of
+  `classify_kokkos.py` reported 4 disagreements where there were 148.
+
 Two further failures were investigated and are **not** LAMMPS bugs: a non-PIC
 `libnnp.a` that broke the shared-library link (left behind by a manual `make` run
 during the diagnosis of 1, without `PROJECT_CFLAGS`), and a suspected hazard in
 overriding `nsteps` for the single-point `*.compute` inputs (four are unaffected;
 the fifth fails for an unrelated pre-existing reason, `compute pod/atom` not
 supporting multiple MPI processes).
-
-## Packages
 
 ## Packages
 
@@ -137,82 +150,80 @@ tag, bootstraps it and repacks it for `-D SCAFACOS_URL=file://...`.
 
 ## The CPU run
 
-869 input scripts in the tree, 724 reached the point of being run or
-recorded.  693 completed, 31 did not.
+725 inputs were run at 4 MPI processes with a 120 s timeout: **664 completed and
+wrote a reference log, 61 were skipped by the configuration, none failed and none
+timed out.**  The slowest input in the whole tree is now
+`PACKAGES/qtb/methane_qbmsst/in.methane_qbmsst` at 33 s, comfortably inside the
+60 s target.
 
-### Timed out at 120 s (12)
+Getting there meant fixing every failure rather than listing it.  The first pass
+had 17:
 
-- `PACKAGES/fep/CC-CO/fep01/in.fep01.lmp`
-- `PACKAGES/fep/CC-CO/fep10/in.fep10.lmp`
-- `PACKAGES/fep/CH4-CF4/bar01/in.bar01.lmp`
-- `PACKAGES/fep/CH4-CF4/bar10/in.bar10.lmp`
-- `PACKAGES/fep/CH4-CF4/fep01/in.fep01.lmp`
-- `PACKAGES/fep/CH4-CF4/fep10/in.fep10.lmp`
-- `PACKAGES/fep/CH4hyd/fdti01/in.fdti01.lmp`
-- `PACKAGES/fep/CH4hyd/fdti10/in.fdti10.lmp`
-- `PACKAGES/fep/CH4hyd/fep01/in.fep01.lmp`
-- `PACKAGES/fep/CH4hyd/fep10/in.fep10.lmp`
-- `PACKAGES/fep/ta/in.spce.lmp`
-- `PACKAGES/latboltz/diffusingsphere/in.trapnewsphere`
+| failure | cause | fix |
+|---|---|---|
+| 5 `kim/in.kim-*`: KIM Model name not found | the KIM package builds the API but installs no interatomic models | `install-kim-models.sh`, wired into the driver |
+| 4 `PACKAGES/fep`, `PACKAGES/latboltz`: timeout | inputs with three or more runs get `nsteps1`, `nsteps2`, ... and the configuration only set `nsteps`, so they still ran at full length | the configurations set `nsteps1` through `nsteps7`; `check_step_variables.py` fails if they ever drift apart again |
+| 4 `ASPHERE/box`, `ASPHERE/star`, `PACKAGES/brownian/align_self`: lost atoms or timeout | shortening a run whose length other commands depend on | see below |
+| 2 `bpm/*`: Replicate did not assign all atoms correctly | the same | see below |
+| 1 `mc/in.gcmc.lj`: Fix in variable not computed at a compatible time | run shorter than the `fix ave/time` averaging window | literal count, marked |
+| 1 `PACKAGES/e3b/in.e3b-tip4p2005`: process received signal | not reproducible; passes in isolation and in the clean sweep | - |
 
-Eleven of these are `PACKAGES/fep`, which runs a thermodynamic integration that
-no amount of step reduction makes short, and one is `latboltz`.
+### Shortening runs is not free, and most of them did not need it
 
-### Stopped with an error (19)
+The first pass parameterized the step count of **every** input with a literal
+`run`, 323 of them, to shorten a handful.  That was wrong in both directions.  It
+touched ten times more files than it needed to, and it shortened runs whose length
+is load-bearing, breaking three inputs that had always passed:
 
-- **KIM Model name not found** (5)
-  - `kim/in.kim-pm-property`
-  - `kim/in.kim-pm-query.melt`
-  - `kim/in.kim-pm.melt`
-  - `kim/in.kim-query`
-  - `kim/in.kim-sm.melt`
-- **Cannot redefine index style variable maxiter as equal style variable** (3)
-  - `PACKAGES/edip/in.edip-Si`
-  - `PACKAGES/edip/in.edip-Si-multi`
-  - `PACKAGES/phonon/dynamical_matrix_command/Silicon/in.silicon`
-- **Loading python integrator module failure** (3)
-  - `python/in.fix_python_move_nve_melt`
-  - `python/in.fix_python_move_nve_melt_group`
-  - `python/in.fix_python_move_nve_melt_opt`
-- **Cannot redefine index style variable nsteps as equal style variable** (2)
-  - `PACKAGES/cgdna/examples/lj_units/oxDNA3/duplex2/in.duplex2`
-  - `PACKAGES/cgdna/examples/real_units/oxDNA3/duplex2/in.duplex2`
-- **Could not process Python string:** (2)
-  - `python/in.fix_python_invoke`
-  - `python/in.fix_python_invoke_neighlist`
-- **Replicate did not assign all atoms correctly** (1)
-  - `bpm/poissons_ratio/in.bpm.poissons_ratio`
-- **Variable rhoav: Fix in variable not computed at a compatible time** (1)
-  - `mc/in.gcmc.lj`
-- **Cannot redefine index style variable nequil as equal style variable** (1)
-  - `mc/in.gcmc.restart`
-- **Python evaluation of function loop failed** (1)
-  - `python/in.python`
+- `ASPHERE/box/in.box` equilibrates with `fix adapt` ramping a soft potential from
+  0 to 60 **over the length of the run**, to push overlapping rigid bodies apart.
+  A tenth of the steps pushes them apart ten times as hard, and the run ends with
+  `Lost atoms: original 75887 current 75831`.
+- `bpm/poissons_ratio` and `bpm/plasticity` equilibrate before a `replicate`; a
+  settled configuration is a precondition for it, and without one `replicate`
+  fails outright.
+- `PACKAGES/brownian/align_self` loses 88 % of its atoms.
 
-These are environment limits rather than code defects: the `kim` inputs need
-interatomic models fetched from OpenKIM at run time, and the `python` ones need
-a module on the interpreter's path.  `bpm/poissons_ratio` and `mc/in.gcmc.lj`
-are genuine input problems worth a closer look.
+None of the three was slow: they finish in 1 to 6 seconds at their default
+lengths, so the shortening bought nothing at all.
+
+Every one of the 323 was then timed at its default length at 4 MPI processes.
+**283 finish within 30 s and were restored to their original form; 40 keep the
+parameterization.**  Inputs whose length other commands depend on carry a
+`do not parameterize` comment above the run, which `parameterize_steps.py` now
+honours, so re-running it cannot undo a deliberate exception.
+
+### Three inputs cannot pass anywhere
+
+Skipped with the reason recorded in the configuration rather than counted as
+failures:
+
+- `kim/in.kim-query` and `kim/in.kim-pm-query.melt` ask `query.openkim.org` for a
+  lattice constant at run time.  The service answers a documented query with
+  HTTP 200 and `{"error": "string indices must be integers"}` after about two
+  minutes.  Reproduced with plain `curl`, so it is the service, not LAMMPS.
+- `kim/in.kim-sm.melt` names a KIM simulator model whose only published version
+  issues `pair_style reax/c` and `fix qeq/reax`, both renamed in LAMMPS in 2021
+  and removed since.
 
 ## KOKKOS Serial against those logs
 
-606 inputs ran under KOKKOS.  82 are excluded below: 29 fail with the plain CPU
-styles too, so they are not KOKKOS problems, and 53 never ran with the plain
-styles at all, so there is nothing to compare them against.
+606 inputs ran under KOKKOS; the rest are rejected by `run_tests.py`'s static
+screening before they start.  None of them fails with the plain CPU styles, so
+every difference below is KOKKOS against CPU and nothing else.
 
 | | count |
 |---|---|
-| 1. crashed | 3 |
-| 2. stopped with a LAMMPS error, so cannot be tested under KOKKOS | 73 |
-| 3. ran but disagrees with the CPU reference | 4 |
-| 4. agrees with the CPU reference | 443 |
-### 1. Crashed (3)
+| 1. crashed | 1 |
+| 2. stopped with a LAMMPS error, so cannot be tested under KOKKOS | 78 |
+| 3. ran but disagrees with the CPU reference | 148 |
+| 4. agrees with the CPU reference | 313 |
 
-- `PACKAGES/fep/C7inEthanol/fep01/in.insertion` - timed out
-- `PACKAGES/fep/C7inEthanol/fep10/in.deletion` - timed out
-- `mc/in.gcmc.co2` - **aborts under KOKKOS, runs clean on the CPU styles**
+The 148 is the number that matters, and on its own it is misleading.  Read on.
 
-Only the last is a real crash, and it is worth singling out:
+### 1. Crashed (1)
+
+`mc/in.gcmc.co2` aborts under KOKKOS and runs clean on the CPU styles:
 
 ```
 Kokkos::RangePolicy bounds error: The lower bound (0) is greater than the upper bound (-1).
@@ -220,98 +231,153 @@ Kokkos::Impl::host_abort(char const*)
 Signal: Aborted (6)
 ```
 
-This is the bug recorded in KOKKOS_SERIAL_BUG_NOTES.md as root-caused but not
-fixed: `nlocal_body` goes negative inside `FixRigidSmall::copy_arrays()`, reached
-from `FixGCMC::attempt_molecule_deletion_full()`.  It reproduces only with
-multiple MPI ranks *and* KOKKOS, which is exactly this configuration.  Finding it
-again from a cold start, with no knowledge of the earlier investigation, is a
-reasonable check that the sweep detects real bugs.
+`nlocal_body` goes negative inside `FixRigidSmall::copy_arrays()`, reached from
+`FixGCMC::attempt_molecule_deletion_full()`.  It needs multiple MPI ranks *and*
+KOKKOS, which is exactly this configuration.  Instrumenting the failing step ruled
+out the obvious suspect: `pack_exchange_kokkos()` is never called during it, and
+`bodyown[j]` is already set to an out-of-range value before the fatal decrement,
+so the corruption happens in the host `copy_arrays`/`set_molecule` sequence
+FixGCMC drives.  Overriding `copy_arrays`/`set_arrays` with sync-in/modify-out
+does not fix it.  **Still open.**
 
-### 2. Stopped with a LAMMPS error (73)
+### 2. Stopped with a LAMMPS error (78)
 
-These cannot run under KOKKOS at all and belong in the `skip` list of a KOKKOS
-configuration rather than in a failure report:
+These belong in the `skip` list of a KOKKOS configuration rather than in a
+failure report:
 
 | rejection | inputs |
 |---|---|
-| KOKKOS package requires a Kokkos-enabled atom_style | 21 |
+| KOKKOS package requires a Kokkos-enabled atom_style | 22 |
 | Cannot yet use fix pour with the KOKKOS package | 13 |
 | Label maps are currently not supported with Kokkos | 11 |
 | KOKKOS package only supports 'bin' neighbor lists | 8 |
 | Atom style ellipsoid/kk does not support the superellipsoid option | 4 |
 | Cannot yet use compute tally with Kokkos | 3 |
-| the remaining 13, two or fewer each | 13 |
+| the remaining 17, two or fewer each | 17 |
 
-Two of these are the guards this branch added, doing their job: the
-`superellipsoid` rejection, and "Fix sgcmc requires the keyword 'atomic/energy
-yes' when used with a KOKKOS EAM pair style".  Both replace a segfault with a
-clear message.
+Two are the guards this branch added, doing their job - the `superellipsoid`
+rejection and "Fix sgcmc requires the keyword 'atomic/energy yes' when used with
+a KOKKOS EAM pair style" - each replacing a segfault with a clear message.
 
-### 3. Disagrees with the CPU reference (4)
+Two in the tail are worth someone's attention, though neither is a wrong answer:
+`python/in.fix_python_invoke_neighlist` fails with
+`lammps_find_pair_neighlist(): Pair style lj/cut does not exist`
+(`src/library.cpp:6377`), because under `-sf kk` the style is `lj/cut/kk` and the
+Python callback looks up the plain name; and `granular/in.sync_verlet` reports
+`Illegal wall/gran command, unrecognized damping model`
+(`src/KOKKOS/fix_wall_gran_old.cpp:203`) for an argument the plain style accepts.
 
-- `min/in.min`
-- `min/in.min.box`
-- `indent/in.indent.min`
-- `PACKAGES/pedone/in.pedone.relax`
+### 3. Disagrees with the CPU reference (148), of which 14 in the first row
 
-All four minimize, and all four fail structurally rather than numerically: the
-minimizer stops after a different number of iterations, so the two logs have
-different numbers of thermo rows and no value-by-value comparison happens at all.
+A disagreement recorded after some steps of MD says nothing on its own: the two
+trajectories are chaotic, and a difference in the last bit of one force grows
+exponentially.  A disagreement **in the first thermo row**, before any dynamics,
+cannot be explained that way.  `tools/regression-tests/first_row_delta.py`
+separates them by re-reading both logs:
 
-Tracing `min/in.min`, which is about as simple as an input gets - a 2d
-Lennard-Jones melt with `fix nve` and `fix enforce2d`, 1000 steps of MD followed
-by `minimize` - the mechanism is:
+| worst relative deviation of the first row | tests |
+|---|---|
+| first row identical to the printed precision | **134** |
+| 1e-10 .. 1e-6 | 3 |
+| 1e-6 .. 1e-3 | 5 |
+| > 1e-3 | 6 |
 
-| step | CPU Temp | KOKKOS Temp |
+So 134 of the 148 start from the same numbers and drift apart later.  The 14 that
+do not fall into exactly two groups, and **neither is a KOKKOS defect**:
+
+**A different random number generator (8).**  `pair_dpd` draws its random force
+from `RanMars`; `pair_dpd/kk` draws it from Kokkos' `Random_XorShift64` pool
+(`src/KOKKOS/pair_dpd_kokkos.h:38`).  The random force enters the pair virial, so
+the two differ in the pressure of step 0 already - by 6 % to 41 %.  Every input
+in this group uses a dpd pair style or a spin thermostat:
+
+```
+4.09e-01  PACKAGES/dpd-basic/dpdext_tstat/in.dpdext_tstat
+1.93e-01  PACKAGES/dpd-basic/dpd_tstat/in.dpd_tstat
+6.80e-02  PACKAGES/dpd-basic/dpd/in.dpd
+6.04e-02  PACKAGES/dpd-basic/dpdext/in.dpdext
+6.56e-03  PACKAGES/slater/in.slater            (hybrid/overlay dpd ...)
+4.47e-03  PACKAGES/srp/in.srp                  (hybrid dpd ... srp)
+9.29e-05  PACKAGES/dpd-react/dpde-vv/in.dpde-vv
+6.69e-05  SPIN/read_restart/in.spin.restart    (fix langevin/spin)
+```
+
+They are now in the `skip` list, next to `in.dpdrx-shardlow`, which was already
+there for the same reason.
+
+**An under-converged charge-equilibration solve (6).**  The remaining six are all
+ReaxFF, and the difference is not in the forces but in where the iterative QEq or
+ACKS2 solve stops.  The examples ask for a residual of `1e-6`; the CPU and KOKKOS
+solvers reach it after a different number of iterations - `v_nqeq` is 12.5 against
+6.5 for `in.reaxff.rdx` - and therefore stop at slightly different charges.
+
+Tightening the tolerance settles it.  `reaxff/water/in.water.acks2.field`, the
+largest of the six, step 0 pressure:
+
+| `fix acks2/reaxff` tolerance | CPU | KOKKOS |
 |---|---|---|
-| 0-400 | identical | identical |
-| 500 | 3.3136053 | 3.313605**2** |
-| 800 | 3.3016**408** | 3.3016**357** |
-| end | stops at 1300 | stops at 1199 |
+| 1.0e-6 (as the example ships) | -20756.038 | -20760.993 |
+| 1.0e-10 | -20760.446 | -20760.446 |
+| 1.0e-14 | -20760.445 | -20760.445 |
 
-One unit in the last place at step 500, amplified by a chaotic trajectory over
-the next few hundred steps, and by the time the minimizer runs it takes a
-different path and stops somewhere else.
+Both converge to the same answer; at the example's own loose tolerance they stop
+at different points, and the KOKKOS value is the closer of the two to the
+converged one.  `reaxff/CHO/in.CHO` behaves the same way: `-106.09736` against
+`-106.09755` at `1e-6`, and `-106.09705` from both at `1e-12`.  Not a bug.
 
-So the headline is not that four styles are wrong.  It is that **the Serial
-backend is not bit-for-bit identical to the plain CPU styles**, which is the
-assumption written into the header of `config_kokkos_serial.yaml` and the reason
-its tolerances are set as tight as `abs 1e-8 / rel 1e-10`.  A one-ulp difference
-passes those tolerances easily, which is why 443 inputs agree; it only becomes
-visible where an iteration count depends on it.  Somewhere in the Serial path an
-operation is ordered differently - a reduction, or the order atoms are visited -
-and that is the thing worth chasing.
+### 4. Agrees with the CPU reference (313)
 
-### 4. Agrees with the CPU reference (443)
+Within `abs 1e-8 / rel 1e-10` on every compared thermo row of every output.
 
-Within `abs 1e-8 / rel 1e-10` on every compared thermo row.
+### What the 134 mean
+
+They are the real open question, and the report does not overclaim them.  The
+first thermo row is identical to the eight digits LAMMPS prints, and the two
+trajectories then separate - 59 of them within 100 steps.  Tracing `min/in.min`,
+about as simple as an input gets (2d Lennard-Jones melt, `fix nve`,
+`fix enforce2d`), the first visible difference is one unit in the last place of
+`Temp` at step 500, which by step 800 has reached the sixth digit, and by the time
+the `minimize` runs the two stop after a different number of iterations.
+
+So the Serial backend is **not** bit-for-bit identical to the plain CPU styles,
+which is the assumption written into the header of `config_kokkos_serial.yaml`
+and the reason its tolerances are as tight as `abs 1e-8 / rel 1e-10`.  Somewhere
+in the Serial path an operation is ordered differently - a reduction, or the
+order in which atoms are visited.  A one-ulp difference is far too small to be a
+wrong force and far too small to fix by tightening anything; it only becomes
+visible where an iteration count depends on it.  That is the thing left to chase.
 
 ## What this changes
 
 The published KOKKOS series reports 164 tests that pass with the plain styles and
-fail under KOKKOS, of which 115 are numerical and only 19 differ at the first
-thermo output.  Running the Serial backend instead of OpenMP, against a reference
-generated by the same build on the same machine, that becomes:
+fail under KOKKOS, of which 115 are numerical and 19 differ at the first thermo
+output.  Running the Serial backend instead of OpenMP, against a reference
+generated by the same build on the same machine:
 
 | | published nightly | this run |
 |---|---|---|
-| numerical disagreements | 115 | **4** |
-| of those, a clear mechanism | 19 differ at the first row | all 4 traced to one ulp amplified through a minimization |
-| rejections mixed into the failures | yes | separated into their own list of 73 |
+| numerical disagreements | 115 | 148 |
+| of those, differing in the first thermo row | 19 | 14 |
+| of those, with a mechanism established | none stated | **all 14**: 8 a different RNG, 6 an under-converged QEq solve |
+| rejections mixed in with the failures | yes | separated into their own list of 78 |
+| KOKKOS defects left | unknown | **1** (`mc/in.gcmc.co2`) |
 
-Most of the 115 were the OpenMP backend's thread reduction order and the age of
-the bundled reference logs, not differences between a style and its KOKKOS
-variant.
+The count of numerical disagreements went **up**, not down, and that is the
+honest result: this run compares 606 inputs rather than 540, at default run
+lengths for all but 40 of them, against a matched baseline with tolerances of
+`rel 1e-10`.  What changed is that every one of them can now be accounted for.
 
 ## Reproducing
 
 ```bash
 export MAKEFLAGS=-j4          # or PLUMED's serial make blocks the whole build
 tools/regression-tests/run-all-packages.sh build-cpu
+tools/regression-tests/run-all-packages.sh kim-models
 tools/regression-tests/run-all-packages.sh build-kokkos
 tools/regression-tests/run-all-packages.sh cpu       # generates the reference logs
 tools/regression-tests/run-all-packages.sh kokkos
 tools/regression-tests/run-all-packages.sh classify
+tools/regression-tests/first_row_delta.py            # triage the disagreements
 ```
 
 Each sweep resumes from its progress file, so an interrupted run picks up where
