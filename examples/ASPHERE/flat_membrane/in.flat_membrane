@@ -50,6 +50,8 @@ fix          1 all langevin ${T} ${T}  ${LD}  48279
 
 
 fix          2 all nve/asphere
-run          3000
+variable        nsteps index 3000
+
+run          ${nsteps}
 
 

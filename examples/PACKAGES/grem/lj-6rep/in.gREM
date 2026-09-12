@@ -20,6 +20,8 @@ timestep        1.0
 fix             fxnvt all npt temp ${T0} ${T0} 1000.0 iso ${press} ${press} 10000.0 
 fix             fxgREM all grem ${lambda} ${eta} ${enthalpy} fxnvt
 thermo_modify   press fxgREM_press
-run             10000
+variable        nsteps index 10000
+
+run             ${nsteps}
 
 write_data      final_restart_file

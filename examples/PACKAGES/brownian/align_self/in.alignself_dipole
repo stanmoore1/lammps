@@ -38,7 +38,9 @@ variable        prefactor equal ramp(0,100) # strength of soft potential is incr
 fix             1 all brownian 0.0001 ${Seed} gamma_t 1.0
 fix             2 all adapt 1 pair soft a * * v_prefactor
 thermo          1000
-run             5000
+variable        nequil index 5000
+
+run             ${nequil}
 unfix           1
 unfix           2
 
@@ -78,5 +80,7 @@ thermo      100
 # Run
 # -----------------------------
 timestep    0.01
-run         2000
+variable        nprod index 2000
+
+run         ${nprod}
 

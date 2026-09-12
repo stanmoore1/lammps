@@ -50,6 +50,8 @@ fix             1  all      nvt        temp       300.0  300.0 100.0
 
 
 run_style       verlet
+variable        nsteps index 10000
+
 # Print statements for the above variables, uncomment both if want sim stats
 #fix             print_temp all print 500 "${STEP} ${TEMP}" file temp.dat screen no
 #fix             print_vol all print 500 "${STEP} ${VOL}" file vol.dat screen no
@@ -61,4 +63,4 @@ run_style       verlet
 # dump_modify  4 sort id
 
 ## Run for this many steps
-run 10000 # production run for 4 ns.
+run ${nsteps} # production run for 4 ns.

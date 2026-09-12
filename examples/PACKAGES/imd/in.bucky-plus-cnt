@@ -36,9 +36,11 @@ group mobile type 1
 fix     walls       mobile wall/reflect xlo EDGE ylo EDGE zlo EDGE xhi EDGE yhi EDGE zhi EDGE
 
 velocity mobile create 303.0 46659 mom yes rot yes dist gaussian
+variable        maxiter index 100
+variable        maxeval index 1000
 
 # take some potential energy out of the system
-minimize 1.0e-4 1.0e-6 100 1000
+minimize 1.0e-4 1.0e-6 ${maxiter} ${maxeval}
 
 reset_timestep 0
 
@@ -55,5 +57,6 @@ thermo_style    custom step pe ke evdwl emol c_mobtemp spcpu
 thermo          1000
 thermo_modify   norm yes
 thermo_modify   temp mobtemp
+variable        nsteps index 100000000
 
-run             100000000
+run             ${nsteps}

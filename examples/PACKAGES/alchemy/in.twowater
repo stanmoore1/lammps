@@ -97,4 +97,6 @@ thermo_modify colname f_transform lambda colname f_transform[3] EPot_mixed
 thermo_modify press pressure
 
 thermo 100
-run 20000
+variable        nsteps index 20000
+
+run ${nsteps}

@@ -151,4 +151,6 @@ thermo_modify   lost ignore
 # RUN SIMULATION
 ####################################################################################################
 fix             balance_fix all balance 500 0.9 rcb # load balancing for MPI
-run             10000
+variable        nsteps index 10000
+
+run             ${nsteps}

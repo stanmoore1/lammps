@@ -36,7 +36,9 @@ compute         tbig all temp/sphere
 thermo_modify   temp tbig
 
 thermo          100
-run             1000
+variable        nequil index 1000
+
+run             ${nequil}
 
 #undump         1
 unfix           soft
@@ -103,6 +105,7 @@ thermo_style    custom step temp f_2[8] etotal v_pebig v_ebig press &
 
 thermo_modify   temp tbig
 thermo          1000
+variable        nprod index 10000
 
 #dump           1 all atom 1000 dump.box.mp
 
@@ -110,4 +113,4 @@ thermo          1000
 #                zoom 1.8 shiny 0.2  fsaa yes ssao yes 453983 0.6
 #dump_modify     viz pad 6 adiam 1 1 adiam 2 0.2
 
-run             10000
+run             ${nprod}

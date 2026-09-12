@@ -64,6 +64,8 @@ variable        dacc equal f_mygcmc[6]/(f_mygcmc[5]+${nugget})
 compute_modify  thermo_temp dynamic/dof yes
 thermo_style    custom step temp press pe ke density atoms v_iacc v_dacc v_tacc v_rhoav v_pav v_muexav v_n1av
 thermo          1000
+variable        nsteps index 10000
+
 # NOTE: the run length below is not free to shorten.  "fix ave" above averages
 # over Nfreq = 1000 steps and the thermo output reads f_ave[1], so a run shorter
 # than one averaging window ends with "Fix in variable not computed at a
@@ -71,4 +73,4 @@ thermo          1000
 
 # run
 
-run             10000
+run             ${nsteps}

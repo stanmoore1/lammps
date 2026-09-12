@@ -43,7 +43,9 @@ thermo_style    custom step pe ke c_press
 #equilibration
 timestep        0.0000000001
 thermo          100
-run             5000
+variable        nequil index 5000
+
+run             ${nequil}
 reset_timestep  0
 
 
@@ -55,6 +57,7 @@ thermo_style    custom step temp epair c_msd[*] c_press
 
 timestep        0.00001
 thermo          1000
+variable        nprod index 20000
 
 # main run
-run             20000
+run             ${nprod}

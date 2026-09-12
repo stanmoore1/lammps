@@ -24,6 +24,8 @@ compute qj all  property/atom quatj
 compute qk all  property/atom quatk
 #------------------------------------#
 thermo 500
+variable        nsteps index 50000
+
 #dump 1 all custom 1000 dump_region id type x y z c_qw c_qi c_qj c_qk 
-run 50000
+run ${nsteps}
 

@@ -38,6 +38,7 @@ thermo_style    custom step ke pe c_msd[*]
 
 timestep        0.00001
 thermo          100
+variable        nsteps index 3000
 
 # main run
-run             3000
+run             ${nsteps}

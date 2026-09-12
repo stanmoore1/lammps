@@ -39,8 +39,11 @@ min_style       cg
 dump            1 all xyz 10 ${sname}.min.xyz
 compute         1 all property/atom spin eradius erforce
 dump            2 all custom 10 ${sname}.min.lammpstrj id type q c_1[1] c_1[2] x y z fx fy fz c_1[3]
+variable        maxiter index 1000
+variable        maxeval index 10000
+
 #min_modify      line quadratic
-minimize        0 1.0e-6 1000 10000
+minimize        0 1.0e-6 ${maxiter} ${maxeval}
 
 undump		1
 undump		2
@@ -53,7 +56,8 @@ timestep        0.0005
 dump            1 all custom 1000 ${sname}.nvt.lammpstrj id type q c_1[1] c_1[2] x y z fx fy fz c_1[3]
 #fix		0 all langevin/eff 300.0 300.0 0.1
 fix             1 all nvt/eff temp 10.0 10000.0 0.1
+variable        nsteps index 400000
 
-run             400000
+run             ${nsteps}
 
 

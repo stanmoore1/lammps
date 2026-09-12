@@ -33,10 +33,11 @@ neigh_modify    delay 0 every 1 check yes
 
 fix             1 big nve
 fix             2 all enforce2d
+variable        nequil index 1000
 
 #dump           1 all atom 10 dump.poly.equil
 
-run             1000
+run             ${nequil}
 
 #undump         1
 unfix           1
@@ -106,10 +107,11 @@ thermo_style    custom step temp f_2[8] etotal v_pebig v_ebig press &
 
 thermo_modify   temp tbig
 thermo          1000
+variable        nprod index 10000
 
 #dump           1 all atom 500 dump.poly.mp
 
 #dump           1 all image 500 image.*.jpg type type zoom 1.6
 #dump_modify    1 pad 6 adiam 1 1 adiam 2 2.0 adiam 3 1.5 adiam 4 0.1
 
-run             10000
+run             ${nprod}

@@ -44,6 +44,13 @@ export OMP_NUM_THREADS=1
 export OMP_PROC_BIND=false
 export LAMMPS_POTENTIALS=${LAMMPS_DIR}/potentials
 
+# The PYTHON package examples embed the interpreter and import the lammps module
+# from it; without these they fail with "No module named 'lammps'", which looks
+# like a test failure but is only a missing path.  BUILD_SHARED_LIBS is what
+# makes liblammps.so available to load in the first place.
+export PYTHONPATH=${LAMMPS_DIR}/python${PYTHONPATH:+:${PYTHONPATH}}
+export LD_LIBRARY_PATH=${LAMMPS_DIR}/build-regression:${LAMMPS_DIR}/build-kokkos${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
 # run one full set of regression tests
 #   $1 LAMMPS binary, $2 output prefix, $3 config file, $4 examples tree,
 #   $5 extra run_tests.py arguments

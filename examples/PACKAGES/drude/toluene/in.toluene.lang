@@ -113,4 +113,6 @@ thermo_style custom step etotal ke temp pe ebond eangle edihed eimp evdwl ecoul 
 thermo 50
 
 timestep 0.5
-run 2000
+variable        nsteps index 2000
+
+run ${nsteps}

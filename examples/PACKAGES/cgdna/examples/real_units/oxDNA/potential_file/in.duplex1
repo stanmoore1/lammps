@@ -64,8 +64,9 @@ fix 5 all print ${efreq} "$(step)  ekin = ${ekin} |  erot = ${erot} | epot = ${e
 dump out all custom ${ofreq} out.${number}.lammpstrj id mol type x y z ix iy iz vx vy vz c_quat[1] c_quat[2] c_quat[3] c_quat[4] angmomx angmomy angmomz
 dump_modify out sort id
 dump_modify out format line "%d %d %d  %22.15le %22.15le %22.15le  %d %d %d  %22.15le %22.15le %22.15le  %22.15le %22.15le %22.15le %22.15le  %22.15le %22.15le %22.15le"
+variable        nsteps index 10000
 
-run 10000
+run ${nsteps}
 
 write_data last_config.${number}.* nocoeff
 #write_restart last_config.${number}.*

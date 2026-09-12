@@ -57,5 +57,6 @@ dump            dump_id all atom 100 dump.lammpstrj
 
 thermo          100
 thermo_style    custom step time nbuild ndanger
+variable        nsteps index 10000
 
-run             10000
+run             ${nsteps}

@@ -72,8 +72,9 @@ fix NPT all npt temp ${TK} ${TK} 100 iso ${PBAR} ${PBAR} 500
 
 thermo_style custom step cpu epair emol etotal temp press density
 thermo 1000
+variable        nequil index 200000
 
-run 200000
+run ${nequil}
 
 reset_timestep 0
 
@@ -127,9 +128,10 @@ thermo_style custom step cpu epair emol etotal temp press density v_lambda
 
 dump TRAJ all custom 20000 dump.lammpstrj id mol type element xu yu zu
 dump_modify TRAJ element C C H H O H H O
+variable        nprod index 2000000
 
 #restart 20000 restart1.lmp restart2.lmp
 
-run 2000000
+run ${nprod}
 
 write_data data.*.lmp

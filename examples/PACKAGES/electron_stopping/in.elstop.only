@@ -33,7 +33,8 @@ compute ektot all reduce sum c_ek
 
 thermo 100
 thermo_style custom step time dt f_fel c_ektot
+variable        nsteps index 10000
 
 #dump mydump all custom 200 elstop.only.dump id x y z vx vy vz fx fy fz c_ek
 
-run 10000
+run ${nsteps}

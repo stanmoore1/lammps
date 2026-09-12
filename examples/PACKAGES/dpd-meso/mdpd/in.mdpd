@@ -50,4 +50,6 @@ fix         mvv     all mvv/dpd
 #dump_modify         avi pad 4
 
 timestep            0.01
-run                 4000
+variable        nsteps index 4000
+
+run                 ${nsteps}
