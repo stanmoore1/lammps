@@ -215,57 +215,62 @@ every difference below is KOKKOS against CPU and nothing else.
 | | count |
 |---|---|
 | 1. crashed | 1 |
-| 2. stopped with a LAMMPS error, so cannot be tested under KOKKOS | 78 |
-| 3. ran but disagrees with the CPU reference | 148 |
-| 4. agrees with the CPU reference | 313 |
+| 2. stopped with a LAMMPS error, so cannot be tested under KOKKOS | 76 |
+| 3. ran but disagrees with the CPU reference | 150, of which 140 are thermo comparisons |
+| 4. agrees with the CPU reference | 315 |
 
-The 148 is the number that matters, and on its own it is misleading.  Read on.
+The 140 is the number that matters, and on its own it is misleading.  Read on.
 
 ### 1. Crashed (1)
 
-`mc/in.gcmc.co2` aborts under KOKKOS and runs clean on the CPU styles:
+`mc/in.gcmc.co2` is the one input in the tree that fails under KOKKOS for a
+reason of its own.  It arrived at this sweep aborting with
 
 ```
 Kokkos::RangePolicy bounds error: The lower bound (0) is greater than the upper bound (-1).
-Kokkos::Impl::host_abort(char const*)
-Signal: Aborted (6)
 ```
 
-It needs multiple MPI ranks *and* KOKKOS, which is exactly this configuration.
-This run took the diagnosis further, by instrumenting `FixRigidSmall` with a
-check of its own invariant - for every body, `bodyown[body[ibody].ilocal]` must
-be `ibody`, and every atom with `bodyown[i] >= 0` must satisfy
-`bodytag[i] == tag[i]` - and calling it at each host/device boundary:
+in `FixRigidSmallKokkos::pre_neighbor()`, reached from `FixGCMC::energy_full()`.
+**That abort is fixed** (`src/KOKKOS/fix_rigid_small_kokkos.cpp`).  `Body::ilocal`
+names the atom that owns a body, and on the host exchange path it is host-side
+bookkeeping: `copy_arrays()`, `unpack_exchange()` and `set_molecule()` keep it in
+step with `bodyown[]`, and no device kernel touches it.  `copy_body_host()`
+nevertheless copied the whole `Body` down from the device, `ilocal` included, so
+every device-to-host refresh put back the index the body had before the host last
+moved it.  Instrumenting `FixRigidSmall` with a check of its own invariant -
+`bodyown[body[ibody].ilocal] == ibody` for every body - shows it happening in one
+line:
 
-1. **The bookkeeping is sound on the CPU.**  The same base-class code path runs
-   10266 deletions in this input with the plain styles and never once violates
-   the invariant.  Under KOKKOS it is violated 121 times before the abort.
-2. **What breaks is `body[ibody].ilocal`.**  The first violation is
-   `body1.ilocal=6` with `nlocal=6`: a local atom that owned a body disappeared
-   without `FixRigidSmall::copy_arrays()` running for it, and `copy_arrays()` is
-   the only host path that keeps `bodyown`, `body.ilocal` and `nlocal_body` in
-   step when an atom is deleted.
-3. **How that becomes the abort.**  When a body-owning atom is later deleted,
-   `copy_arrays()` re-stamps ownership through
-   `bodyown[body[nlocal_body-1].ilocal] = bodyown[j]`.  With a stale `ilocal`
-   that stamps `bodyown` onto the wrong atom, leaving a second atom claiming the
-   same body.  Deleting that one decrements `nlocal_body` once too often - the
-   trace ends with `delete i=2 j=1 bodyown[j]=0 nlocal_body=0`, taking it to
-   `-1` - and `FixRigidSmallKokkos::pre_neighbor()` then launches
-   `Range1D(0, nlocal_body)`.
+```
+copy i=6 j=2 del=1 bodyown[i]=1     host moves body 1 from atom 6 to atom 2
+copy_body_host ilocal host[ 1 2 ] <- device[ 1 6 ]   stale device value wins
+INCONSISTENT: body1.ilocal=6 but bodyown[6]=-1
+```
 
-Two candidate explanations were tested and ruled out.  The device exchange is not
-involved: `exchange_comm_device=0` and `exchange_comm_legacy=true` on all four
-ranks, so `CommBrick::exchange()` and the host `pack_exchange`/`copy_arrays` are
-what run.  Neither is the atom sort, even though `sort_kokkos()` re-links
-`body.ilocal` only in the device copy and never in the separate host `body[]`
-buffer that `copy_arrays()` reads: adding a `copy_body_host()` after that
-re-link does not fix the crash, and neither does `atom_modify sort 0 0.0`.
-**Still open**, but the invariant check above is the tool to finish it with -
-what is left is to find which path drops a body-owning atom without calling
-`copy_arrays()`.
+`bodyown[]` and `body.ilocal` then name different atoms, so deleting a
+body-owning atom re-stamps ownership onto an atom that does not own it; that
+second spurious owner decrements `nlocal_body` once too often until it reaches
+-1.  The same check never fires once in 10266 deletions with the plain CPU
+styles.  With the fix the abort is gone at 1, 2 and 4 MPI ranks and the invariant
+check stays silent for the whole run.
 
-### 2. Stopped with a LAMMPS error (78)
+What is left is a **second, independent defect in the same pair of fixes**, which
+the abort had been hiding.  It is much better characterised than the abort was:
+
+- The step 0 state matches the plain styles exactly - same 24 atoms, same energy.
+- After the first accepted GCMC deletion at step 1 the potential energy still
+  agrees exactly (-6.9419334 both) while the kinetic energy and the pressure do
+  not: 347 K and -314471 atm against 310 K and -248 atm.  Positions are right and
+  velocities are wrong, which points at the body-to-atom velocity assignment
+  rather than at the force computation.
+- The body bookkeeping invariant above holds throughout, so it is not another
+  instance of the first bug.
+- It **reproduces on a single rank** - `fix rigid/small` plus `fix gcmc`, 50
+  steps, no migration involved - and needs both fixes present: either alone
+  passes.  It is not introduced by the fix above; the single-rank failure is
+  identical before and after it.
+
+### 2. Stopped with a LAMMPS error (76)
 
 These belong in the `skip` list of a KOKKOS configuration rather than in a
 failure report:
@@ -278,19 +283,37 @@ failure report:
 | KOKKOS package only supports 'bin' neighbor lists | 8 |
 | Atom style ellipsoid/kk does not support the superellipsoid option | 4 |
 | Cannot yet use compute tally with Kokkos | 3 |
-| the remaining 17, two or fewer each | 17 |
+| the remaining 15, two or fewer each | 15 |
 
 Two are the guards this branch added, doing their job - the `superellipsoid`
 rejection and "Fix sgcmc requires the keyword 'atomic/energy yes' when used with
 a KOKKOS EAM pair style" - each replacing a segfault with a clear message.
 
-Two in the tail are worth someone's attention, though neither is a wrong answer:
-`python/in.fix_python_invoke_neighlist` fails with
-`lammps_find_pair_neighlist(): Pair style lj/cut does not exist`
-(`src/library.cpp:6377`), because under `-sf kk` the style is `lj/cut/kk` and the
-Python callback looks up the plain name; and `granular/in.sync_verlet` reports
-`Illegal wall/gran command, unrecognized damping model`
-(`src/KOKKOS/fix_wall_gran_old.cpp:203`) for an argument the plain style accepts.
+Two entries left this list during the run: `kim/in.kim-pm.melt` and
+`kim/in.kim-pm-property` were failing with "KIM Model name not found" because the
+KOKKOS build has its own KIM API prefix and the model installer had only been
+pointed at the CPU one.  Both now agree with the CPU reference.
+
+Two in the tail were worth someone's attention, and both are now fixed:
+`python/in.fix_python_invoke_neighlist` failed with
+`lammps_find_pair_neighlist(): Pair style lj/cut does not exist`, because under
+`-sf kk` the style is `lj/cut/kk` and the Python callback looks up the plain
+name.  Relaxing the lookup turns out to be the wrong fix, and that is the
+interesting part: the example then runs to completion having silently seen **no
+neighbors at all**, where the plain styles print 96 neighbor lists.  A KOKKOS
+neighbor list keeps its data in device views and the host arrays the library
+interface hands out are never filled in for it.  So
+`lammps_neighlist_num_elements()` and `lammps_neighlist_element_neighbors()` now
+report such a list as one they cannot read rather than as an empty one, and the
+example is left alone - its exact-match lookup is what makes the problem visible.
+
+`granular/in.sync_verlet` reported `Illegal wall/gran command, unrecognized
+damping model` for input that is not illegal: `damping coeff_restitution` is a
+registered damping sub-model of the GRANULAR package.  `fix wall/gran/kk` derives
+from `FixWallGranOld`, a frozen pre-refactor copy of `FixWallGran` kept in
+`src/KOKKOS`, whose parser knows only four of the seven damping models.  It now
+names the model, says which ones this variant supports, and points at the
+unsuffixed style.
 
 ### 3. Disagrees with the CPU reference (148), of which 14 in the first row
 
@@ -304,11 +327,12 @@ separates them by re-reading both logs:
 |---|---|
 | first row identical to the printed precision | **134** |
 | 1e-10 .. 1e-6 | 3 |
-| 1e-6 .. 1e-3 | 5 |
-| > 1e-3 | 6 |
+| 1e-6 .. 1e-3 | 3 |
+| > 1e-3 | 0 |
 
-So 134 of the 148 start from the same numbers and drift apart later.  The 14 that
-do not fall into exactly two groups, and **neither is a KOKKOS defect**:
+So 134 of the 140 start from the same numbers and drift apart later.  The 6 that
+do not are all ReaxFF, and none is a KOKKOS defect.  Eight more were in this list
+before the eight RNG cases below were skipped:
 
 **A different random number generator (8).**  `pair_dpd` draws its random force
 from `RanMars`; `pair_dpd/kk` draws it from Kokkos' `Random_XorShift64` pool
@@ -352,7 +376,7 @@ at different points, and the KOKKOS value is the closer of the two to the
 converged one.  `reaxff/CHO/in.CHO` behaves the same way: `-106.09736` against
 `-106.09755` at `1e-6`, and `-106.09705` from both at `1e-12`.  Not a bug.
 
-### 4. Agrees with the CPU reference (313)
+### 4. Agrees with the CPU reference (315)
 
 Within `abs 1e-8 / rel 1e-10` on every compared thermo row of every output.
 
@@ -383,16 +407,28 @@ generated by the same build on the same machine:
 
 | | published nightly | this run |
 |---|---|---|
-| numerical disagreements | 115 | 148 |
-| of those, differing in the first thermo row | 19 | 14 |
-| of those, with a mechanism established | none stated | **all 14**: 8 a different RNG, 6 an under-converged QEq solve |
-| rejections mixed in with the failures | yes | separated into their own list of 78 |
-| KOKKOS defects left | unknown | **1** (`mc/in.gcmc.co2`) |
+| numerical disagreements | 115 | 140 |
+| of those, differing in the first thermo row | 19 | 6 (14 before the 8 RNG cases were skipped) |
+| of those, with a mechanism established | none stated | **all of them**: 8 a different RNG, 6 an under-converged QEq solve |
+| rejections mixed in with the failures | yes | separated into their own list of 76 |
+| KOKKOS defects found | unknown | 4, of which **3 fixed** |
 
 The count of numerical disagreements went **up**, not down, and that is the
 honest result: this run compares 606 inputs rather than 540, at default run
 lengths for all but 40 of them, against a matched baseline with tolerances of
 `rel 1e-10`.  What changed is that every one of them can now be accounted for.
+
+Four KOKKOS defects were found and three fixed: the `fix rigid/small` body
+bookkeeping that `copy_body_host()` was undoing, the library neighbor-list
+accessors that described a device-side list as empty, and `fix wall/gran/kk`
+calling valid input illegal.  The fourth - velocities and pressure going wrong
+after a GCMC deletion - is characterised down to a single-rank, 50-step
+reproducer but not fixed.
+
+Re-running the whole sweep with the three fixes in place changes nothing else:
+of 606 inputs, the only transitions are the two `kim` examples moving from
+failing to agreeing and the eight RNG cases moving into the skip list.  Nothing
+regressed.
 
 ## Reproducing
 
