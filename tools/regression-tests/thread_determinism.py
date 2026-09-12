@@ -48,6 +48,10 @@ import sys
 
 THERMO_HEADER_RE = re.compile(r'^\s*Step\s')
 
+# below this an absolute difference is round-off on a quantity that is
+# nominally zero, and its relative size carries no information
+ABSOLUTE_FLOOR = 1.0e-10
+
 
 def thermo_lines(text):
     """Return the thermo table rows of every run in a log, as plain strings.
@@ -123,11 +127,42 @@ def worst_relative_difference(a, b):
     return worst, where
 
 
+def first_row_difference(a, b):
+    """Relative difference of the first thermo row, which is computed at setup.
+
+    Nothing has been integrated yet at that point, so a chaotic trajectory has
+    had no opportunity to amplify anything: whatever shows up here was produced
+    by the force and energy computation itself.
+    """
+    first_a = next((r for r in a if not r.lstrip().startswith('Step')), None)
+    first_b = next((r for r in b if not r.lstrip().startswith('Step')), None)
+    if first_a is None or first_b is None:
+        return 0.0
+    worst = 0.0
+    for u, v in zip(first_a.split(), first_b.split()):
+        try:
+            fu, fv = float(u), float(v)
+        except ValueError:
+            continue
+        # A thermo column that is zero up to round-off -- a net force, or a
+        # pressure difference an input prints to show it is zero -- holds values
+        # like 3e-14 whose ratio to each other is meaningless.  Comparing those
+        # relatively reports an enormous difference for two runs that agree
+        # perfectly well, which is how pair_style pace first looked like the
+        # worst offender in the tree.  Require an absolute difference too.
+        if abs(fu - fv) < ABSOLUTE_FLOOR:
+            continue
+        scale = max(abs(fu), abs(fv))
+        if scale:
+            worst = max(worst, abs(fu - fv) / scale)
+    return worst
+
+
 def first_difference(a, b):
     worst, where = worst_relative_difference(a, b)
     if where is None:
         return None
-    return where[0], where[1], where[2], worst
+    return where[0], where[1], where[2], worst, first_row_difference(a, b)
 
 
 def main():
@@ -181,19 +216,23 @@ def main():
                 break
         if diff:
             nondeterministic.append((script, diff))
-            print(f'  DIFFERS {script}: row {diff[0]}, worst relative {diff[3]:.2e}\n'
+            print(f'  DIFFERS {script}: row {diff[0]}, worst relative {diff[3]:.2e}, '
+                  f'first row {diff[4]:.2e}\n'
                   f'      run 1: {diff[1]}\n      run 2: {diff[2]}', flush=True)
         else:
             ok += 1
 
     print(f'\n{len(scripts)} inputs: {ok} reproducible, '
           f'{len(nondeterministic)} nondeterministic, {len(failed)} not run')
-    nondeterministic.sort(key=lambda e: -e[1][3])
-    print('\nnondeterministic, worst relative difference between two identical runs:')
+    nondeterministic.sort(key=lambda e: -e[1][4])
+    print('\nnondeterministic runs, by the difference in the FIRST thermo row.')
+    print('That row is computed at setup, before anything is integrated, so a')
+    print('chaotic trajectory cannot have amplified a reordered sum into it yet:')
+    print('  first row    worst anywhere   input')
     for script, diff in nondeterministic:
-        print(f'  {diff[3]:9.2e}  {script}')
-    big = [e for e in nondeterministic if e[1][3] > 1e-8]
-    print(f'\n{len(big)} above 1e-8, which is too large to be a reordered sum')
+        print(f'  {diff[4]:9.2e}    {diff[3]:9.2e}     {script}')
+    early = [e for e in nondeterministic if e[1][4] > 1e-12]
+    print(f'\n{len(early)} of {len(nondeterministic)} differ in the first row by more than 1e-12')
     return 1 if nondeterministic else 0
 
 

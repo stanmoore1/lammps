@@ -398,6 +398,98 @@ order in which atoms are visited.  A one-ulp difference is far too small to be a
 wrong force and far too small to fix by tightening anything; it only becomes
 visible where an iteration count depends on it.  That is the thing left to chase.
 
+## The OpenMP backend: races and thread safety
+
+The Serial pass above isolates the KOKKOS kernels from threading.  This one adds
+the threads back: the same package set built on the OpenMP backend
+(`build-kokkos-omp`), run at the same 4 MPI ranks against the same reference logs
+with 2 threads each, plus a determinism check over the whole tree.
+
+### Nothing in the tree behaves like a data race
+
+`tools/regression-tests/thread_determinism.py` runs each input **twice,
+unchanged**, and compares the thermo output.  With a fixed seed and a fixed
+decomposition a run that does not reproduce itself depends on the order threads
+reached a shared address, and that is evidence on its own terms - no sanitizer
+required.  Of 869 inputs, 485 ran to completion at 1 rank with 4 threads: **343
+reproduce themselves exactly and 142 do not.**
+
+The 142 sound alarming and are not, because the number that matters is *where*
+the two runs first part company.  The first thermo row is computed at setup,
+before anything is integrated, so a chaotic trajectory has had no opportunity to
+amplify a reordered sum into it.  Measured there, **130 of the 137 that could be
+compared have a bit-identical first row**; their nondeterminism appears only
+after integration begins.  Of the seven that did differ, three turned out to be an
+artifact of the measurement and four are already-known design decisions:
+
+| first row | input | why |
+|---|---|---|
+| 2.1e-04 | `dpd-basic/dpdext_tstat` | `pair_dpd/kk` draws its random force from a per-thread `Random_XorShift64` pool |
+| 1.9e-04 | `reaxff/water/in.water.acks2.field` | the ACKS2 solve stops at a residual, and the reduction order sets where |
+| 2.3e-08 | `reaxff/HNS/in.reaxff.hns` | the same, for QEq |
+| 1.3e-08 | `reaxff/in.reaxff.tatb` | the same |
+
+`PACKAGES/pace/in.pace.product` first looked like the worst offender in the whole
+tree at 3.3e-01.  It is not: that input prints `v_delenergy` and `v_delpress`,
+quantities that are zero up to round-off, and the ratio of `-3.4e-13` to another
+value near zero is meaningless.  Three consecutive runs are identical.
+`coreshell/in.coreshell.dsf` and `dpd_tstat` were the same artifact.  The check
+now requires an absolute difference as well as a relative one.
+
+So **no data race was found anywhere in the example tree**, and the
+nondeterminism that exists has a specific, deliberate cause:
+`NBinKokkos::bin_atoms()` assigns each atom its slot in a bin with
+`Kokkos::atomic_fetch_add(&bincount[ibin], 1)` (`src/KOKKOS/nbin_kokkos.cpp:203`),
+so the order of atoms within a bin is arrival order.  The neighbor lists are
+therefore built in a different order every run, the pair sums accumulate in a
+different order, and the last bits move.  In the smallest reproducer - a 2d
+Lennard-Jones melt with nothing but `lj/cut`, `nve` and `enforce2d` - the first
+difference is one unit in the last place of the pressure at step 26, with the
+temperature and both energies still identical.  It happens at 2 threads as well
+as 4, with and without atomic force accumulation, and **not at 1 thread**.
+
+### Why not ThreadSanitizer
+
+Because it cannot judge this code.  TSan models happens-before through atomic
+operations on particular addresses and does not model a standalone
+`atomic_thread_fence`, which is exactly how desul - and therefore the whole
+Kokkos OpenMP backend - synchronises.  GCC says so at compile time
+(`'atomic_thread_fence' is not supported with '-fsanitize=thread'`), and it is
+not a GCC limitation: a race-free program that hands data between two threads
+with a relaxed flag and a pair of fences is reported as a race by clang too.
+Calibrated on a Kokkos program that is nothing but a `parallel_for` writing
+`a(i)=i`, a fence, and a `parallel_reduce`, GCC's TSan produced **28 "data race"
+reports**, one of them inside Kokkos zeroing a freshly allocated View.  A build
+of LAMMPS produced 418, in places like `RangePolicy::begin()`, which cannot race.
+None of that can be reported as a finding without proving every report
+individually, which is why the determinism check is the tool here.
+
+### Correctness under threads
+
+Of 606 inputs, the OpenMP pass differs from the Serial pass on 12, and none is a
+threading defect:
+
+- **2 `kim`** - the OpenMP build has its own KIM API prefix and its own embedded
+  interpreter, and neither had the models or `kim-property` installed.  Both pass
+  now, and the driver installs into every build's prefix and every embedded
+  interpreter rather than just the first.
+- **1 `PACKAGES/pod/Ta/in.pod`** - `Pair style pod/kk can currently only run on a
+  single CPU thread`, which is the code correctly refusing rather than racing.
+- **2 `PACKAGES/phonon/*/in.Ana`** - a timeout, not a hang: 47 s on the Serial
+  backend against 157 s on OpenMP, a 3.3x slowdown where oversubscription alone
+  accounts for about 2x.  Worth someone's attention as a performance question.
+- **7 more** move from "agrees" to "differs" without differing in the first row,
+  which is the round-off amplification above.
+
+Threading introduces no new first-row error anywhere: the inputs whose very first
+thermo row differs from the CPU reference under OpenMP are the same ReaxFF family
+as under Serial, at the same magnitudes.
+
+One thing worth knowing for anyone running this: the threaded configuration
+oversubscribes a 4 core host, and with the default `OMP_WAIT_POLICY` the idle
+half spins.  `examples/melt` takes 25.3 s that way and 0.8 s with the threads
+asleep.
+
 ## What this changes
 
 The published KOKKOS series reports 164 tests that pass with the plain styles and

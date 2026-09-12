@@ -137,9 +137,16 @@ case "${1:-all}" in
     # on numpy, and letting pip resolve that reinstalls the numpy run_tests.py
     # itself imports, which on a system with more than one Python can leave it
     # importing an extension module built for the other interpreter.
-    ${PYTHON} -c 'import kim_property' 2>/dev/null \
-        || ${PYTHON} -m pip install --quiet --no-deps kim-edn kim-property \
-        || echo "kim-property is not available, examples/kim/in.kim-pm-property will fail"
+    # ...into the interpreter LAMMPS embeds, which is the one CMake found and not
+    # necessarily the one running this script: examples/kim/in.kim-pm-property
+    # imports the module from inside the run.
+    for embedded in $(sed -n 's/^Python_EXECUTABLE:[^=]*=//p' \
+                          build-*/CMakeCache.txt 2>/dev/null | sort -u) "${PYTHON}"; do
+        [ -x "${embedded}" ] || continue
+        "${embedded}" -c 'import kim_property' 2>/dev/null \
+            || "${embedded}" -m pip install --quiet --no-deps kim-edn kim-property \
+            || echo "kim-property is not available for ${embedded}, examples/kim/in.kim-pm-property will fail"
+    done
     ;;&
   build-kokkos|all)
     # The same package set plus KOKKOS on the Serial backend.  The compiler flags
