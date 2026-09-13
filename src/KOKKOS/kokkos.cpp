@@ -913,7 +913,19 @@ bigint KokkosLMP::neigh_count(int m)
     Kokkos::deep_copy(h_numneigh,nlistKK->d_numneigh);
   }
 
-  for (int i = 0; i < inum; i++) nneigh += h_numneigh[h_ilist[i]];
+  // a list whose arrays live on the other side of the pair leaves the mirrors
+  // here empty while inum still carries the count from the side that built it,
+  // so bound the walk by what the mirrors actually hold rather than walk off
+  // the end of them for the sake of an end-of-run statistic
+
+  const int nilist = (int) h_ilist.extent(0);
+  const int nnumneigh = (int) h_numneigh.extent(0);
+  if (inum > nilist) inum = nilist;
+
+  for (int i = 0; i < inum; i++) {
+    const int j = h_ilist[i];
+    if ((j >= 0) && (j < nnumneigh)) nneigh += h_numneigh[j];
+  }
 
   return nneigh;
 }
