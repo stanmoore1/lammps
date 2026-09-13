@@ -187,6 +187,34 @@ array alone: the noise and a real finding often share an array name, and a
 bare-name diff throws the finding away with the noise.  Watch reports name an
 element index as well; include it for the same reason.
 
+### The one that dominates a whole-tree sweep: binding before syncing
+
+Run the detectors over every example and most of what comes back is this:
+
+```
+[stale] atom:special: device side read while host side is newer,
+        from LAMMPS_NS::NPairKokkos<Kokkos::Serial, 0, 0, 0, 0, 0>::build(...)
+```
+
+`build()` captures `atomKK->k_special.view<DeviceType>()` into its execute
+object and only then calls `atomKK->sync(Device, ... SPECIAL_MASK)`.  Taking
+`view<DeviceType>()`, `view_host()`, `.data()` or even `.extent()` counts as a
+read of that side, so the detector fires -- but the sync that follows fills the
+same allocation the captured view addresses, so the kernel reads fresh data and
+nothing is wrong.  `grow_pointers()` and `grow()` are the same shape: their whole
+job is to take `.data()` of both sides.
+
+It is pervasive.  Of the 39 routines a 361-input sweep named, most were this,
+including `NPairKokkos::build`, `AtomKokkos::sort_device`,
+`FixShakeKokkos::dof`, `FixEOStableRXKokkos::init`, `Special::combine` (through
+the `grow()` it triggers) and every `AtomVec*Kokkos::grow_pointers`.
+
+So before chasing a report, check whether a `sync` for that array follows within
+the same routine.  If it does, the finding is the ordering, not the data, and
+the tidy-up is to move the bind after the sync -- worth doing where it is one
+line, not worth restructuring a functor constructor for.  What is left after
+discarding this class is small enough to read one report at a time.
+
 ## Reading the reports
 
 ```
