@@ -187,6 +187,27 @@ array alone: the noise and a real finding often share an array name, and a
 bare-name diff throws the finding away with the noise.  Watch reports name an
 element index as well; include it for the same reason.
 
+### Where the audit is blind, and why it matters
+
+The audit says out loud that it cannot check a style which declares every
+array in `datamask_modify`.  Over the whole example tree that caveat is not
+spread evenly: of the styles it named, **51 declare every array and not one of
+them is a `/kk` style**, while the 23 it could check are `/kk` styles without
+exception.  The reason is structural -- a style that is not Kokkos-aware never
+narrows the `ALL_MASK` its base class sets, so `rigid`, `ave/time`, `ehex`,
+`electrode/conp`, `adapt`, `brownian`, `drude/transform/*`, `pafi`, `phonon`
+and the rest are opaque to it.
+
+That is exactly the population the coherence bugs live in.  A plain compute or
+fix writes `atom->x` or `atom->f` through the host pointer and, if it also
+re-enters the force pipeline, the device never sees the write -- which is the
+`compute born/matrix numdiff` defect, found by the watch detector and invisible
+to the audit by construction.
+
+So a clean audit over the whole tree is worth much less than it sounds: it says
+the `/kk` styles declare their writes honestly, and says nothing at all about
+the styles most likely to be wrong.  Use poison and watch for those.
+
 ### The one that dominates a whole-tree sweep: binding before syncing
 
 Run the detectors over every example and most of what comes back is this:
