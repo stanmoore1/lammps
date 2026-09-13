@@ -178,6 +178,26 @@ void FixCMAPKokkos<DeviceType>::pre_neighbor()
   atomKK->k_sametag.sync<DeviceType>();
   d_sametag = atomKK->k_sametag.view<DeviceType>();
 
+  // the crossterm lists are per-atom data of this fix and are rewritten on
+  // the host by grow_arrays(), copy_arrays() and unpack_exchange(), which run
+  // before every rebuild; the scan below reads them on the device
+
+  k_num_crossterm.template sync<DeviceType>();
+  k_crossterm_type.template sync<DeviceType>();
+  k_crossterm_atom1.template sync<DeviceType>();
+  k_crossterm_atom2.template sync<DeviceType>();
+  k_crossterm_atom3.template sync<DeviceType>();
+  k_crossterm_atom4.template sync<DeviceType>();
+  k_crossterm_atom5.template sync<DeviceType>();
+
+  d_num_crossterm = k_num_crossterm.template view<DeviceType>();
+  d_crossterm_type = k_crossterm_type.template view<DeviceType>();
+  d_crossterm_atom1 = k_crossterm_atom1.template view<DeviceType>();
+  d_crossterm_atom2 = k_crossterm_atom2.template view<DeviceType>();
+  d_crossterm_atom3 = k_crossterm_atom3.template view<DeviceType>();
+  d_crossterm_atom4 = k_crossterm_atom4.template view<DeviceType>();
+  d_crossterm_atom5 = k_crossterm_atom5.template view<DeviceType>();
+
   copymode = 1;
   Kokkos::parallel_scan(Kokkos::RangePolicy<DeviceType,TagFixCmapPreNeighbor>(0,nlocal),*this,ncrosstermlist);
   copymode = 0;

@@ -152,6 +152,12 @@ FixShakeKokkos<DeviceType>::~FixShakeKokkos()
 template<class DeviceType>
 void FixShakeKokkos<DeviceType>::init()
 {
+  // FixShake::init() walks the clusters through shake_flag and shake_type,
+  // which are the host sides of the dual views the kernels write
+
+  k_shake_flag.sync_host();
+  k_shake_type.sync_host();
+
   FixShake::init();
 
   if (utils::strmatch(update->integrate_style,"^respa"))

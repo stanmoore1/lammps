@@ -367,6 +367,12 @@ void CommTiledKokkos::exchange()
 {
   atomKK->sync(Host,atomKK->avecKK->datamask_exchange);
 
+  // the host path below refills the send buffer through buf_send, the raw
+  // host pointer, so a claim left standing by an earlier device pack would
+  // make the next sync overwrite what it wrote
+
+  k_buf_send.clear_sync_state();
+
   int prev_auto_sync = lmp->kokkos->auto_sync;
   lmp->kokkos->auto_sync = 1;
   CommTiled::exchange();
@@ -392,6 +398,10 @@ void CommTiledKokkos::borders()
     atomKK->sync(Host,atomKK->avecKK->datamask_border_vel);
   else
     atomKK->sync(Host,atomKK->avecKK->datamask_border);
+
+  // as in exchange() above: CommTiled::borders() packs through buf_send
+
+  k_buf_send.clear_sync_state();
 
   int prev_auto_sync = lmp->kokkos->auto_sync;
   lmp->kokkos->auto_sync = 1;
@@ -828,6 +838,13 @@ void CommTiledKokkos::grow_send_kokkos(int n, int flag, ExecutionSpace space)
                         atomKK->avecKK->size_border + atomKK->avecKK->size_velocity);
     else
       k_buf_send.resize(maxsend_border,atomKK->avecKK->size_border);
+
+    // the claim above only steers the resize to the side whose contents have
+    // to survive; after it this is a scratch buffer again, filled through raw
+    // pointers on whichever side does the packing, so drop the claim rather
+    // than leave it standing forever
+
+    k_buf_send.clear_sync_state();
   } else {
     if (ghost_velocity)
       MemoryKokkos::realloc_kokkos(k_buf_send,"comm:k_buf_send",maxsend_border,
