@@ -105,6 +105,13 @@ int MinCGKokkos::iterate(int maxiter)
     fail = (this->*linemin)(ecurrent,alpha_final);
     if (fail) return fail;
 
+    // the force evaluations inside the line search can leave the host side
+    // newer, and the reductions below read the forces through fvec, the
+    // unmanaged view over the raw device pointer, which no sync of its own
+    // would reach
+
+    atomKK->sync(Device,F_MASK);
+
     // function evaluation criterion
 
     if (neval >= update->max_eval) return MAXEVAL;
