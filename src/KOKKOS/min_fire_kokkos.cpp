@@ -18,6 +18,7 @@
 
 #include "min_fire_kokkos.h"
 #include "atom_kokkos.h"
+#include "kokkos.h"
 #include "atom_masks.h"
 #include "comm.h"
 #include "error.h"
@@ -389,9 +390,24 @@ int MinFireKokkos::run_iterate(int maxiter) {
     }
 
     if (output->next == ntimestep) {
+      // a compute or fix that is not Kokkos-aware writes through the host
+      // pointers, and some of them re-enter the force pipeline while they do
+      // it: compute born/matrix numdiff displaces the atoms, recomputes the
+      // virial and restores them.  auto_sync is what makes those writes reach
+      // the device; without it the displacement never lands and every finite
+      // difference is taken at zero displacement
+
+      int prev_auto_sync = lmp->kokkos->auto_sync;
+      lmp->kokkos->auto_sync = 1;
+      atomKK->sync(Host,ALL_MASK);
+
       timer->stamp();
       output->write(ntimestep);
       timer->stamp(Timer::OUTPUT);
+
+      atomKK->modified(Host,ALL_MASK);
+      lmp->kokkos->auto_sync = prev_auto_sync;
+      refresh();
     }
   }
   atomKK->modified(Device, X_MASK | V_MASK | F_MASK);
