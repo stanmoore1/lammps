@@ -55,7 +55,14 @@ void ModifyKokkos::setup(int vflag)
     }
   }
 
-  for (int i = 0; i < ncompute; i++) compute[i]->setup();
+  for (int i = 0; i < ncompute; i++) {
+    atomKK->sync(compute[i]->execution_space,compute[i]->datamask_read);
+    int prev_auto_sync = lmp->kokkos->auto_sync;
+    if (!compute[i]->kokkosable) lmp->kokkos->auto_sync = 1;
+    compute[i]->setup();
+    lmp->kokkos->auto_sync = prev_auto_sync;
+    atomKK->modified(compute[i]->execution_space,compute[i]->datamask_modify);
+  }
 
   if (update->whichflag == 1)
     for (int i = 0; i < nfix; i++) {

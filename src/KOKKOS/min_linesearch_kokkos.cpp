@@ -242,6 +242,11 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   // store box and values of all dof at start of linesearch
 
+  // a fix consulted for max_alpha above may have left the host side newer,
+  // and xvec reads the device side through a plain pointer
+
+  atomKK->sync(Device,X_MASK);
+
   {
     // local variables for lambda capture
 
@@ -274,6 +279,12 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   while (true) {
     ecurrent = alpha_step(alpha,1);
+
+    // the force evaluation inside alpha_step can leave the host side newer,
+    // and fvec reads the device side through a plain pointer, which no
+    // sync of its own would reach
+
+    atomKK->sync(Device,F_MASK);
 
     // compute new fh, alpha, delfh
 
