@@ -169,23 +169,23 @@ void AtomKokkos::map_set_device()
 {
   int nall = nlocal + nghost;
 
-  // possible reallocation of sametag must come before loop over atoms
-  // since loop sets sametag
+  if (map_style == MAP_HASH) {
+
+    // if this proc has more atoms than hash table size, call map_init()
+    //   call with 0 since max atomID in system has not changed
+
+    if (nall > map_nhash) map_init(0);
+  }
+
+  // possible reallocation of sametag must come before the loop over atoms,
+  // since the loop sets sametag -- and after map_init() above, because that
+  // may invoke map_delete(), which destroys k_sametag and nulls sametag.
+  // Reallocating first left the kernel below writing through a null view.
 
   if (nall > max_same) {
     max_same = nall + EXTRA;
     memoryKK->destroy_kokkos(k_sametag, sametag);
     memoryKK->create_kokkos(k_sametag, sametag, max_same, "atom:sametag");
-  }
-
-  if (map_style == MAP_HASH) {
-
-    // if this proc has more atoms than hash table size, call map_init()
-    //   call with 0 since max atomID in system has not changed
-    // possible reallocation of sametag must come after map_init(),
-    //   b/c map_init() may invoke map_delete(), whacking sametag
-
-    if (nall > map_nhash) map_init(0);
   }
 
   atomKK->sync(Device, TAG_MASK);
@@ -426,6 +426,12 @@ void AtomKokkos::map_delete()
 {
   memoryKK->destroy_kokkos(k_sametag, sametag);
   sametag = nullptr;
+
+  // as Atom::map_delete() does: the next map_set() decides whether to allocate
+  // by comparing against max_same, so leaving the old high-water mark here
+  // makes it skip the allocation and write through the view just destroyed
+
+  max_same = 0;
 
   if (map_style == MAP_ARRAY) {
     memoryKK->destroy_kokkos(k_map_array, map_array);
