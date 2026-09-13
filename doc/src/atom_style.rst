@@ -363,6 +363,11 @@ generalization of ellipsoids with two additional blockiness parameters
 that control the shape.  Superellipsoids also store the principal
 moments of inertia of the particle.
 
+.. versionchanged:: TBD
+
+The *superellipsoid* flag is not yet supported by the KOKKOS package;
+using it with the *ellipsoid/kk* style produces an error.
+
 For the *line* style, particles can be are idealized line segments
 which store a per-particle mass and length and orientation (i.e. the
 end points of the line segment).  Each particle stores a flag in the
