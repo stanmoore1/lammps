@@ -87,6 +87,7 @@ if(KOKKOS_DEBUG_SYNC_ASAN)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" PARENT_SCOPE)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" PARENT_SCOPE)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" PARENT_SCOPE)
+endif()
 
 # Use the host random number generator in KOKKOS styles.  This makes runs with
 # the KOKKOS package reproduce the results of the corresponding plain styles,
@@ -102,6 +103,7 @@ message(STATUS "Using " ${KOKKOS_PREC_LOWER} " precision for KOKKOS package")
 message(STATUS "Using " ${KOKKOS_LAYOUT_LOWER} " view layout for KOKKOS package")
 if(KOKKOS_DEBUG_SYNC)
   message(STATUS "Checking host/device data transfers for KOKKOS package")
+endif()
 
 if(KOKKOS_DEBUG_RNG)
   message(STATUS "Using host random numbers for KOKKOS package")
