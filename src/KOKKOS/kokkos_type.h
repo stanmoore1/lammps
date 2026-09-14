@@ -1019,6 +1019,10 @@ struct TransformView {
 
       if (modified_legacy_device) {
         if (buffer) {
+          // as below: clear before filling the device side, which the host
+          // may still have claimed
+          k_view.clear_sync_state();
+
           pinned_mirror_type tmp_view((typename kk_view::value_type*)buffer, d_view.layout());
           Kokkos::deep_copy(LMPHostType(),tmp_view,h_view);
           Kokkos::deep_copy(LMPHostType(),d_view,tmp_view);
@@ -1030,8 +1034,14 @@ struct TransformView {
 
           if (!async_flag) Kokkos::fence();
         } else {
-          Kokkos::deep_copy(h_viewkk,h_view);
+          // drop the dual view's claim before filling its host side, not
+          // after: the device may still be claimed here, which leaves the
+          // host side off limits in poison mode and makes this staging write
+          // look like a use of stale data.  The buffer is overwritten whole
+          // and immediately claimed again below, so the order is free.
+
           k_view.clear_sync_state();
+          Kokkos::deep_copy(h_viewkk,h_view);
           k_view.modify_host();
           k_view.sync_device();
           modified_legacy_hostkk = 0;
