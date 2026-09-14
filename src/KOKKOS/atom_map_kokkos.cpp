@@ -126,6 +126,9 @@ void AtomKokkos::map_init(int check)
 void AtomKokkos::map_clear()
 {
   if (map_style == MAP_ARRAY) {
+    // the whole array is overwritten, so whatever the other side holds is
+    // irrelevant: release both sides first rather than sync a copy nobody reads
+    k_map_array.clear_sync_state();
     if (lmp->kokkos->atom_map_legacy) {
       Kokkos::deep_copy(k_map_array.view_host(),-1);
       k_map_array.modify_host();
@@ -134,6 +137,10 @@ void AtomKokkos::map_clear()
       k_map_array.modify_device();
     }
   } else {
+    // same reasoning as the array branch above: the whole hash is cleared, so release
+    // both sides first.  without this a preceding map_one() leaves the host side dirty
+    // and the modify_device() below trips dual_hash_type's concurrent-modification abort
+    k_map_hash.clear_sync_state();
     if (lmp->kokkos->atom_map_legacy) {
       Atom::map_clear();
       k_map_hash.view_host().clear();
@@ -177,10 +184,10 @@ void AtomKokkos::map_set_device()
     if (nall > map_nhash) map_init(0);
   }
 
-  // possible reallocation of sametag must come before the loop over atoms,
-  // since the loop sets sametag -- and after map_init() above, because that
-  // may invoke map_delete(), which destroys k_sametag and nulls sametag.
-  // Reallocating first left the kernel below writing through a null view.
+  // possible reallocation of sametag must come before the loop over atoms
+  // since the loop sets sametag, and after map_init() above, because
+  // map_init() may invoke map_delete(), whacking sametag.  Atom::map_set()
+  // observes the same ordering.
 
   if (nall > max_same) {
     max_same = nall + EXTRA;
@@ -388,6 +395,7 @@ void AtomKokkos::map_one(tagint global, int local)
   if (map_style == MAP_ARRAY) {
     k_map_array.sync_host();
     k_map_array.view_host()[global] = local;
+    k_map_array.modify_host();
   } else {
     k_map_hash.sync_host();
     auto& h_map_hash = k_map_hash.view_host(); // must be alias
@@ -397,6 +405,7 @@ void AtomKokkos::map_one(tagint global, int local)
       h_map_hash.value_at(h_map_hash.find(global)) = local;
     else if (insert_result.failed())
       error->one(FLERR,"Failed to insert into Kokkos hash atom map");
+    k_map_hash.modify_host();
   }
 }
 
@@ -426,6 +435,7 @@ void AtomKokkos::map_delete()
 {
   memoryKK->destroy_kokkos(k_sametag, sametag);
   sametag = nullptr;
+  max_same = 0;
 
   // as Atom::map_delete() does: the next map_set() decides whether to allocate
   // by comparing against max_same, so leaving the old high-water mark here

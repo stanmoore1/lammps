@@ -48,6 +48,12 @@ PairLubricate::PairLubricate(LAMMPS *lmp) :
 {
   single_enable = 0;
 
+  // pair lubricate cannot compute virial as F dot r
+  // due to how the FLD drag forces are applied to atoms
+  // correct method is how per-atom virial does it
+
+  no_virial_fdotr_compute = 1;
+
   // set comm size needed by this Pair
 
   comm_forward = 6;
@@ -561,7 +567,7 @@ void PairLubricate::init_style()
   shearing = flagdeform = flagwall = 0;
 
   auto fixes = modify->get_fix_by_style("^deform");
-  if (fixes.size() > 0) {
+  if (!fixes.empty()) {
     shearing = flagdeform = 1;
     auto *myfix = dynamic_cast<FixDeform *>(fixes[0]);
     if (myfix && (myfix->remapflag != Domain::V_REMAP))

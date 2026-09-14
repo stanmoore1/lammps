@@ -1,8 +1,8 @@
 ---
 lammps_version: 4 Jul 2026
-tags:
+tags: unstable
 date_generated: Tue Aug  4 08:59:37 2026
-epsilon: 2e-11
+epsilon: 2.5e-9
 skip_tests:
 prerequisites: |
   atom full

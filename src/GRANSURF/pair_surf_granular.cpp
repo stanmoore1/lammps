@@ -326,7 +326,7 @@ void PairSurfGranular::compute(int eflag, int vflag)
       contact_surfs.push_back(mycontact);
     }
 
-    if (contact_surfs.size() == 0) continue;
+    if (contact_surfs.empty()) continue;
 
     // Sort contacts by overlap and create a map
     std::sort(contact_surfs.begin(), contact_surfs.end(), FixSurface::contact_presort);
@@ -586,6 +586,11 @@ void PairSurfGranular::init_style()
   // it replaces FixDummy, created in the constructor
   // this is so its order in the fix list is preserved
 
+  if (use_history) {
+    delete[] id_history;
+    id_history = utils::strdup(fmt::format("NEIGH_HISTORY_GRANULAR{}", instance_index()));
+  }
+
   if (use_history && (fix_history == nullptr)) {
     auto fixcmd = fmt::format("{} all NEIGH_HISTORY {} onesided", id_history, size_history);
     fix_history = dynamic_cast<FixNeighHistory *>(modify->replace_fix(id_dummy, fixcmd, 1));
@@ -644,7 +649,7 @@ void PairSurfGranular::init_style()
   // check for FixFreeze and set freeze_group_bit
 
   fixlist = modify->get_fix_by_style("^freeze");
-  if (fixlist.size() == 0)
+  if (fixlist.empty())
     freeze_group_bit = 0;
   else if (fixlist.size() > 1)
     error->all(FLERR, Error::NOLASTLINE,

@@ -173,6 +173,10 @@ void BondQuarticKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   atomKK->sync(Host, X_MASK | F_MASK | BOND_MASK | TAG_MASK | TYPE_MASK);
   atomKK->k_f.modify_host();
 
+  // the kernel wrote the broken bond flags on the device, so the dual view
+  // must be marked modified there or sync_host() below does nothing
+
+  k_brokenflag.template modify<DeviceType>();
   k_brokenflag.sync_host();
 
   // host-side post-processing: bond breaking and pair correction
@@ -282,7 +286,7 @@ void BondQuarticKokkos<DeviceType>::operator()(TagBondQuarticCompute<NEWTON_BOND
     return;
   }
 
-  const KK_FLOAT r = sqrt(rsq);
+  const KK_FLOAT r = Kokkos::sqrt(rsq);
   const KK_FLOAT dr = r - d_rc[type];
   const KK_FLOAT r2 = dr*dr;
   const KK_FLOAT ra = dr - d_b1[type];

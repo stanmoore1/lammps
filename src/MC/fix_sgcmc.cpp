@@ -260,6 +260,15 @@ void FixSemiGrandCanonicalMC::init()
       error->all(FLERR, "SGC - Pair style does not support atomic energy method");
     }
   } else {
+    // a KOKKOS EAM pair style derives from PairEAM, so the cast below succeeds,
+    // but its compute() only fills the Kokkos views and leaves the per-atom rho
+    // and fp arrays of the base class unallocated.  the atomic energy method
+    // only needs the spline tables, which both variants set up on the host
+
+    if (force->pair->kokkosable && dynamic_cast<PairEAM*>(force->pair))
+      error->all(FLERR, Error::NOLASTLINE, "Fix {} requires the keyword 'atomic/energy yes' "
+                 "when used with a KOKKOS EAM pair style", style);
+
     // Save a pointer to the EAM potential.
     pairEAM = dynamic_cast<PairEAM*>(force->pair);
     if (!pairEAM) {
@@ -452,7 +461,7 @@ void FixSemiGrandCanonicalMC::doMC()
           A += deltaNGlobal[i] * deltaNGlobal[i];
           A += 2.0 * deltaNGlobal[i] * (speciesCounts[i] - (int)(targetConcentration[i] * atom->natoms));
         }
-        double deltaB = -(kappa / atom->natoms) * A;
+        double deltaB = -beta * (kappa / atom->natoms) * A;
         if (deltaB < 0.0) {
           if (deltaB < log(random->uniform())) {
             std::fill(deltaN.begin(), deltaN.end(), 0);

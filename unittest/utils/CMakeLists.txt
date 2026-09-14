@@ -26,7 +26,6 @@ if(BUILD_MPI)
   add_executable(test_nbody_mpi test_nbody_mpi.cpp)
   target_link_libraries(test_nbody_mpi PRIVATE lammps GTest::GMockMain MPI::MPI_CXX)
   add_mpi_test(NAME NbodyMPI NUM_PROCS 4 COMMAND $<TARGET_FILE:test_nbody_mpi>)
-  set_tests_properties(NbodyMPI PROPERTIES LABELS "mpi")
 endif()
 
 add_executable(test_argutils test_argutils.cpp)
@@ -66,6 +65,10 @@ add_executable(test_fmtlib test_fmtlib.cpp)
 target_link_libraries(test_fmtlib PRIVATE lammps GTest::GMockMain)
 add_test(NAME FmtLib COMMAND test_fmtlib)
 
+add_executable(test_sprintf test_sprintf.cpp)
+target_link_libraries(test_sprintf PRIVATE lammps GTest::GMockMain)
+add_test(NAME Sprintf COMMAND test_sprintf)
+
 add_executable(test_json test_json.cpp)
 target_link_libraries(test_json PRIVATE lammps GTest::GMockMain)
 add_test(NAME JSON COMMAND test_json)
@@ -78,18 +81,25 @@ add_test(NAME MathEigen COMMAND test_math_eigen_impl 10 5)
 # FFT Testing Infrastructure
 # =============================================================================
 
+# These tests need the COMPILE_ONLY generator expression added in CMake 3.27.
+if(PKG_KOKKOS AND (CMAKE_VERSION VERSION_LESS 3.27))
+  message(STATUS "Skipping the FFT3D tests: building them with the KOKKOS "
+    "package requires CMake 3.27 or later")
+  set(SKIP_FFT_TESTS TRUE)
+endif()
+
 # -----------------------------------------------------------------------------
 # FFT3D Tests (Standard KSPACE FFT)
 # -----------------------------------------------------------------------------
-if(PKG_KSPACE)
+if(PKG_KSPACE AND NOT SKIP_FFT_TESTS)
   # Build test_fft3d executable
   add_executable(test_fft3d test_fft3d.cpp ../error_stats.cpp)
   target_link_libraries(test_fft3d PRIVATE lammps GTest::GMockMain)
   target_include_directories(test_fft3d PRIVATE ${LAMMPS_SOURCE_DIR})
 
-  # Add Kokkos if enabled
+  # Compile against Kokkos, but do not link it (see test_fft3d_kokkos below).
   if(PKG_KOKKOS)
-    target_link_libraries(test_fft3d PRIVATE Kokkos::kokkos)
+    target_link_libraries(test_fft3d PRIVATE $<COMPILE_ONLY:Kokkos::kokkos>)
   endif()
 
   # Propagate FFT_SINGLE preprocessor definition
@@ -107,25 +117,23 @@ if(PKG_KSPACE)
   if(BUILD_MPI)
     # Test with 2 processes
     add_mpi_test(NAME FFT3D_MPI_2proc NUM_PROCS 2 COMMAND $<TARGET_FILE:test_fft3d>)
-    set_tests_properties(FFT3D_MPI_2proc PROPERTIES
-      LABELS "fft;kspace;mpi;utils"
-      ENVIRONMENT "OMP_PROC_BIND=false")
 
     # Test with 4 processes
     add_mpi_test(NAME FFT3D_MPI_4proc NUM_PROCS 4 COMMAND $<TARGET_FILE:test_fft3d>)
-    set_tests_properties(FFT3D_MPI_4proc PROPERTIES
-      LABELS "fft;kspace;mpi;utils"
-      ENVIRONMENT "OMP_PROC_BIND=false")
   endif()
 endif()
 
 # -----------------------------------------------------------------------------
 # FFT3D KOKKOS Tests (KOKKOS FFT - CPU and GPU)
 # -----------------------------------------------------------------------------
-if(PKG_KSPACE AND PKG_KOKKOS)
+if(PKG_KSPACE AND PKG_KOKKOS AND NOT SKIP_FFT_TESTS)
   # Build test_fft3d_kokkos executable
   add_executable(test_fft3d_kokkos test_fft3d_kokkos.cpp ../error_stats.cpp)
-  target_link_libraries(test_fft3d_kokkos PRIVATE lammps GTest::GMockMain Kokkos::kokkos)
+  # Compile against Kokkos, but do not link it: liblammps already provides the
+  # Kokkos runtime, and linking it again duplicates Kokkos' static-library
+  # globals, which double-frees them at exit.
+  target_link_libraries(test_fft3d_kokkos PRIVATE lammps GTest::GMockMain
+    $<COMPILE_ONLY:Kokkos::kokkos>)
   target_include_directories(test_fft3d_kokkos PRIVATE ${LAMMPS_SOURCE_DIR} ${LAMMPS_SOURCE_DIR}/KSPACE)
 
   # Propagate FFT_SINGLE preprocessor definition
@@ -178,15 +186,9 @@ if(PKG_KSPACE AND PKG_KOKKOS)
   if(BUILD_MPI)
     # Test with 2 processes
     add_mpi_test(NAME FFT3DKokkos_MPI_2proc NUM_PROCS 2 COMMAND $<TARGET_FILE:test_fft3d_kokkos>)
-    set_tests_properties(FFT3DKokkos_MPI_2proc PROPERTIES
-      LABELS "fft;kokkos;kspace;mpi;utils"
-      ENVIRONMENT "OMP_PROC_BIND=false")
 
     # Test with 4 processes
     add_mpi_test(NAME FFT3DKokkos_MPI_4proc NUM_PROCS 4 COMMAND $<TARGET_FILE:test_fft3d_kokkos>)
-    set_tests_properties(FFT3DKokkos_MPI_4proc PROPERTIES
-      LABELS "fft;kokkos;kspace;mpi;utils"
-      ENVIRONMENT "OMP_PROC_BIND=false")
   endif()
 endif()
 

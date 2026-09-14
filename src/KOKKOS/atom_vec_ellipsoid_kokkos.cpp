@@ -56,6 +56,22 @@ AtomVecEllipsoidKokkos::~AtomVecEllipsoidKokkos()
   }
 }
 
+/* ----------------------------------------------------------------------
+   process sub-style args
+   the KOKKOS version does not implement the superellipsoid extension: its
+   bonus layout is hard-wired to shape[3]+quat[4] and grow() does not
+   allocate the per-atom radius the superellipsoid sub-style adds
+------------------------------------------------------------------------- */
+
+void AtomVecEllipsoidKokkos::process_args(int narg, char **arg)
+{
+  for (int iarg = 0; iarg < narg; iarg++)
+    if (strcmp(arg[iarg], "superellipsoid") == 0)
+      error->all(FLERR, "Atom style ellipsoid/kk does not support the superellipsoid option");
+
+  AtomVecEllipsoid::process_args(narg, arg);
+}
+
 /* ---------------------------------------------------------------------- */
 
 void AtomVecEllipsoidKokkos::init()
@@ -199,13 +215,17 @@ void AtomVecEllipsoidKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &So
   Sorter.sort(LMPDeviceType(), d_rmass);
   Sorter.sort(LMPDeviceType(), d_angmom);
   Sorter.sort(LMPDeviceType(), d_ellipsoid);
-  Sorter.sort(LMPDeviceType(), d_bonus);
+
+  // the bonus array is compacted and indexed through ellipsoid[i], not by atom
+  // index, so the per-atom bin permutation must not be applied to it.  Bonus
+  // styles therefore use the legacy (host) sort, see AtomKokkos::sort().
 
   atomKK->modified(Device, ALL_MASK & ~F_MASK & ~TORQUE_MASK);
 }
 
 /* ------------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommBonus {
   typedef DeviceType device_type;
@@ -222,14 +242,17 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const typename DAT::tdual_int_1d &list,
-    const int &offset):
-      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+    const int &offset,
+    const int &vel_flag):
       _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _list(list.view<DeviceType>()),
       _offset(offset) {
-    const int size_forward = atomKK->avecKK->size_forward;
-    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/size_forward;
-    const size_t elements = size_forward;
+    // must use the same row stride as AtomVecKokkos_PackComm(Vel), which packs
+    // the rest of the same buffer, or the bonus data lands in the wrong rows
+    const size_t elements = atomKK->avecKK->size_forward +
+      (vel_flag ? atomKK->avecKK->size_velocity : 0);
+    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
     buffer_view<DeviceType>(_buf,buf,maxsend,elements);
   }
 
@@ -245,6 +268,7 @@ struct AtomVecEllipsoidKokkos_PackCommBonus {
     }
   }
 };
+}    // namespace
 
 /* ------------------------------------------------------------------------- */
 
@@ -256,17 +280,18 @@ void AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(const int &n, const DAT::tdu
 
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(HostKK,datamask_bonus);
-    struct AtomVecEllipsoidKokkos_PackCommBonus<LMPHostType> f(atomKK,buf,k_bonus,list,offset);
+    struct AtomVecEllipsoidKokkos_PackCommBonus<LMPHostType> f(atomKK,buf,k_bonus,list,offset,vel_flag);
     Kokkos::parallel_for(n,f);
   } else {
     atomKK->sync(Device,datamask_bonus);
-    struct AtomVecEllipsoidKokkos_PackCommBonus<LMPDeviceType> f(atomKK,buf,k_bonus,list,offset);
+    struct AtomVecEllipsoidKokkos_PackCommBonus<LMPDeviceType> f(atomKK,buf,k_bonus,list,offset,vel_flag);
     Kokkos::parallel_for(n,f);
   }
 }
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackCommBonus {
   typedef DeviceType device_type;
@@ -283,14 +308,17 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
     const typename DAT::tdual_double_2d_lr &buf,
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const int& first,
-    const int& offset):
+    const int& offset,
+    const int& vel_flag):
       _bonus(bonus.view<DeviceType>()),
       _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _first(first),
       _offset(offset) {
-    const int size_forward = atomKK->avecKK->size_forward;
-    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/size_forward;
-    const size_t elements = size_forward;
+    // must use the same row stride as AtomVecKokkos_UnpackComm(Vel), which
+    // unpacks the rest of the same buffer
+    const size_t elements = atomKK->avecKK->size_forward +
+      (vel_flag ? atomKK->avecKK->size_velocity : 0);
+    const size_t maxsend = (buf.view<DeviceType>().extent(0)*buf.view<DeviceType>().extent(1))/elements;
     buffer_view<DeviceType>(_buf,buf,maxsend,elements);
   }
 
@@ -305,6 +333,7 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -317,13 +346,13 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &f
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(HostKK,datamask_bonus);
     struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(
-      atomKK,buf,k_bonus,first,offset);
+      atomKK,buf,k_bonus,first,offset,vel_flag);
     Kokkos::parallel_for(n,f);
     atomKK->modified(HostKK,datamask_bonus);
   } else {
     atomKK->sync(Device,datamask_bonus);
     struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(
-      atomKK,buf,k_bonus,first,offset);
+      atomKK,buf,k_bonus,first,offset,vel_flag);
     Kokkos::parallel_for(n,f);
     atomKK->modified(Device,datamask_bonus);
   }
@@ -331,6 +360,7 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &f
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommSelfBonus {
   typedef DeviceType device_type;
@@ -347,8 +377,8 @@ struct AtomVecEllipsoidKokkos_PackCommSelfBonus {
     const typename DEllipsoidBonusAT::tdual_bonus_1d &bonus,
     const int &nfirst,
     const typename DAT::tdual_int_1d &list):
-      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
     _nfirst(nfirst),_list(list.view<DeviceType>()) {}
 
   KOKKOS_INLINE_FUNCTION
@@ -362,6 +392,7 @@ struct AtomVecEllipsoidKokkos_PackCommSelfBonus {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -388,6 +419,7 @@ void AtomVecEllipsoidKokkos::pack_comm_self_bonus_kokkos(const int &n,
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus {
   typedef DeviceType device_type;
@@ -408,8 +440,8 @@ struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus {
     const typename DAT::tdual_int_1d &firstrecv,
     const typename DAT::tdual_int_1d &sendnum_scan,
     const typename DAT::tdual_int_1d &g2l):
-      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _bonus(bonus.view<DeviceType>()),
+      _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
       _list(list.view<DeviceType>()),
       _firstrecv(firstrecv.view<DeviceType>()),
       _sendnum_scan(sendnum_scan.view<DeviceType>()),
@@ -439,6 +471,7 @@ struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -464,12 +497,13 @@ void AtomVecEllipsoidKokkos::pack_comm_self_fused_bonus_kokkos(const int &n,
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackBorderBonus {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename AT::t_double_2d_lr _buf;
+  typename AT::t_double_2d_lr_um _buf;
   const typename AT::t_int_1d_const _list;
   const typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d_randomread _bonus;
   const typename AT::t_int_1d_randomread _ellipsoid;
@@ -480,10 +514,20 @@ struct AtomVecEllipsoidKokkos_PackBorderBonus {
     const typename AT::t_double_2d_lr &buf,
     const typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d &bonus,
     const typename AT::t_int_1d_const &list,
-    const int &offset):
-    _buf(buf),_list(list),_offset(offset),
+    const int &offset,
+    const int &vel_flag):
+    _list(list),
     _bonus(bonus),
-    _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()) {};
+    _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+    _offset(offset)
+  {
+    // must use the same row stride as AtomVecKokkos_PackBorder(Vel), which packs
+    // the rest of the same buffer; the raw view's extent(1) can be narrower
+    const size_t elements = atomKK->avecKK->size_border +
+      (vel_flag ? atomKK->avecKK->size_velocity : 0);
+    const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
+    _buf = typename AT::t_double_2d_lr_um(buf.data(),maxsend,elements);
+  };
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
@@ -504,6 +548,7 @@ struct AtomVecEllipsoidKokkos_PackBorderBonus {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -518,23 +563,24 @@ void AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int n, DAT::tdual_int_1d k
 
   if (space == HostKK) {
     AtomVecEllipsoidKokkos_PackBorderBonus<LMPHostType> f(
-      atomKK,buf.view_host(),k_bonus.view_host(),k_sendlist.view_host(),offset);
+      atomKK,buf.view_host(),k_bonus.view_host(),k_sendlist.view_host(),offset,vel_flag);
     Kokkos::parallel_for(n,f);
   } else {
     AtomVecEllipsoidKokkos_PackBorderBonus<LMPDeviceType> f(
-      atomKK,buf.view_device(),k_bonus.view_device(),k_sendlist.view_device(),offset);
+      atomKK,buf.view_device(),k_bonus.view_device(),k_sendlist.view_device(),offset,vel_flag);
     Kokkos::parallel_for(n,f);
   }
 }
 
 /* ------------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  typename AT::t_double_2d_lr_const _buf;
+  typename AT::t_double_2d_lr_const_um _buf;
   typename AtomVecEllipsoidKokkosBonusArray<DeviceType>::t_bonus_1d _bonus;
   typename AT::t_int_1d _ellipsoid;
   const int _first;
@@ -549,14 +595,23 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
     const int& first,
     const int& offset,
     const int &nlocal_bonus,
-    const typename AT::t_int_scalar &nghost_bonus):
-      _buf(buf),
-      _first(first),
-      _offset(offset),
+    const typename AT::t_int_scalar &nghost_bonus,
+    const int &vel_flag):
       _bonus(bonus),
       _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
+      _first(first),
+      _offset(offset),
       _nlocal_bonus(nlocal_bonus),
-      _nghost_bonus(nghost_bonus) {};
+      _nghost_bonus(nghost_bonus)
+  {
+    // must use the same row stride as AtomVecKokkos_UnpackBorder(Vel), which
+    // unpacks the rest of the same buffer; the receive buffer is allocated with
+    // extent(1) = size_border even when ghost velocities widen the packing
+    const size_t elements = atomKK->avecKK->size_border +
+      (vel_flag ? atomKK->avecKK->size_velocity : 0);
+    const int maxsend = (buf.extent(0)*buf.extent(1))/elements;
+    _buf = typename AT::t_double_2d_lr_const_um(buf.data(),maxsend,elements);
+  };
 
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
@@ -580,6 +635,7 @@ struct AtomVecEllipsoidKokkos_UnpackBorderBonus {
     }
   }
 };
+}    // namespace
 
 /* ------------------------------------------------------------------------- */
 
@@ -598,7 +654,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, const int 
     k_nghost_bonus.view_host()() = nghost_bonus;
     struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPHostType> f(
       atomKK,buf.view_host(),k_bonus.view_host(),first,offset,
-      this->nlocal_bonus,k_nghost_bonus.view_host());
+      this->nlocal_bonus,k_nghost_bonus.view_host(),vel_flag);
     Kokkos::parallel_for(n,f);
   } else {
     k_nghost_bonus.view_host()() = nghost_bonus;
@@ -606,7 +662,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, const int 
     k_nghost_bonus.sync_device();
     struct AtomVecEllipsoidKokkos_UnpackBorderBonus<LMPDeviceType> f(
       atomKK,buf.view_device(),k_bonus.view_device(),first,offset,
-      this->nlocal_bonus, k_nghost_bonus.view_device());
+      this->nlocal_bonus, k_nghost_bonus.view_device(),vel_flag);
     Kokkos::parallel_for(n,f);
     k_nghost_bonus.modify_device();
     k_nghost_bonus.sync_host();
@@ -619,6 +675,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, const int 
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_PackExchangeBonus {
   typedef DeviceType device_type;
@@ -647,9 +704,9 @@ struct AtomVecEllipsoidKokkos_PackExchangeBonus {
       _bonusw(bonus.template view<DeviceType>()),
       _ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),
 
-      _size_exchange(atomKK->avecKK->size_exchange),
       _sendlist(sendlist.template view<DeviceType>()),
       _copylist_bonus(copylist_bonus.template view<DeviceType>()),
+      _size_exchange(atomKK->avecKK->size_exchange),
       _offset(offset) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;
@@ -693,9 +750,11 @@ struct AtomVecEllipsoidKokkos_PackExchangeBonus {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
   typedef DeviceType device_type;
@@ -724,9 +783,9 @@ struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
       _bonusw(bonus.template view<DeviceType>()),
       _ellipsoidw(atomKK->k_ellipsoid.template view<DeviceType>()),
 
-      _size_exchange(atomKK->avecKK->size_exchange),
       _sendlist(sendlist.template view<DeviceType>()),
       _copylist(copylist.template view<DeviceType>()),
+      _size_exchange(atomKK->avecKK->size_exchange),
       _offset(offset) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;
@@ -737,7 +796,7 @@ struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
   void operator() (const int &mysend) const {
     const int i = _sendlist(mysend);
 
-    // if atom J has bonus data, reset J’s bonus.ilocal to loc I
+    // if atom J has bonus data, reset J's bonus.ilocal to loc I
 
     int j = _copylist(mysend);
     if (j > -1) {
@@ -746,6 +805,7 @@ struct AtomVecEllipsoidKokkos_BackfillEllipsoid {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -797,6 +857,7 @@ void AtomVecEllipsoidKokkos::pack_exchange_bonus_kokkos(const int &nsend,
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct AtomVecEllipsoidKokkos_UnpackExchangeBonus {
   typedef DeviceType device_type;
@@ -821,9 +882,9 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeBonus {
       _bonus(bonus.view<DeviceType>()),
       _ellipsoid(atomKK->k_ellipsoid.view<DeviceType>()),
 
-      _size_exchange(atomKK->avecKK->size_exchange),
-      _nlocal_bonus(nlocal_bonus.template view<DeviceType>()),
       _indices(indices.template view<DeviceType>()),
+      _nlocal_bonus(nlocal_bonus.template view<DeviceType>()),
+      _size_exchange(atomKK->avecKK->size_exchange),
       _offset(offset) {
     const int maxsendlist = (buf.template view<DeviceType>().extent(0)*
                              buf.template view<DeviceType>().extent(1))/_size_exchange;
@@ -852,6 +913,7 @@ struct AtomVecEllipsoidKokkos_UnpackExchangeBonus {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
