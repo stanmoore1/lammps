@@ -22,6 +22,7 @@
 #include "atom_masks.h"
 #include "atom_vec.h"
 #include "domain_kokkos.h"
+#include "bond.h"
 #include "error.h"
 #include "fix.h"
 #include "force.h"
@@ -132,10 +133,16 @@ void NeighBondKokkos<DeviceType>::init_topology_kk() {
   int i,m;
   int bond_off = 0;
   int angle_off = 0;
+  // keep this in step with Neighbor::init(): a constraint fix or a bond style
+  // that turns bonds off puts non-positive types in bond_type, and the list
+  // has to be built partially so they are skipped.  Missing one here indexes
+  // the coefficient arrays with a negative type in the bond kernel.
+
   for (const auto &ifix : modify->get_fix_list())
-    if (utils::strmatch(ifix->style,"^shake") || utils::strmatch(ifix->style,"^rattle"))
+    if (utils::strmatch(ifix->style,"^shake") || utils::strmatch(ifix->style,"^rattle") ||
+        utils::strmatch(ifix->style,"^ilves"))
       bond_off = angle_off = 1;
-  if (force->bond && force->bond_match("quartic")) bond_off = 1;
+  if (force->bond && force->bond->partial_flag) bond_off = 1;
 
   if (atom->avec->bonds_allow && atom->molecular == Atom::MOLECULAR) {
     for (i = 0; i < atom->nlocal; i++) {
