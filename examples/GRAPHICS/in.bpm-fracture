@@ -90,4 +90,6 @@ thermo_style    custom step ke pe
 thermo_modify   lost ignore lost/bond ignore
 
 timestep        0.1
-run             15000
+variable        nsteps index 15000
+
+run             ${nsteps}

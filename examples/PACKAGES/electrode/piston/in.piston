@@ -64,6 +64,8 @@ variable s equal step
 fix fxprint    all print 1000 "${s} ${top_wall}" file top_wall.csv screen no
 thermo_style custom step c_temp_mobile c_qwa c_qau v_top_wall
 thermo 5000
-run 100000
+variable        nsteps index 100000
+
+run ${nsteps}
 write_data "data.piston.final"
 

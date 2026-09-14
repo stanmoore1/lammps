@@ -172,11 +172,11 @@ thermo  1000
 # Define number of steps variable. Write dump files for the polymer in both LAMMPS
 # trajectory and vtk format (commented out here). Write xyz dump file
 #--------------------------------------------------------------------------------
-variable numofsteps equal 400001
+variable nsteps index 400001
 #dump  1 ForceAtoms custom 500 translocationdump.lammpstrj id xu yu zu vx vy vz
 #dump 2 ForceAtoms vtk 1000 dump*.translocation.vtk id xu yu zu vx vy vz
-#dump 4 WallAtoms xyz $(v_numofsteps-1) walldump.xyz
+#dump 4 WallAtoms xyz $(v_nsteps-1) walldump.xyz
 
 #restart 50000 4nmrestart.*
 
-run ${numofsteps}     # For 250001 steps without noise, 16 minutes on AMD Ryzen Threadripper 1950X 16-Core, 41 mintues on Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz 4-core
+run ${nsteps}     # For 250001 steps without noise, 16 minutes on AMD Ryzen Threadripper 1950X 16-Core, 41 mintues on Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz 4-core

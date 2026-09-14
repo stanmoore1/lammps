@@ -47,8 +47,9 @@ fix NPT all npt temp ${TK} ${TK} 100 iso ${PBAR} ${PBAR} 500
 
 thermo_style custom step cpu etotal ke pe evdwl ecoul elong temp press vol density
 thermo 1000
+variable        nequil index 200000
 
-run 200000
+run ${nequil}
 
 reset_timestep 0
 unfix NPT
@@ -71,8 +72,9 @@ fix FEP all ave/time 1 1 100 c_FEP[1] c_FEP[2] file bar10.fep
 
 dump TRAJ all custom 5000 dump.lammpstrj id mol type element xu yu zu
 dump_modify TRAJ element C H F H O
+variable        nprod index 500000
 
-run 500000
+run ${nprod}
 
 # write_restart restart.*.lmp
 write_data data.*.lmp

@@ -46,7 +46,7 @@ neighbor 1 bin
 variable mtraj    equal        1       # trajectory output frequency - all system
 variable etol     equal     1e-5       # % change in energy
 variable ftol     equal     1e-5       # max force threshold (force units)
-variable maxiter  equal    10000       # max # of iterations
+variable maxiter  index    10000       # max # of iterations
 
 ########################
 #3D Periodic Simulation#

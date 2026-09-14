@@ -47,8 +47,9 @@ thermo 5000
 fix TPSTAT all npt temp ${TK} ${TK} 100 iso ${PBAR} ${PBAR} 1000
 
 set type 1*2 charge 0.0
+variable        nequil index 100000
 
-run 100000
+run ${nequil}
 
 reset_timestep 0
 
@@ -78,8 +79,9 @@ fix FEP all ave/time 20 4000 100000 c_FEP[*] file fep01.fep
 
 dump TRAJ all custom 20000 dump.lammpstrj id mol type element xu yu zu
 dump_modify TRAJ element C H O H
+variable        nprod index 2000000
 
-run 2000000
+run ${nprod}
 
 # write_restart restart.*.lmp
 write_data data.*.lmp

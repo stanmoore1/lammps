@@ -27,5 +27,6 @@ fix             ensemble all npt temp 300.0 300.0 100.0 iso 1.0 1.0 1000.0 drag 
 
 # IMD setup. Client code available in 'deca-ala-solv_imd_v3.py'
 fix  comm       all imd 5678 unwrap on trate 10 version 3 time on box on coordinates on velocities on forces off 
+variable        nsteps index 5000000
 
-run 5000000
+run ${nsteps}

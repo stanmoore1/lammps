@@ -37,13 +37,16 @@ thermo_style custom step temp press etotal pe c_TA[*]
 thermo 5000
 
 fix NVT all nvt temp ${TK} ${TK} 100
-run 300000
+variable        nequil index 300000
+
+run ${nequil}
 
 reset_timestep 0
 
 variable gamma_v equal 100*(pzz-0.5*(pxx+pyy))/2/100 # surface tension via the mechanical route
 
 fix FEP all ave/time 100 1000 100000 c_TA[*] v_gamma_v ave running file spce.fep.ta
+variable        nprod index 2000000
 
-run 2000000
+run ${nprod}
 

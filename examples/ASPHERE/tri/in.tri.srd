@@ -79,6 +79,7 @@ thermo_modify   temp tbig
 
 compute         10 all property/atom corner1x corner1y corner1z &
                 corner2x corner2y corner2z corner3x corner3y corner3z
+variable        nequil index 1000
 
 #dump           1 all custom 500 dump1.atom.srd id type x y z ix iy iz
 #dump           2 all custom 500 dump1.tri.srd id type &
@@ -92,7 +93,7 @@ compute         10 all property/atom corner1x corner1y corner1z &
 #                    acolor 2 goldenrod acolor 1 violet boxcolor steelblue &
 #                    lights 0.25 0.9 0.6 0.9 adiam 2 0.16
 
-run             1000
+run             ${nequil}
 
 #undump          1
 #undump          2
@@ -116,5 +117,6 @@ fix             2 small srd 20 big 1.0 1.0 49894 &
 #                    acolor 2 goldenrod acolor 1 violet boxcolor steelblue &
 #                    lights 0.25 0.9 0.6 0.9 adiam 2 0.16
 fix             3 all deform 1 xy erate 0.05 units box remap v
+variable        nprod index 2000
 
-run             2000
+run             ${nprod}

@@ -110,7 +110,8 @@ variable omegaz equal omega(all,z)
 
 thermo_style   custom step f_1[2] v_vx v_vy v_vz v_omegax v_omegay v_omegaz
 thermo         500
+variable        nsteps index 2500
 
 #dump dumpvtk all vtk 2500 dumpatoms*.vtp vx vy vz
 
-run	       2500
+run	       ${nsteps}

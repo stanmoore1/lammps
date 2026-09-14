@@ -31,7 +31,10 @@ thermo_style	custom step temp pe lx ly lz pxx pyy pzz c_q1 c_q2
 
 #Minimization
 fix		relax all box/relax iso 0
-minimize	1e-10 1e-10 100000 100000
+variable        maxiter index 100000
+variable        maxeval index 100000
+
+minimize	1e-10 1e-10 ${maxiter} ${maxeval}
 unfix		relax
 
 #Dynamics
@@ -40,4 +43,6 @@ variable	T equal 1000
 variable	rnd equal round(random(0,999,${T}))
 velocity	all create ${T} ${rnd} mom yes rot yes
 fix		npt all npt temp ${T} ${T} 0.1 iso 0 0 1
-run		1000
+variable        nsteps index 1000
+
+run		${nsteps}

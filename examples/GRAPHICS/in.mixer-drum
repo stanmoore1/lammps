@@ -91,13 +91,16 @@ dump_modify     viz pad 6 backcolor black backcolor2 white boxcolor steelblue &
 dump_modify     viz amap ${tris} $(v_tris+v_pour) &
                     cf 0.0 9 min orange 0.125 white 0.25 yellow 0.375 &
                     green 0.5 cyan 0.625 blue 0.75 purple 0.875 red max magenta
+variable        nequil index 50000
 
 # fill the drum with 50000 granular particles which takes around 25000 steps
-run             50000
+run             ${nequil}
 unfix ins
 
 # trigger rotation central axis of drum.
 # since we centered the drum on the origin this is rather simple math
 fix             1 tri move rotate 0 0 0 0 -0.87 -0.5 250.0
-run             450000
+variable        nprod index 450000
+
+run             ${nprod}
 

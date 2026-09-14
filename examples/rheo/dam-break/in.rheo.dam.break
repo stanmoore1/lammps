@@ -70,7 +70,8 @@ compute            sn all rheo/property/atom surface/n/x surface/n/y
 
 thermo             20
 thermo_style       custom step time ke press
+variable        nsteps index 30000
 
 #dump               1 all custom 200 atomDump id type x y vx vy fx fy c_rho c_surf c_p c_sn[*]
 
-run                30000
+run                ${nsteps}

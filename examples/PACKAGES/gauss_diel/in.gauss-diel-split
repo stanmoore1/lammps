@@ -92,5 +92,6 @@ fix             2 all langevin 1.0 1.0 0.05 18273
 
 thermo_style    multi
 thermo          500
+variable        nsteps index 2000
 
-run             2000
+run             ${nsteps}

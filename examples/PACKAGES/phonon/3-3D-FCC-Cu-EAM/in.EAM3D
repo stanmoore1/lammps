@@ -34,7 +34,8 @@ thermo_style  custom step temp pe ke press vol lx ly lz xy xz yz
 thermo  100
 
 restart 2000000 restart.one restart.two
+variable        nsteps index 6500000
 
 # execution
-run 	 6500000
+run 	 ${nsteps}
 write_restart Restart.final

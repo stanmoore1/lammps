@@ -38,8 +38,9 @@ fix             2 all nve
 thermo          10
 thermo_style    custom step spcpu temp press etotal pe ke ecoul elong evdwl
 thermo_modify   line one
+variable        nequil index 100000
 
-run             100000
+run             ${nequil}
 write_data		  data.after_equilibration
 
 compute         RDF_1_1 all rdf 50 1 1 cutoff 3.0
@@ -55,6 +56,7 @@ fix             13 all ave/time 50 1 50 c_RDF_1_3[*] file tmp_1_3.rdf mode vecto
 fix             14 all ave/time 50 1 50 c_RDF_2_2[*] file tmp_2_2.rdf mode vector
 fix             15 all ave/time 50 1 50 c_RDF_2_3[*] file tmp_2_3.rdf mode vector
 fix             16 all ave/time 50 1 50 c_RDF_3_3[*] file tmp_3_3.rdf mode vector
+variable        nprod index 10000
 
-run				      10000
+run				      ${nprod}
 write_data		  data.after_production_run
