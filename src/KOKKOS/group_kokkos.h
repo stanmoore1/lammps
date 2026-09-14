@@ -159,13 +159,17 @@ void vcm_kk(int igroup, double masstotal, double *vcm)
   int groupbit = bitmask[igroup];
   auto d_v = atomKK->k_v.template view<DeviceType>();
   auto d_mask = atomKK->k_mask.template view<DeviceType>();
-  auto d_image = atomKK->k_image.template view<DeviceType>();
   double p[3] = {0.0, 0.0, 0.0};
+
+  // no image here: the centre-of-mass velocity is a sum of m*v and needs no
+  // unwrapping.  xcm_kk(), angmom_kk() and inertia_kk() do unwrap and do bind
+  // it; this copy of theirs never used it, and syncing it cost a copy of the
+  // image array on every temperature evaluation.
 
   if (atomKK->rmass) {
 
     auto d_rmass = atomKK->k_rmass.template view<DeviceType>();
-    atomKK->sync(execution_space,V_MASK|MASK_MASK|IMAGE_MASK|RMASS_MASK);
+    atomKK->sync(execution_space,V_MASK|MASK_MASK|RMASS_MASK);
 
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {
       if (d_mask(i) & groupbit) {
@@ -180,7 +184,7 @@ void vcm_kk(int igroup, double masstotal, double *vcm)
 
     auto d_mass = atomKK->k_mass.template view<DeviceType>();
     auto d_type = atomKK->k_type.template view<DeviceType>();
-    atomKK->sync(execution_space,V_MASK|MASK_MASK|IMAGE_MASK|TYPE_MASK);
+    atomKK->sync(execution_space,V_MASK|MASK_MASK|TYPE_MASK);
     atomKK->k_mass.template sync<DeviceType>();
 
     Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType>(0,atom->nlocal), KOKKOS_LAMBDA(const int i, double &l_px, double &l_py, double &l_pz) {
