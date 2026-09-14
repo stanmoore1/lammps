@@ -75,7 +75,7 @@ FixPropertyAtomKokkos::~FixPropertyAtomKokkos()
     }
   }
 
-  atomKK->update_property_atom();
+  atomKK->update_property_atom(this);
 }
 
 /* ----------------------------------------------------------------------

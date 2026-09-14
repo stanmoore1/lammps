@@ -161,11 +161,17 @@ void AtomKokkos::init()
 
 /* ---------------------------------------------------------------------- */
 
-void AtomKokkos::update_property_atom()
+void AtomKokkos::update_property_atom(Fix *exclude)
 {
+  // Modify::delete_fix() runs the destructor before it takes the fix out of
+  // its list, so a fix rebuilding this list from its own destructor still
+  // finds itself there.  It would be re-added and then freed, leaving a
+  // dangling pointer that the next sync() calls through.
+
   nprop_atom = 0;
   std::vector<Fix *> prop_atom_fixes;
   for (auto &ifix : modify->get_fix_by_style("^property/atom")) {
+    if (ifix == exclude) continue;
     if (!ifix->kokkosable)
       error->all(FLERR, "KOKKOS package requires a Kokkos-enabled version of fix property/atom");
 

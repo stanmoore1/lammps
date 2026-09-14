@@ -165,7 +165,7 @@ class AtomKokkos : public Atom {
   }
 
   void init() override;
-  void update_property_atom();
+  void update_property_atom(class Fix *exclude = nullptr);
   void allocate_type_arrays() override;
   void *extract(const char *) override;
   void sync(const ExecutionSpace space, uint64_t mask);
