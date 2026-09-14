@@ -108,7 +108,7 @@ template <int INTEGRATOR, bool ABCFLAG>
 int MinFireKokkos::run_iterate(int maxiter) {
   double vdotf_local, vdotfall, vdotv_local, vdotvall, fdotf_local, fdotfall;
   KK_FLOAT scale1 = 0.0, scale2 = 0.0; // Initialize to zero
-  KK_FLOAT dtv;
+  double dtv;   // receives an MPI_DOUBLE reduction, so it cannot be KK_FLOAT
   alpha_final = 0.0;
   int flagv0 = 1;
 
@@ -272,7 +272,8 @@ int MinFireKokkos::run_iterate(int maxiter) {
       atomKK->modified(Device, V_MASK);
     }
 
-    KK_FLOAT dtf_final = dtv * force->ftm2v;
+    const KK_FLOAT dtv_kk = static_cast<KK_FLOAT>(dtv);
+    KK_FLOAT dtf_final = dtv_kk * static_cast<KK_FLOAT>(force->ftm2v);
     KK_FLOAT dtf_half = 0.5 * dtf_final;
     Kokkos::parallel_for("min_fire/integrate", nlocal, LAMMPS_LAMBDA(const int i) {
       KK_FLOAT mass_val = (l_rmass.data() ? l_rmass(i) : l_mass(l_type(i)));
@@ -288,14 +289,14 @@ int MinFireKokkos::run_iterate(int maxiter) {
           l_v(i,2) = scale1 * l_v(i,2) + scale2 * l_f(i,2);
           if (ABCFLAG) {
             // make sure that the displacement is not larger than dmax
-            if (fabs(l_v(i,0)*dtv) > l_dmax) l_v(i,0) = l_dmax/dtv * l_v(i,0)/fabs(l_v(i,0));
-            if (fabs(l_v(i,1)*dtv) > l_dmax) l_v(i,1) = l_dmax/dtv * l_v(i,1)/fabs(l_v(i,1));
-            if (fabs(l_v(i,2)*dtv) > l_dmax) l_v(i,2) = l_dmax/dtv * l_v(i,2)/fabs(l_v(i,2));
+            if (fabs(l_v(i,0)*dtv_kk) > l_dmax) l_v(i,0) = l_dmax/dtv_kk * l_v(i,0)/fabs(l_v(i,0));
+            if (fabs(l_v(i,1)*dtv_kk) > l_dmax) l_v(i,1) = l_dmax/dtv_kk * l_v(i,1)/fabs(l_v(i,1));
+            if (fabs(l_v(i,2)*dtv_kk) > l_dmax) l_v(i,2) = l_dmax/dtv_kk * l_v(i,2)/fabs(l_v(i,2));
           }
         }
-        l_x(i,0) += dtv * l_v(i,0);
-        l_x(i,1) += dtv * l_v(i,1);
-        l_x(i,2) += dtv * l_v(i,2);
+        l_x(i,0) += dtv_kk * l_v(i,0);
+        l_x(i,1) += dtv_kk * l_v(i,1);
+        l_x(i,2) += dtv_kk * l_v(i,2);
       } else if (INTEGRATOR == VERLET) {
         l_v(i,0) += dtfm_half * l_f(i,0);
         l_v(i,1) += dtfm_half * l_f(i,1);
@@ -306,14 +307,14 @@ int MinFireKokkos::run_iterate(int maxiter) {
           l_v(i,2) = scale1 * l_v(i,2) + scale2 * l_f(i,2);
           if (ABCFLAG) {
             // make sure that the displacement is not larger than dmax
-            if (fabs(l_v(i,0)*dtv) > l_dmax) l_v(i,0) = l_dmax/dtv * l_v(i,0)/fabs(l_v(i,0));
-            if (fabs(l_v(i,1)*dtv) > l_dmax) l_v(i,1) = l_dmax/dtv * l_v(i,1)/fabs(l_v(i,1));
-            if (fabs(l_v(i,2)*dtv) > l_dmax) l_v(i,2) = l_dmax/dtv * l_v(i,2)/fabs(l_v(i,2));
+            if (fabs(l_v(i,0)*dtv_kk) > l_dmax) l_v(i,0) = l_dmax/dtv_kk * l_v(i,0)/fabs(l_v(i,0));
+            if (fabs(l_v(i,1)*dtv_kk) > l_dmax) l_v(i,1) = l_dmax/dtv_kk * l_v(i,1)/fabs(l_v(i,1));
+            if (fabs(l_v(i,2)*dtv_kk) > l_dmax) l_v(i,2) = l_dmax/dtv_kk * l_v(i,2)/fabs(l_v(i,2));
           }
         }
-        l_x(i,0) += dtv * l_v(i,0);
-        l_x(i,1) += dtv * l_v(i,1);
-        l_x(i,2) += dtv * l_v(i,2);
+        l_x(i,0) += dtv_kk * l_v(i,0);
+        l_x(i,1) += dtv_kk * l_v(i,1);
+        l_x(i,2) += dtv_kk * l_v(i,2);
       } else if (INTEGRATOR == EULEREXPLICIT) {
         if (vdotfall > 0.0) {
           l_v(i,0) = scale1 * l_v(i,0) + scale2 * l_f(i,0);
@@ -321,14 +322,14 @@ int MinFireKokkos::run_iterate(int maxiter) {
           l_v(i,2) = scale1 * l_v(i,2) + scale2 * l_f(i,2);
           if (ABCFLAG) {
             // make sure that the displacement is not larger than dmax
-            if (fabs(l_v(i,0)*dtv) > l_dmax) l_v(i,0) = l_dmax/dtv * l_v(i,0)/fabs(l_v(i,0));
-            if (fabs(l_v(i,1)*dtv) > l_dmax) l_v(i,1) = l_dmax/dtv * l_v(i,1)/fabs(l_v(i,1));
-            if (fabs(l_v(i,2)*dtv) > l_dmax) l_v(i,2) = l_dmax/dtv * l_v(i,2)/fabs(l_v(i,2));
+            if (fabs(l_v(i,0)*dtv_kk) > l_dmax) l_v(i,0) = l_dmax/dtv_kk * l_v(i,0)/fabs(l_v(i,0));
+            if (fabs(l_v(i,1)*dtv_kk) > l_dmax) l_v(i,1) = l_dmax/dtv_kk * l_v(i,1)/fabs(l_v(i,1));
+            if (fabs(l_v(i,2)*dtv_kk) > l_dmax) l_v(i,2) = l_dmax/dtv_kk * l_v(i,2)/fabs(l_v(i,2));
           }
         }
-        l_x(i,0) += dtv * l_v(i,0);
-        l_x(i,1) += dtv * l_v(i,1);
-        l_x(i,2) += dtv * l_v(i,2);
+        l_x(i,0) += dtv_kk * l_v(i,0);
+        l_x(i,1) += dtv_kk * l_v(i,1);
+        l_x(i,2) += dtv_kk * l_v(i,2);
         l_v(i,0) += dtfm * l_f(i,0);
         l_v(i,1) += dtfm * l_f(i,1);
         l_v(i,2) += dtfm * l_f(i,2);
