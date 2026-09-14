@@ -87,21 +87,6 @@ void AtomVecEllipsoidKokkos::init()
    n > 0 allocates arrays to size n
 ------------------------------------------------------------------------- */
 
-void AtomVecEllipsoidKokkos::process_args(int narg, char **arg)
-{
-  // the superellipsoid variant adds a radius array and a wider bonus record,
-  // neither of which this class carries on the device; accepting the keyword
-  // and then growing without radius leaves it a null pointer
-
-  for (int iarg = 0; iarg < narg; iarg++)
-    if (strcmp(arg[iarg],"superellipsoid") == 0)
-      error->all(FLERR,"Atom style ellipsoid superellipsoid is not yet supported by the KOKKOS package");
-
-  AtomVecEllipsoid::process_args(narg,arg);
-}
-
-/* ---------------------------------------------------------------------- */
-
 void AtomVecEllipsoidKokkos::grow(int n)
 {
   auto DELTA = LMP_KOKKOS_AV_DELTA;
