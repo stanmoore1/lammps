@@ -17,7 +17,11 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_DualView.hpp>
 
-#ifdef LMP_KOKKOS_DEBUG_SYNC
+// These are needed whether or not the sync debugging is switched on: the stale
+// bookkeeping and the copy census below are compiled unconditionally, and only
+// their call sites are behind LMP_KOKKOS_DEBUG_SYNC.  Keeping the includes
+// inside that guard broke every KOKKOS build without the option -- which is
+// most of them -- at backtrace_symbols() and abi::__cxa_demangle().
 #include <execinfo.h>
 #include <cstdio>
 #include <cstdlib>
@@ -30,6 +34,7 @@
 #include <string>
 #include <vector>
 
+#ifdef LMP_KOKKOS_DEBUG_SYNC
 // Poison mode needs AddressSanitizer.  GCC advertises it with a macro, clang
 // through __has_feature, and a build without it compiles the mode away.
 #if defined(__has_feature)

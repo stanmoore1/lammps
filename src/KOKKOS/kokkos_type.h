@@ -823,6 +823,13 @@ struct TransformView {
   static constexpr int SINGLE_DEVICE =
     std::is_same_v<typename kk_view::t_dev::device_type, typename kk_view::t_host::device_type>;
 
+  // The exemption only means anything to the sync debugging, but its callers
+  // (VerletKokkos, for the force accumulator it overlaps outside the protocol)
+  // are compiled either way, so the pair has to exist either way.
+
+  void protocol_exempt_begin() const {}
+  void protocol_exempt_end() const {}
+
 #endif
 
   typedef typename legacy_view::value_type value_type;
