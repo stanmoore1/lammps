@@ -180,3 +180,39 @@ The discriminator from the dev-doc ("look for a following sync in the same
 routine") did all the work here.  Worth noting what is NOT in this list: the
 bonded styles, which dominated the double-precision stale sweep before
 0277fece79.  That fix removed the only real class the stale watcher was seeing.
+
+## ASan KOKKOS double sweep -- heap-buffer-overflow in fix rigid/small + fix gcmc
+
+`examples/mc/in.gcmc.co2`, reported by the plain AddressSanitizer build (no
+sync debugging at all, so this is a real memory error, not a protocol artifact):
+
+    READ of size 4, 388 bytes BEFORE a 3920000-byte region
+    #0 FixRigidSmall::copy_arrays(int,int,int)  fix_rigid_small.cpp:2857
+    #1 AtomVec::copy(int,int,int)               atom_vec.cpp:350
+    #2 FixGCMC::attempt_molecule_deletion_full()  fix_gcmc.cpp:2076
+
+Line 2857 is
+
+    if (delflag && bodyown[j] >= 0) {
+      bodyown[body[nlocal_body-1].ilocal] = bodyown[j];
+
+and the region is `body`, allocated in the FixRigidSmall constructor.  The
+address is BEFORE the allocation, not past its end: this is `body[-1]`, i.e.
+`nlocal_body == 0` while `bodyown[j] >= 0` still claims atom j owns a body.
+Those two cannot both be true of one consistent state.
+
+KOKKOS-SPECIFIC -- established by A/B on the SAME binary, same input, same
+4 ranks:
+  - no `-sf kk`:  rc=0, 0 reports
+  - with `-sf kk`: rc=1, reproduces every time
+
+FixRigidSmallKokkos does NOT override copy_arrays, so the base runs and reads
+the raw host `bodyown[]`, `body[]` and `nlocal_body`, which the KOKKOS subclass
+maintains as DualViews.  When that bookkeeping is live on the device the host
+copies are the stale ones, and a stale `bodyown[j]` against a current
+`nlocal_body` is exactly the contradiction above.
+
+This is very likely the same root cause as the still-open poison finding
+(`FixRigidSmall::pack_reverse_comm` reading a poisoned k_bodyown via
+FixRigidSmallKokkos::dof).  Same array, same class: base-class host code
+reached without the KOKKOS subclass flushing its bookkeeping down first.
