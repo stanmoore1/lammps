@@ -20,12 +20,17 @@ exec 8<>$F
 # pile up as a dirty tree
 ( cd /home/user/lammps && git checkout -- examples/ 2>/dev/null )
 
+DUR=${1:-560}
 prev=$(wc -l < $S 2>/dev/null || echo 0)
-end=$((SECONDS + ${1:-560}))
+end=$((SECONDS + DUR))
+news=""
 while [ $SECONDS -lt $end ]; do
-  [ -f $SP/sync/ALL-WORK-DONE ] && { echo "ALL WORK DONE"; break; }
+  if [ -f $SP/sync/ALL-WORK-DONE ]; then news="ALL WORK DONE"; break; fi
   now=$(wc -l < $S 2>/dev/null || echo 0)
-  [ "$now" -gt "$prev" ] && { tail -n +$((prev+1)) $S; break; }
+  if [ "$now" -gt "$prev" ]; then news=$(tail -n +$((prev+1)) $S); break; fi
   read -t 30 -u 8 x
 done
-[ -f $SP/sync/ALL-WORK-DONE ] || tail -1 $S
+# Say plainly which happened.  Printing the last status line either way made a
+# quiet hold look identical to an event, and a hold that is silently returning
+# early looks the same again -- so report the elapsed time with it.
+if [ -n "$news" ]; then echo "$news"; else echo "(quiet, held ${SECONDS}s of ${DUR}s; last: $(tail -1 $S))"; fi
