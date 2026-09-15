@@ -162,3 +162,21 @@ a re-verify stage is queued to rebuild it and re-run just these):
   AtomKokkos::modified(); a claim made straight on the DualView
   (k_mask.modify_device() inside CommKokkos or NPairKokkos) bypasses it, so the
   host copy is left poisoned with auto_sync none the wiser.
+
+## Mixed-precision stale watch, all 869 inputs -- COMPLETE, no new bugs
+
+427 of 869 inputs reported.  Every one of the 5 non-benign-looking call sites
+resolves to a documented benign class; nothing new to fix.
+
+| site | inputs | verdict |
+|---|---|---|
+| `FixShakeKokkos::post_force` reads atom:f | 11 | bind-before-sync.  d_x/d_f/d_type are bound at the top, the `atomKK->sync(execution_space,X|F|...)` follows a few lines down.  ~500 hits = one per step, i.e. once per call, exactly as that class predicts. |
+| `FixShakeKokkos::dof` reads atom:mask | 1 | same: binds d_mask/d_tag, then syncs MASK\|TAG before the kernel. |
+| `FixRigidSmallKokkos::refresh_atom_views` / `sort_kokkos` | 7 | same -- refresh_atom_views exists to rebind views. |
+| `CommKokkos::grow_swap` / `grow_list` on comm:sendlist | 9 | reallocation, 1 hit each. |
+| `FixWallFlowKokkos::grow_arrays` on current_segment | 1 | 12 hits, a DIFFERENT site from the init() one fixed in 122d6024ed.  Device is claimed either side of the grow so the host content is not used; low priority but not yet read closely. |
+
+The discriminator from the dev-doc ("look for a following sync in the same
+routine") did all the work here.  Worth noting what is NOT in this list: the
+bonded styles, which dominated the double-precision stale sweep before
+0277fece79.  That fix removed the only real class the stale watcher was seeing.
