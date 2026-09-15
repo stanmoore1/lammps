@@ -28,6 +28,12 @@ while [ $SECONDS -lt $end ]; do
   if [ -f $SP/sync/ALL-WORK-DONE ]; then news="ALL WORK DONE"; break; fi
   now=$(wc -l < $S 2>/dev/null || echo 0)
   if [ "$now" -gt "$prev" ]; then news=$(tail -n +$((prev+1)) $S); break; fi
+  # Writes fail long before the sweep notices, and a sweep that runs on with no
+  # room records nothing useful, so surface it here rather than after the fact.
+  free=$(df / 2>/dev/null | awk 'NR==2{print $4}')
+  if [ -n "$free" ] && [ "$free" -lt 3000000 ]; then
+    news="DISK LOW: $(df -h / | awk 'NR==2{print $4}') free"; break
+  fi
   read -t 30 -u 8 x
 done
 # Say plainly which happened.  Printing the last status line either way made a
