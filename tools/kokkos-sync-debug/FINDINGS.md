@@ -212,7 +212,35 @@ maintains as DualViews.  When that bookkeeping is live on the device the host
 copies are the stale ones, and a stale `bodyown[j]` against a current
 `nlocal_body` is exactly the contradiction above.
 
-This is very likely the same root cause as the still-open poison finding
+### CORRECTION: the coherence hypothesis above is WRONG
+
+I wrote a fix on that hypothesis -- FixRigidSmallKokkos overriding copy_arrays
+and set_arrays to flush the bookkeeping device->host first, plus pre_neighbor
+honouring the resulting host claim instead of clearing it -- and it does NOT
+fix the bug.  Two results refute the hypothesis:
+
+  - with the override in place (so the flush definitely ran), the overflow
+    still fires, and the backtrace goes straight THROUGH it:
+        #0 FixRigidSmall::copy_arrays        fix_rigid_small.cpp:2857
+        #1 FixRigidSmallKokkos::copy_arrays  fix_rigid_small_kokkos.cpp:318
+  - the overflow reproduces with `-pk kokkos comm host sort no atom/map no`,
+    i.e. the host exchange path, where pre_exchange() already flushes and no
+    device claim is outstanding at all.
+
+So stale host bookkeeping is not the cause.  The fix was reverted; it also made
+the run 100x slower (401 s timeout against 4 s), which is a second reason not
+to keep it.
+
+What still holds: the A/B is unchanged -- no `-sf kk` is clean, `-sf kk` crashes
+-- so it IS KOKKOS-specific, and the immediate cause is still `nlocal_body == 0`
+while `bodyown[j] >= 0`.  But since it is independent of the comm path, the
+difference has to be in the KOKKOS subclass's own body bookkeeping (something
+around nlocal_body maintenance -- unpack_exchange_kokkos adjusts it directly at
+fix_rigid_small_kokkos.cpp:1991-2031), not in host/device coherence.
+NOT YET DIAGNOSED.  Do not assume the poison finding below shares a root cause
+with it; that was the assumption that just failed.
+
+The earlier guess that this shares a root cause with the still-open poison finding
 (`FixRigidSmall::pack_reverse_comm` reading a poisoned k_bodyown via
 FixRigidSmallKokkos::dof).  Same array, same class: base-class host code
 reached without the KOKKOS subclass flushing its bookkeeping down first.
