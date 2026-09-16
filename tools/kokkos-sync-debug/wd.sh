@@ -30,11 +30,13 @@ while [ $SECONDS -lt $end ]; do
   if [ "$now" -gt "$prev" ]; then news=$(tail -n +$((prev+1)) $S); break; fi
   # Writes fail long before the sweep notices, and a sweep that runs on with no
   # room records nothing useful, so surface it here rather than after the fact.
-  # The threshold is high because a build is the thing that runs out: linking an
-  # AddressSanitizer liblammps.a went from 3.0G free to failing inside one
-  # 10-minute hold, so warning at a couple of GB is warning too late.
+  # An alarm alone is not enough -- linking an AddressSanitizer liblammps.a went
+  # from 3.0G free to failing in ar inside a single hold, faster than any
+  # threshold that does not fire constantly.  So this is a last-resort alarm and
+  # the free space goes in the quiet report as well, to watch the trend and
+  # clear room BEFORE starting a build rather than react to running out.
   free=$(df / 2>/dev/null | awk 'NR==2{print $4}')
-  if [ -n "$free" ] && [ "$free" -lt 7000000 ]; then
+  if [ -n "$free" ] && [ "$free" -lt 2500000 ]; then
     news="DISK LOW: $(df -h / | awk 'NR==2{print $4}') free"; break
   fi
   read -t 30 -u 8 x
@@ -42,4 +44,4 @@ done
 # Say plainly which happened.  Printing the last status line either way made a
 # quiet hold look identical to an event, and a hold that is silently returning
 # early looks the same again -- so report the elapsed time with it.
-if [ -n "$news" ]; then echo "$news"; else echo "(quiet, held ${SECONDS}s of ${DUR}s; last: $(tail -1 $S))"; fi
+if [ -n "$news" ]; then echo "$news"; else echo "(quiet, held ${SECONDS}s of ${DUR}s; disk $(df -h / | awk 'NR==2{print $4}'); last: $(tail -1 $S))"; fi
