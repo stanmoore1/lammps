@@ -297,3 +297,34 @@ atom2body/xcmimage/displace across the two exchange paths.  The fix is
 probably to not let the re-entrant pre_neighbor take the host branch at all
 while a device claim is live, rather than to clear claims -- but that is a
 design question, not a patch I can validate from here.
+
+
+## Poison re-verify against a freshly built binary: 10 of 16 cleared
+
+The sweep directory still held the FIRST poison run's reports, dated three days
+earlier than the binary carrying the fixes.  They look current because the
+directory is current; comparing each report's mtime against the binary's build
+time is what separates them.  Checked that way, and re-run, the picture is:
+
+CLEARED -- no report from a binary that has the fix:
+  hyper.global, hyper.local, widom.lj   fix langevin/kk mask sync
+  numdiff                               fix numdiff mask sync
+  filter_corotate/in.respa              bonded styles sync/claim
+  gneb_iron                             roots initialisation
+  wall.flow                             wall/flow current_segment
+  ilves/in.peptide-ilves                bonded sync -- was a heap-buffer-overflow
+  ilves/in.rhodo-ilves                  at bond_harmonic_kokkos.cpp:170, INSIDE
+                                        the kernel, never separately diagnosed
+  pafi/in.pafi                          bonded sync -- was a heap-use-after-free
+                                        in fix_property_atom_kokkos.cpp:191
+
+The last three are the interesting ones: five ilves inputs and pafi were never
+diagnosed on their own, and the bonded sync/claim fix resolved them as a side
+effect.  One fix, five example directories.
+
+STILL REPORTING -- all of them things not claimed as fixed:
+  deposit/in.deposit.molecule.rigid-{small,nve-small,nvt-small}
+  mc/in.hmc.rigid          FixRigidSmall::pack_reverse_comm / copy_arrays
+                           -- the body[-1] bug, two failed fix attempts above
+  mc/in.gcmc.co2, gcmc.h2o FixGroup::pack_forward_comm under gcmc, never
+                           diagnosed
