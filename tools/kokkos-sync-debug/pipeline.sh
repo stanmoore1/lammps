@@ -18,6 +18,13 @@ KK="-k on -sf kk -pk kokkos neigh full newton off comm device sort device atom/m
 say() { echo "$(date -u +%m-%d\ %H:%M) $*" >> $SP/sync/orchestrate.status; }
 
 build() {  # $1 = build dir -- ninja no-ops when the binary is already current
+  # A stage whose sweep is already finished may have had its build directory
+  # deleted to reclaim disk.  That is not a failure: there is nothing left to
+  # run with it.  Only a configured directory is worth building.
+  if [ ! -f $L/$1/build.ninja ]; then
+    say "skipping $1 (not configured; its sweep is done or it was reclaimed)"
+    return 0
+  fi
   say "building $1"
   . /home/user/env.sh 2>/dev/null
   nice -n 12 ninja -C $L/$1 -j3 lmp > $SP/$1.build.log 2>&1
@@ -31,7 +38,15 @@ build() {  # $1 = build dir -- ninja no-ops when the binary is already current
 }
 
 sweep() {  # $1 tag  $2 binary  $3 label ; detector env from caller
+  # Marker first, build second.  Building before the marker check meant a
+  # finished stage still paid for its build, and a finished stage whose build
+  # directory had been reclaimed stopped the whole pipeline.
   [ -f $M/done.$1 ] && return 0
+  build $2
+  if [ ! -x $L/$2/lmp ]; then
+    say "STOPPING: $2/lmp missing, refusing to sweep $1"
+    exit 1
+  fi
   say "START $3"
   $R $L/$2/lmp $1 $ALL 360 4
   say "DONE $3"
@@ -39,16 +54,12 @@ sweep() {  # $1 tag  $2 binary  $3 label ; detector env from caller
 }
 
 # 0. catch up the finished double-precision sweeps on the 55 new inputs
-build build-sync
 LMP_KOKKOS_AUDIT=1 KKARGS="$KK" \
   sweep audit845 build-sync "audit catch-up (new inputs)"
 LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 KKARGS="$KK" \
   sweep stale845 build-sync "stale watch catch-up (new inputs)"
 
 # 1. mixed precision: refresh the sync binary, then poison and stale
-build build-sync-mixed
-
-build build-poison-mixed
 LMP_KOKKOS_POISON=1 KKARGS="$KK" sweep mixed-poison845 build-poison-mixed "mixed poison (869)"
 
 LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1 KKARGS="$KK" \
@@ -58,10 +69,8 @@ LMP_KOKKOS_AUDIT=1 KKARGS="$KK" \
   sweep mixed-audit845 build-sync-mixed "mixed audit catch-up (new inputs)"
 
 # 2. plain AddressSanitizer, kokkos double and plain cpu
-build build-asan-kk
 KKARGS="$KK" sweep asan-kk845 build-asan-kk "asan kokkos double (869)"
 
-build build-asan-cpu
 KKARGS="" sweep asan-cpu845 build-asan-cpu "asan plain cpu (869)"
 
 # 3. double-precision poison catch-up.  build-poison was deleted to free disk,
@@ -89,17 +98,22 @@ fi
 #     binary predates the fixes those reports produced, so this is what says
 #     whether each one is actually gone.
 if [ ! -f $M/done.reverify ]; then
-  build build-poison-mixed
+  # Re-verify under the double-precision poison build rather than the mixed one.
+  # None of the bugs these inputs found were precision-specific (bonded sync,
+  # langevin masks, wall/flow current_segment, numdiff masks, roots), the mixed
+  # sweep is complete at 869, and double is the configuration these fixes will
+  # actually be used in.  It also lets the mixed build directory be reclaimed,
+  # which is what the disk needs.
+  build build-poison
   say "START poison re-verify (fixed inputs)"
   LMP_KOKKOS_POISON=1 KKARGS="$KK" \
-    $R $L/build-poison-mixed/lmp reverify $SP/sync/reverify.txt 360 4
+    $R $L/build-poison/lmp reverify $SP/sync/reverify.txt 360 4
   say "DONE poison re-verify: $(ls $SP/sync/reverify/*.asan 2>/dev/null | wc -l) still reporting"
   touch $M/done.reverify
 fi
 
 # 4. split memory vs regular memory, same source: a value diff catches what the
 #    detectors cannot see, because it looks at the consequence not the accessor
-build build-plain
 KKARGS="$KK" sweep plain845 build-plain "divergence: regular memory (869)"
 KKARGS="$KK" sweep split845 build-sync  "divergence: split memory (869)"
 if [ ! -f $M/done.divergence ]; then
