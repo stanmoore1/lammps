@@ -417,32 +417,76 @@ runs inside the host rebuild.  Verified by running examples/rigid/in.rigid.small
 producing ri.restart.rigid) under the UNFIXED poison build: zero reports.  A
 speculative MOLECULE_MASK addition was written and then reverted as unnecessary.
 
-### STILL OPEN -- rigid/small + gcmc, now better understood but not fixed
-Fixing fix group let in.gcmc.co2 run further and exposed the real sequence:
+### REFUSED, NOT FIXED -- rigid/small with the MC fixes and with fix deposit
+This one turned out to be two separate defects, and the second is NOT a
+memory-model bug at all: it reproduces on an ordinary CPU KOKKOS build where
+host and device share one memory space.  That was found by running the same
+inputs on build-plain, and it invalidates the earlier write-up in this file,
+which explained everything by the lost host write.
 
-  1. FixGCMC inserts an atom -> Modify::create_attribute -> FixRigidSmall::set_arrays
-     WRITES bodyown/bodytag/atom2body/xcmimage/displace through host pointers
-     while the device owns them.  The write is lost.
-  2. The new atom therefore keeps whatever the device held, which can be a
-     bodyown >= 0 naming a body that does not exist.
-  3. FixRigidSmall::copy_arrays later reads that and indexes body[nlocal_body-1]
-     with nlocal_body == 0 -- the original overflow.
+DEFECT 1 -- the body[] handover is only correct 1:1.
+The fix keeps the body state on the device for a whole step and hands it to the
+host and back at two points: pre_exchange() brings body[] down, pre_neighbor()
+pushes it back.  body[] is a plain host array that no device kernel mirrors, so
+copy_body_device() pushes it whole on the strength of that pairing alone.
+Eight fixes in the MC package call modify->pre_neighbor() themselves, from
+inside their own pre_exchange(), around a trial energy evaluation -- gcmc,
+gemc, gemc/mcmoves, widom, atom/swap, neighbor/swap, mol/swap,
+charge/regulation.  grep says the integrators are the only other callers, and
+they always pair it with modify->pre_exchange().
 
-Without any fix the unfixed build does not merely read out of bounds, it drives
-nlocal_body negative: "Kokkos::RangePolicy bounds error: The lower bound (0) is
-greater than the upper bound (-2)".  The same input completes cleanly on the
-non-KOKKOS CPU build (21 thermo rows, 14 s), so the input is legitimate.
+Measured with a temporary comparison at the top of copy_body_device() (host
+body[] vs a readback of d_body) on examples/mc/in.gcmc.co2, plain CPU KOKKOS
+build, np=1: 54 pushes in step 1 alone overwrite live device state (ilocal and
+vcm), against exactly 1 for the whole run with fix gcmc removed -- and that one
+is at setup, where the host really is authoritative.  Consequence at step 1:
+the potential energy still matches the non-KOKKOS run exactly (-6.9419334) while
+the kinetic energy does not (11.009 against 9.857), i.e. the positions survive
+and the body velocities do not.  The run dies at step 11 with "Bond atoms
+missing".  With fix rigid/small kept out of the suffix (suffix off around that
+one line) the same input runs to completion, so it is this fix.
 
-ATTEMPT 3, REVERTED.  Overriding set_arrays and copy_arrays to sync the
-bookkeeping to the host, let the base write it, then claim the host side, does
-take in.gcmc.co2 from 62 poison reports to 0 -- but it REGRESSES
-examples/rigid/in.rigid.spheres, which goes "Non-numeric atom coords" at step
-~900 where the unfixed build finishes.  Same failure mode as attempt 2.  The
-host claim is evidently wrong somewhere else in the fix's sync discipline.
+fix hmc breaks the same pairing from the other end: FixHMC::setup() calls
+fix_rigid->setup() a second time, after ModifyKokkos::setup() already ran it and
+the device kernels claimed the bookkeeping again (12 modify_device on
+rigid/small:bodyown between the two calls, from the dual view trace).
 
-Keeping only the sync_host half was considered and rejected: it removes the
-poison reports without saving the lost write, i.e. it silences the detector
-while leaving the bug.  That is worse than leaving it visible.
+DEFECT 2 -- the lost per-atom write, as described before.  set_arrays() and
+copy_arrays() write bodyown/bodytag/atom2body/xcmimage/displace through plain
+host pointers while the device owns them.  This one really is memory-model
+dependent: examples/deposit/in.deposit.molecule.rigid-small and its nve/nvt
+siblings give bit-identical thermo output with and without the /kk suffix on the
+rigid fix on a CPU KOKKOS build, and only break under split memory.
+
+FIVE ATTEMPTS AT A REAL FIX, ALL REVERTED -- see the commit history.  A real fix
+needs body[] brought into the dual view protocol it is currently outside of: the
+device kernels write d_body without ever claiming it (44 references across ~15
+functions), so nothing records which side owns it and an out-of-band caller
+cannot know whether it has to flush.  Not something to do blind -- one missed
+writer silently loses body state.
+
+So the combinations are REFUSED, with three checks that match the three
+failures: check_handover_open() (call order, every build),
+check_second_setup() (call order, every build), and
+check_device_owns_bookkeeping() (coherence state, so it is silent where the two
+sides share memory and fix deposit genuinely works -- Kokkos makes modify_* a
+no-op there, so need_sync_host() is always false).
+
+Verified over all 28 examples that use rigid/small, np=4, on both builds.  The
+14 that run cleanly today still do, with identical row counts on the two builds;
+in.rigid.cubes.multirun (three run commands) confirms the per-run reset of the
+setup counter.  New errors:
+
+  plain CPU KOKKOS   in.gcmc.co2   "another fix rebuilding the neighbor lists"
+                     in.hmc.rigid  "another fix running its setup a second time"
+  split memory       in.gcmc.co2, in.deposit.molecule.rigid-{,nve-,nvt-}small
+                                   "another fix creating atoms"
+                     in.hmc.rigid  "another fix running its setup a second time"
+
+Unchanged and unrelated: in.tri.srd (atom style), in.polymer / in.translocation
+(LATBOLTZ not built), in.micelle-rigid (2d), in.pour.2d.molecule and
+in.rigid.gravity (fix pour rejects KOKKOS), in.widom.spce (fix widom's own
+molecule restriction).
 
 ### STILL OPEN -- the 18 memory-model divergences
 ASPHERE/box narrowed a long way and still not root-caused:
