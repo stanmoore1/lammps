@@ -244,3 +244,56 @@ The earlier guess that this shares a root cause with the still-open poison findi
 (`FixRigidSmall::pack_reverse_comm` reading a poisoned k_bodyown via
 FixRigidSmallKokkos::dof).  Same array, same class: base-class host code
 reached without the KOKKOS subclass flushing its bookkeeping down first.
+
+
+## gcmc + rigid/small/kk: sharper diagnosis, still no working fix
+
+A second attempt also failed.  Recording what is now established, and what
+each attempt disproved, so the next person does not repeat either.
+
+ESTABLISHED (all directly observed, not inferred):
+
+1. `sizeof(Body)` is 392 and `offsetof(Body, ilocal)` is 4, so the faulting
+   address at `base - 388` is exactly `body[-1].ilocal`.  `nlocal_body` is 0
+   at the point `bodyown[j] >= 0` says atom j owns a body.  Not a large
+   negative index, not a different field: exactly zero bodies.
+
+2. Under the sync-debugging build the same input aborts EARLIER, in the
+   DualView guard, with a precise chain:
+
+       DualView::modify_host  -- "concurrent modification of host and device
+                                  views in DualView rigid/small:atom2body"
+       FixRigidSmallKokkos::pre_neighbor
+       ModifyKokkos::pre_neighbor
+       FixGCMC::energy_full
+       FixGCMC::attempt_molecule_insertion_full   (and ..._deletion_full)
+       FixGCMC::pre_exchange
+
+   fix gcmc re-enters modify->pre_neighbor() from inside its own
+   pre_exchange(), while the claim reset_atom2body() left on the device is
+   still outstanding.  pre_neighbor's HOST-exchange branch then calls
+   modify_host() on top of it.  The DEVICE branch guards against precisely
+   this (clear_sync_state() before modify_device(), commented "...marking the
+   device on top of that leaves both flags set and Kokkos::abort()s"); the
+   host branch has no equivalent.  That asymmetry is real and is the best
+   lead.
+
+DISPROVED, attempt 1 -- "the host bookkeeping is stale":
+   Overriding copy_arrays/set_arrays to flush device->host first does NOT fix
+   it; the overflow still fires with the backtrace running through the
+   flushing override, and it reproduces with `comm host sort no atom/map no`
+   where nothing is stale.  Also made the run ~100x slower.
+
+DISPROVED, attempt 2 -- "mirror the device branch's clear_sync_state()":
+   Clearing atom2body alone moves the abort to bodyown; clearing the whole set
+   (bodytag, bodyown, atom2body, xcmimage, displace, vatom, eflags...) removes
+   every abort but the run then dies with "Non-numeric atom coords -
+   simulation unstable".  So the device side of those arrays DOES hold data
+   that matters on the host exchange path, and the reasoning that only the
+   host writes them there is wrong.
+
+WHAT THIS NEEDS: someone who knows the intended ownership of bodyown/
+atom2body/xcmimage/displace across the two exchange paths.  The fix is
+probably to not let the re-entrant pre_neighbor take the host branch at all
+while a device claim is live, rather than to clear claims -- but that is a
+design question, not a patch I can validate from here.
