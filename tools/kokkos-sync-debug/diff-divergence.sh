@@ -15,7 +15,7 @@ thermo() {
     /^ *Step / { inblk=1; next }
     /^Loop time/ { inblk=0; next }
     # multi style: "------------ Step N ----- CPU = ..." then named values
-    /^-+ Step [0-9]+ -+ CPU/ { print "STEP " $3; next }
+    /^-+ Step +[0-9]+ +-+ CPU/ { print "STEP " $3; next }
     /^(TotEng|PotEng|E_bond|E_angle|E_dihed|E_impro|E_vdwl|E_coul|E_long|Press|Temp|KinEng|Volume) /  { print; next }
     inblk && /^ *[-0-9]/ { print }
   ' | grep -vE "WARNING|MPI task|CPU ="
