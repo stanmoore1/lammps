@@ -31,16 +31,17 @@ cannot check.
 | `atom_vec.cpp:1623` (SEGV) | `atom_style ellipsoid superellipsoid` accepted under KOKKOS but `AtomVecEllipsoidKokkos` grows neither `radius` nor a device `bonus_super`; now rejected with an error | 92d7e3dcc |
 | `kokkos.cpp:916` (SEGV) | debug-build artifact: the build routes host-backend lists to the Device space, so `neigh_count()` mirrors empty device arrays with a live `inum`.  Confirmed clean under the plain KOKKOS build.  Walk bounded so the detector build survives to the end of the run | pending |
 
-Still open:
+Both since fixed:
 
 - `FixNumDiff::calculate_forces()` (`fix_numdiff.cpp:201`) and
   `ComputeBornMatrix::compute_numdiff()` (`compute_born_matrix.cpp:511`) displace
   atoms through plain host pointers and then re-enter the Kokkos force pipeline
   via `update_force()` / `update_virial()`.  The host writes are never claimed.
   `ModifyKokkos` forces `auto_sync` around a fix that is not Kokkos-aware, which
-  is the mechanism that would pick them up; `Thermo::compute()` has no such
-  wrapper at all, so the compute path is unprotected.  To be re-checked against a
-  rebuilt poison binary before deciding the fix.
+  is the mechanism that would pick them up; `Thermo::compute()` had no such
+  wrapper at all, so the compute path was unprotected.  Fixed by fb08502289
+  (the fix, which also needed MASK_MASK) and 8d9d0bf277 (the compute, by giving
+  the output path the same wrapper).
 
 ## Stage 3 -- stale/watch (LMP_KOKKOS_WATCH= LMP_KOKKOS_STALE= LMP_KOKKOS_STALE_STRICT=1)
 
