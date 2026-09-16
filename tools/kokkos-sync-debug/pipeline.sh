@@ -84,6 +84,7 @@ if [ ! -f $M/done.poison845 ]; then
       -D PKG_KOKKOS=on -D Kokkos_ENABLE_SERIAL=on -D FFT_KOKKOS=KISS \
       -D KOKKOS_DEBUG_SYNC=on -D KOKKOS_DEBUG_SYNC_ASAN=on \
       -D BUILD_MPI=on -D DOWNLOAD_POTENTIALS=off \
+      -D BUILD_SHARED_LIBS=on \
       -D CMAKE_BUILD_TYPE=RelWithDebInfo \
       -D CMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g1" \
       -D CMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
