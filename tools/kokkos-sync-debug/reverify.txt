@@ -11,3 +11,6 @@ examples/numdiff/in.numdiff
 examples/PACKAGES/filter_corotate/in.respa
 examples/SPIN/gneb_iron/in.gneb.iron
 examples/wall/in.wall.flow
+examples/PACKAGES/ilves/in.peptide-ilves
+examples/PACKAGES/ilves/in.rhodo-ilves
+examples/PACKAGES/pafi/in.pafi
