@@ -30,8 +30,11 @@ while [ $SECONDS -lt $end ]; do
   if [ "$now" -gt "$prev" ]; then news=$(tail -n +$((prev+1)) $S); break; fi
   # Writes fail long before the sweep notices, and a sweep that runs on with no
   # room records nothing useful, so surface it here rather than after the fact.
+  # The threshold is high because a build is the thing that runs out: linking an
+  # AddressSanitizer liblammps.a went from 3.0G free to failing inside one
+  # 10-minute hold, so warning at a couple of GB is warning too late.
   free=$(df / 2>/dev/null | awk 'NR==2{print $4}')
-  if [ -n "$free" ] && [ "$free" -lt 3000000 ]; then
+  if [ -n "$free" ] && [ "$free" -lt 7000000 ]; then
     news="DISK LOW: $(df -h / | awk 'NR==2{print $4}') free"; break
   fi
   read -t 30 -u 8 x
