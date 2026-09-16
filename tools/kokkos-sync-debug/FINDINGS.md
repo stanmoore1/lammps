@@ -328,3 +328,71 @@ STILL REPORTING -- all of them things not claimed as fixed:
                            -- the body[-1] bug, two failed fix attempts above
   mc/in.gcmc.co2, gcmc.h2o FixGroup::pack_forward_comm under gcmc, never
                            diagnosed
+
+
+## Divergence: split memory vs regular memory, 869 inputs -- 18 REAL
+
+The one check that does not go through the sync protocol.  Same source, same
+compiler, same flags, same 4 ranks; the only difference is that build-sync
+keeps the two sides of every DualView in separate allocations while build-plain
+lets them alias.  With every sync correct the two are bit-identical, so any
+difference means a value was taken from the side that was not current --
+exactly the failure an accessor-based detector cannot see.
+
+Getting to a trustworthy number took three filters, each of which removed
+something that would have been reported as a bug:
+
+  869 inputs
+  -> 302 actually compared      (557 are rejected outright by KOKKOS with a
+                                 clean ERROR and produce no thermo on either
+                                 side; 10 more run but print no thermo)
+  ->  51 differ
+  ->  42 differ in VALUES       (9 differed only in LENGTH: the split build is
+                                 slower and the sweep bounds runs with "timer
+                                 timeout", so the two arms stop at different
+                                 steps.  Comparing only the steps present on
+                                 both sides removes these.)
+  ->  18 are REPRODUCIBLE       (24 of the 42 are not deterministic at all --
+                                 the same binary run twice already disagrees,
+                                 e.g. fix balance redistributing on measured
+                                 time.  For those, "the memory models disagree"
+                                 is not a finding.)
+
+The 18, with how much of the shared trajectory differs:
+
+  ASPHERE/box/in.box, in.box.mp            10 of 11
+  ASPHERE/dimer/in.dimer, in.dimer.mp      10 of 11
+  ASPHERE/star/in.star, in.star.mp         10 of 11
+  PACKAGES/drude/butane/in.butane.lang     20 of 41
+  PACKAGES/drude/butane/in.butane.nh       40 of 41
+  PACKAGES/drude/ethylene_glycol/...       10 of 11
+  PACKAGES/drude/swm4-ndp/in.swm4-ndp.nh  100 of 101
+  PACKAGES/drude/toluene/in.toluene.lang   40 of 41
+  PACKAGES/drude/toluene/in.toluene.nh     40 of 41
+  PACKAGES/fep/ta/in.spce.lmp               1 of 2
+  PACKAGES/pafi/in.pafi                     1 of 27
+  PACKAGES/relres/in.22DMH.respa           10 of 11
+  VISCOSITY/in.nemd.2d                      2 of 10
+  mc/in.gcmc.h2o                            4 of 17
+  mc/in.hmc.rigid                           1 of 12
+
+Shape of the divergence, the same in every one examined: step 0 is IDENTICAL on
+both sides, and they part company at the first or second thermo interval and
+grow apart from there.  Identical initial state rules out setup; something
+during integration reads the stale side.
+
+    ASPHERE/box   step 0: 1.4252596 = 1.4252596
+                  step 100: 4.7699234 vs 4.7726984
+                  step 300: 21.249889 vs 20.923297
+    drude/swm4    step 0: 4568.0413 = 4568.0413
+                  step 20: 3742.804 vs 3736.9936
+
+MD is chaotic, so the SIZE of the gap says nothing -- a last-bit difference
+grows into this.  What matters is that there is any difference at all, because
+with correct syncs there would be none.
+
+NOT ROOT-CAUSED.  But the two families are suggestive: ASPHERE and drude both
+carry per-atom state beyond x/v/f (omega, angmom, quat, and the drude bookkeeping),
+which is where datamask coverage is most likely to be incomplete.  That is a
+hypothesis, not a result -- and the last two hypotheses in this file were both
+wrong, so it should be tested before it is believed.
