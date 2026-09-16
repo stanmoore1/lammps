@@ -396,3 +396,66 @@ carry per-atom state beyond x/v/f (omega, angmom, quat, and the drude bookkeepin
 which is where datamask coverage is most likely to be incomplete.  That is a
 hypothesis, not a result -- and the last two hypotheses in this file were both
 wrong, so it should be tested before it is believed.
+
+
+## Verification pass over the four outstanding issues
+
+### FIXED -- fix group's forward comm packs into a device-claimed buffer
+CommKokkos::forward_comm(Fix *) delegates to CommBrick, which packs through
+buf_send -- the raw host pointer behind k_buf_send -- while a device claim is
+outstanding.  Proved by a WRITE to poisoned memory at fix_group.cpp:406, into a
+140992-byte Kokkos HostSpace allocation.  Same defect forward_comm_array() was
+fixed for.  in.gcmc.h2o: 3 reports -> 0.  Commit 6b414f5e6a.
+
+### NOT A BUG -- rigid/small/kk's narrow datamask over atom->molecule
+The base reads atom->molecule in five places: three in the constructor (no
+device state yet) and two in readfile()/write_restart_file().  Both of the
+latter are reached only through callers that have already synced everything to
+the host -- write_restart writes the atom arrays first, and the infile path
+runs inside the host rebuild.  Verified by running examples/rigid/in.rigid.small.infile
+(which uses infile, so restart_file is set and write_restart_file really runs,
+producing ri.restart.rigid) under the UNFIXED poison build: zero reports.  A
+speculative MOLECULE_MASK addition was written and then reverted as unnecessary.
+
+### STILL OPEN -- rigid/small + gcmc, now better understood but not fixed
+Fixing fix group let in.gcmc.co2 run further and exposed the real sequence:
+
+  1. FixGCMC inserts an atom -> Modify::create_attribute -> FixRigidSmall::set_arrays
+     WRITES bodyown/bodytag/atom2body/xcmimage/displace through host pointers
+     while the device owns them.  The write is lost.
+  2. The new atom therefore keeps whatever the device held, which can be a
+     bodyown >= 0 naming a body that does not exist.
+  3. FixRigidSmall::copy_arrays later reads that and indexes body[nlocal_body-1]
+     with nlocal_body == 0 -- the original overflow.
+
+Without any fix the unfixed build does not merely read out of bounds, it drives
+nlocal_body negative: "Kokkos::RangePolicy bounds error: The lower bound (0) is
+greater than the upper bound (-2)".  The same input completes cleanly on the
+non-KOKKOS CPU build (21 thermo rows, 14 s), so the input is legitimate.
+
+ATTEMPT 3, REVERTED.  Overriding set_arrays and copy_arrays to sync the
+bookkeeping to the host, let the base write it, then claim the host side, does
+take in.gcmc.co2 from 62 poison reports to 0 -- but it REGRESSES
+examples/rigid/in.rigid.spheres, which goes "Non-numeric atom coords" at step
+~900 where the unfixed build finishes.  Same failure mode as attempt 2.  The
+host claim is evidently wrong somewhere else in the fix's sync discipline.
+
+Keeping only the sync_host half was considered and rejected: it removes the
+poison reports without saving the lost write, i.e. it silences the detector
+while leaving the bug.  That is worse than leaving it visible.
+
+### STILL OPEN -- the 18 memory-model divergences
+ASPHERE/box narrowed a long way and still not root-caused:
+  - first divergence is at step 1, not an accumulation
+  - np=1 and np=2 agree; only np=4 differs, so it is decomposition dependent
+  - per-atom x and f are bit-identical at np=1 through step 1
+  - both builds are deterministic across 3 runs each at np=4, so the difference
+    is real
+  - removing fix adapt makes the two agree (with a constant non-zero
+    coefficient, so forces are still present -- not a degenerate test)
+  - k_params is a raw Kokkos::DualView, not the instrumented one, so the pair
+    coefficients are not split and cannot be the stale side
+
+ATTEMPT, REVERTED: adding the buf_send claim-clear to all 13 host-delegating
+comm overloads did NOT fix it and made the stale count worse (12 vs 10), so it
+was reverted.  Only the one verified site (the Fix forward overload) was kept.
