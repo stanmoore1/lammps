@@ -137,8 +137,20 @@ void CommTiledKokkos::forward_comm_device()
     nsend = nsendproc[iswap] - sendself[iswap];
     nrecv = nrecvproc[iswap] - sendself[iswap];
 
-    if (comm_x_only && !atomKK->k_x.NEED_TRANSFORM) {
+    if (comm_x_only && !decltype(atomKK->k_x)::NEED_TRANSFORM) {
       if (recvother[iswap]) {
+
+        // MPI receives the ghost coordinates straight into the coordinate
+        // array, so the dual view never sees the write: unlike the
+        // unpack_comm_kokkos() path below there is no kernel to sync before and
+        // claim after.  Do both here, or the flags keep calling the two sides
+        // reconciled while only one of them has the new ghosts -- the next sync
+        // to the other side then copies nothing, and a later claim on the stale
+        // side pushes the old ghost coordinates back over them.  Costs nothing
+        // where the two sides are one memory space.  Same defect, and the same
+        // fix, as CommKokkos::forward_comm_device().
+
+        atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
 
         // no Kokkos work is launched inside the loop, so fence only once
 
@@ -167,6 +179,7 @@ void CommTiledKokkos::forward_comm_device()
       if (recvother[iswap]) {
         MPI_Waitall(nrecv,requests,MPI_STATUSES_IGNORE);
         DeviceType().fence();
+        atomKK->modified(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
       }
 
     } else if (ghost_velocity) {
@@ -291,7 +304,14 @@ void CommTiledKokkos::reverse_comm_device()
     nsend = nsendproc[iswap] - sendself[iswap];
     nrecv = nrecvproc[iswap] - sendself[iswap];
 
-    if (comm_f_only  && !atomKK->k_f.NEED_TRANSFORM) {
+    if (comm_f_only  && !decltype(atomKK->k_f)::NEED_TRANSFORM) {
+
+      // MPI sends the ghost forces straight out of the force array, so unlike
+      // the pack_reverse_kokkos() path below nothing brings that side up to date
+      // first.  Same defect, and the same fix, as
+      // CommKokkos::reverse_comm_device(); see there for what it costs a run.
+
+      atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,F_MASK);
 
       // no Kokkos work is launched inside or between the two loops,
       // so one fence covers both
@@ -827,6 +847,9 @@ void CommTiledKokkos::reverse_comm(Dump *dump, int size)
 void CommTiledKokkos::forward_comm_array(int nsize, double **array)
 {
   k_sendlist.sync_host();
+  // CommTiled packs through buf_send, the raw host pointer, so drop any claim
+  // a previous device pack left standing on that dual view first
+  k_buf_send.clear_sync_state();
   CommTiled::forward_comm_array(nsize,array);
 }
 

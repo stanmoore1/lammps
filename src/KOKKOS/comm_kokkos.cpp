@@ -184,8 +184,17 @@ void CommKokkos::forward_comm_device()
 
     for (int iswap = 0; iswap < nswap; iswap++) {
       if (sendproc[iswap] != me) {
-        if (comm_x_only && !atomKK->k_x.NEED_TRANSFORM) {
+        if (comm_x_only && !decltype(atomKK->k_x)::NEED_TRANSFORM) {
           if (size_forward_recv[iswap]) {
+            // MPI receives the ghost coordinates straight into the coordinate
+            // array, so the dual view never sees the write: unlike the
+            // unpack_comm_kokkos() path below there is no kernel to sync before
+            // and claim after.  Do both here, or the flags keep calling the two
+            // sides reconciled while only one of them has the new ghosts -- the
+            // next sync to the other side then copies nothing, and a later claim
+            // on the stale side pushes the old ghost coordinates back over them.
+            // Costs nothing where the two sides are one memory space.
+            atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
             buf = (double*)atomKK->k_x.view<DeviceType>().data() +
               firstrecv[iswap]*atomKK->k_x.view<DeviceType>().extent(1);
             DeviceType().fence();
@@ -204,6 +213,7 @@ void CommKokkos::forward_comm_device()
           if (size_forward_recv[iswap]) {
             MPI_Wait(&request,MPI_STATUS_IGNORE);
             DeviceType().fence();
+            atomKK->modified(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
           }
 
         } else if (ghost_velocity) {
@@ -302,7 +312,17 @@ void CommKokkos::reverse_comm_device()
 
   for (int iswap = nswap-1; iswap >= 0; iswap--) {
     if (sendproc[iswap] != me) {
-      if (comm_f_only && !atomKK->k_f.NEED_TRANSFORM) {
+      if (comm_f_only && !decltype(atomKK->k_f)::NEED_TRANSFORM) {
+
+        // MPI sends the ghost forces straight out of the force array, so unlike
+        // the pack_reverse_kokkos() path below nothing brings that side up to
+        // date first.  A fix that is not Kokkos-aware and adds to the forces of
+        // ghost atoms -- fix langevin/drude does, to the Drude partner of a core
+        // it does not own -- leaves the new forces on the host, and without this
+        // MPI reads the device copy and sends the forces from before the fix
+        // ran.  Costs nothing where the two sides are one memory space.
+
+        atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,F_MASK);
 
         // one fence covers both MPI calls: no Kokkos work is launched between
         // them, so a second fence would have nothing left to wait on
@@ -371,6 +391,11 @@ void CommKokkos::forward_comm(Fix *fix, int size)
   if (fix->execution_space == Host || fix->execution_space == HostKK ||
       !fix->forward_comm_device || forward_fix_comm_legacy) {
     k_sendlist.sync_host();
+    // CommBrick packs through buf_send, the raw host pointer, so drop any claim
+    // a previous device pack left standing on that dual view first -- the same
+    // reason forward_comm_array() does.  fix group reaches this from
+    // set_group(), and without it the pack writes into the side the device owns.
+    k_buf_send.clear_sync_state();
     CommBrick::forward_comm(fix, size);
   } else {
     k_sendlist.sync_device();
@@ -1045,6 +1070,7 @@ void CommKokkos::exchange()
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType, int BONUS_FLAG>
 struct BuildExchangeListFunctor {
   typedef DeviceType device_type;
@@ -1093,6 +1119,7 @@ struct BuildExchangeListFunctor {
     }
   }
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -1496,6 +1523,7 @@ void CommKokkos::borders()
 
 /* ---------------------------------------------------------------------- */
 
+namespace {
 template<class DeviceType>
 struct BuildBorderListFunctor {
         typedef DeviceType device_type;
@@ -1544,6 +1572,7 @@ struct BuildBorderListFunctor {
 
   [[nodiscard]] size_t shmem_size(const int team_size) const { (void) team_size; return 1000U;}
 };
+}    // namespace
 
 /* ---------------------------------------------------------------------- */
 
@@ -1978,6 +2007,9 @@ void CommKokkos::grow_swap(int n)
 void CommKokkos::forward_comm_array(int nsize, double **array)
 {
   k_sendlist.sync_host();
+  // CommBrick packs through buf_send, the raw host pointer, so drop any claim
+  // a previous device pack left standing on that dual view first
+  k_buf_send.clear_sync_state();
   CommBrick::forward_comm_array(nsize,array);
 }
 
