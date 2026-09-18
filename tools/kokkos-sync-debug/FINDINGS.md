@@ -500,10 +500,15 @@ FIRST, THE COMPARISON WAS WRONG IN TWO PLACES, and both produced false
 positives that were written up here as divergences:
 
   - It compared whole thermo lines, including wall-clock columns.  Any input
-    with S/CPU in its thermo_style differed on every pair of runs.
-    examples/wall/in.wall.sphere is exactly that and nothing else: its physics
-    columns are identical.  tools/kokkos-sync-debug now strips S/CPU, CPU,
-    CPULeft, T/CPU, Elapsed and WallTime before comparing.
+    with CPU or S/CPU in its thermo_style differed on every pair of runs.
+    Exactly three of the inputs looked at here have such a column --
+    examples/wall/in.wall.sphere, PACKAGES/drude/ethanol/in.ethanol.nh and
+    PACKAGES/fep/CH4-CF4/bar10/in.bar10.lmp -- and all three are identical in
+    every other column.  Every script in this directory that compares thermo
+    output now drops S/CPU, CPU, CPULeft, T/CPU, Elapsed and WallTime:
+    compare-thermo.py, compare-builds.sh, determinism.sh and
+    diff-divergence.sh.  Leaving one of them out is how bar10 was still being
+    reported after the problem was understood.
   - It compared one run against one run.  For an input that is not reproducible
     on the same binary that is a coin toss, and three verdicts in this file came
     from such a toss.  Every comparison now runs each build twice and reports
@@ -521,8 +526,14 @@ positives that were written up here as divergences:
                             and then MALLOC_PERTURB_; both were single-pair
                             comparisons and both were wrong -- two runs at the
                             same perturb value differ too.
-  in.bar10.lmp              not comparable -- same shape, nonreproducible on
-                            both builds
+  in.bar10.lmp              false positive -- CPU column only.  Reported as
+                            nonreproducible on both builds from a sweep that
+                            still compared raw thermo rows, after the column
+                            problem was known and compare-thermo.py had been
+                            written but not yet wired into that script.  Its
+                            box is orthogonal and its fix npt is iso, so it
+                            never flips and the box-flip cause below cannot
+                            apply to it.  Every comparison reads SAME.
 
 THE FOUR REAL BUGS, each found by asking the watch detector which side was
 written without a claim and reading the backtrace it printed:

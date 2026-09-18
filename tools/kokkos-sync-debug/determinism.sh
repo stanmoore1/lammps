@@ -1,12 +1,18 @@
 #!/bin/bash
 # Run each candidate twice with the SAME binary and compare.
 #
+# Comparison goes through compare-thermo.py, which drops the wall-clock columns.
+# Comparing whole thermo rows instead reports every input whose thermo_style
+# names CPU or S/CPU as nondeterministic, and three findings in FINDINGS.md were
+# exactly that and nothing else.
+#
 # The divergence stage compares regular-memory against split-memory output, but
 # that only means anything for an input that reproduces itself.  Several do not:
 # fix balance redistributes on measured time, and several examples seed from
 # something that varies.  For those, "the two memory models disagree" is not a
 # finding at all.  Run the control first and let it decide which candidates are
 # worth reading.
+HERE=$(cd "$(dirname "$0")" && pwd)
 SP=/tmp/claude-0/-home-user-lammps/e39b99de-89e3-50b6-a67f-c617e8ffcc75/scratchpad
 L=/home/user/lammps
 . /home/user/env.sh 2>/dev/null
@@ -23,11 +29,14 @@ while read -r f <&3; do
   for run in 1 2; do
     nice -n 18 timeout 200 mpirun --host localhost:4 -np 4 $L/build-plain/lmp \
       -in detcheck.in -cite none -log none $KK $VAR 2>/dev/null < /dev/null \
-      | sed -n '/^ *Step /,/^Loop time/p' | grep -E '^ *[0-9]' > /tmp/det.$run
+      > /tmp/det.$run
   done
   rm -f detcheck.in
-  if [ ! -s /tmp/det.1 ]; then echo "NO-THERMO       $f" >> $out
-  elif diff -q /tmp/det.1 /tmp/det.2 >/dev/null 2>&1; then echo "DETERMINISTIC   $f" >> $out
-  else echo "NONDETERMINISTIC $f" >> $out; fi
+  verdict=$(python3 "$HERE/compare-thermo.py" /tmp/det.1 /tmp/det.2)
+  case $verdict in
+    NO-OUTPUT) echo "NO-THERMO       $f" >> $out ;;
+    SAME)      echo "DETERMINISTIC   $f" >> $out ;;
+    *)         echo "NONDETERMINISTIC $f" >> $out ;;
+  esac
 done 3< "$1"
 echo "DONE" >> $out
