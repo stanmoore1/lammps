@@ -46,3 +46,21 @@ steals cores from the sweep.
 `pipeline.sh` is idempotent: every stage writes a marker when it finishes and
 `run-sweep.sh` resumes from its own index, so a restart picks up where it
 stopped rather than repeating.
+
+## compare-builds.sh / compare-thermo.py
+
+Compares the shared-memory build against the split-memory one over a list of
+inputs.  Use these rather than diffing two logs by hand: both guards exist
+because their absence produced findings that were not real.
+
+    tools/kokkos-sync-debug/compare-builds.sh inputs.txt [outdir]
+
+Each build runs twice, so an input that does not reproduce itself is reported
+(PLAIN-NONDET / SYNC-NONDET) instead of being compared against one arbitrary run
+of the other side -- examples/VISCOSITY/in.nemd.2d is nonreproducible about one
+pair in four, with or without KOKKOS, and was written up as a divergence on the
+strength of a single pair.  And wall-clock columns (S/CPU and friends) are
+dropped before comparing, since they differ on every run -- examples/wall/in.wall.sphere
+differs in nothing else.
+
+NP and TIMEOUT override the defaults of 4 ranks and 900 s.

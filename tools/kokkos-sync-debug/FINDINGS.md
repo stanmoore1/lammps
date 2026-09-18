@@ -489,18 +489,79 @@ Unchanged and unrelated: in.tri.srd (atom style), in.polymer / in.translocation
 in.rigid.gravity (fix pour rejects KOKKOS), in.widom.spce (fix widom's own
 molecule restriction).
 
-### STILL OPEN -- the 18 memory-model divergences
-ASPHERE/box narrowed a long way and still not root-caused:
-  - first divergence is at step 1, not an accumulation
-  - np=1 and np=2 agree; only np=4 differs, so it is decomposition dependent
-  - per-atom x and f are bit-identical at np=1 through step 1
-  - both builds are deterministic across 3 runs each at np=4, so the difference
-    is real
-  - removing fix adapt makes the two agree (with a constant non-zero
-    coefficient, so forces are still present -- not a degenerate test)
-  - k_params is a raw Kokkos::DualView, not the instrumented one, so the pair
-    coefficients are not split and cannot be the stale side
+### RESOLVED -- the memory-model divergences, and what most of them were
 
-ATTEMPT, REVERTED: adding the buf_send claim-clear to all 13 host-delegating
-comm overloads did NOT fix it and made the stale count worse (12 vs 10), so it
-was reverted.  Only the one verified site (the Fix forward overload) was kept.
+The list of 18 is closed.  Four real bugs, four false positives from the
+comparison itself, one already-fixed bug this branch was missing, one
+unsupported combination, and two examples that are not reproducible on the same
+binary and so could never be compared this way.
+
+FIRST, THE COMPARISON WAS WRONG IN TWO PLACES, and both produced false
+positives that were written up here as divergences:
+
+  - It compared whole thermo lines, including wall-clock columns.  Any input
+    with S/CPU in its thermo_style differed on every pair of runs.
+    examples/wall/in.wall.sphere is exactly that and nothing else: its physics
+    columns are identical.  tools/kokkos-sync-debug now strips S/CPU, CPU,
+    CPULeft, T/CPU, Elapsed and WallTime before comparing.
+  - It compared one run against one run.  For an input that is not reproducible
+    on the same binary that is a coin toss, and three verdicts in this file came
+    from such a toss.  Every comparison now runs each build twice and reports
+    whether each side reproduced itself before it reports whether the two agree.
+
+  in.wall.sphere            false positive -- S/CPU column only
+  in.ethanol.nh             false positive -- same
+  in.balance.clock.dynamic  not a bug -- fix balance weight time balances by
+                            measured wall clock, so it is nondeterministic by
+                            design
+  in.nemd.2d                not comparable -- intermittently nonreproducible on
+                            the same binary, about one pair in four, and also
+                            WITHOUT the KOKKOS package.  Caught by a dump every
+                            50 steps: one atom of 800 differs by one ulp in x at
+                            step 14550 and chaos does the rest.  Its own bug,
+                            not a memory-model one.  A first pass blamed the
+                            device sort and then MALLOC_PERTURB_; both were
+                            single-pair comparisons and both were wrong -- two
+                            runs at the same perturb value differ too.
+  in.bar10.lmp              not comparable -- same shape, nonreproducible on
+                            both builds
+
+THE FOUR REAL BUGS, each found by asking the watch detector which side was
+written without a claim and reading the backtrace it printed:
+
+  1. CommKokkos::forward_comm_device() and the CommTiled twin hand MPI a pointer
+     into the coordinate array when comm_x_only is set, so the received ghost
+     coordinates never reach modify_device().  A fix that is not Kokkos-aware is
+     then enough to lose them: ModifyKokkos brackets it with a host sync that
+     finds nothing to copy and a host claim that pushes the older ghosts back.
+     ASPHERE box/dimer/star, 6 inputs.  Commit 340ec37879 / 72f929c230.
+  2. atom->mass is per type, so no datamask names it and only the four
+     set_mass() overloads and the integrators' init() ever reconcile it.
+     fix drude/transform rewrites it twice a timestep.  Gave it a mask bit,
+     claimed on the host when the caller names it (which ALL_MASK does, and
+     ModifyKokkos brackets a non-Kokkos style with ALL_MASK) and synced on every
+     call.  drude butane/ethylene_glycol/swm4-ndp/toluene .nh, 4 inputs.
+     Commit 1f44eccf47 / 9c1856a82a.
+  3. The same short cut on the way back: reverse_comm_device() MPI-sends the
+     ghost forces straight out of the force array with no sync first, so a fix
+     that adds to a ghost's force on the host -- fix langevin/drude, to the
+     Drude partner of a core it owns -- had that force dropped.  The three
+     .lang drude inputs.  Commit ce075bbe6e / 71c220fed3.
+  4. compute fep and compute fep/ta save, perturb and restore the atom state
+     through the plain host pointers around two force evaluations that work from
+     the KOKKOS copies.  The perturbation never reached the styles and the
+     restore never reached them either.  Same re-entry pattern as fix numdiff
+     and compute born/matrix, same fix.  in.spce.lmp.  Commit dca3a2f493.
+
+THE OTHER TWO:
+
+  in.pafi        was aborting in a concurrent modification of atom:x that
+                 92d3a4b2bb had already fixed on the bugfixes branch and that
+                 this branch had never picked up.  Merged; it passes.  Worth
+                 remembering that this branch is not the fix branch and drifts.
+  in.22DMH.respa is the combination KokkosLMP::respa_check() exists to refuse,
+                 and the check was behind '#ifdef LMP_KOKKOS_GPU' so the one
+                 build that could see what goes wrong was not allowed to turn it
+                 away.  The guard now covers the sync-debugging build too, and
+                 the input stops with the same error a GPU build gives.
+
