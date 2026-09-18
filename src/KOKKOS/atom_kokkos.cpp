@@ -249,6 +249,23 @@ void *AtomKokkos::extract(const char *name)
 
 void AtomKokkos::sync(const ExecutionSpace space, uint64_t mask)
 {
+  // whatever the caller asked for, and before the exclusion below can return
+  // early: the mask names the per-atom arrays and the per-type masses are not
+  // one of them, so no reader ever names them and no force region excludes
+  // them.  See sync_mass() for why that is safe and cheap.
+
+  sync_mass(space, MASS_MASK);
+
+  // an overlapping force region keeps some arrays, above all the forces, out
+  // of play: the host styles accumulate into the host copy alone and the two
+  // sides are added together afterwards.  Syncing one over the other in the
+  // middle of that would lose a contribution or count one twice, so drop the
+  // excluded arrays from the request.  The mask is zero everywhere else, which
+  // leaves a caller outside such a region unaffected.
+
+  mask &= ~datamask_exclude;
+  if (!mask) return;
+
   if ((space == Device || space == HostKK) && lmp->kokkos->auto_sync) {
 
     // sync HostKK -> Host if needed
@@ -262,12 +279,6 @@ void AtomKokkos::sync(const ExecutionSpace space, uint64_t mask)
 
   avecKK->sync(space, mask);
   for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->sync(space, mask);
-
-  // whatever the caller asked for: the mask names the per-atom arrays and the
-  // per-type masses are not one of them, so no reader ever names them.  See
-  // sync_mass() for why that is safe and cheap.
-
-  sync_mass(space, MASS_MASK);
 }
 
 /* ----------------------------------------------------------------------
@@ -310,6 +321,13 @@ void AtomKokkos::sync_mass(const ExecutionSpace space, uint64_t mask)
 
 void AtomKokkos::modified(const ExecutionSpace space, uint64_t mask)
 {
+  // see the note in sync(): claiming an excluded array would mark one side
+  // newer than the other and make a later sync copy over a contribution that
+  // still has to be merged in
+
+  mask &= ~datamask_exclude;
+  if (!mask) return;
+
   DatamaskAudit::note_modified(mask);
 
   avecKK->modified(space, mask);
