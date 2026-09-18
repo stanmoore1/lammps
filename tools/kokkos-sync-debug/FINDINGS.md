@@ -514,15 +514,13 @@ positives that were written up here as divergences:
   in.balance.clock.dynamic  not a bug -- fix balance weight time balances by
                             measured wall clock, so it is nondeterministic by
                             design
-  in.nemd.2d                not comparable -- intermittently nonreproducible on
-                            the same binary, about one pair in four, and also
-                            WITHOUT the KOKKOS package.  Caught by a dump every
-                            50 steps: one atom of 800 differs by one ulp in x at
-                            step 14550 and chaos does the rest.  Its own bug,
-                            not a memory-model one.  A first pass blamed the
-                            device sort and then MALLOC_PERTURB_; both were
-                            single-pair comparisons and both were wrong -- two
-                            runs at the same perturb value differ too.
+  in.nemd.2d                its own bug, now fixed -- see below.  Not a
+                            memory-model one: it was nonreproducible on the same
+                            binary, about one pair in four, and also WITHOUT the
+                            KOKKOS package.  A first pass blamed the device sort
+                            and then MALLOC_PERTURB_; both were single-pair
+                            comparisons and both were wrong -- two runs at the
+                            same perturb value differ too.
   in.bar10.lmp              not comparable -- same shape, nonreproducible on
                             both builds
 
@@ -565,3 +563,33 @@ THE OTHER TWO:
                  away.  The guard now covers the sync-debugging build too, and
                  the input stops with the same error a GPU build gives.
 
+### FIXED -- a triclinic box flip left the atom order to MPI arrival order
+
+Chased down from the in.nemd.2d nondeterminism above, and not a KOKKOS bug at
+all.  Irregular discovers its senders with MPI_ANY_SOURCE, so the atoms a
+migration carries are appended in message arrival order.  Irregular has a
+sortflag for exactly this, and the readers pass it -- read_restart says "turn
+sorting on in migrate_atoms() to avoid non-reproducible restarts" -- but the box
+flip path took the default of 0.  The local atom order after a flip is the order
+the forces are summed in, so the run is reproducible only as long as the
+messages keep arriving in the same order.
+
+How it was pinned down, in case the next one looks like this:
+
+  - dump every 50 steps, compare two runs frame by frame: one atom of 800
+    differs by one ulp in x at step 14550 and nothing else does
+  - read the box tilt out of the same dump: flips every ~2700 steps, and the
+    one bracketing the first difference is between steps 14450 and 14500, so
+    the difference shows in the first frame after a flip.  Seven earlier flips
+    in that run were identical, which is why it looked intermittent
+  - dump the ids UNSORTED and compare: that shows the atom ORDER rather than its
+    consequence.  A pair that agrees tells you nothing, so force the issue --
+    six busy loops on a 4 core box perturb the arrival order, and then a loaded
+    run and a quiet run differ in the order itself, first at the frame after a
+    flip, 101 of 800 slots
+  - raise the shear rate 10x so flips come every 270 steps instead of 2700, and
+    the whole thing reproduces in 6000 steps instead of 105000
+
+Fixed by passing sortflag = 1 in the four places that migrate after a flip: fix
+deform, fix nh, fix npt/cauchy, fix nh/uef.  in.nemd.2d is now identical across
+a quiet run, a loaded run, and both builds.
