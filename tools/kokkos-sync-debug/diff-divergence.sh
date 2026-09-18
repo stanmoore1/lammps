@@ -14,6 +14,8 @@
 # CPU or S/CPU otherwise reports as a divergence and is not one.  Three findings
 # in FINDINGS.md were exactly that.
 SP=/tmp/claude-0/-home-user-lammps/e39b99de-89e3-50b6-a67f-c617e8ffcc75/scratchpad/sync
+# which two run-sweep.sh tags to compare, and which input list they covered
+A=${A:-plain845}; B=${B:-split845}; LIST=${LIST:-$SP/all-inputs.txt}
 thermo() {
   zcat "$1" 2>/dev/null | awk '
     function is_timing(h) {
@@ -43,7 +45,7 @@ thermo() {
 n=0; d=0; u=0
 while read -r f; do
   name=$(echo "$f" | sed 's|examples/||; s|/|_|g')
-  a=$SP/plain845/$name.out.gz; b=$SP/split845/$name.out.gz
+  a=$SP/$A/$name.out.gz; b=$SP/$B/$name.out.gz
   [ -f "$a" ] && [ -f "$b" ] || continue
   ta=$(thermo "$a"); tb=$(thermo "$b")
   if [ -z "$ta" ] && [ -z "$tb" ]; then
@@ -56,6 +58,6 @@ while read -r f; do
     echo "DIVERGES $f"
     diff <(printf '%s\n' "$ta") <(printf '%s\n' "$tb") | head -6 | sed 's/^/    /'
   fi
-done < $SP/all-inputs.txt
+done < "$LIST"
 echo
 echo "compared $n inputs, $d diverge, $u uncompared"
