@@ -998,7 +998,14 @@ void KokkosLMP::warn_nonkokkos_compute(LAMMPS *lmp, const std::string &parentsty
 
 void KokkosLMP::respa_check()
 {
-#ifdef LMP_KOKKOS_GPU
+// A sync-debugging build has the same participants: it routes host-backend
+// styles to the Device space on purpose, to keep the device coherence edge
+// live, so respa there runs exactly the configuration this refuses on a GPU.
+// Without this the check is inert in the one build that can see what goes
+// wrong, and examples/PACKAGES/relres/in.22DMH.respa comes out different from
+// run to run instead of being turned away.
+
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_DEBUG_SYNC)
   auto refuse = [&](const std::string &what) {
     error->all(FLERR, "Run style respa is not supported by the KOKKOS package with {} running "
                "on the device; use the /kk/host suffix and package kokkos comm host, "
