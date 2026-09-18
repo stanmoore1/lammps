@@ -10,8 +10,15 @@
 # not block waiting for a writer.  Do NOT read from stdin instead -- it is
 # closed, read returns instantly, and the loop spins at 100% CPU, stealing
 # cores from the work being waited on.
+#
+#   wd.sh [seconds] [status-file] [done-marker]
+#
+# Reports a line as soon as the status file grows, so give it a file that gains
+# a line at a useful cadence rather than one per input -- a status line per
+# input turns every hold into a wall of names and the hold never lasts.
 SP=/tmp/claude-0/-home-user-lammps/e39b99de-89e3-50b6-a67f-c617e8ffcc75/scratchpad
-S=$SP/sync/orchestrate.status
+S=${2:-$SP/sync/orchestrate.status}
+DONE=${3:-$SP/sync/ALL-WORK-DONE}
 F=$SP/sync/wd.fifo; [ -p $F ] || { rm -f $F; mkfifo $F; }
 exec 8<>$F
 
@@ -21,13 +28,13 @@ exec 8<>$F
 ( cd /home/user/lammps && git checkout -- examples/ 2>/dev/null )
 
 DUR=${1:-560}
-prev=$(wc -l < $S 2>/dev/null || echo 0)
+prev=$(wc -l < "$S" 2>/dev/null || echo 0)
 end=$((SECONDS + DUR))
 news=""
 while [ $SECONDS -lt $end ]; do
-  if [ -f $SP/sync/ALL-WORK-DONE ]; then news="ALL WORK DONE"; break; fi
-  now=$(wc -l < $S 2>/dev/null || echo 0)
-  if [ "$now" -gt "$prev" ]; then news=$(tail -n +$((prev+1)) $S); break; fi
+  if [ -f "$DONE" ]; then news="ALL WORK DONE"; break; fi
+  now=$(wc -l < "$S" 2>/dev/null || echo 0)
+  if [ "$now" -gt "$prev" ]; then news=$(tail -n +$((prev+1)) "$S"); break; fi
   # Writes fail long before the sweep notices, and a sweep that runs on with no
   # room records nothing useful, so surface it here rather than after the fact.
   # An alarm alone is not enough -- linking an AddressSanitizer liblammps.a went
@@ -44,4 +51,4 @@ done
 # Say plainly which happened.  Printing the last status line either way made a
 # quiet hold look identical to an event, and a hold that is silently returning
 # early looks the same again -- so report the elapsed time with it.
-if [ -n "$news" ]; then echo "$news"; else echo "(quiet, held ${SECONDS}s of ${DUR}s; disk $(df -h / | awk 'NR==2{print $4}'); last: $(tail -1 $S))"; fi
+if [ -n "$news" ]; then echo "$news"; else echo "(quiet, held ${SECONDS}s of ${DUR}s; disk $(df -h / | awk 'NR==2{print $4}'); last: $(tail -1 "$S" 2>/dev/null))"; fi
