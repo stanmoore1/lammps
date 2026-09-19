@@ -604,3 +604,48 @@ How it was pinned down, in case the next one looks like this:
 Fixed by passing sortflag = 1 in the four places that migrate after a flip: fix
 deform, fix nh, fix npt/cauchy, fix nh/uef.  in.nemd.2d is now identical across
 a quiet run, a loaded run, and both builds.
+
+## Full sweep after the six fixes -- no regressions, no unexplained divergences
+
+All 869 inputs on both builds, GPU-equivalent settings, 4 ranks, then the
+divergence comparison, then a second run of each build over every candidate so
+the reproducibility control could be applied.  26 candidates came out of the
+comparison and all 26 are accounted for:
+
+  16  cut off at different steps by the harness's own "timer timeout 0:02:00",
+      so the two runs never reached the same point and cannot be compared at
+      all.  The signature is plain: in.lj.hex stops at step 90000 in one run and
+      110000 in the next, in.melt_imd at 97000 and 121500, in.bar10.lmp at 26000
+      and 29000.  mc/in.gcmc.h2o is the same thing on one side only -- the
+      instrumented build is slower, so it is the one that runs out of budget
+      (14000 and 13000) while the plain build finishes all 20000 twice.
+      Comparing last-step-reached between two runs of one build is the cheap way
+      to tell this apart from a real difference, and worth doing first.
+
+   6  balance/*, which reach the same step in both runs and still differ, so the
+      nondeterminism is real.  This is fix balance going through
+      Irregular::migrate_atoms() with sortflag = 0 -- the same MPI_ANY_SOURCE
+      arrival order behind the box flip bug below.  The difference is that
+      LAMMPS decides this one deliberately: the balance command defaults
+      sortflag to 1 and fix balance to 0, and exposes it as a "sort" keyword,
+      because fix balance redistributes often enough for the sort to cost
+      something.  Documented behaviour, not a bug, and the reason these examples
+      cannot be used for a run-to-run comparison.
+
+   4  the errors this branch added on purpose: PACKAGES/relres/in.22DMH.respa
+      (respa with styles in the device execution space) and the three
+      deposit/in.deposit.molecule.rigid-*small (fix rigid/small/kk with a fix
+      that creates atoms).  Deterministic on both builds; they "diverge" only
+      because the split build now refuses them where the plain build runs.
+
+Nothing else differed.
+
+COVERAGE, stated honestly: 301 of the 869 were actually compared.  The other 568
+stopped at setup and produced no thermo, overwhelmingly because of the option
+set this sweep forces rather than anything about the fixes -- 55 "Must use
+'newton off' with 'neigh full'", 20 a non-Kokkos atom style, 8 a bonded style
+needing a half list, the rest packages these two builds do not carry and a
+handful of inputs that define nsteps as an equal-style variable and so reject
+-var.  So this is 301 inputs verified, not 869, and a different option set would
+cover a different 300.
+
