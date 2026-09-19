@@ -9,7 +9,9 @@
 # every other example keeps its own length.  200 steps still reneighbors many
 # times, so a bug that needs an exchange or a rebuild is still reachable.
 # The timeout only bounds a hang; anything hitting it is recorded as rc=124 so
-# the coverage gap is visible rather than silent.
+# the coverage gap is visible rather than silent.  The subshell has to return
+# the run's status and not the cleanup's -- with the rm last, every one of 869
+# entries recorded rc=0 and the column said nothing at all.
 BIN=$1; TAG=$2; LIST=$3; TMO=${4:-900}; NP=${5:-4}
 SP=/tmp/claude-0/-home-user-lammps/e39b99de-89e3-50b6-a67f-c617e8ffcc75/scratchpad
 OUT=$SP/sync/$TAG
@@ -40,7 +42,7 @@ while read -r f <&3; do
     ASAN_OPTIONS="detect_leaks=0:halt_on_error=0:log_path=$OUT/a.$name/a" \
     timeout $TMO mpirun --host localhost:$NP -np $NP \
       $BIN -in $WRAP -cite none -log none $KKARGS $VAR \
-      > $OUT/$name.out 2>&1 < /dev/null; rm -f $WRAP )
+      > $OUT/$name.out 2>&1 < /dev/null; rc=$?; rm -f $WRAP; exit $rc )
   rc=$?
   cat $OUT/a.$name/a.* > $OUT/$name.asan 2>/dev/null
   rm -rf $OUT/a.$name
