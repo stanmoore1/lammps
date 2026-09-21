@@ -44,6 +44,18 @@ while read -r f <&3; do
       $BIN -in $WRAP -cite none -log none $KKARGS $VAR \
       > $OUT/$name.out 2>&1 < /dev/null; rc=$?; rm -f $WRAP; exit $rc )
   rc=$?
+  # Put back whatever the run rewrote in place before the next input reads it.
+  # Several examples end in write_data or write_restart, and a run the timer cut
+  # short still reaches that line: fep01 writes "data.*.lmp" after a
+  # "reset_timestep 0", so a shortened run wrote data.0.lmp -- which is a symlink
+  # into mols/ that all five CH4-CF4 examples read.  Every later run of any of
+  # them then started from the previous run's equilibrated box instead of the
+  # distributed one, and the two builds, run at different times, were compared
+  # against different starting configurations.  That was written up as a value
+  # difference in fep01 for a while; it was this.  The whole tree is restored
+  # rather than the input's own directory because the file that was clobbered
+  # need not live there.  Inputs run one at a time, so nothing else is reading.
+  ( cd /home/user/lammps && git checkout -- examples/ 2>/dev/null )
   cat $OUT/a.$name/a.* > $OUT/$name.asan 2>/dev/null
   rm -rf $OUT/a.$name
   [ -s $OUT/$name.asan ] || rm -f $OUT/$name.asan
