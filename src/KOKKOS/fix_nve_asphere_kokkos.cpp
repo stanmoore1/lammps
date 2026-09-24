@@ -35,7 +35,7 @@ FixNVEAsphereKokkos<DeviceType>::FixNVEAsphereKokkos(LAMMPS *lmp, int narg, char
   datamask_read = EMPTY_MASK;
   datamask_modify = EMPTY_MASK;
 
-  avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
+  avecEllipKK = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -53,6 +53,11 @@ template<class DeviceType>
 void FixNVEAsphereKokkos<DeviceType>::init()
 {
   FixNVEAsphere::init();
+
+  // look up the atom style here, as the CPU style does, since it is
+  // re-created by commands like replicate after this fix was defined
+
+  avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
 }
 
 /* ---------------------------------------------------------------------- */
@@ -80,8 +85,7 @@ void FixNVEAsphereKokkos<DeviceType>::initial_integrate(int /*vflag*/)
   FixNVEAsphereKokkosInitialIntegrateFunctor<DeviceType> f(this);
   Kokkos::parallel_for(nlocal,f);
 
-  atomKK->modified(execution_space, X_MASK | V_MASK | ANGMOM_MASK |
-                                    ELLIPSOID_MASK | BONUS_MASK);
+  atomKK->modified(execution_space, X_MASK | V_MASK | ANGMOM_MASK | BONUS_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -214,8 +218,7 @@ void FixNVEAsphereKokkos<DeviceType>::fused_integrate(int /*vflag*/)
   FixNVEAsphereKokkosFusedIntegrateFunctor<DeviceType> f(this);
   Kokkos::parallel_for(nlocal,f);
 
-  atomKK->modified(execution_space, X_MASK | V_MASK | ANGMOM_MASK |
-                                    ELLIPSOID_MASK | BONUS_MASK);
+  atomKK->modified(execution_space, X_MASK | V_MASK | ANGMOM_MASK | BONUS_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
