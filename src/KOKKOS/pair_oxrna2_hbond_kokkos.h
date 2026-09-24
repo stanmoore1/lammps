@@ -30,11 +30,11 @@ PairStyle(oxrna2/hbond/kk/host,PairOxrna2HbondKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 template<class DeviceType>
-class PairOxrna2HbondKokkos : public PairOxdnaHbondKokkosT<DeviceType, PairOxrna2Hbond> {
+class PairOxrna2HbondKokkos :
+    public PairOxdnaHbondKokkosT<DeviceType, PairOxrna2Hbond, PairOxdnaHbondModel::OXDNA> {
  public:
   PairOxrna2HbondKokkos(class LAMMPS *lmp) :
-      PairOxdnaHbondKokkosT<DeviceType, PairOxrna2Hbond>(lmp,
-          PairOxdnaHbondKokkosT<DeviceType, PairOxrna2Hbond>::OXDNA) {}
+      PairOxdnaHbondKokkosT<DeviceType, PairOxrna2Hbond, PairOxdnaHbondModel::OXDNA>(lmp) {}
 };
 
 }    // namespace LAMMPS_NS

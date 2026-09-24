@@ -39,18 +39,28 @@ struct TagBondOxdnaFENECompute{};
 // templated on its CPU parent class (BondOxdnaFene, BondOxdna2Fene, BondOxdna3Fene,
 // or BondOxrna2Fene), so that settings, coeff(), and restart parsing are always
 // inherited from the matching CPU style, while the device kernels are shared and
-// select the model specific code via the oxdnaflag template parameter.
+// select the model specific code via the MODEL template parameter.
 
-template<class DeviceType, class BondBase>
+// models with a different interaction site geometry; selects the kernel code at compile time
+
+struct BondOxdnaFENEModel {
+  enum { OXDNA = 1, OXDNA2 = 2, OXRNA2 = 4 };
+};
+
+template<class DeviceType, class BondBase, int MODEL>
 class BondOxdnaFENEKokkosT : public BondBase {
  public:
   typedef DeviceType device_type;
   typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  enum EnabledOXDNAFlag { OXDNA = 1, OXDNA2 = 2, OXRNA2 = 4 };
+  enum EnabledOXDNAFlag {
+    OXDNA = BondOxdnaFENEModel::OXDNA,
+    OXDNA2 = BondOxdnaFENEModel::OXDNA2,
+    OXRNA2 = BondOxdnaFENEModel::OXRNA2
+  };
 
-  BondOxdnaFENEKokkosT(class LAMMPS *, int oxdnaflag_in);
+  BondOxdnaFENEKokkosT(class LAMMPS *);
   ~BondOxdnaFENEKokkosT() override;
   void init_style() override;
   void compute(int, int) override;
@@ -77,8 +87,6 @@ class BondOxdnaFENEKokkosT : public BondBase {
   DAT::ttransform_kkacc_1d_6 k_vatom;
 
  protected:
-
-  int oxdnaflag;
 
   // members of the (dependent) CPU base class used in this class
   using BondBase::atom;
@@ -158,11 +166,11 @@ class BondOxdnaFENEKokkosT : public BondBase {
 };
 
 template<class DeviceType>
-class BondOxdnaFENEKokkos : public BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene> {
+class BondOxdnaFENEKokkos :
+    public BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene, BondOxdnaFENEModel::OXDNA> {
  public:
   BondOxdnaFENEKokkos(class LAMMPS *lmp) :
-      BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene>(lmp,
-          BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene>::OXDNA) {}
+      BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene, BondOxdnaFENEModel::OXDNA>(lmp) {}
 };
 
 }    // namespace LAMMPS_NS
