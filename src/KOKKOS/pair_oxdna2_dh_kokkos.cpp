@@ -492,6 +492,18 @@ void PairOxdna2DhKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 
 }
 
+/* ----------------------------------------------------------------------
+   the parent coeff() sets the effective charges of the local atoms on the host
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdna2DhKokkos<DeviceType>::coeff(int narg, char **arg)
+{
+  atomKK->sync(Host, CG_DNA_MASK);
+  PairOxdna2Dh::coeff(narg, arg);
+  atomKK->modified(Host, CG_DNA_MASK);
+}
+
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
