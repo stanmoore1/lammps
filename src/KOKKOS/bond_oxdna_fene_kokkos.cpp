@@ -476,6 +476,10 @@ void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
   k_k.modify_host();
   k_r0.modify_host();
   k_Delta.modify_host();
+
+  k_k.template sync<DeviceType>();
+  k_r0.template sync<DeviceType>();
+  k_Delta.template sync<DeviceType>();
 }
 
 /* ----------------------------------------------------------------------

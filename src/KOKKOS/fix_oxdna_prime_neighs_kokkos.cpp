@@ -131,8 +131,13 @@ void FixOxdnaPrimeNeighsKokkos<DeviceType>::compute_prime_neighs_pair(NeighList 
   d_numneigh = k_list->d_numneigh;
   const int maxneigh = d_neighbors.extent(1);
 
-  if (anum > d_prime_neighs_pair.extent_int(0) || maxneigh > d_prime_neighs_pair.extent_int(1)) {
-    MemKK::realloc_kokkos(k_prime_neighs_pair, "prime_neighs:prime_neighs_pair", anum, maxneigh, 4);
+  // the table is indexed by atom index like d_neighbors, not by list position,
+  // so it needs as many rows as d_neighbors (inum can be smaller than nlocal)
+
+  const int nrows = d_neighbors.extent(0);
+
+  if (nrows > d_prime_neighs_pair.extent_int(0) || maxneigh > d_prime_neighs_pair.extent_int(1)) {
+    MemKK::realloc_kokkos(k_prime_neighs_pair, "prime_neighs:prime_neighs_pair", nrows, maxneigh, 4);
     d_prime_neighs_pair = k_prime_neighs_pair.template view<DeviceType>();
   }
 

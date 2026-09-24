@@ -50,6 +50,7 @@ class PairOxdna2DhKokkos : public PairOxdna2Dh, public KokkosBase {
   void compute(int, int) override;
 
   void settings(int, char **) override;
+  void coeff(int, char **) override;
   void init_style() override;
   double init_one(int, int) override;
 

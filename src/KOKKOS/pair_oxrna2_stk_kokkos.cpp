@@ -726,6 +726,11 @@ void PairOxrna2StkKokkos<DeviceType>::init_style()
                "oxrna2/stk/kk");
   }
 
+  // atoms may have been reordered since the last run, so force a rebuild
+  // of the cached prime neighbor table in the next compute()
+
+  last_prime_neighs_bond_lastcall = -1;
+
   neighbor->add_request(this);
   auto request = neighbor->find_request(this);
   request->set_kokkos_host(std::is_same_v<DeviceType, LMPHostType> &&

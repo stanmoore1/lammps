@@ -928,6 +928,11 @@ void PairOxdna3XstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdna3XstkKokkos<DeviceType>::init_style()
 {
+  // atoms may have been reordered since the last run, so force a rebuild
+  // of the cached prime neighbor table in the next compute()
+
+  last_prime_neighs_xstk3_lastcall = -1;
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
