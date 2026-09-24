@@ -23,23 +23,19 @@ BondStyle(oxrna2/fene/kk/host,BondOxrna2FENEKokkos<LMPHostType>);
 #define LMP_BOND_OXRNA2_FENE_KOKKOS_H
 
 #include "bond_oxdna_fene_kokkos.h"
+#include "bond_oxrna2_fene.h"
 
 namespace LAMMPS_NS {
 
 template<class DeviceType>
-class BondOxrna2FENEKokkos : public BondOxdnaFENEKokkos<DeviceType> {
+class BondOxrna2FENEKokkos : public BondOxdnaFENEKokkosT<DeviceType, BondOxrna2Fene> {
  public:
-  BondOxrna2FENEKokkos(class LAMMPS *);
-  ~BondOxrna2FENEKokkos() {}
+  BondOxrna2FENEKokkos(class LAMMPS *lmp) :
+      BondOxdnaFENEKokkosT<DeviceType, BondOxrna2Fene>(lmp,
+          BondOxdnaFENEKokkosT<DeviceType, BondOxrna2Fene>::OXRNA2) {}
 };
 
-template<class DeviceType>
-BondOxrna2FENEKokkos<DeviceType>::BondOxrna2FENEKokkos(LAMMPS *lmp) : BondOxdnaFENEKokkos<DeviceType>(lmp)
-{
-   this->oxdnaflag = BondOxdnaFENEKokkos<DeviceType>::EnabledOXDNAFlag::OXRNA2;
-}
 }    // namespace LAMMPS_NS
 
 #endif
 #endif
-

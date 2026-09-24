@@ -23,15 +23,18 @@ BondStyle(oxdna3/fene/kk/host,BondOxdna3FENEKokkos<LMPHostType>);
 #define LMP_BOND_OXDNA3_FENE_KOKKOS_H
 
 #include "bond_oxdna_fene_kokkos.h"
+#include "bond_oxdna3_fene.h"
+
+// oxDNA3 uses the oxDNA2 backbone site, only the parameters and their parsing differ
 
 namespace LAMMPS_NS {
 
 template<class DeviceType>
-class BondOxdna3FENEKokkos : public BondOxdnaFENEKokkos<DeviceType> {
+class BondOxdna3FENEKokkos : public BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene> {
  public:
-  BondOxdna3FENEKokkos(class LAMMPS *);
-  ~BondOxdna3FENEKokkos() {}
-  void coeff(int, char **) override;
+  BondOxdna3FENEKokkos(class LAMMPS *lmp) :
+      BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene>(lmp,
+          BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene>::OXDNA2) {}
 };
 
 }    // namespace LAMMPS_NS

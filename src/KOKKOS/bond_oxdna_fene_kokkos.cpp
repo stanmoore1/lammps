@@ -16,6 +16,10 @@
 
 #include "bond_oxdna_fene_kokkos.h"
 
+#include "bond_oxdna2_fene.h"
+#include "bond_oxdna3_fene.h"
+#include "bond_oxrna2_fene.h"
+
 #include "atom_kokkos.h"
 #include "atom_masks.h"
 #include "error.h"
@@ -32,8 +36,9 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-BondOxdnaFENEKokkos<DeviceType>::BondOxdnaFENEKokkos(LAMMPS *lmp) : BondOxdnaFene(lmp)
+template<class DeviceType, class BondBase>
+BondOxdnaFENEKokkosT<DeviceType, BondBase>::BondOxdnaFENEKokkosT(LAMMPS *lmp, int oxdnaflag_in) :
+    BondBase(lmp)
 {
   kokkosable = 1;
 
@@ -45,7 +50,7 @@ BondOxdnaFENEKokkos<DeviceType>::BondOxdnaFENEKokkos(LAMMPS *lmp) : BondOxdnaFen
   datamask_read = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
-  oxdnaflag = EnabledOXDNAFlag::OXDNA;
+  oxdnaflag = oxdnaflag_in;
   fix_oxdna_prime_neighsKK = nullptr;
   last_prime_neighs_bond_ncalls = -1;
 
@@ -55,8 +60,8 @@ BondOxdnaFENEKokkos<DeviceType>::BondOxdnaFENEKokkos(LAMMPS *lmp) : BondOxdnaFen
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-BondOxdnaFENEKokkos<DeviceType>::~BondOxdnaFENEKokkos()
+template<class DeviceType, class BondBase>
+BondOxdnaFENEKokkosT<DeviceType, BondBase>::~BondOxdnaFENEKokkosT()
 {
   if (!copymode) {
     memoryKK->destroy_kokkos(k_eatom,eatom);
@@ -66,8 +71,8 @@ BondOxdnaFENEKokkos<DeviceType>::~BondOxdnaFENEKokkos()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void BondOxdnaFENEKokkos<DeviceType>::init_style()
+template<class DeviceType, class BondBase>
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::init_style()
 {
   // the internal helper fixes are always created for the default KOKKOS variant,
   // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
@@ -101,8 +106,8 @@ void BondOxdnaFENEKokkos<DeviceType>::init_style()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+template<class DeviceType, class BondBase>
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::compute(int eflag_in, int vflag_in)
 {
   eflag = eflag_in;
   vflag = vflag_in;
@@ -127,8 +132,8 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag || vflag) atomKK->modified(execution_space,datamask_modify);
   else atomKK->modified(execution_space,F_MASK | TORQUE_MASK);
 
-  x = atomKK->k_x.view<DeviceType>();
-  f = atomKK->k_f.view<DeviceType>();
+  x = atomKK->k_x.template view<DeviceType>();
+  f = atomKK->k_f.template view<DeviceType>();
   torque = atomKK->k_torque.template view<DeviceType>();
   atomtype = atomKK->k_type.template view<DeviceType>();
 
@@ -233,10 +238,10 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   copymode = 0;
 }
 
-template<class DeviceType>
+template<class DeviceType, class BondBase>
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, \
   const int &in, EV_FLOAT& ev) const
 {
   // The f and torque arrays are atomic
@@ -385,20 +390,20 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
 
 }
 
-template<class DeviceType>
+template<class DeviceType, class BondBase>
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int &in) const {
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::operator()(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>, const int &in) const {
   EV_FLOAT ev;
   this->template operator()<OXDNAFLAG,NEWTON_BOND,EVFLAG>(TagBondOxdnaFENECompute<OXDNAFLAG,NEWTON_BOND,EVFLAG>(), in, ev);
 }
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void BondOxdnaFENEKokkos<DeviceType>::allocate()
+template<class DeviceType, class BondBase>
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::allocate()
 {
-  BondOxdnaFene::allocate();
+  BondBase::allocate();
 
   int n = atom->nbondtypes;
   int m = atom->ntypes;
@@ -415,10 +420,10 @@ void BondOxdnaFENEKokkos<DeviceType>::allocate()
    set coeffs for one type
 ------------------------------------------------------------------------- */
 
-template<class DeviceType>
-void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
+template<class DeviceType, class BondBase>
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::coeff(int narg, char **arg)
 {
-  BondOxdnaFene::coeff(narg, arg);
+  BondBase::coeff(narg, arg);
 
   // Unlike vanilla, we don't use the bounds and assert - args have already
   // been parsed.
@@ -453,10 +458,10 @@ void BondOxdnaFENEKokkos<DeviceType>::coeff(int narg, char **arg)
    proc 0 reads coeffs from restart file, bcasts them
 ------------------------------------------------------------------------- */
 
-template<class DeviceType>
-void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
+template<class DeviceType, class BondBase>
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::read_restart(FILE *fp)
 {
-  BondOxdnaFene::read_restart(fp);
+  BondBase::read_restart(fp);
 
   int n = atom->nbondtypes;
   int m = atom->ntypes;
@@ -487,9 +492,9 @@ void BondOxdnaFENEKokkos<DeviceType>::read_restart(FILE *fp)
    tally energy and virial into global and per-atom accumulators
 ------------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, class BondBase>
 KOKKOS_INLINE_FUNCTION
-void BondOxdnaFENEKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,\
+void BondOxdnaFENEKokkosT<DeviceType, BondBase>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,\
       const int &nlocal, const int &newton_bond,\
       const KK_FLOAT &ebond, const KK_ACC_FLOAT &fx, const KK_ACC_FLOAT &fy, const KK_ACC_FLOAT &fz,\
       const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const
@@ -577,8 +582,14 @@ void BondOxdnaFENEKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, c
 }
 
 namespace LAMMPS_NS {
-template class BondOxdnaFENEKokkos<LMPDeviceType>;
+template class BondOxdnaFENEKokkosT<LMPDeviceType, BondOxdnaFene>;
+template class BondOxdnaFENEKokkosT<LMPDeviceType, BondOxdna2Fene>;
+template class BondOxdnaFENEKokkosT<LMPDeviceType, BondOxdna3Fene>;
+template class BondOxdnaFENEKokkosT<LMPDeviceType, BondOxrna2Fene>;
 #ifdef LMP_KOKKOS_GPU
-template class BondOxdnaFENEKokkos<LMPHostType>;
+template class BondOxdnaFENEKokkosT<LMPHostType, BondOxdnaFene>;
+template class BondOxdnaFENEKokkosT<LMPHostType, BondOxdna2Fene>;
+template class BondOxdnaFENEKokkosT<LMPHostType, BondOxdna3Fene>;
+template class BondOxdnaFENEKokkosT<LMPHostType, BondOxrna2Fene>;
 #endif
 }

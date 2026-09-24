@@ -35,15 +35,23 @@ class FixOxdnaPrimeNeighsKokkos;  // forward declaration
 template<int OXDNAFLAG, int NEWTON_BOND, int EVFLAG>
 struct TagBondOxdnaFENECompute{};
 
-template<class DeviceType>
-class BondOxdnaFENEKokkos : public BondOxdnaFene {
+// KOKKOS implementation of the oxDNA/oxRNA FENE bond styles.  The class is
+// templated on its CPU parent class (BondOxdnaFene, BondOxdna2Fene, BondOxdna3Fene,
+// or BondOxrna2Fene), so that settings, coeff(), and restart parsing are always
+// inherited from the matching CPU style, while the device kernels are shared and
+// select the model specific code via the oxdnaflag template parameter.
+
+template<class DeviceType, class BondBase>
+class BondOxdnaFENEKokkosT : public BondBase {
  public:
   typedef DeviceType device_type;
   typedef EV_FLOAT value_type;
   typedef ArrayTypes<DeviceType> AT;
 
-  BondOxdnaFENEKokkos(class LAMMPS *);
-  ~BondOxdnaFENEKokkos() override;
+  enum EnabledOXDNAFlag { OXDNA = 1, OXDNA2 = 2, OXRNA2 = 4 };
+
+  BondOxdnaFENEKokkosT(class LAMMPS *, int oxdnaflag_in);
+  ~BondOxdnaFENEKokkosT() override;
   void init_style() override;
   void compute(int, int) override;
   void coeff(int, char **) override;
@@ -71,7 +79,40 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
  protected:
 
   int oxdnaflag;
-  enum EnabledOXDNAFlag{OXDNA=1,OXDNA2=2,OXRNA2=4};
+
+  // members of the (dependent) CPU base class used in this class
+  using BondBase::atom;
+  using BondBase::atomKK;
+  using BondBase::error;
+  using BondBase::force;
+  using BondBase::memoryKK;
+  using BondBase::modify;
+  using BondBase::neighbor;
+  using BondBase::update;
+  using BondBase::copymode;
+  using BondBase::kokkosable;
+  using BondBase::execution_space;
+  using BondBase::datamask_read;
+  using BondBase::datamask_modify;
+  using BondBase::ev_init;
+  using BondBase::evflag;
+  using BondBase::eflag_either;
+  using BondBase::eflag_global;
+  using BondBase::eflag_atom;
+  using BondBase::vflag_either;
+  using BondBase::vflag_global;
+  using BondBase::vflag_atom;
+  using BondBase::energy;
+  using BondBase::virial;
+  using BondBase::eatom;
+  using BondBase::vatom;
+  using BondBase::maxeatom;
+  using BondBase::maxvatom;
+  using BondBase::k;
+  using BondBase::r0;
+  using BondBase::Delta;
+  using BondBase::allocated;
+  using BondBase::setflag;
 
   class NeighborKokkos *neighborKK;
 
@@ -114,6 +155,14 @@ class BondOxdnaFENEKokkos : public BondOxdnaFene {
   bigint last_prime_neighs_bond_ncalls;
   typename AT::t_int_1d_4 d_prime_neighs_bond_own;
   typename AT::t_int_1d_4_randomread d_prime_neighs_bond; // single device-space View suffices
+};
+
+template<class DeviceType>
+class BondOxdnaFENEKokkos : public BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene> {
+ public:
+  BondOxdnaFENEKokkos(class LAMMPS *lmp) :
+      BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene>(lmp,
+          BondOxdnaFENEKokkosT<DeviceType, BondOxdnaFene>::OXDNA) {}
 };
 
 }    // namespace LAMMPS_NS

@@ -91,10 +91,9 @@ action bond_hybrid_kokkos.cpp bond_hybrid.cpp
 action bond_hybrid_kokkos.h bond_hybrid.h
 action bond_oxdna_fene_kokkos.cpp bond_oxdna_fene.cpp
 action bond_oxdna_fene_kokkos.h bond_oxdna_fene.h
-action bond_oxdna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
-action bond_oxrna2_fene_kokkos.h bond_oxdna_fene_kokkos.h
-action bond_oxdna3_fene_kokkos.cpp bond_oxdna3_fene.cpp
-action bond_oxdna3_fene_kokkos.h bond_oxdna_fene_kokkos.h
+action bond_oxdna2_fene_kokkos.h bond_oxdna2_fene.h
+action bond_oxrna2_fene_kokkos.h bond_oxrna2_fene.h
+action bond_oxdna3_fene_kokkos.h bond_oxdna3_fene.h
 action bond_quartic_exp_kokkos.cpp bond_quartic_exp.cpp
 action bond_quartic_exp_kokkos.h bond_quartic_exp.h
 action comm_kokkos.cpp
