@@ -1254,55 +1254,69 @@ void CommKokkos::exchange_device()
 
       if (bonus_flag) {
 
-        atomKK->sync(Host,BONUS_MASK);
-
         int count_bonus = k_count.view_host()(1);
 
-        // sort exchange_sendlist_bonus
+        if (count_bonus == 0) {
 
-        auto d_exchange_sendlist_bonus_sorted = Kokkos::subview(k_exchange_sendlist_bonus.view<DeviceType>(),std::make_pair(0,count_bonus));
-        Kokkos::sort(DeviceType(), d_exchange_sendlist_bonus_sorted);
-        k_exchange_sendlist_bonus.sync_host();
+          // no atom with bonus data leaves, so no bonus data needs to be
+          // backfilled and the bonus data need not be copied to the host
 
-        // must match the bonus irecv below to the one above when
-        //  backfilling to prevent bonus data being overrwritten before
-        //  it is packed
+          k_exchange_copylist_bonus.clear_sync_state();
+          Kokkos::deep_copy(k_exchange_copylist_bonus.view<DeviceType>(),-1);
+          k_exchange_copylist_bonus.modify<DeviceType>();
 
-        HAT::t_int_1d i2recv;
-        MemKK::realloc_kokkos(i2recv,"comm:i2recv",atom->nmax);
+        } else {
 
-        for (int recvpos_all = 0; recvpos_all < count; recvpos_all++) {
-          int i = k_exchange_sendlist.view_host()(recvpos_all);
-          i2recv[i] = recvpos_all;
-        }
+          atomKK->sync(Host,BONUS_MASK);
 
-        Kokkos::deep_copy(k_exchange_copylist_bonus.view_host(),-1);
+          // sort exchange_sendlist_bonus
 
-        AtomVecEllipsoid* avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
-        AtomVecEllipsoid::Bonus *ebonus = nullptr;
-        if (avec_ellipsoid) ebonus = avec_ellipsoid->bonus;
+          auto d_exchange_sendlist_bonus_sorted = Kokkos::subview(k_exchange_sendlist_bonus.view<DeviceType>(),std::make_pair(0,count_bonus));
+          Kokkos::sort(DeviceType(), d_exchange_sendlist_bonus_sorted);
+          k_exchange_sendlist_bonus.sync_host();
 
-        // when atom is deleted, fill it in with last atom
+          // must match the bonus irecv below to the one above when
+          //  backfilling to prevent bonus data being overrwritten before
+          //  it is packed
 
-        sendpos = count_bonus-1;
-        icopy = nlocal_bonus-1;
-        nlocal_bonus -= count_bonus;
-        for (int recvpos = 0; recvpos < count_bonus; recvpos++) {
-          int irecv = k_exchange_sendlist_bonus.view_host()(recvpos);
-          if (irecv < nlocal_bonus) {
-            if (icopy == k_exchange_sendlist_bonus.view_host()(sendpos)) icopy--;
-            while (sendpos > 0 && icopy <= k_exchange_sendlist_bonus.view_host()(sendpos-1)) {
-              sendpos--;
-              icopy = k_exchange_sendlist_bonus.view_host()(sendpos) - 1;
-            }
-            int irecv_all = i2recv[ebonus[irecv].ilocal];
-            k_exchange_copylist_bonus.view_host()(irecv_all) = icopy;
-            icopy--;
+          if ((int)h_exchange_i2recv.extent(0) < atom->nmax)
+            MemKK::realloc_kokkos(h_exchange_i2recv,"comm:i2recv",atom->nmax);
+          auto i2recv = h_exchange_i2recv;
+
+          for (int recvpos_all = 0; recvpos_all < count; recvpos_all++) {
+            int i = k_exchange_sendlist.view_host()(recvpos_all);
+            i2recv[i] = recvpos_all;
           }
-        }
 
-        k_exchange_copylist_bonus.modify_host();
-        k_exchange_copylist_bonus.sync<DeviceType>();
+          k_exchange_copylist_bonus.clear_sync_state();
+          Kokkos::deep_copy(k_exchange_copylist_bonus.view_host(),-1);
+
+          AtomVecEllipsoid* avec_ellipsoid = dynamic_cast<AtomVecEllipsoid *>(atom->style_match("ellipsoid"));
+          AtomVecEllipsoid::Bonus *ebonus = nullptr;
+          if (avec_ellipsoid) ebonus = avec_ellipsoid->bonus;
+
+          // when atom is deleted, fill it in with last atom
+
+          sendpos = count_bonus-1;
+          icopy = nlocal_bonus-1;
+          nlocal_bonus -= count_bonus;
+          for (int recvpos = 0; recvpos < count_bonus; recvpos++) {
+            int irecv = k_exchange_sendlist_bonus.view_host()(recvpos);
+            if (irecv < nlocal_bonus) {
+              if (icopy == k_exchange_sendlist_bonus.view_host()(sendpos)) icopy--;
+              while (sendpos > 0 && icopy <= k_exchange_sendlist_bonus.view_host()(sendpos-1)) {
+                sendpos--;
+                icopy = k_exchange_sendlist_bonus.view_host()(sendpos) - 1;
+              }
+              int irecv_all = i2recv[ebonus[irecv].ilocal];
+              k_exchange_copylist_bonus.view_host()(irecv_all) = icopy;
+              icopy--;
+            }
+          }
+
+          k_exchange_copylist_bonus.modify_host();
+          k_exchange_copylist_bonus.sync<DeviceType>();
+        }
       }
 
       if (nsend > maxsend) grow_send_kokkos(nsend,0);

@@ -319,6 +319,9 @@ struct AtomVecEllipsoidKokkos_UnpackCommBonus {
 
 /* ---------------------------------------------------------------------- */
 
+// forward communication of the bonus data only updates the quaternions of the
+// ghost atoms, so only BONUS_MASK is marked as modified, not ELLIPSOID_MASK
+
 void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &first,
                                                       const DAT::tdual_double_2d_lr &buf, int vel_flag)
 {
@@ -331,13 +334,13 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &f
     struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPHostType> f(
       atomKK,buf,k_bonus,first,offset,vel_flag);
     Kokkos::parallel_for(n,f);
-    atomKK->modified(HostKK,datamask_bonus);
+    atomKK->modified(HostKK,BONUS_MASK);
   } else {
     atomKK->sync(Device,datamask_bonus);
     struct AtomVecEllipsoidKokkos_UnpackCommBonus<LMPDeviceType> f(
       atomKK,buf,k_bonus,first,offset,vel_flag);
     Kokkos::parallel_for(n,f);
-    atomKK->modified(Device,datamask_bonus);
+    atomKK->modified(Device,BONUS_MASK);
   }
 }
 
@@ -388,13 +391,13 @@ void AtomVecEllipsoidKokkos::pack_comm_self_bonus_kokkos(const int &n,
     struct AtomVecEllipsoidKokkos_PackCommSelfBonus<LMPHostType> f(
       atomKK,k_bonus,nfirst,list);
     Kokkos::parallel_for(n,f);
-    atomKK->modified(HostKK,datamask_bonus);
+    atomKK->modified(HostKK,BONUS_MASK);
   } else {
     atomKK->sync(Device,datamask_bonus);
     struct AtomVecEllipsoidKokkos_PackCommSelfBonus<LMPDeviceType> f(
       atomKK,k_bonus,nfirst,list);
     Kokkos::parallel_for(n,f);
-    atomKK->modified(Device,datamask_bonus);
+    atomKK->modified(Device,BONUS_MASK);
   }
 }
 
@@ -464,13 +467,13 @@ void AtomVecEllipsoidKokkos::pack_comm_self_fused_bonus_kokkos(const int &n,
     struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus<LMPHostType> f(
       atomKK,k_bonus,list,firstrecv,sendnum_scan,g2l);
     Kokkos::parallel_for(n,f);
-    atomKK->modified(HostKK,datamask_bonus);
+    atomKK->modified(HostKK,BONUS_MASK);
   } else {
     atomKK->sync(Device,datamask_bonus);
     struct AtomVecEllipsoidKokkos_PackCommSelfFusedBonus<LMPDeviceType> f(
       atomKK,k_bonus,list,firstrecv,sendnum_scan,g2l);
     Kokkos::parallel_for(n,f);
-    atomKK->modified(Device,datamask_bonus);
+    atomKK->modified(Device,BONUS_MASK);
   }
 }
 
