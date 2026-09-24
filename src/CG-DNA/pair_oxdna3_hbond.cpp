@@ -28,13 +28,7 @@
 using namespace LAMMPS_NS;
 using namespace MFOxdna;
 
-/* ----------------------------------------------------------------------
-   IMPORTANT NOTE ! We entirely code duplicate the sequence-specific alpha_hb
-   setup between PairOxdna3Hbond and PairOxdna3HbondKokkos. So any edits made
-   in one need to manually be made to the other !
-   The KOKKOS version is in: src/KOKKOS/pair_oxdna3_hbond_kokkos.cpp
-   Same goes for the coeff routine.
-------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------- */
 
 PairOxdna3Hbond::PairOxdna3Hbond(LAMMPS *lmp) : PairOxdnaHbond(lmp)
 {
