@@ -13,6 +13,9 @@
 
 #include "pair_oxdna_hbond_kokkos.h"
 
+#include "pair_oxdna3_hbond.h"
+#include "pair_oxrna2_hbond.h"
+
 #include "atom_kokkos.h"
 #include "atom_masks.h"
 #include "error.h"
@@ -38,8 +41,9 @@ using namespace MFOxdnaKokkos;
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-PairOxdnaHbondKokkos<DeviceType>::PairOxdnaHbondKokkos(LAMMPS *lmp) : PairOxdnaHbond(lmp)
+template<class DeviceType, class PairBase>
+PairOxdnaHbondKokkosT<DeviceType, PairBase>::PairOxdnaHbondKokkosT(LAMMPS *lmp, int oxdnaflag_in) :
+    PairBase(lmp)
 {
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
@@ -49,7 +53,7 @@ PairOxdnaHbondKokkos<DeviceType>::PairOxdnaHbondKokkos(LAMMPS *lmp) : PairOxdnaH
   datamask_read = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK | TAG_MASK;
   datamask_modify = F_MASK | TORQUE_MASK | ENERGY_MASK | VIRIAL_MASK;
 
-  oxdnaflag = EnabledOXDNAFlag::OXDNA;
+  oxdnaflag = oxdnaflag_in;
   screened_pair_count = 0;
   unique_basepair_enabled = 0;
   last_idc_ncalls = -1;
@@ -58,8 +62,8 @@ PairOxdnaHbondKokkos<DeviceType>::PairOxdnaHbondKokkos(LAMMPS *lmp) : PairOxdnaH
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-PairOxdnaHbondKokkos<DeviceType>::~PairOxdnaHbondKokkos()
+template<class DeviceType, class PairBase>
+PairOxdnaHbondKokkosT<DeviceType, PairBase>::~PairOxdnaHbondKokkosT()
 {
   if (copymode) return;
 
@@ -71,8 +75,8 @@ PairOxdnaHbondKokkos<DeviceType>::~PairOxdnaHbondKokkos()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
+template<class DeviceType, class PairBase>
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::compute(int eflag_in, int vflag_in)
 {
   eflag = eflag_in;
   vflag = vflag_in;
@@ -120,7 +124,7 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_alist = k_list->d_ilist;
   d_numneigh = k_list->d_numneigh;
 
-  int need_dup = lmp->kokkos->need_dup<DeviceType>();
+  int need_dup = lmp->kokkos->template need_dup<DeviceType>();
   if (need_dup) {
     dup_f = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterDuplicated>(f);
@@ -302,10 +306,10 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
    Standard non-GPU Compute Functor(s)
 -------------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::operator()(TagPairOxdnaHbondCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ia, EV_FLOAT &ev) const
 {
   // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
@@ -722,10 +726,10 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<OXDNA
   }
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::operator()(TagPairOxdnaHbondCompute<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ia) const
 {
   EV_FLOAT ev;
@@ -738,9 +742,9 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<OXDNA
    live register pressure in GPU kernels.
 -------------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_radial_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_radial_terms(const int &atype, const int &btype,
   const KK_FLOAT &r_hb, KK_FLOAT &f1, KK_FLOAT &df1) const
 {
   const KK_FLOAT p_epsilon_hb = d_epsilon_hb(atype,btype);
@@ -765,9 +769,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_radial_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_theta1_terms(const int &atype, const int &btype,
   const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&b_nx)[3],
   KK_FLOAT &theta1, KK_FLOAT &f4t1, KK_FLOAT &df4t1) const
 {
@@ -795,9 +799,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_theta2_terms(const int &atype, const int &btype,
   const KK_FLOAT (&a_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
   KK_FLOAT &theta2, KK_FLOAT &cost2, KK_FLOAT &f4t2, KK_FLOAT &df4t2) const
 {
@@ -825,9 +829,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_theta3_terms(const int &atype, const int &btype,
   const KK_FLOAT (&b_nx)[3], const KK_FLOAT (&delr_hb_norm)[3],
   KK_FLOAT &theta3, KK_FLOAT &cost3, KK_FLOAT &f4t3, KK_FLOAT &df4t3) const
 {
@@ -855,9 +859,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_theta4_terms(const int &atype, const int &btype,
   const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
   KK_FLOAT &theta4, KK_FLOAT &f4t4, KK_FLOAT &df4t4) const
 {
@@ -885,9 +889,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_theta7_terms(const int &atype, const int &btype,
   const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
   KK_FLOAT &theta7, KK_FLOAT &cost7, KK_FLOAT &f4t7, KK_FLOAT &df4t7) const
 {
@@ -915,9 +919,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, const int &btype,
+bool PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_theta8_terms(const int &atype, const int &btype,
   const KK_FLOAT (&b_nz)[3], const KK_FLOAT (&delr_hb_norm)[3],
   KK_FLOAT &theta8, KK_FLOAT &cost8, KK_FLOAT &f4t8, KK_FLOAT &df4t8) const
 {
@@ -945,9 +949,9 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, cons
   return true;
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::hbond_force_contrib(const KK_FLOAT &f1,
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_force_contrib(const KK_FLOAT &f1,
   const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
   const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
   const KK_FLOAT &df1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
@@ -1016,9 +1020,9 @@ void PairOxdnaHbondKokkos<DeviceType>::hbond_force_contrib(const KK_FLOAT &f1,
   deltb[2] = Kokkos::fma(rb_chb[0], delf[1], -rb_chb[1] * delf[0]);
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::hbond_torque_contrib(const KK_FLOAT &f1,
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::hbond_torque_contrib(const KK_FLOAT &f1,
   const KK_FLOAT &f4t1, const KK_FLOAT &f4t2, const KK_FLOAT &f4t3,
   const KK_FLOAT &f4t4, const KK_FLOAT &f4t7, const KK_FLOAT &f4t8,
   const KK_FLOAT &df4t1, const KK_FLOAT &df4t2, const KK_FLOAT &df4t3,
@@ -1113,10 +1117,10 @@ void PairOxdnaHbondKokkos<DeviceType>::hbond_torque_contrib(const KK_FLOAT &f1,
   }
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPair<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::operator()(TagPairOxdnaHbondComputeGPUPair<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ipair, EV_FLOAT &ev) const
 {
   // one thread per neighbor pair: several threads update the same atoms
@@ -1298,10 +1302,10 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
   }
 }
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPair<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::operator()(TagPairOxdnaHbondComputeGPUPair<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ipair) const
 {
   EV_FLOAT ev;
@@ -1311,10 +1315,10 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairOxdnaHbondKokkos<DeviceType>::allocate()
+template<class DeviceType, class PairBase>
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::allocate()
 {
-  PairOxdnaHbond::allocate();
+  PairBase::allocate();
 
   int n = atom->ntypes;
 
@@ -1420,8 +1424,8 @@ void PairOxdnaHbondKokkos<DeviceType>::allocate()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairOxdnaHbondKokkos<DeviceType>::settings(int narg, char **/*arg*/)
+template<class DeviceType, class PairBase>
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::settings(int narg, char **/*arg*/)
 {
   if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
@@ -1429,8 +1433,8 @@ void PairOxdnaHbondKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-void PairOxdnaHbondKokkos<DeviceType>::init_style()
+template<class DeviceType, class PairBase>
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::init_style()
 {
   // the internal helper fixes are always created for the default KOKKOS variant,
   // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
@@ -1480,10 +1484,10 @@ void PairOxdnaHbondKokkos<DeviceType>::init_style()
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
-double PairOxdnaHbondKokkos<DeviceType>::init_one(int i, int j)
+template<class DeviceType, class PairBase>
+double PairOxdnaHbondKokkosT<DeviceType, PairBase>::init_one(int i, int j)
 {
-  double cutone = PairOxdnaHbond::init_one(i,j);
+  double cutone = PairBase::init_one(i,j);
 
   // Assign directionally: [i][j] gets [i][j], [j][i] gets [j][i]
   k_epsilon_hb.view_host()(i,j) = epsilon_hb[i][j]; k_epsilon_hb.view_host()(j,i) = epsilon_hb[j][i];
@@ -1646,10 +1650,10 @@ double PairOxdnaHbondKokkos<DeviceType>::init_one(int i, int j)
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 template<int NEIGHFLAG, int NEWTON_PAIR, int PAIRWISE>
 KOKKOS_INLINE_FUNCTION
-void PairOxdnaHbondKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
+void PairOxdnaHbondKokkosT<DeviceType, PairBase>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_ACC_FLOAT &fx, const KK_ACC_FLOAT &fy, const KK_ACC_FLOAT &fz,
       const KK_FLOAT &delx, const KK_FLOAT &dely, const KK_FLOAT &delz) const
 {
@@ -1746,15 +1750,19 @@ void PairOxdnaHbondKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, 
 
 /* ---------------------------------------------------------------------- */
 
-template<class DeviceType>
+template<class DeviceType, class PairBase>
 KOKKOS_INLINE_FUNCTION
-int PairOxdnaHbondKokkos<DeviceType>::sbmask(const int& j) const {
+int PairOxdnaHbondKokkosT<DeviceType, PairBase>::sbmask(const int& j) const {
   return j >> SBBITS & 3;
 }
 
 namespace LAMMPS_NS {
-template class PairOxdnaHbondKokkos<LMPDeviceType>;
+template class PairOxdnaHbondKokkosT<LMPDeviceType, PairOxdnaHbond>;
+template class PairOxdnaHbondKokkosT<LMPDeviceType, PairOxdna3Hbond>;
+template class PairOxdnaHbondKokkosT<LMPDeviceType, PairOxrna2Hbond>;
 #ifdef LMP_KOKKOS_GPU
-template class PairOxdnaHbondKokkos<LMPHostType>;
+template class PairOxdnaHbondKokkosT<LMPHostType, PairOxdnaHbond>;
+template class PairOxdnaHbondKokkosT<LMPHostType, PairOxdna3Hbond>;
+template class PairOxdnaHbondKokkosT<LMPHostType, PairOxrna2Hbond>;
 #endif
 }
