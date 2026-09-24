@@ -133,6 +133,22 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
+  if (eflag_atom) {
+    if (need_dup)
+      dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    else
+      ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+  }
+  if (vflag_atom) {
+    if (need_dup)
+      dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+    else
+      ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
 
   copymode = 1;
 
@@ -238,14 +254,14 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -370,7 +386,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
     delr_stkstk[2] = x(a,2) + ra_cstk[2] - x(b,2) - rb_cstk[2];
 
     rsq_stkstk = delr_stkstk[0]*delr_stkstk[0] + delr_stkstk[1]*delr_stkstk[1] + delr_stkstk[2]*delr_stkstk[2];
-    r_stkstk = sqrtf(rsq_stkstk);
+    r_stkstk = Kokkos::sqrt(rsq_stkstk);
     rinv_stkstk = 1.0 / r_stkstk;
 
     delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
@@ -383,7 +399,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
     delr_bkbk[2] = x(a,2) + ra_cbk[2] - x(b,2) - rb_cbk[2];
 
     rsq_bkbk = delr_bkbk[0]*delr_bkbk[0] + delr_bkbk[1]*delr_bkbk[1] + delr_bkbk[2]*delr_bkbk[2];
-    r_bkbk = sqrtf(rsq_bkbk);
+    r_bkbk = Kokkos::sqrt(rsq_bkbk);
     rinv_bkbk = 1.0 / r_bkbk;
 
     delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;
@@ -697,7 +713,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta1_terms(const int &atype,
   // df4f6t1 = (DF4 + DF6) / sin(theta1)
   KK_FLOAT sin1_sq = Kokkos::fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
   if (sin1_sq <= 0.0) return false;
-  KK_FLOAT sin1 = sqrtf(sin1_sq);
+  KK_FLOAT sin1 = Kokkos::sqrt(sin1_sq);
   df4f6t1 = (DF4_KK(theta1, a1, t10, dt1a, b1, dt1c) + DF6_KK(theta1, aa1, bb1)) / sin1;
 
   return true;
@@ -726,7 +742,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta4_terms(const int &atype,
   KK_FLOAT sin4_sq = Kokkos::fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
   if (sin4_sq <= 0.0) return false;
   df4t4 = ( DF4_KK(theta4, a4, t40, dt4a, b4, dt4c) +
-            DF4_KK(theta4, a4, MY_PI - t40, dt4a, b4, dt4c) ) / sqrtf(sin4_sq);
+            DF4_KK(theta4, a4, MY_PI - t40, dt4a, b4, dt4c) ) / Kokkos::sqrt(sin4_sq);
   return true;
 }
 
@@ -753,7 +769,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta5_terms(const int &atype,
   KK_FLOAT sin5_sq = Kokkos::fma(-cost5, cost5, static_cast<KK_FLOAT>(1.0));
   if (sin5_sq <= 0.0) return false;
   df4t5 = ( DF4_KK(theta5, a5, t50, dt5a, b5, dt5c) -
-            DF4_KK(theta5p, a5, t50, dt5a, b5, dt5c) ) / sqrtf(sin5_sq);
+            DF4_KK(theta5p, a5, t50, dt5a, b5, dt5c) ) / Kokkos::sqrt(sin5_sq);
   return true;
 }
 
@@ -780,7 +796,7 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta6_terms(const int &atype,
   KK_FLOAT sin6_sq = Kokkos::fma(-cost6, cost6, static_cast<KK_FLOAT>(1.0));
   if (sin6_sq <= 0.0) return false;
   df4t6 = ( DF4_KK(theta6, a6, t60, dt6a, b6, dt6c) -
-            DF4_KK(theta6p, a6, t60, dt6a, b6, dt6c) ) / sqrtf(sin6_sq);
+            DF4_KK(theta6p, a6, t60, dt6a, b6, dt6c) ) / Kokkos::sqrt(sin6_sq);
   return true;
 }
 
@@ -797,7 +813,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_cosphi3_terms(const int &a, co
 
   KK_FLOAT rsq_bkbk = Kokkos::fma(delr_bkbk[0], delr_bkbk[0],
                     Kokkos::fma(delr_bkbk[1], delr_bkbk[1], delr_bkbk[2] * delr_bkbk[2]));
-  KK_FLOAT rinv_bkbk = 1.0 / sqrtf(rsq_bkbk);
+  KK_FLOAT rinv_bkbk = 1.0 / Kokkos::sqrt(rsq_bkbk);
   delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;
   delr_bkbk_norm[1] = delr_bkbk[1] * rinv_bkbk;
   delr_bkbk_norm[2] = delr_bkbk[2] * rinv_bkbk;
@@ -1036,7 +1052,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
   delr_stkstk[1] = x(a,1) + ra_cstk[1] - x(b,1) - rb_cstk[1];
   delr_stkstk[2] = x(a,2) + ra_cstk[2] - x(b,2) - rb_cstk[2];
   rsq_stkstk = Kokkos::fma(delr_stkstk[0], delr_stkstk[0], Kokkos::fma(delr_stkstk[1], delr_stkstk[1], delr_stkstk[2]*delr_stkstk[2]));
-  r_stkstk = sqrtf(rsq_stkstk);
+  r_stkstk = Kokkos::sqrt(rsq_stkstk);
   rinv_stkstk = 1.0 / r_stkstk;
   delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
   delr_stkstk_norm[1] = delr_stkstk[1] * rinv_stkstk;
@@ -1263,6 +1279,13 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::init_style()
     fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(npair_fixes[0]);
   }
   if (!fix_oxdna_npairKK) error->all(FLERR, "Fix OXDNA/NPAIR/kk lookup failed");
+
+  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
+  // style on a GPU build would find helper fixes of the wrong type
+
+  if (!fix_oxdna_lrfKK)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1311,43 +1334,43 @@ double PairOxdna2CoaxstkKokkos<DeviceType>::init_one(int i, int j)
   k_AA_cxst1.view_host()(i,j) = AA_cxst1[i][j]; k_AA_cxst1.view_host()(j,i) = AA_cxst1[j][i];
   k_BB_cxst1.view_host()(i,j) = BB_cxst1[i][j]; k_BB_cxst1.view_host()(j,i) = BB_cxst1[j][i];
 
-  k_k_cxst.template modify<LMPHostType>();
-  k_cut_cxst_0.template modify<LMPHostType>();
-  k_cut_cxst_c.template modify<LMPHostType>();
-  k_cut_cxst_lo.template modify<LMPHostType>();
-  k_cut_cxst_hi.template modify<LMPHostType>();
-  k_cut_cxst_lc.template modify<LMPHostType>();
-  k_cut_cxst_hc.template modify<LMPHostType>();
-  k_b_cxst_lo.template modify<LMPHostType>();
-  k_b_cxst_hi.template modify<LMPHostType>();
-  k_cutsq_cxst_hc.template modify<LMPHostType>();
+  k_k_cxst.modify_host();
+  k_cut_cxst_0.modify_host();
+  k_cut_cxst_c.modify_host();
+  k_cut_cxst_lo.modify_host();
+  k_cut_cxst_hi.modify_host();
+  k_cut_cxst_lc.modify_host();
+  k_cut_cxst_hc.modify_host();
+  k_b_cxst_lo.modify_host();
+  k_b_cxst_hi.modify_host();
+  k_cutsq_cxst_hc.modify_host();
 
-  k_a_cxst1.template modify<LMPHostType>();
-  k_theta_cxst1_0.template modify<LMPHostType>();
-  k_dtheta_cxst1_ast.template modify<LMPHostType>();
-  k_b_cxst1.template modify<LMPHostType>();
-  k_dtheta_cxst1_c.template modify<LMPHostType>();
+  k_a_cxst1.modify_host();
+  k_theta_cxst1_0.modify_host();
+  k_dtheta_cxst1_ast.modify_host();
+  k_b_cxst1.modify_host();
+  k_dtheta_cxst1_c.modify_host();
 
-  k_a_cxst4.template modify<LMPHostType>();
-  k_theta_cxst4_0.template modify<LMPHostType>();
-  k_dtheta_cxst4_ast.template modify<LMPHostType>();
-  k_b_cxst4.template modify<LMPHostType>();
-  k_dtheta_cxst4_c.template modify<LMPHostType>();
+  k_a_cxst4.modify_host();
+  k_theta_cxst4_0.modify_host();
+  k_dtheta_cxst4_ast.modify_host();
+  k_b_cxst4.modify_host();
+  k_dtheta_cxst4_c.modify_host();
 
-  k_a_cxst5.template modify<LMPHostType>();
-  k_theta_cxst5_0.template modify<LMPHostType>();
-  k_dtheta_cxst5_ast.template modify<LMPHostType>();
-  k_b_cxst5.template modify<LMPHostType>();
-  k_dtheta_cxst5_c.template modify<LMPHostType>();
+  k_a_cxst5.modify_host();
+  k_theta_cxst5_0.modify_host();
+  k_dtheta_cxst5_ast.modify_host();
+  k_b_cxst5.modify_host();
+  k_dtheta_cxst5_c.modify_host();
 
-  k_a_cxst6.template modify<LMPHostType>();
-  k_theta_cxst6_0.template modify<LMPHostType>();
-  k_dtheta_cxst6_ast.template modify<LMPHostType>();
-  k_b_cxst6.template modify<LMPHostType>();
-  k_dtheta_cxst6_c.template modify<LMPHostType>();
+  k_a_cxst6.modify_host();
+  k_theta_cxst6_0.modify_host();
+  k_dtheta_cxst6_ast.modify_host();
+  k_b_cxst6.modify_host();
+  k_dtheta_cxst6_c.modify_host();
 
-  k_AA_cxst1.template modify<LMPHostType>();
-  k_BB_cxst1.template modify<LMPHostType>();
+  k_AA_cxst1.modify_host();
+  k_BB_cxst1.modify_host();
 
   // Sync to device
   k_k_cxst.template sync<DeviceType>();
@@ -1388,11 +1411,10 @@ double PairOxdna2CoaxstkKokkos<DeviceType>::init_one(int i, int j)
   k_AA_cxst1.template sync<DeviceType>();
   k_BB_cxst1.template sync<DeviceType>();
 
-  // Register the COM screen cutoff for this pair: coaxial stacking acts at the
-  // stacking site (COM +/- 0.34*nx on each atom); use the same conservative
-  // 2*0.4 margin (>= 2*0.34) so a COM-distance screen never drops an interacting
-  // pair. The npair fix takes the max over all consuming styles and type-pairs.
-  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone + 0.8);
+  // Register the site-site cutoff of this pair with the COM screen of the npair
+  // fix, which adds the margin for the displacement of the interaction sites
+  // from the COM and takes the max over all consuming styles and type pairs.
+  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone);
 
   // "cutone" is "cut_cxst_hc[i][j]", sets the master list distance cutoff
   return cutone;

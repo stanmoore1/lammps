@@ -15,11 +15,15 @@
 
 #include "atom_kokkos.h"
 #include "atom_masks.h"
+#include "constants_oxdna.h"
 #include "kokkos.h"
 #include "memory_kokkos.h"
 #include "neighbor.h"
 #include "neigh_list_kokkos.h"
 #include "neigh_request.h"
+
+#include <algorithm>
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -131,20 +135,41 @@ void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
 
 /* ---------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   largest distance of any hydrogen-bonding or stacking interaction site
+   from the nucleotide COM over all supported models
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+double FixOxdnaNpairKokkos<DeviceType>::max_site_offset()
+{
+  double dmax = std::fabs(ConstantsOxdna::get_dx_cbs_oxdna1());
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cstk_oxdna1()));
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cbs_pur_oxdna3()));
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cbs_pyr_oxdna3()));
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cstk_oxdna3()));
+  dmax = std::max(dmax, std::hypot(ConstantsOxdna::get_dx_cstk_3p_oxrna2(),
+                                   ConstantsOxdna::get_dy_cstk_3p_oxrna2()));
+  dmax = std::max(dmax, std::hypot(ConstantsOxdna::get_dx_cstk_5p_oxrna2(),
+                                   ConstantsOxdna::get_dy_cstk_5p_oxrna2()));
+  return dmax;
+}
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::update_screen_cutsq()
 {
   // Derive the COM screen cutoff from the cutoffs registered by the consuming
   // pair styles (hbond / xstk / coaxstk) in their init_one, then add the
   // neighbor skin. Since this screened list is rebuilt only when the neighbor
-  // list rebuilds, a skin margin is required to keep the filtered pair list
-  // valid between rebuilds (same Verlet-list principle as the base neighbor
-  // list itself).
-  // However, the pair_styles already add in an extra 0.4*nx margin
-  // to their cutoffs to account for the base-site offset, so we can be
-  // a little cheeky and half the neighbor skin margin too.
+  // list rebuilds, the full skin is required to keep the filtered pair list
+  // valid between rebuilds: two atoms can approach each other by up to one
+  // skin distance before the next rebuild (same Verlet-list principle as the
+  // base neighbor list itself). The site offset margin added at registration
+  // only covers the orientation dependence of the site positions.
   const KK_FLOAT base_screen_cut = (screen_cut_max > 0.0) ? screen_cut_max : 2.0;
-  const KK_FLOAT screen_cut_with_skin = base_screen_cut + (0.5 * neighbor->skin);
+  const KK_FLOAT screen_cut_with_skin = base_screen_cut + neighbor->skin;
   screen_cutsq = screen_cut_with_skin * screen_cut_with_skin;
 }
 

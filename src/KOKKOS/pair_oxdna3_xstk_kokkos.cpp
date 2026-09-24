@@ -134,6 +134,22 @@ void PairOxdna3XstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
+  if (eflag_atom) {
+    if (need_dup)
+      dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    else
+      ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+  }
+  if (vflag_atom) {
+    if (need_dup)
+      dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+    else
+      ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
 
   copymode = 1;
 
@@ -223,14 +239,14 @@ void PairOxdna3XstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -283,7 +299,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_preradial_terms(
     Kokkos::fma(delr_bsbs[1], delr_bsbs[1], delr_bsbs[0] * delr_bsbs[0]));
   if (rsq_bsbs <= static_cast<KK_FLOAT>(0.0)) return false;
 
-  rinv_bsbs = static_cast<KK_FLOAT>(1.0) / sqrtf(rsq_bsbs);
+  rinv_bsbs = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(rsq_bsbs);
   r_bsbs = rsq_bsbs * rinv_bsbs;
   delr_bsbs_norm[0] = delr_bsbs[0] * rinv_bsbs;
   delr_bsbs_norm[1] = delr_bsbs[1] * rinv_bsbs;
@@ -945,6 +961,13 @@ void PairOxdna3XstkKokkos<DeviceType>::init_style()
 
   // oxdna3/xstk always uses the npair screened list; force rebuilds on all backends.
   fix_oxdna_npairKK->set_force_screening_all_backends(true);
+
+  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
+  // style on a GPU build would find helper fixes of the wrong type
+
+  if (!fix_oxdna_lrfKK)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
 }
 
 /* ----------------------------------------------------------------------
@@ -997,13 +1020,18 @@ double PairOxdna3XstkKokkos<DeviceType>::init_one(int i, int j)
   h_params_t8(i, j).b_xst8 = b_xst8[i][j]; h_params_t8(j, i).b_xst8 = b_xst8[j][i];
   h_params_t8(i, j).dtheta_xst8_c = dtheta_xst8_c[i][j]; h_params_t8(j, i).dtheta_xst8_c = dtheta_xst8_c[j][i];
 
-  k_params_xstk.template modify<LMPHostType>();
-  k_params_t7.template modify<LMPHostType>();
-  k_params_t8.template modify<LMPHostType>();
+  k_params_xstk.modify_host();
+  k_params_t7.modify_host();
+  k_params_t8.modify_host();
 
   k_params_xstk.template sync<DeviceType>();
   k_params_t7.template sync<DeviceType>();
   k_params_t8.template sync<DeviceType>();
+
+  // Register the site-site cutoff of this pair with the COM screen of the npair
+  // fix, which adds the margin for the displacement of the interaction sites
+  // from the COM and takes the max over all consuming styles and type pairs.
+  fix_oxdna_npairKK->request_screen_cutoff(cutone);
 
   return cutone;
 }
@@ -1055,11 +1083,11 @@ void PairOxdna3XstkKokkos<DeviceType>::coeff(int narg, char **arg)
     }
   }
 
-  k_params_xstk.template modify<LMPHostType>();
-  k_params_33.template modify<LMPHostType>();
-  k_params_55.template modify<LMPHostType>();
-  k_params_t7.template modify<LMPHostType>();
-  k_params_t8.template modify<LMPHostType>();
+  k_params_xstk.modify_host();
+  k_params_33.modify_host();
+  k_params_55.modify_host();
+  k_params_t7.modify_host();
+  k_params_t8.modify_host();
 
   k_params_xstk.template sync<DeviceType>();
   k_params_33.template sync<DeviceType>();

@@ -121,6 +121,22 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
+  if (eflag_atom) {
+    if (need_dup)
+      dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    else
+      ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+  }
+  if (vflag_atom) {
+    if (need_dup)
+      dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+    else
+      ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
 
   copymode = 1;
 
@@ -196,14 +212,14 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -286,7 +302,7 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
     delr_st[2] = x(a,2) + ra_cst[2] - x(b,2) - rb_cst[2];
 
     rsq_st = delr_st[0]*delr_st[0] + delr_st[1]*delr_st[1] + delr_st[2]*delr_st[2];
-    r_st = sqrtf(rsq_st);
+    r_st = Kokkos::sqrt(rsq_st);
     rinv_st = 1.0 / r_st;
 
     delr_st_norm[0] = delr_st[0] * rinv_st;
@@ -304,7 +320,7 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
     delr_ss[2] = x(a,2) + ra_cs[2] - x(b,2) - rb_cs[2];
 
     rsq_ss = delr_ss[0]*delr_ss[0] + delr_ss[1]*delr_ss[1] + delr_ss[2]*delr_ss[2];
-    r_ss = sqrtf(rsq_ss);
+    r_ss = Kokkos::sqrt(rsq_ss);
     rinv_ss = 1.0 / r_ss;
 
     delr_ss_norm[0] = delr_ss[0] * rinv_ss;
@@ -806,6 +822,13 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::init_style()
   auto fixes = modify->get_fix_by_style("^OXDNA/LRF/kk");
   if (fixes.size() == 0) error->all(FLERR, "Fix OXDNA/LRF/kk not found. Ensure pair ox*na*/excv/kk is present");
   else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
+
+  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
+  // style on a GPU build would find helper fixes of the wrong type
+
+  if (!fix_oxdna_lrfKK)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -861,50 +884,50 @@ double PairOxdnaCoaxstkKokkos<DeviceType>::init_one(int i, int j)
   k_b_cxst4p.view_host()(i,j) = b_cxst4p[i][j]; k_b_cxst4p.view_host()(j,i) = b_cxst4p[j][i];
   k_cosphi_cxst4p_c.view_host()(i,j) = cosphi_cxst4p_c[i][j]; k_cosphi_cxst4p_c.view_host()(j,i) = cosphi_cxst4p_c[j][i];
 
-  k_k_cxst.template modify<LMPHostType>();
-  k_cut_cxst_0.template modify<LMPHostType>();
-  k_cut_cxst_c.template modify<LMPHostType>();
-  k_cut_cxst_lo.template modify<LMPHostType>();
-  k_cut_cxst_hi.template modify<LMPHostType>();
-  k_cut_cxst_lc.template modify<LMPHostType>();
-  k_cut_cxst_hc.template modify<LMPHostType>();
-  k_b_cxst_lo.template modify<LMPHostType>();
-  k_b_cxst_hi.template modify<LMPHostType>();
-  k_cutsq_cxst_hc.template modify<LMPHostType>();
+  k_k_cxst.modify_host();
+  k_cut_cxst_0.modify_host();
+  k_cut_cxst_c.modify_host();
+  k_cut_cxst_lo.modify_host();
+  k_cut_cxst_hi.modify_host();
+  k_cut_cxst_lc.modify_host();
+  k_cut_cxst_hc.modify_host();
+  k_b_cxst_lo.modify_host();
+  k_b_cxst_hi.modify_host();
+  k_cutsq_cxst_hc.modify_host();
 
-  k_a_cxst1.template modify<LMPHostType>();
-  k_theta_cxst1_0.template modify<LMPHostType>();
-  k_dtheta_cxst1_ast.template modify<LMPHostType>();
-  k_b_cxst1.template modify<LMPHostType>();
-  k_dtheta_cxst1_c.template modify<LMPHostType>();
+  k_a_cxst1.modify_host();
+  k_theta_cxst1_0.modify_host();
+  k_dtheta_cxst1_ast.modify_host();
+  k_b_cxst1.modify_host();
+  k_dtheta_cxst1_c.modify_host();
 
-  k_a_cxst4.template modify<LMPHostType>();
-  k_theta_cxst4_0.template modify<LMPHostType>();
-  k_dtheta_cxst4_ast.template modify<LMPHostType>();
-  k_b_cxst4.template modify<LMPHostType>();
-  k_dtheta_cxst4_c.template modify<LMPHostType>();
+  k_a_cxst4.modify_host();
+  k_theta_cxst4_0.modify_host();
+  k_dtheta_cxst4_ast.modify_host();
+  k_b_cxst4.modify_host();
+  k_dtheta_cxst4_c.modify_host();
 
-  k_a_cxst5.template modify<LMPHostType>();
-  k_theta_cxst5_0.template modify<LMPHostType>();
-  k_dtheta_cxst5_ast.template modify<LMPHostType>();
-  k_b_cxst5.template modify<LMPHostType>();
-  k_dtheta_cxst5_c.template modify<LMPHostType>();
+  k_a_cxst5.modify_host();
+  k_theta_cxst5_0.modify_host();
+  k_dtheta_cxst5_ast.modify_host();
+  k_b_cxst5.modify_host();
+  k_dtheta_cxst5_c.modify_host();
 
-  k_a_cxst6.template modify<LMPHostType>();
-  k_theta_cxst6_0.template modify<LMPHostType>();
-  k_dtheta_cxst6_ast.template modify<LMPHostType>();
-  k_b_cxst6.template modify<LMPHostType>();
-  k_dtheta_cxst6_c.template modify<LMPHostType>();
+  k_a_cxst6.modify_host();
+  k_theta_cxst6_0.modify_host();
+  k_dtheta_cxst6_ast.modify_host();
+  k_b_cxst6.modify_host();
+  k_dtheta_cxst6_c.modify_host();
 
-  k_a_cxst3p.template modify<LMPHostType>();
-  k_cosphi_cxst3p_ast.template modify<LMPHostType>();
-  k_b_cxst3p.template modify<LMPHostType>();
-  k_cosphi_cxst3p_c.template modify<LMPHostType>();
+  k_a_cxst3p.modify_host();
+  k_cosphi_cxst3p_ast.modify_host();
+  k_b_cxst3p.modify_host();
+  k_cosphi_cxst3p_c.modify_host();
 
-  k_a_cxst4p.template modify<LMPHostType>();
-  k_cosphi_cxst4p_ast.template modify<LMPHostType>();
-  k_b_cxst4p.template modify<LMPHostType>();
-  k_cosphi_cxst4p_c.template modify<LMPHostType>();
+  k_a_cxst4p.modify_host();
+  k_cosphi_cxst4p_ast.modify_host();
+  k_b_cxst4p.modify_host();
+  k_cosphi_cxst4p_c.modify_host();
 
   // Sync to device
   k_k_cxst.template sync<DeviceType>();
