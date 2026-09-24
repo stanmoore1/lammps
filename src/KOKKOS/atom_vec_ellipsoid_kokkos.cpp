@@ -260,7 +260,7 @@ void AtomVecEllipsoidKokkos::pack_comm_bonus_kokkos(const int &n, const DAT::tdu
 {
   // See pack_border_bonus_kokkos for explanation of atomKK->avecKK usage
   int offset = atomKK->avecKK->size_forward - size_forward_bonus;
-  if (vel_flag) offset += size_velocity;
+  if (vel_flag) offset += atomKK->avecKK->size_velocity;
 
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(HostKK,datamask_bonus);
@@ -324,7 +324,7 @@ void AtomVecEllipsoidKokkos::unpack_comm_bonus_kokkos(const int &n, const int &f
 {
   // See pack_border_bonus_kokkos for explanation of atomKK->avecKK usage
   int offset = atomKK->avecKK->size_forward - size_forward_bonus;
-  if (vel_flag) offset += size_velocity;
+  if (vel_flag) offset += atomKK->avecKK->size_velocity;
 
   if (lmp->kokkos->forward_comm_on_host) {
     atomKK->sync(HostKK,datamask_bonus);
@@ -543,7 +543,7 @@ void AtomVecEllipsoidKokkos::pack_border_bonus_kokkos(int n, DAT::tdual_int_1d k
   // Using atomKK->avecKK->size_border gives the correct combined size in hybrid mode and
   // equals this->size_border in standalone mode, so the fix is (should be) safe in both cases.
   int offset = atomKK->avecKK->size_border - size_border_bonus;
-  if (vel_flag) offset += size_velocity;
+  if (vel_flag) offset += atomKK->avecKK->size_velocity;
 
   atomKK->sync(space,datamask_bonus);
 
@@ -633,7 +633,7 @@ void AtomVecEllipsoidKokkos::unpack_border_bonus_kokkos(const int &n, const int 
 
   // See pack_border_bonus_kokkos for explanation of atomKK->avecKK usage
   int offset = atomKK->avecKK->size_border - size_border_bonus;
-  if (vel_flag) offset += size_velocity;
+  if (vel_flag) offset += atomKK->avecKK->size_velocity;
 
   if (space == HostKK) {
     k_nghost_bonus.view_host()() = nghost_bonus;
