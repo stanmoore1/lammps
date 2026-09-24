@@ -235,7 +235,7 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
 
       btype = type[b];
 
-      if( idc != nullptr ) { // unique base pairing enabled
+      if( idc != nullptr ) { // unique base pairing enabled
       // skip pair if no matching complements, but don't if complement IDs<=0
         if( idc[a] != atom->tag[b] && idc[b] != atom->tag[a] && idc[a] > 0 && idc[b] > 0 ) {
           continue;
