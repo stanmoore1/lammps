@@ -30,11 +30,11 @@ BondStyle(oxdna3/fene/kk/host,BondOxdna3FENEKokkos<LMPHostType>);
 namespace LAMMPS_NS {
 
 template<class DeviceType>
-class BondOxdna3FENEKokkos : public BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene> {
+class BondOxdna3FENEKokkos :
+    public BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene, BondOxdnaFENEModel::OXDNA2> {
  public:
   BondOxdna3FENEKokkos(class LAMMPS *lmp) :
-      BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene>(lmp,
-          BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene>::OXDNA2) {}
+      BondOxdnaFENEKokkosT<DeviceType, BondOxdna3Fene, BondOxdnaFENEModel::OXDNA2>(lmp) {}
 };
 
 }    // namespace LAMMPS_NS

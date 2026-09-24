@@ -49,13 +49,19 @@ struct TagPairOxdnaHbondComputeGPUPair{};
 // PairOxrna2Hbond), so that constructor defaults, coeff(), and restart parsing are
 // inherited from the matching CPU style, while the device kernels are shared.
 
-template<class DeviceType, class PairBase>
+// models with a different interaction site geometry; selects the kernel code at compile time
+
+struct PairOxdnaHbondModel {
+  enum { OXDNA = 1, OXDNA3 = 2 };
+};
+
+template<class DeviceType, class PairBase, int MODEL>
 class PairOxdnaHbondKokkosT : public PairBase, public KokkosBase {
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  PairOxdnaHbondKokkosT(class LAMMPS *, int oxdnaflag_in);
+  PairOxdnaHbondKokkosT(class LAMMPS *);
   ~PairOxdnaHbondKokkosT() override;
 
   void compute(int, int) override;
@@ -101,7 +107,6 @@ class PairOxdnaHbondKokkosT : public PairBase, public KokkosBase {
 
  protected:
 
-  int oxdnaflag;
 
   // members of the (dependent) CPU base class used in this class
   using PairBase::a_hb;
@@ -178,7 +183,7 @@ class PairOxdnaHbondKokkosT : public PairBase, public KokkosBase {
   using PairBase::vflag_fdotr;
   using PairBase::vflag_global;
   using PairBase::virial;
-  enum EnabledOXDNAFlag{OXDNA=1,OXDNA3=2};
+  enum EnabledOXDNAFlag { OXDNA = PairOxdnaHbondModel::OXDNA, OXDNA3 = PairOxdnaHbondModel::OXDNA3 };
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_kkacc_1d_3 f;
@@ -358,11 +363,11 @@ class PairOxdnaHbondKokkosT : public PairBase, public KokkosBase {
 };
 
 template<class DeviceType>
-class PairOxdnaHbondKokkos : public PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond> {
+class PairOxdnaHbondKokkos :
+    public PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond, PairOxdnaHbondModel::OXDNA> {
  public:
   PairOxdnaHbondKokkos(class LAMMPS *lmp) :
-      PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond>(lmp,
-          PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond>::OXDNA) {}
+      PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond, PairOxdnaHbondModel::OXDNA>(lmp) {}
 };
 
 }
