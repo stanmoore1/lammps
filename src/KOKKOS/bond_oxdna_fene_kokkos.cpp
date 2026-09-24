@@ -174,7 +174,6 @@ void BondOxdnaFENEKokkosT<DeviceType, BondBase, MODEL>::compute(int eflag_in, in
       Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagBondOxdnaFENECompute<MODEL,0,0> >(0,nbondlist),*this);
   }
 
-
   // The "FENE bond too long" flag is a benign diagnostic: the bond force is
   // capped every step inside the kernel regardless. Copying the device flag
   // back to the host every step forces a sync point that costs more than the

@@ -107,7 +107,6 @@ class PairOxdnaHbondKokkosT : public PairBase, public KokkosBase {
 
  protected:
 
-
   // members of the (dependent) CPU base class used in this class
   using PairBase::a_hb;
   using PairBase::a_hb1;
