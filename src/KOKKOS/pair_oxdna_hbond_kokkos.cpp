@@ -52,6 +52,8 @@ PairOxdnaHbondKokkos<DeviceType>::PairOxdnaHbondKokkos(LAMMPS *lmp) : PairOxdnaH
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
   screened_pair_count = 0;
   unique_basepair_enabled = 0;
+  last_idc_lastcall = -1;
+  last_idc_nall = -1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -130,6 +132,22 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
+  if (eflag_atom) {
+    if (need_dup)
+      dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    else
+      ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+  }
+  if (vflag_atom) {
+    if (need_dup)
+      dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+    else
+      ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
 
   copymode = 1;
 
@@ -144,15 +162,25 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     d_pairs_screened = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();
   }
 
-  if (unique_basepair_enabled && idc) {
+  // the complementary nucleotide IDs are a custom per-atom vector that is
+  // reallocated when the per-atom arrays grow and whose ghost values are only
+  // updated by border communication, so re-fetch the pointer every step and
+  // only copy the values when the neighbor list was rebuilt
+
+  idc = unique_basepair_enabled ? atom->ivector[idc_index] : nullptr;
+  if (idc) {
     const int nall = atom->nlocal + atom->nghost;
-    if (k_idc.extent(0) < static_cast<size_t>(nall)) {
-      k_idc = DAT::tdual_int_1d("pair:idc", nall);
+    if ((neighbor->lastcall != last_idc_lastcall) || (nall != last_idc_nall)) {
+      if (k_idc.extent(0) < static_cast<size_t>(nall))
+        k_idc = DAT::tdual_int_1d("pair:idc", nall);
+      atomKK->sync(Host, IVECTOR_MASK);
+      auto h_idc = k_idc.view_host();
+      for (int i = 0; i < nall; i++) h_idc(i) = idc[i];
+      k_idc.modify_host();
+      k_idc.template sync<DeviceType>();
+      last_idc_lastcall = neighbor->lastcall;
+      last_idc_nall = nall;
     }
-    auto h_idc = k_idc.view_host();
-    for (int i = 0; i < nall; i++) h_idc(i) = idc[i];
-    k_idc.template modify<LMPHostType>();
-    k_idc.template sync<DeviceType>();
     d_idc = k_idc.template view<DeviceType>();
   }
 
@@ -249,14 +277,14 @@ void PairOxdnaHbondKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -371,7 +399,7 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondCompute<OXDNA
     delr_hb[2] = x(a,2) + ra_chb[2] - x(b,2) - rb_chb[2];
 
     rsq_hb = delr_hb[0]*delr_hb[0] + delr_hb[1]*delr_hb[1] + delr_hb[2]*delr_hb[2];
-    r_hb = sqrtf(rsq_hb);
+    r_hb = Kokkos::sqrt(rsq_hb);
     rinv_hb = 1.0 / r_hb;
 
     delr_hb_norm[0] = delr_hb[0] * rinv_hb;
@@ -759,7 +787,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta1_terms(const int &atype, cons
 
   KK_FLOAT sin1_sq = Kokkos::fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
   if (sin1_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin1_sq);
+  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin1_sq);
   df4t1 = DF4_KK(theta1, p_a_hb1, p_theta_hb1_0, p_dtheta_hb1_ast, p_b_hb1, p_dtheta_hb1_c) * rsin1;
   return true;
 }
@@ -786,7 +814,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta2_terms(const int &atype, cons
 
   KK_FLOAT sin2_sq = Kokkos::fma(-cost2, cost2, static_cast<KK_FLOAT>(1.0));
   if (sin2_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin2_sq);
+  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin2_sq);
   df4t2 = DF4_KK(theta2, p_a_hb2, p_theta_hb2_0, p_dtheta_hb2_ast, p_b_hb2, p_dtheta_hb2_c) * rsin2;
   return true;
 }
@@ -813,7 +841,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta3_terms(const int &atype, cons
 
   KK_FLOAT sin3_sq = Kokkos::fma(-cost3, cost3, static_cast<KK_FLOAT>(1.0));
   if (sin3_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin3_sq);
+  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin3_sq);
   df4t3 = DF4_KK(theta3, p_a_hb3, p_theta_hb3_0, p_dtheta_hb3_ast, p_b_hb3, p_dtheta_hb3_c) * rsin3;
   return true;
 }
@@ -840,7 +868,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta4_terms(const int &atype, cons
 
   KK_FLOAT sin4_sq = Kokkos::fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
   if (sin4_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin4 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin4_sq);
+  const KK_FLOAT rsin4 = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin4_sq);
   df4t4 = DF4_KK(theta4, p_a_hb4, p_theta_hb4_0, p_dtheta_hb4_ast, p_b_hb4, p_dtheta_hb4_c) * rsin4;
   return true;
 }
@@ -867,7 +895,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta7_terms(const int &atype, cons
 
   KK_FLOAT sin7_sq = Kokkos::fma(-cost7, cost7, static_cast<KK_FLOAT>(1.0));
   if (sin7_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin7 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin7_sq);
+  const KK_FLOAT rsin7 = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin7_sq);
   df4t7 = DF4_KK(theta7, p_a_hb7, p_theta_hb7_0, p_dtheta_hb7_ast, p_b_hb7, p_dtheta_hb7_c) * rsin7;
   return true;
 }
@@ -894,7 +922,7 @@ bool PairOxdnaHbondKokkos<DeviceType>::hbond_theta8_terms(const int &atype, cons
 
   KK_FLOAT sin8_sq = Kokkos::fma(-cost8, cost8, static_cast<KK_FLOAT>(1.0));
   if (sin8_sq <= static_cast<KK_FLOAT>(0.0)) return false;
-  const KK_FLOAT rsin8 = static_cast<KK_FLOAT>(1.0) / sqrtf(sin8_sq);
+  const KK_FLOAT rsin8 = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin8_sq);
   df4t8 = DF4_KK(theta8, p_a_hb8, p_theta_hb8_0, p_dtheta_hb8_ast, p_b_hb8, p_dtheta_hb8_c) * rsin8;
   return true;
 }
@@ -1160,7 +1188,7 @@ void PairOxdnaHbondKokkos<DeviceType>::operator()(TagPairOxdnaHbondComputeGPUPai
   rsq_hb = Kokkos::fma(delr_hb[2], delr_hb[2],
       Kokkos::fma(delr_hb[1], delr_hb[1], delr_hb[0] * delr_hb[0]));
   if (rsq_hb <= static_cast<KK_FLOAT>(0.0)) return;
-  rinv_hb = static_cast<KK_FLOAT>(1.0) / sqrtf(rsq_hb);
+  rinv_hb = static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(rsq_hb);
   r_hb = rsq_hb * rinv_hb;
 
   delr_hb_norm[0] = delr_hb[0] * rinv_hb;
@@ -1407,15 +1435,25 @@ void PairOxdnaHbondKokkos<DeviceType>::init_style()
 
   unique_basepair_enabled = 0;
   idc = nullptr;
+  idc_index = -1;
+  last_idc_lastcall = -1;
+  last_idc_nall = -1;
   const int ifix = modify->find_fix("Basepairs");
   if (ifix >= 0) {
     int idx, flag, cols;
     idx = atom->find_custom("idc", flag, cols);
     if (idx >= 0 && flag == 0) {
-      idc = atom->ivector[idx];
+      idc_index = idx;
       unique_basepair_enabled = 1;
     }
   }
+
+  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
+  // style on a GPU build would find helper fixes of the wrong type
+
+  if (!fix_oxdna_lrfKK)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1475,54 +1513,54 @@ double PairOxdnaHbondKokkos<DeviceType>::init_one(int i, int j)
   k_b_hb8.view_host()(i,j) = b_hb8[i][j]; k_b_hb8.view_host()(j,i) = b_hb8[j][i];
   k_dtheta_hb8_c.view_host()(i,j) = dtheta_hb8_c[i][j]; k_dtheta_hb8_c.view_host()(j,i) = dtheta_hb8_c[j][i];
 
-  k_epsilon_hb.template modify<LMPHostType>();
-  k_a_hb.template modify<LMPHostType>();
-  k_cut_hb_0.template modify<LMPHostType>();
-  k_cut_hb_c.template modify<LMPHostType>();
-  k_cut_hb_lo.template modify<LMPHostType>();
-  k_cut_hb_hi.template modify<LMPHostType>();
-  k_cut_hb_lc.template modify<LMPHostType>();
-  k_cut_hb_hc.template modify<LMPHostType>();
-  k_b_hb_lo.template modify<LMPHostType>();
-  k_b_hb_hi.template modify<LMPHostType>();
-  k_shift_hb.template modify<LMPHostType>();
-  k_cutsq_hb_hc.template modify<LMPHostType>();
+  k_epsilon_hb.modify_host();
+  k_a_hb.modify_host();
+  k_cut_hb_0.modify_host();
+  k_cut_hb_c.modify_host();
+  k_cut_hb_lo.modify_host();
+  k_cut_hb_hi.modify_host();
+  k_cut_hb_lc.modify_host();
+  k_cut_hb_hc.modify_host();
+  k_b_hb_lo.modify_host();
+  k_b_hb_hi.modify_host();
+  k_shift_hb.modify_host();
+  k_cutsq_hb_hc.modify_host();
 
-  k_a_hb1.template modify<LMPHostType>();
-  k_theta_hb1_0.template modify<LMPHostType>();
-  k_dtheta_hb1_ast.template modify<LMPHostType>();
-  k_b_hb1.template modify<LMPHostType>();
-  k_dtheta_hb1_c.template modify<LMPHostType>();
+  k_a_hb1.modify_host();
+  k_theta_hb1_0.modify_host();
+  k_dtheta_hb1_ast.modify_host();
+  k_b_hb1.modify_host();
+  k_dtheta_hb1_c.modify_host();
 
-  k_a_hb2.template modify<LMPHostType>();
-  k_theta_hb2_0.template modify<LMPHostType>();
-  k_dtheta_hb2_ast.template modify<LMPHostType>();
-  k_b_hb2.template modify<LMPHostType>();
-  k_dtheta_hb2_c.template modify<LMPHostType>();
+  k_a_hb2.modify_host();
+  k_theta_hb2_0.modify_host();
+  k_dtheta_hb2_ast.modify_host();
+  k_b_hb2.modify_host();
+  k_dtheta_hb2_c.modify_host();
 
-  k_a_hb3.template modify<LMPHostType>();
-  k_theta_hb3_0.template modify<LMPHostType>();
-  k_dtheta_hb3_ast.template modify<LMPHostType>();
-  k_b_hb3.template modify<LMPHostType>();
-  k_dtheta_hb3_c.template modify<LMPHostType>();
+  k_a_hb3.modify_host();
+  k_theta_hb3_0.modify_host();
+  k_dtheta_hb3_ast.modify_host();
+  k_b_hb3.modify_host();
+  k_dtheta_hb3_c.modify_host();
 
-  k_a_hb4.template modify<LMPHostType>();
-  k_theta_hb4_0.template modify<LMPHostType>();
-  k_dtheta_hb4_ast.template modify<LMPHostType>();
-  k_b_hb4.template modify<LMPHostType>();
-  k_dtheta_hb4_c.template modify<LMPHostType>();
+  k_a_hb4.modify_host();
+  k_theta_hb4_0.modify_host();
+  k_dtheta_hb4_ast.modify_host();
+  k_b_hb4.modify_host();
+  k_dtheta_hb4_c.modify_host();
 
-  k_a_hb7.template modify<LMPHostType>();
-  k_theta_hb7_0.template modify<LMPHostType>();
-  k_dtheta_hb7_ast.template modify<LMPHostType>();
-  k_b_hb7.template modify<LMPHostType>();
-  k_dtheta_hb7_c.template modify<LMPHostType>();
+  k_a_hb7.modify_host();
+  k_theta_hb7_0.modify_host();
+  k_dtheta_hb7_ast.modify_host();
+  k_b_hb7.modify_host();
+  k_dtheta_hb7_c.modify_host();
 
-  k_a_hb8.template modify<LMPHostType>();
-  k_theta_hb8_0.template modify<LMPHostType>();
-  k_dtheta_hb8_ast.template modify<LMPHostType>();
-  k_b_hb8.template modify<LMPHostType>();
-  k_dtheta_hb8_c.template modify<LMPHostType>();
+  k_a_hb8.modify_host();
+  k_theta_hb8_0.modify_host();
+  k_dtheta_hb8_ast.modify_host();
+  k_b_hb8.modify_host();
+  k_dtheta_hb8_c.modify_host();
 
   // Sync to device
   k_epsilon_hb.template sync<DeviceType>();
@@ -1574,11 +1612,10 @@ double PairOxdnaHbondKokkos<DeviceType>::init_one(int i, int j)
   k_b_hb8.template sync<DeviceType>();
   k_dtheta_hb8_c.template sync<DeviceType>();
 
-  // Register the COM screen cutoff for this pair: the h-bond cutoff acts at the
-  // base site (COM +/- 0.4*nx on each atom), so a COM-distance screen needs a
-  // 2*0.4 margin to never drop an interacting pair. The npair fix takes the max
-  // over all consuming styles and type-pairs.
-  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone + 0.8);
+  // Register the site-site cutoff of this pair with the COM screen of the npair
+  // fix, which adds the margin for the displacement of the interaction sites
+  // from the COM and takes the max over all consuming styles and type pairs.
+  if (fix_oxdna_npairKK) fix_oxdna_npairKK->request_screen_cutoff(cutone);
 
   // "cutone" is "cut_hb_hc[i][j]", sets the master list distance cutoff
   return cutone;
