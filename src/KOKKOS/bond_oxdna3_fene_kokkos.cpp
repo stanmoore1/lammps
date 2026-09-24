@@ -201,9 +201,9 @@ void BondOxdna3FENEKokkos<DeviceType>::coeff(int narg, char **arg)
     }
   }
 
-  k_k.template modify<LMPHostType>();
-  k_r0.template modify<LMPHostType>();
-  k_Delta.template modify<LMPHostType>();
+  k_k.modify_host();
+  k_r0.modify_host();
+  k_Delta.modify_host();
 
   // sync to device
   k_k.template sync<DeviceType>();

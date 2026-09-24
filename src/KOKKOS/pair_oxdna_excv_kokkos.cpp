@@ -151,6 +151,22 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
+  if (eflag_atom) {
+    if (need_dup)
+      dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    else
+      ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+  }
+  if (vflag_atom) {
+    if (need_dup)
+      dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+    else
+      ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
 
   // d_n(x/y/z)_xtrct = extracted local unit vectors in lab frame from fix_oxdna_lrf_kokkos.
   d_nx_xtrct = fix_oxdna_lrfKK->k_nx.template view<DeviceType>();
@@ -241,14 +257,14 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -913,35 +929,35 @@ double PairOxdnaExcvKokkos<DeviceType>::init_one(int i, int j)
   k_cutsq_bsbs_c.view_host()(i,j) = cutsq_bsbs_c[i][j];
   k_cutsq_bsbs_c.view_host()(j,i) = cutsq_bsbs_c[j][i];
 
-  k_epsilon_bkbk.template modify<LMPHostType>();
-  k_sigma_bkbk.template modify<LMPHostType>();
-  k_cut_bkbk_ast.template modify<LMPHostType>();
-  k_b_bkbk.template modify<LMPHostType>();
-  k_cut_bkbk_c.template modify<LMPHostType>();
-  k_lj1_bkbk.template modify<LMPHostType>();
-  k_lj2_bkbk.template modify<LMPHostType>();
-  k_cutsq_bkbk_ast.template modify<LMPHostType>();
-  k_cutsq_bkbk_c.template modify<LMPHostType>();
+  k_epsilon_bkbk.modify_host();
+  k_sigma_bkbk.modify_host();
+  k_cut_bkbk_ast.modify_host();
+  k_b_bkbk.modify_host();
+  k_cut_bkbk_c.modify_host();
+  k_lj1_bkbk.modify_host();
+  k_lj2_bkbk.modify_host();
+  k_cutsq_bkbk_ast.modify_host();
+  k_cutsq_bkbk_c.modify_host();
 
-  k_epsilon_bkbs.template modify<LMPHostType>();
-  k_sigma_bkbs.template modify<LMPHostType>();
-  k_cut_bkbs_ast.template modify<LMPHostType>();
-  k_b_bkbs.template modify<LMPHostType>();
-  k_cut_bkbs_c.template modify<LMPHostType>();
-  k_lj1_bkbs.template modify<LMPHostType>();
-  k_lj2_bkbs.template modify<LMPHostType>();
-  k_cutsq_bkbs_ast.template modify<LMPHostType>();
-  k_cutsq_bkbs_c.template modify<LMPHostType>();
+  k_epsilon_bkbs.modify_host();
+  k_sigma_bkbs.modify_host();
+  k_cut_bkbs_ast.modify_host();
+  k_b_bkbs.modify_host();
+  k_cut_bkbs_c.modify_host();
+  k_lj1_bkbs.modify_host();
+  k_lj2_bkbs.modify_host();
+  k_cutsq_bkbs_ast.modify_host();
+  k_cutsq_bkbs_c.modify_host();
 
-  k_epsilon_bsbs.template modify<LMPHostType>();
-  k_sigma_bsbs.template modify<LMPHostType>();
-  k_cut_bsbs_ast.template modify<LMPHostType>();
-  k_b_bsbs.template modify<LMPHostType>();
-  k_cut_bsbs_c.template modify<LMPHostType>();
-  k_lj1_bsbs.template modify<LMPHostType>();
-  k_lj2_bsbs.template modify<LMPHostType>();
-  k_cutsq_bsbs_ast.template modify<LMPHostType>();
-  k_cutsq_bsbs_c.template modify<LMPHostType>();
+  k_epsilon_bsbs.modify_host();
+  k_sigma_bsbs.modify_host();
+  k_cut_bsbs_ast.modify_host();
+  k_b_bsbs.modify_host();
+  k_cut_bsbs_c.modify_host();
+  k_lj1_bsbs.modify_host();
+  k_lj2_bsbs.modify_host();
+  k_cutsq_bsbs_ast.modify_host();
+  k_cutsq_bsbs_c.modify_host();
 
   // Sync to device
   k_epsilon_bkbk.template sync<DeviceType>();
@@ -1012,14 +1028,14 @@ void PairOxdnaExcvKokkos<DeviceType>::coeff_set_tetramers_kokkos(int narg, char 
     }
   }
 
-  k_sigma4_bsbs.template modify<LMPHostType>();
-  k_cut4_bsbs_ast.template modify<LMPHostType>();
-  k_cut4sq_bsbs_ast.template modify<LMPHostType>();
-  k_lj14_bsbs.template modify<LMPHostType>();
-  k_lj24_bsbs.template modify<LMPHostType>();
-  k_b4_bsbs.template modify<LMPHostType>();
-  k_cut4_bsbs_c.template modify<LMPHostType>();
-  k_cut4sq_bsbs_c.template modify<LMPHostType>();
+  k_sigma4_bsbs.modify_host();
+  k_cut4_bsbs_ast.modify_host();
+  k_cut4sq_bsbs_ast.modify_host();
+  k_lj14_bsbs.modify_host();
+  k_lj24_bsbs.modify_host();
+  k_b4_bsbs.modify_host();
+  k_cut4_bsbs_c.modify_host();
+  k_cut4sq_bsbs_c.modify_host();
 
   // Sync to device
   k_sigma4_bsbs.template sync<DeviceType>();

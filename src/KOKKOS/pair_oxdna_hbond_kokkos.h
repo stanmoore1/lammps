@@ -131,6 +131,8 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   DAT::tdual_int_1d k_idc;
   typename AT::t_int_1d_randomread d_idc;
   int unique_basepair_enabled;
+  bigint last_idc_lastcall;
+  int last_idc_nall;
 
   // hydrogen-bonding interaction parameters
   typename AT::tdual_kkfloat_2d k_epsilon_hb, k_a_hb, k_cut_hb_0, k_cut_hb_c;
