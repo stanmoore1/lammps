@@ -44,14 +44,19 @@ struct TagPairOxdnaHbondCompute{};
 template<int OXDNAFLAG, int NEIGHFLAG, int NEWTON_PAIR, int EVFLAG>
 struct TagPairOxdnaHbondComputeGPUPair{};
 
-template<class DeviceType>
-class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
+// KOKKOS implementation of the oxDNA/oxRNA hydrogen-bonding pair styles.  The
+// class is templated on its CPU parent (PairOxdnaHbond, PairOxdna3Hbond, or
+// PairOxrna2Hbond), so that constructor defaults, coeff(), and restart parsing are
+// inherited from the matching CPU style, while the device kernels are shared.
+
+template<class DeviceType, class PairBase>
+class PairOxdnaHbondKokkosT : public PairBase, public KokkosBase {
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
-  PairOxdnaHbondKokkos(class LAMMPS *);
-  ~PairOxdnaHbondKokkos() override;
+  PairOxdnaHbondKokkosT(class LAMMPS *, int oxdnaflag_in);
+  ~PairOxdnaHbondKokkosT() override;
 
   void compute(int, int) override;
 
@@ -97,6 +102,82 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
  protected:
 
   int oxdnaflag;
+
+  // members of the (dependent) CPU base class used in this class
+  using PairBase::a_hb;
+  using PairBase::a_hb1;
+  using PairBase::a_hb2;
+  using PairBase::a_hb3;
+  using PairBase::a_hb4;
+  using PairBase::a_hb7;
+  using PairBase::a_hb8;
+  using PairBase::allocated;
+  using PairBase::atom;
+  using PairBase::atomKK;
+  using PairBase::b_hb1;
+  using PairBase::b_hb2;
+  using PairBase::b_hb3;
+  using PairBase::b_hb4;
+  using PairBase::b_hb7;
+  using PairBase::b_hb8;
+  using PairBase::b_hb_hi;
+  using PairBase::b_hb_lo;
+  using PairBase::copymode;
+  using PairBase::cut_hb_0;
+  using PairBase::cut_hb_c;
+  using PairBase::cut_hb_hc;
+  using PairBase::cut_hb_hi;
+  using PairBase::cut_hb_lc;
+  using PairBase::cut_hb_lo;
+  using PairBase::cutsq_hb_hc;
+  using PairBase::datamask_modify;
+  using PairBase::datamask_read;
+  using PairBase::dtheta_hb1_ast;
+  using PairBase::dtheta_hb1_c;
+  using PairBase::dtheta_hb2_ast;
+  using PairBase::dtheta_hb2_c;
+  using PairBase::dtheta_hb3_ast;
+  using PairBase::dtheta_hb3_c;
+  using PairBase::dtheta_hb4_ast;
+  using PairBase::dtheta_hb4_c;
+  using PairBase::dtheta_hb7_ast;
+  using PairBase::dtheta_hb7_c;
+  using PairBase::dtheta_hb8_ast;
+  using PairBase::dtheta_hb8_c;
+  using PairBase::eatom;
+  using PairBase::eflag_atom;
+  using PairBase::eflag_global;
+  using PairBase::eng_vdwl;
+  using PairBase::epsilon_hb;
+  using PairBase::error;
+  using PairBase::ev_init;
+  using PairBase::evflag;
+  using PairBase::execution_space;
+  using PairBase::force;
+  using PairBase::idc;
+  using PairBase::idc_index;
+  using PairBase::kokkosable;
+  using PairBase::list;
+  using PairBase::lmp;
+  using PairBase::maxeatom;
+  using PairBase::maxvatom;
+  using PairBase::memoryKK;
+  using PairBase::modify;
+  using PairBase::neighbor;
+  using PairBase::no_virial_fdotr_compute;
+  using PairBase::shift_hb;
+  using PairBase::theta_hb1_0;
+  using PairBase::theta_hb2_0;
+  using PairBase::theta_hb3_0;
+  using PairBase::theta_hb4_0;
+  using PairBase::theta_hb7_0;
+  using PairBase::theta_hb8_0;
+  using PairBase::vatom;
+  using PairBase::vflag_atom;
+  using PairBase::vflag_either;
+  using PairBase::vflag_fdotr;
+  using PairBase::vflag_global;
+  using PairBase::virial;
   enum EnabledOXDNAFlag{OXDNA=1,OXDNA3=2};
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
@@ -196,7 +277,7 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
 
   void allocate() override;
 
-  friend void pair_virial_fdotr_compute<PairOxdnaHbondKokkos>(PairOxdnaHbondKokkos*);
+  friend void pair_virial_fdotr_compute<PairOxdnaHbondKokkosT>(PairOxdnaHbondKokkosT*);
 
   FixOxdnaLRFKokkos<DeviceType> *fix_oxdna_lrfKK;    // ptr to OXDNA/LRF/kk fix
   FixOxdnaNpairKokkos<DeviceType> *fix_oxdna_npairKK;    // ptr to OXDNA/NPAIR/kk fix
@@ -274,6 +355,14 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
     const KK_FLOAT (&a_nz)[3], const KK_FLOAT (&b_nz)[3],
     const KK_FLOAT (&delr_hb_norm)[3],
     KK_ACC_FLOAT (&delta)[3], KK_ACC_FLOAT (&deltb)[3]) const;
+};
+
+template<class DeviceType>
+class PairOxdnaHbondKokkos : public PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond> {
+ public:
+  PairOxdnaHbondKokkos(class LAMMPS *lmp) :
+      PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond>(lmp,
+          PairOxdnaHbondKokkosT<DeviceType, PairOxdnaHbond>::OXDNA) {}
 };
 
 }
