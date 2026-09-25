@@ -56,6 +56,7 @@ PairOxdnaHbond::PairOxdnaHbond(LAMMPS *lmp) :
   single_enable = 0;
   writedata = 0;
   trim_flag = 0;
+  seqdepflag = 0;
 
   // sequence-specific base-pairing strength
   // A:0 C:1 G:2 T:3, 5'- [i][j] -3'
@@ -81,6 +82,7 @@ PairOxdnaHbond::PairOxdnaHbond(LAMMPS *lmp) :
   alpha_hb[3][3] = 1.00000;
 
   idc = nullptr;
+  idc_index = -1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -205,6 +207,10 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
   // nxyz_xtrct = extracted local unit vectors in lab frame from fix OXDNA/LRF
   nxyz_xtrct = fix_lrf->array_atom;
 
+  // the custom per-atom vector is reallocated when the per-atom arrays grow
+
+  idc = (idc_index >= 0) ? atom->ivector[idc_index] : nullptr;
+
   // loop over pair interaction neighbors of my atoms
 
   for (ia = 0; ia < anum; ia++) {
@@ -230,7 +236,7 @@ void PairOxdnaHbond::compute(int eflag, int vflag)
 
       btype = type[b];
 
-      if( idc != nullptr ) { // unique base pairing enabled
+      if( idc != nullptr ) { // unique base pairing enabled
       // skip pair if no matching complements, but don't if complement IDs<=0
         if( idc[a] != atom->tag[b] && idc[b] != atom->tag[a] && idc[a] > 0 && idc[b] > 0 ) {
           continue;
@@ -947,6 +953,7 @@ void PairOxdnaHbond::init_style()
 
   // optionally initialise fix for unique base pairing
 
+  idc_index = -1;
   if (!modify->get_fix_by_id("Basepairs")) {
     if (comm->me == 0) utils::logmesg(lmp,"Parsing normal base pairing\n");
   }
@@ -955,9 +962,7 @@ void PairOxdnaHbond::init_style()
 
     int idx, flag, cols;
     idx = atom->find_custom("idc", flag, cols);
-    if (idx >= 0 && flag == 0) {
-      idc = atom->ivector[idx];
-    }
+    if (idx >= 0 && flag == 0) idc_index = idx;
   }
 
 }

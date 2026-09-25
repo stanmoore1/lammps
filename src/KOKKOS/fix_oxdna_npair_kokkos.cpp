@@ -15,11 +15,15 @@
 
 #include "atom_kokkos.h"
 #include "atom_masks.h"
+#include "constants_oxdna.h"
 #include "kokkos.h"
 #include "memory_kokkos.h"
 #include "neighbor.h"
 #include "neigh_list_kokkos.h"
 #include "neigh_request.h"
+
+#include <algorithm>
+#include <cmath>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -102,9 +106,9 @@ template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::min_pre_force(int /*vflag*/)
 {
   if ((force_screening_all_backends || execution_space != HostKK) &&
-      last_allocate != neighbor->lastcall) {
+      last_allocate != neighbor->ncalls) {
      compute_neigh_screen_to_npair();
-     last_allocate = neighbor->lastcall;
+     last_allocate = neighbor->ncalls;
   }
 }
 
@@ -123,10 +127,32 @@ template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
 {
   if ((force_screening_all_backends || execution_space != HostKK) &&
-      last_allocate != neighbor->lastcall) {
+      last_allocate != neighbor->ncalls) {
      compute_neigh_screen_to_npair();
-     last_allocate = neighbor->lastcall;
+     last_allocate = neighbor->ncalls;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------------
+   largest distance of any hydrogen-bonding or stacking interaction site
+   from the nucleotide COM over all supported models
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+double FixOxdnaNpairKokkos<DeviceType>::max_site_offset()
+{
+  double dmax = std::fabs(ConstantsOxdna::get_dx_cbs_oxdna1());
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cstk_oxdna1()));
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cbs_pur_oxdna3()));
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cbs_pyr_oxdna3()));
+  dmax = std::max(dmax, std::fabs(ConstantsOxdna::get_dx_cstk_oxdna3()));
+  dmax = std::max(dmax, std::hypot(ConstantsOxdna::get_dx_cstk_3p_oxrna2(),
+                                   ConstantsOxdna::get_dy_cstk_3p_oxrna2()));
+  dmax = std::max(dmax, std::hypot(ConstantsOxdna::get_dx_cstk_5p_oxrna2(),
+                                   ConstantsOxdna::get_dy_cstk_5p_oxrna2()));
+  return dmax;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -137,14 +163,13 @@ void FixOxdnaNpairKokkos<DeviceType>::update_screen_cutsq()
   // Derive the COM screen cutoff from the cutoffs registered by the consuming
   // pair styles (hbond / xstk / coaxstk) in their init_one, then add the
   // neighbor skin. Since this screened list is rebuilt only when the neighbor
-  // list rebuilds, a skin margin is required to keep the filtered pair list
-  // valid between rebuilds (same Verlet-list principle as the base neighbor
-  // list itself).
-  // However, the pair_styles already add in an extra 0.4*nx margin
-  // to their cutoffs to account for the base-site offset, so we can be
-  // a little cheeky and half the neighbor skin margin too.
+  // list rebuilds, the full skin is required to keep the filtered pair list
+  // valid between rebuilds: two atoms can approach each other by up to one
+  // skin distance before the next rebuild (same Verlet-list principle as the
+  // base neighbor list itself). The site offset margin added at registration
+  // only covers the orientation dependence of the site positions.
   const KK_FLOAT base_screen_cut = (screen_cut_max > 0.0) ? screen_cut_max : 2.0;
-  const KK_FLOAT screen_cut_with_skin = base_screen_cut + (0.5 * neighbor->skin);
+  const KK_FLOAT screen_cut_with_skin = base_screen_cut + neighbor->skin;
   screen_cutsq = screen_cut_with_skin * screen_cut_with_skin;
 }
 
@@ -171,11 +196,8 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
                           screened_max_atoms);
     MemKK::realloc_kokkos(k_screened_offsets, "FixOxdnaNpair:screened_offsets",
                           screened_max_atoms + 1);
-    MemKK::realloc_kokkos(k_pairs_screened, "FixOxdnaNpair:pairs_screened",
-              screened_max_atoms * screened_max_neigh);
     d_numneigh_screened = k_numneigh_screened.template view<DeviceType>();
     d_screened_offsets = k_screened_offsets.template view<DeviceType>();
-    d_pairs_screened = k_pairs_screened.template view<DeviceType>();
   }
 
   atomKK->sync(execution_space, datamask_read);
@@ -220,6 +242,15 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
   Kokkos::deep_copy(
     k_screened_pair_count.view_host(), Kokkos::subview(d_screened_offsets_local, anum_local));
   screened_pair_count = k_screened_pair_count.view_host()();
+
+  // size the packed pair list by the number of pairs that survived screening,
+  // with some headroom to avoid reallocating at every rebuild
+
+  if ((bigint) screened_pair_count > (bigint) k_pairs_screened.extent(0)) {
+    const bigint newsize = (bigint) screened_pair_count + screened_pair_count / 5 + 1;
+    MemKK::realloc_kokkos(k_pairs_screened, "FixOxdnaNpair:pairs_screened", (size_t) newsize);
+  }
+  d_pairs_screened = k_pairs_screened.template view<DeviceType>();
 
   // Pass 3 (fill): re-screen each atom's neighbours and write its survivors as
   // packed (a,b) uint64 keys directly at d_screened_offsets(i)..+count. The

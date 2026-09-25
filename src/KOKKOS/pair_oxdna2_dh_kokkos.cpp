@@ -124,6 +124,22 @@ void PairOxdna2DhKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     ndup_torque = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum, \
     Kokkos::Experimental::ScatterNonDuplicated>(torque);
   }
+  if (eflag_atom) {
+    if (need_dup)
+      dup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_eatom);
+    else
+      ndup_eatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_eatom);
+  }
+  if (vflag_atom) {
+    if (need_dup)
+      dup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterDuplicated>(d_vatom);
+    else
+      ndup_vatom = Kokkos::Experimental::create_scatter_view<Kokkos::Experimental::ScatterSum,
+        Kokkos::Experimental::ScatterNonDuplicated>(d_vatom);
+  }
 
   copymode = 1;
 
@@ -247,14 +263,14 @@ void PairOxdna2DhKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom, dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom, dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -361,7 +377,7 @@ void PairOxdna2DhKokkos<DeviceType>::operator()(TagPairOxdna2DhCompute<OXDNAFLAG
     KK_FLOAT evdwl_loc = 0.0;
 
     if (r <= cut_dh_ast) {
-      const KK_FLOAT expterm = expf(-kappa * r);
+      const KK_FLOAT expterm = Kokkos::exp(-kappa * r);
       fpair = qeff_a * qeff_b * qeff_dh_pf * expterm * (kappa + rinv) * rinv * rinv;
 
       if constexpr (EVFLAG) {
@@ -472,8 +488,20 @@ void PairOxdna2DhKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdna2DhKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
+}
+
+/* ----------------------------------------------------------------------
+   the parent coeff() sets the effective charges of the local atoms on the host
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void PairOxdna2DhKokkos<DeviceType>::coeff(int narg, char **arg)
+{
+  atomKK->sync(Host, CG_DNA_MASK);
+  PairOxdna2Dh::coeff(narg, arg);
+  atomKK->modified(Host, CG_DNA_MASK);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -481,6 +509,13 @@ void PairOxdna2DhKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdna2DhKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -494,6 +529,7 @@ void PairOxdna2DhKokkos<DeviceType>::init_style()
   auto fixes = modify->get_fix_by_style("^OXDNA/LRF/kk");
   if (fixes.size() == 0) error->all(FLERR, "Fix OXDNA/LRF/kk not found. Ensure pair ox*na*/excv/kk is present");
   else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -512,13 +548,13 @@ double PairOxdna2DhKokkos<DeviceType>::init_one(int i, int j)
   k_cut_dh_c.view_host()(i,j) = cut_dh_c[i][j]; k_cut_dh_c.view_host()(j,i) = cut_dh_c[j][i];
   k_cutsq_dh_c.view_host()(i,j) = cutsq_dh_c[i][j]; k_cutsq_dh_c.view_host()(j,i) = cutsq_dh_c[j][i];
 
-  k_qeff_dh_pf.template modify<LMPHostType>();
-  k_kappa_dh.template modify<LMPHostType>();
-  k_b_dh.template modify<LMPHostType>();
-  k_cut_dh_ast.template modify<LMPHostType>();
-  k_cutsq_dh_ast.template modify<LMPHostType>();
-  k_cut_dh_c.template modify<LMPHostType>();
-  k_cutsq_dh_c.template modify<LMPHostType>();
+  k_qeff_dh_pf.modify_host();
+  k_kappa_dh.modify_host();
+  k_b_dh.modify_host();
+  k_cut_dh_ast.modify_host();
+  k_cutsq_dh_ast.modify_host();
+  k_cut_dh_c.modify_host();
+  k_cutsq_dh_c.modify_host();
 
   // Sync to device
   k_qeff_dh_pf.template sync<DeviceType>();

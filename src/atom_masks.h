@@ -82,6 +82,6 @@
 
 // CG-DNA
 
-#define CG_DNA_MASK    0x0000008000000000
+#define CG_DNA_MASK    0x0000080000000000
 
 #endif

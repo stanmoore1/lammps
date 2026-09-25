@@ -205,14 +205,14 @@ void PairOxrna2XstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     if (need_dup)
       Kokkos::Experimental::contribute(d_eatom,dup_eatom);
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     if (need_dup)
       Kokkos::Experimental::contribute(d_vatom,dup_vatom);
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   if (need_dup) {
@@ -659,7 +659,7 @@ void PairOxrna2XstkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxrna2XstkKokkos<DeviceType>::settings(int narg, char ** /*arg*/)
 {
-  if (narg != 0) error->all(FLERR, "Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -667,6 +667,13 @@ void PairOxrna2XstkKokkos<DeviceType>::settings(int narg, char ** /*arg*/)
 template<class DeviceType>
 void PairOxrna2XstkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -768,46 +775,46 @@ double PairOxrna2XstkKokkos<DeviceType>::init_one(int i, int j)
   k_dtheta_xst8_c.view_host()(i, j) = dtheta_xst8_c[i][j];
   k_dtheta_xst8_c.view_host()(j, i) = dtheta_xst8_c[j][i];
 
-  k_k_xst.template modify<LMPHostType>();
-  k_cut_xst_0.template modify<LMPHostType>();
-  k_cut_xst_c.template modify<LMPHostType>();
-  k_cut_xst_lo.template modify<LMPHostType>();
-  k_cut_xst_hi.template modify<LMPHostType>();
-  k_cut_xst_lc.template modify<LMPHostType>();
-  k_cut_xst_hc.template modify<LMPHostType>();
-  k_b_xst_lo.template modify<LMPHostType>();
-  k_b_xst_hi.template modify<LMPHostType>();
-  k_cutsq_xst_hc.template modify<LMPHostType>();
+  k_k_xst.modify_host();
+  k_cut_xst_0.modify_host();
+  k_cut_xst_c.modify_host();
+  k_cut_xst_lo.modify_host();
+  k_cut_xst_hi.modify_host();
+  k_cut_xst_lc.modify_host();
+  k_cut_xst_hc.modify_host();
+  k_b_xst_lo.modify_host();
+  k_b_xst_hi.modify_host();
+  k_cutsq_xst_hc.modify_host();
 
-  k_a_xst1.template modify<LMPHostType>();
-  k_theta_xst1_0.template modify<LMPHostType>();
-  k_dtheta_xst1_ast.template modify<LMPHostType>();
-  k_b_xst1.template modify<LMPHostType>();
-  k_dtheta_xst1_c.template modify<LMPHostType>();
+  k_a_xst1.modify_host();
+  k_theta_xst1_0.modify_host();
+  k_dtheta_xst1_ast.modify_host();
+  k_b_xst1.modify_host();
+  k_dtheta_xst1_c.modify_host();
 
-  k_a_xst2.template modify<LMPHostType>();
-  k_theta_xst2_0.template modify<LMPHostType>();
-  k_dtheta_xst2_ast.template modify<LMPHostType>();
-  k_b_xst2.template modify<LMPHostType>();
-  k_dtheta_xst2_c.template modify<LMPHostType>();
+  k_a_xst2.modify_host();
+  k_theta_xst2_0.modify_host();
+  k_dtheta_xst2_ast.modify_host();
+  k_b_xst2.modify_host();
+  k_dtheta_xst2_c.modify_host();
 
-  k_a_xst3.template modify<LMPHostType>();
-  k_theta_xst3_0.template modify<LMPHostType>();
-  k_dtheta_xst3_ast.template modify<LMPHostType>();
-  k_b_xst3.template modify<LMPHostType>();
-  k_dtheta_xst3_c.template modify<LMPHostType>();
+  k_a_xst3.modify_host();
+  k_theta_xst3_0.modify_host();
+  k_dtheta_xst3_ast.modify_host();
+  k_b_xst3.modify_host();
+  k_dtheta_xst3_c.modify_host();
 
-  k_a_xst7.template modify<LMPHostType>();
-  k_theta_xst7_0.template modify<LMPHostType>();
-  k_dtheta_xst7_ast.template modify<LMPHostType>();
-  k_b_xst7.template modify<LMPHostType>();
-  k_dtheta_xst7_c.template modify<LMPHostType>();
+  k_a_xst7.modify_host();
+  k_theta_xst7_0.modify_host();
+  k_dtheta_xst7_ast.modify_host();
+  k_b_xst7.modify_host();
+  k_dtheta_xst7_c.modify_host();
 
-  k_a_xst8.template modify<LMPHostType>();
-  k_theta_xst8_0.template modify<LMPHostType>();
-  k_dtheta_xst8_ast.template modify<LMPHostType>();
-  k_b_xst8.template modify<LMPHostType>();
-  k_dtheta_xst8_c.template modify<LMPHostType>();
+  k_a_xst8.modify_host();
+  k_theta_xst8_0.modify_host();
+  k_dtheta_xst8_ast.modify_host();
+  k_b_xst8.modify_host();
+  k_dtheta_xst8_c.modify_host();
 
   k_k_xst.template sync<DeviceType>();
   k_cut_xst_0.template sync<DeviceType>();

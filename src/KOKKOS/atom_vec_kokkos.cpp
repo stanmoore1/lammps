@@ -1493,31 +1493,33 @@ struct AtomVecKokkos_PackReverseSelfFused {
     if (j >= nlocal)
       j = _g2l(j-nlocal);
 
-    _f(j,0) += _f(i+_nfirst,0);
-    _f(j,1) += _f(i+_nfirst,1);
-    _f(j,2) += _f(i+_nfirst,2);
+    // all ghost images of an owned atom are reduced into it in one kernel,
+    // so different threads can add into the same atom j: use atomics
+
+    Kokkos::atomic_add(&_f(j,0),_f(i+_nfirst,0));
+    Kokkos::atomic_add(&_f(j,1),_f(i+_nfirst,1));
+    Kokkos::atomic_add(&_f(j,2),_f(i+_nfirst,2));
 
     if constexpr (!DEFAULT) {
 
       // DIPOLE package
 
       if (_datamask & TORQUE_MASK) {
-        _torque(j,0) += _torque(i+_nfirst,0);
-        _torque(j,1) += _torque(i+_nfirst,1);
-        _torque(j,2) += _torque(i+_nfirst,2);
+        Kokkos::atomic_add(&_torque(j,0),_torque(i+_nfirst,0));
+        Kokkos::atomic_add(&_torque(j,1),_torque(i+_nfirst,1));
+        Kokkos::atomic_add(&_torque(j,2),_torque(i+_nfirst,2));
       }
 
       // SPIN package
 
       if (_datamask & FM_MASK) {
-        _fm(j,0) += _fm(i+_nfirst,0);
-        _fm(j,1) += _fm(i+_nfirst,1);
-        _fm(j,2) += _fm(i+_nfirst,2);
-        _fm(j,3) += _fm(i+_nfirst,3);
+        Kokkos::atomic_add(&_fm(j,0),_fm(i+_nfirst,0));
+        Kokkos::atomic_add(&_fm(j,1),_fm(i+_nfirst,1));
+        Kokkos::atomic_add(&_fm(j,2),_fm(i+_nfirst,2));
 
-        _fm_long(j,0) += _fm_long(i+_nfirst,0);
-        _fm_long(j,1) += _fm_long(i+_nfirst,1);
-        _fm_long(j,2) += _fm_long(i+_nfirst,2);
+        Kokkos::atomic_add(&_fm_long(j,0),_fm_long(i+_nfirst,0));
+        Kokkos::atomic_add(&_fm_long(j,1),_fm_long(i+_nfirst,1));
+        Kokkos::atomic_add(&_fm_long(j,2),_fm_long(i+_nfirst,2));
       }
     }
   }

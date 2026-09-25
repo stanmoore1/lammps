@@ -45,7 +45,7 @@ PairOxrna2StkKokkos<DeviceType>::PairOxrna2StkKokkos(LAMMPS *lmp) : PairOxrna2St
 
   fix_oxdna_lrfKK = nullptr;
   fix_oxdna_prime_neighsKK = nullptr;
-  last_prime_neighs_bond_lastcall = -1;
+  last_prime_neighs_bond_ncalls = -1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -99,12 +99,12 @@ void PairOxrna2StkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nbondlist = neighborKK->nbondlist;
 
   // Keep bond-context precompute aligned with the current neighbor-list epoch.
-  if (last_prime_neighs_bond_lastcall != neighbor->lastcall) {
-    fix_oxdna_prime_neighsKK->compute_prime_neighs_bond();
-    last_prime_neighs_bond_lastcall = neighbor->lastcall;
+  if (last_prime_neighs_bond_ncalls != neighbor->ncalls) {
+    fix_oxdna_prime_neighsKK->compute_prime_neighs_bond(d_prime_neighs_bond_own, 0);
+    last_prime_neighs_bond_ncalls = neighbor->ncalls;
   }
 
-  d_prime_neighs_bond = fix_oxdna_prime_neighsKK->d_prime_neighs_bond;
+  d_prime_neighs_bond = d_prime_neighs_bond_own;
 
   copymode = 1;
 
@@ -149,12 +149,12 @@ void PairOxrna2StkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
-    k_eatom.template sync<LMPHostType>();
+    k_eatom.sync_host();
   }
 
   if (vflag_atom) {
     k_vatom.template modify<DeviceType>();
-    k_vatom.template sync<LMPHostType>();
+    k_vatom.sync_host();
   }
 
   copymode = 0;
@@ -251,7 +251,7 @@ KOKKOS_INLINE_FUNCTION void PairOxrna2StkKokkos<DeviceType>::operator()(
   delr_stkstk[2] = x(b, 2) + rb_cstk[2] - x(a, 2) - ra_cstk[2];
 
   rsq_stkstk = Kokkos::fma(delr_stkstk[0], delr_stkstk[0], Kokkos::fma(delr_stkstk[1], delr_stkstk[1], delr_stkstk[2]*delr_stkstk[2]));
-  r_stkstk = sqrtf(rsq_stkstk);
+  r_stkstk = Kokkos::sqrt(rsq_stkstk);
   rinv_stkstk = 1.0 / r_stkstk;
 
   delr_stkstk_norm[0] = delr_stkstk[0] * rinv_stkstk;
@@ -274,7 +274,7 @@ KOKKOS_INLINE_FUNCTION void PairOxrna2StkKokkos<DeviceType>::operator()(
   delr_bkbk[2] = x(b, 2) + rb_cbk[2] - x(a, 2) - ra_cbk[2];
 
   rsq_bkbk = Kokkos::fma(delr_bkbk[0], delr_bkbk[0], Kokkos::fma(delr_bkbk[1], delr_bkbk[1], delr_bkbk[2]*delr_bkbk[2]));
-  r_bkbk = sqrtf(rsq_bkbk);
+  r_bkbk = Kokkos::sqrt(rsq_bkbk);
   rinv_bkbk = 1.0 / r_bkbk;
 
   delr_bkbk_norm[0] = delr_bkbk[0] * rinv_bkbk;
@@ -712,7 +712,7 @@ void PairOxrna2StkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxrna2StkKokkos<DeviceType>::settings(int narg, char ** /*arg*/)
 {
-  if (narg != 0) error->all(FLERR, "Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -720,11 +720,23 @@ void PairOxrna2StkKokkos<DeviceType>::settings(int narg, char ** /*arg*/)
 template<class DeviceType>
 void PairOxrna2StkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   if (!atom->style_match("oxdna")) {
     error->all(FLERR,
                "Must use 'atom_style hybrid bond ellipsoid oxdna' with pair style "
                "oxrna2/stk/kk");
   }
+
+  // atoms may have been reordered since the last run, so force a rebuild
+  // of the cached prime neighbor table in the next compute()
+
+  last_prime_neighs_bond_ncalls = -1;
 
   neighbor->add_request(this);
   auto request = neighbor->find_request(this);
@@ -747,6 +759,7 @@ void PairOxrna2StkKokkos<DeviceType>::init_style()
     fix_oxdna_prime_neighsKK = dynamic_cast<FixOxdnaPrimeNeighsKokkos<DeviceType> *>(prime_fixes[0]);
 
   if (!fix_oxdna_prime_neighsKK) error->all(FLERR, "Fix OXDNA/PRIME_NEIGHS/kk not found");
+
 }
 
 /* ---------------------------------------------------------------------- */
@@ -843,52 +856,52 @@ double PairOxrna2StkKokkos<DeviceType>::init_one(int i, int j)
   k_cosphi_st2_c.view_host()(i, j) = cosphi_st2_c[i][j];
   k_cosphi_st2_c.view_host()(j, i) = cosphi_st2_c[j][i];
 
-  k_epsilon_st.template modify<LMPHostType>();
-  k_a_st.template modify<LMPHostType>();
-  k_cut_st_0.template modify<LMPHostType>();
-  k_cut_st_c.template modify<LMPHostType>();
-  k_cut_st_lo.template modify<LMPHostType>();
-  k_cut_st_hi.template modify<LMPHostType>();
-  k_cut_st_lc.template modify<LMPHostType>();
-  k_cut_st_hc.template modify<LMPHostType>();
-  k_b_st_lo.template modify<LMPHostType>();
-  k_b_st_hi.template modify<LMPHostType>();
-  k_shift_st.template modify<LMPHostType>();
-  k_cutsq_st_hc.template modify<LMPHostType>();
+  k_epsilon_st.modify_host();
+  k_a_st.modify_host();
+  k_cut_st_0.modify_host();
+  k_cut_st_c.modify_host();
+  k_cut_st_lo.modify_host();
+  k_cut_st_hi.modify_host();
+  k_cut_st_lc.modify_host();
+  k_cut_st_hc.modify_host();
+  k_b_st_lo.modify_host();
+  k_b_st_hi.modify_host();
+  k_shift_st.modify_host();
+  k_cutsq_st_hc.modify_host();
 
-  k_a_st5.template modify<LMPHostType>();
-  k_theta_st5_0.template modify<LMPHostType>();
-  k_dtheta_st5_ast.template modify<LMPHostType>();
-  k_b_st5.template modify<LMPHostType>();
-  k_dtheta_st5_c.template modify<LMPHostType>();
+  k_a_st5.modify_host();
+  k_theta_st5_0.modify_host();
+  k_dtheta_st5_ast.modify_host();
+  k_b_st5.modify_host();
+  k_dtheta_st5_c.modify_host();
 
-  k_a_st6.template modify<LMPHostType>();
-  k_theta_st6_0.template modify<LMPHostType>();
-  k_dtheta_st6_ast.template modify<LMPHostType>();
-  k_b_st6.template modify<LMPHostType>();
-  k_dtheta_st6_c.template modify<LMPHostType>();
+  k_a_st6.modify_host();
+  k_theta_st6_0.modify_host();
+  k_dtheta_st6_ast.modify_host();
+  k_b_st6.modify_host();
+  k_dtheta_st6_c.modify_host();
 
-  k_a_st9.template modify<LMPHostType>();
-  k_theta_st9_0.template modify<LMPHostType>();
-  k_dtheta_st9_ast.template modify<LMPHostType>();
-  k_b_st9.template modify<LMPHostType>();
-  k_dtheta_st9_c.template modify<LMPHostType>();
+  k_a_st9.modify_host();
+  k_theta_st9_0.modify_host();
+  k_dtheta_st9_ast.modify_host();
+  k_b_st9.modify_host();
+  k_dtheta_st9_c.modify_host();
 
-  k_a_st10.template modify<LMPHostType>();
-  k_theta_st10_0.template modify<LMPHostType>();
-  k_dtheta_st10_ast.template modify<LMPHostType>();
-  k_b_st10.template modify<LMPHostType>();
-  k_dtheta_st10_c.template modify<LMPHostType>();
+  k_a_st10.modify_host();
+  k_theta_st10_0.modify_host();
+  k_dtheta_st10_ast.modify_host();
+  k_b_st10.modify_host();
+  k_dtheta_st10_c.modify_host();
 
-  k_a_st1.template modify<LMPHostType>();
-  k_cosphi_st1_ast.template modify<LMPHostType>();
-  k_b_st1.template modify<LMPHostType>();
-  k_cosphi_st1_c.template modify<LMPHostType>();
+  k_a_st1.modify_host();
+  k_cosphi_st1_ast.modify_host();
+  k_b_st1.modify_host();
+  k_cosphi_st1_c.modify_host();
 
-  k_a_st2.template modify<LMPHostType>();
-  k_cosphi_st2_ast.template modify<LMPHostType>();
-  k_b_st2.template modify<LMPHostType>();
-  k_cosphi_st2_c.template modify<LMPHostType>();
+  k_a_st2.modify_host();
+  k_cosphi_st2_ast.modify_host();
+  k_b_st2.modify_host();
+  k_cosphi_st2_c.modify_host();
 
   k_epsilon_st.template sync<DeviceType>();
   k_a_st.template sync<DeviceType>();
