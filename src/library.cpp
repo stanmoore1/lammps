@@ -1412,7 +1412,7 @@ internally by the :doc:`Fortran interface <Fortran>` and are not likely to be us
    * - world_size
      - Number of ranks on LAMMPS' world communicator (aka comm->nprocs)
    * - comm_style
-     - communication style (0 = BRICK, 1 = TILED)
+     - communication style (0 = BRICK, 1 = TILED, 2 = BRICK_DIRECT)
    * - comm_layout
      - communication layout (0 = LAYOUT_UNIFORM, 1 = LAYOUT_NONUNIFORM, 2 = LAYOUT_TILED)
    * - comm_mode

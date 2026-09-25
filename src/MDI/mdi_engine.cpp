@@ -963,7 +963,7 @@ void MDIEngine::evaluate()
       output->thermo->compute(1);
 
     } else {
-      if (comm->style == Comm::BRICK) {
+      if (comm->style != Comm::TILED) {
         if (domain->triclinic) domain->x2lamda(atom->nlocal);
         domain->pbc();
         domain->reset_box();

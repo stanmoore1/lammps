@@ -42,7 +42,9 @@ class CommBrickDirect : public CommBrick {
   void forward_comm(class Dump *, int size = 0) override;                 // forward comm from a Dump
   void reverse_comm(class Dump *, int size = 0) override;                 // reverse comm from a Dump
 
-  void forward_comm_array(int, double **) override;         // forward comm of array
+  void forward_comm_array(int, double **) override;
+
+  void *extract(const char *, int &) override;         // forward comm of array
 
  protected:
   // per-swap data

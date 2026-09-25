@@ -116,7 +116,7 @@ using namespace LAMMPS_NS;
 
 namespace {
 const char * const mapstyles[] = { "none", "array", "hash", "yes" };
-const char * const commstyles[] = { "brick", "tiled" };
+const char * const commstyles[] = { "brick", "tiled", "brick/direct" };
 const char * const commlayout[] = { "uniform", "nonuniform", "irregular" };
 
 const char bstyles[] = "pfsm";

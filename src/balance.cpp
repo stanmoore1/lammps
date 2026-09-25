@@ -236,6 +236,8 @@ void Balance::command(int narg, char **arg)
 
   if (style == BISECTION && comm->style == Comm::BRICK)
     error->all(FLERR, Error::ARGZERO, "Balance rcb cannot be used with comm_style brick");
+  if (style == BISECTION && comm->style == Comm::BRICK_DIRECT)
+    error->all(FLERR, Error::ARGZERO, "Balance rcb cannot be used with comm_style brick/direct");
 
   // process remaining optional args
 

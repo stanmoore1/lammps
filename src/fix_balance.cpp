@@ -117,6 +117,11 @@ FixBalance::FixBalance(LAMMPS *lmp, int narg, char **arg) :
   if (lbstyle == BISECTION && comm->style == Comm::BRICK)
     error->all(FLERR,"Fix balance rcb cannot be used with comm_style brick");
 
+  // both styles of fix balance make the processor grid non-uniform
+
+  if (comm->style == Comm::BRICK_DIRECT)
+    error->all(FLERR,"Fix balance cannot be used with comm_style brick/direct");
+
   // create instance of Balance class
   // if SHIFT, initialize it with params
   // process remaining optional args via Balance

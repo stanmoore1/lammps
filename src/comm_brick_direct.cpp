@@ -25,9 +25,11 @@
 #include "neighbor.h"
 #include "pair.h"
 
+#include <cstring>
+
 // NOTES:
 // still need cutoff calculation for nonuniform layout
-//   until then init() rejects a non-uniform processor grid
+//   until then init() and setup() reject a non-uniform processor grid
 // still need forward/reverse comm invoked by a Bond, and variable-size
 //   reverse comm invoked by a Fix
 // doc stencil data structs and logic in code
@@ -36,6 +38,7 @@
 
 using namespace LAMMPS_NS;
 
+static constexpr double BIG = 1.0e20;
 static constexpr double BUFFACTOR = 1.5;
 static constexpr int BUFMIN = 1024;
 
@@ -64,6 +67,14 @@ CommBrickDirect::~CommBrickDirect()
 
 void CommBrickDirect::init_pointers()
 {
+  // the buffers and sizes are only set by init_buffers_direct() on the first
+  //   init(), and the destructor must be safe if the style is replaced before then
+
+  buf_send_direct = buf_recv_direct = nullptr;
+  maxsend_direct = maxrecv_direct = 0;
+  ndirect = maxdirect = nself_direct = 0;
+  maxlist = 0;
+
   swaporder = nullptr;
   proc_direct = nullptr;
   pbc_flag_direct = nullptr;
@@ -112,7 +123,6 @@ CommBrickDirect::CommBrickDirect(LAMMPS *lmp, Comm *oldcomm) : CommBrick(lmp, ol
 
   style = Comm::BRICK_DIRECT;
   layout = oldcomm->layout;
-  Comm::copy_arrays(oldcomm);
   init_pointers();
 }
 
@@ -193,6 +203,11 @@ void CommBrickDirect::init()
 
 void CommBrickDirect::setup()
 {
+  // the layout can change after init(), e.g. from fix balance, so check here too
+
+  if (layout != Comm::LAYOUT_UNIFORM)
+    error->all(FLERR,"Comm brick/direct requires a uniform processor grid");
+
   // first perform CommBrick::setup() for 6-way stencil
   // will use its recvneed to create logical 3d stencil of procs around me
 
@@ -243,9 +258,14 @@ void CommBrickDirect::setup()
   bigint maxtag = (bigint) stencil_full[0] * stencil_full[1] * stencil_full[2];
 
   void *maxtag_mpi_ptr;
-  int tmp;
-  MPI_Comm_get_attr(world,MPI_TAG_UB,&maxtag_mpi_ptr,&tmp);
-  int maxtag_mpi = *((int *) maxtag_mpi_ptr);
+  // MPI only guarantees the MPI_TAG_UB attribute on MPI_COMM_WORLD, not on
+  //   a split communicator like world under -partition; if it is missing,
+  //   fall back to 32767, the smallest upper bound the standard allows
+
+  int flag = 0;
+  int maxtag_mpi = 32767;
+  MPI_Comm_get_attr(MPI_COMM_WORLD,MPI_TAG_UB,&maxtag_mpi_ptr,&flag);
+  if (flag && maxtag_mpi_ptr) maxtag_mpi = *((int *) maxtag_mpi_ptr);
 
   if (maxtag > maxtag_mpi)
     error->all(FLERR,"Comm brick/direct stencil is too large");
@@ -302,6 +322,9 @@ void CommBrickDirect::setup()
   // used when building atom lists in borders()
   // unsetting of check_list is when a send list to a proc on a stencil face does not
   //   require a cutoff due to stencil being truncated by a non-PBC boundary
+  // the outer edge of each slab is -BIG/BIG, not sublo/subhi, as in CommBrick,
+  //   so owned atoms a round-off outside the subdomain are still sent,
+  //   e.g. after the lamda <-> box conversions done when sorting triclinic atoms
 
   int ix,iy,iz;
 
@@ -315,14 +338,14 @@ void CommBrickDirect::setup()
     bounds_list[ilist][0][0] = bounds_list[ilist][0][1] = 0.0;
     if (ix == 0) {
       check_list[ilist][0] = 1;
-      bounds_list[ilist][0][0] = sublo[0];
+      bounds_list[ilist][0][0] = -BIG;
       bounds_list[ilist][0][1] = sublo[0] + cutxlo;
       if (bounds_list[ilist][0][1] >= subhi[0]) check_list[ilist][0] = 0;
     }
     if (ix == 2) {
       check_list[ilist][0] = 1;
       bounds_list[ilist][0][0] = subhi[0] - cutxhi;
-      bounds_list[ilist][0][1] = subhi[0];
+      bounds_list[ilist][0][1] = BIG;
       if (bounds_list[ilist][0][0] <= sublo[0]) check_list[ilist][0] = 0;
     }
 
@@ -330,14 +353,14 @@ void CommBrickDirect::setup()
     bounds_list[ilist][1][0] = bounds_list[ilist][1][1] = 0.0;
     if (iy == 0) {
       check_list[ilist][1] = 1;
-      bounds_list[ilist][1][0] = sublo[1];
+      bounds_list[ilist][1][0] = -BIG;
       bounds_list[ilist][1][1] = sublo[1] + cutylo;
       if (bounds_list[ilist][1][1] >= subhi[1]) check_list[ilist][1] = 0;
     }
     if (iy == 2) {
       check_list[ilist][1] = 1;
       bounds_list[ilist][1][0] = subhi[1] - cutyhi;
-      bounds_list[ilist][1][1] = subhi[1];
+      bounds_list[ilist][1][1] = BIG;
       if (bounds_list[ilist][1][0] <= sublo[1]) check_list[ilist][1] = 0;
     }
 
@@ -345,14 +368,14 @@ void CommBrickDirect::setup()
     bounds_list[ilist][2][0] = bounds_list[ilist][2][1] = 0.0;
     if (iz == 0) {
       check_list[ilist][2] = 1;
-      bounds_list[ilist][2][0] = sublo[2];
+      bounds_list[ilist][2][0] = -BIG;
       bounds_list[ilist][2][1] = sublo[2] + cutzlo;
       if (bounds_list[ilist][2][1] >= subhi[2]) check_list[ilist][2] = 0;
     }
     if (iz == 2) {
       check_list[ilist][2] = 1;
       bounds_list[ilist][2][0] = subhi[2] - cutzhi;
-      bounds_list[ilist][2][1] = subhi[2];
+      bounds_list[ilist][2][1] = BIG;
       if (bounds_list[ilist][2][0] <= sublo[2]) check_list[ilist][2] = 0;
     }
   }
@@ -591,11 +614,9 @@ void CommBrickDirect::forward_comm(int /*dummy*/)
                           &buf_send_direct[send_offset],
                           pbc_flag_direct[iswap],pbc_direct[iswap]);
     }
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -692,13 +713,12 @@ void CommBrickDirect::reverse_comm()
                   proc_direct[iswap],recvtag[iswap],world,&send_requests[nsendpost++]);
       }
     } else {
+      if (recvnum_direct[iswap] == 0) continue;
       n = avec->pack_reverse(recvnum_direct[iswap],firstrecv_direct[iswap],
                              &buf_send_direct[send_offset]);
-      if (n) {
-        MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                  recvtag[iswap],world,&send_requests[nsendpost++]);
-        send_offset += n;
-      }
+      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+                recvtag[iswap],world,&send_requests[nsendpost++]);
+      send_offset += n;
     }
   }
 
@@ -874,11 +894,9 @@ void CommBrickDirect::borders_comm()
                             &buf_send_direct[send_offset],
                             pbc_flag_direct[iswap],pbc_direct[iswap]);
     }
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   if (npost) {
@@ -963,7 +981,7 @@ void CommBrickDirect::borders()
     recvnum_direct[iswap] = sendnum_direct[iswap];
   }
 
-  MPI_Waitall(npost,requests,MPI_STATUS_IGNORE);
+  if (npost) MPI_Waitall(npost,requests,MPI_STATUS_IGNORE);
 
   // set nghost = sum of recnum_direct over swaps
   // set firstrecv_direct = index to 1st ghost atom in each swap receive
@@ -1088,6 +1106,8 @@ void CommBrickDirect::forward_comm(Pair *pair, int size)
   // except for self copies
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1098,11 +1118,9 @@ void CommBrickDirect::forward_comm(Pair *pair, int size)
     n = pair->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                 &buf_send_direct[send_offset],
                                 pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1133,7 +1151,9 @@ void CommBrickDirect::reverse_comm(Pair *pair, int size)
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = MAX(pair->comm_reverse,pair->comm_reverse_off);
+  int nsize;
+  if (size) nsize = size;
+  else nsize = MAX(pair->comm_reverse,pair->comm_reverse_off);
 
   // post all receives for owned atoms
   // except for self copy/sums
@@ -1165,6 +1185,8 @@ void CommBrickDirect::reverse_comm(Pair *pair, int size)
   // except for self copy/sums
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1174,11 +1196,9 @@ void CommBrickDirect::reverse_comm(Pair *pair, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = pair->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                 &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1270,6 +1290,8 @@ void CommBrickDirect::forward_comm(Fix *fix, int size)
   // except for self copies
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1280,11 +1302,9 @@ void CommBrickDirect::forward_comm(Fix *fix, int size)
     n = fix->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                &buf_send_direct[send_offset],
                                pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1353,6 +1373,8 @@ void CommBrickDirect::reverse_comm(Fix *fix, int size)
   // except for self copy/sums
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1362,11 +1384,9 @@ void CommBrickDirect::reverse_comm(Fix *fix, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = fix->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1444,6 +1464,8 @@ void CommBrickDirect::forward_comm(Compute *compute, int size)
   // except for self copies
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1454,11 +1476,9 @@ void CommBrickDirect::forward_comm(Compute *compute, int size)
     n = compute->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                    &buf_send_direct[send_offset],
                                    pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1523,6 +1543,8 @@ void CommBrickDirect::reverse_comm(Compute *compute, int size)
   // except for self copy/sums
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1532,11 +1554,9 @@ void CommBrickDirect::reverse_comm(Compute *compute, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = compute->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                    &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1602,6 +1622,8 @@ void CommBrickDirect::forward_comm(Dump *dump, int size)
   // except for self copies
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1612,11 +1634,9 @@ void CommBrickDirect::forward_comm(Dump *dump, int size)
     n = dump->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                 &buf_send_direct[send_offset],
                                 pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1681,6 +1701,8 @@ void CommBrickDirect::reverse_comm(Dump *dump, int size)
   // except for self copy/sums
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1690,11 +1712,9 @@ void CommBrickDirect::reverse_comm(Dump *dump, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = dump->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                 &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1765,6 +1785,8 @@ void CommBrickDirect::forward_comm_array(int nsize, double **array)
   // except for self copies
   // each swap packs into its own region of buf_send_direct and is sent with
   //   a non-blocking send, so packing does not wait on the previous message
+  // send even when the pack is empty (e.g. fix rigid/small skips atoms that
+  //   own no body): the receiver posts its receive from the atom count alone
 
   int nsendpost = 0;
   int send_offset = 0;
@@ -1778,11 +1800,9 @@ void CommBrickDirect::forward_comm_array(int nsize, double **array)
       for (k = 0; k < nsize; k++)
         buf_send_direct[m++] = array[j][k];
     }
-    if (m > send_offset) {
-      MPI_Isend(&buf_send_direct[send_offset],m-send_offset,MPI_DOUBLE,
-                proc_direct[iswap],sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset = m;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],m-send_offset,MPI_DOUBLE,
+              proc_direct[iswap],sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset = m;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1808,6 +1828,34 @@ void CommBrickDirect::forward_comm_array(int nsize, double **array)
   }
 
   if (nsendpost) MPI_Waitall(nsendpost,send_requests,MPI_STATUS_IGNORE);
+}
+
+/* ----------------------------------------------------------------------
+   extract data potentially useful to other classes
+   the lists CommBrick::extract() walks are never filled by this style,
+     so build the same result from the direct send lists
+------------------------------------------------------------------------- */
+
+void *CommBrickDirect::extract(const char *str, int &dim)
+{
+  dim = 0;
+  if (strcmp(str,"localsendlist") == 0) {
+    dim = 1;
+    if (!localsendlist)
+      memory->create(localsendlist,atom->nlocal,"comm:localsendlist");
+    else
+      memory->grow(localsendlist,atom->nlocal,"comm:localsendlist");
+
+    for (int i = 0; i < atom->nlocal; i++) localsendlist[i] = 0;
+
+    for (int iswap = 0; iswap < ndirect; iswap++)
+      for (int isend = 0; isend < sendnum_direct[iswap]; isend++)
+        localsendlist[sendlist_direct[iswap][isend]] = 1;
+
+    return (void *) localsendlist;
+  }
+
+  return nullptr;
 }
 
 /* ----------------------------------------------------------------------

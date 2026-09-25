@@ -73,6 +73,8 @@ class CommBrickKokkos : public CommBrick {
   template<class DeviceType> void borders_device();
 
  protected:
+  void init_kokkos();    // dual-view setup shared by both constructors
+
   DAT::tdual_int_2d_lr k_sendlist;
   DAT::tdual_int_scalar k_total_send;
   DAT::tdual_double_2d_lr k_buf_send,k_buf_recv;

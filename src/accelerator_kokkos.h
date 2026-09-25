@@ -80,6 +80,7 @@ class AtomKokkos : public Atom {
 class CommBrickKokkos : public CommBrick {
  public:
   CommBrickKokkos(class LAMMPS *lmp) : CommBrick(lmp) {}
+  CommBrickKokkos(class LAMMPS *lmp, Comm *oldcomm) : CommBrick(lmp, oldcomm) {}
 };
 
 class CommBrickDirectKokkos : public CommBrickDirect {

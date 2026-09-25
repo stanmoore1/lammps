@@ -51,6 +51,16 @@ static constexpr int BUFMIN = 10000;
 
 CommBrickKokkos::CommBrickKokkos(LAMMPS *lmp) : CommBrick(lmp)
 {
+  init_kokkos();
+}
+
+/* ----------------------------------------------------------------------
+   replace the host send lists and buffers set up by CommBrick with dual views
+   shared by both constructors
+------------------------------------------------------------------------- */
+
+void CommBrickKokkos::init_kokkos()
+{
   if (sendlist) for (int i = 0; i < maxswap; i++) memory->destroy(sendlist[i]);
   memory->sfree(sendlist);
   sendlist = nullptr;
@@ -102,7 +112,7 @@ CommBrickKokkos::CommBrickKokkos(LAMMPS *lmp) : CommBrick(lmp)
 
 CommBrickKokkos::CommBrickKokkos(LAMMPS *_lmp, Comm *oldcomm) : CommBrick(_lmp,oldcomm)
 {
-  sendlist = nullptr;
+  init_kokkos();
 }
 
 /* ---------------------------------------------------------------------- */

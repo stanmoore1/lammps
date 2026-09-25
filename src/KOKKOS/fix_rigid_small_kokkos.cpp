@@ -59,7 +59,7 @@ FixRigidSmallKokkos<DeviceType>::FixRigidSmallKokkos(LAMMPS *lmp, int narg, char
 {
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
-  commKK = (CommBrickKokkos *) comm;
+  commKK = dynamic_cast<CommBrickKokkos *>(comm);
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | V_MASK | VIRIAL_MASK | TYPE_MASK | TAG_MASK;
   datamask_modify = X_MASK | V_MASK | VIRIAL_MASK;
@@ -137,6 +137,13 @@ template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::init()
 {
   FixRigidSmall::init();
+
+  // the device comm routines this fix calls exist only in CommBrickKokkos,
+  //   and the comm style may have changed since this fix was created
+
+  commKK = dynamic_cast<CommBrickKokkos *>(comm);
+  if (!commKK)
+    error->all(FLERR, Error::NOLASTLINE, "Fix {} requires comm_style brick", style);
   if (utils::strmatch(update->integrate_style,"^respa"))
     error->all(FLERR,"Cannot yet use respa with Kokkos");
 

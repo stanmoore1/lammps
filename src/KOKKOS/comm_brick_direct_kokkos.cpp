@@ -177,6 +177,15 @@ void CommBrickDirectKokkos::grow_list_direct(int /*ilist*/, int n)
 {
   const int size = static_cast<int> (BUFFACTOR * n);
 
+  // DualView::resize() keeps the contents of the side marked as modified
+  //   last, so mark the side the lists built so far live on.  the device
+  //   build marks its side before calling here
+
+  if (!border_device_flag) {
+    k_sendatoms_list.sync_host();
+    k_sendatoms_list.modify_host();
+  }
+
   memoryKK->grow_kokkos(k_sendatoms_list,sendatoms_list,maxlist,size,
                         "comm_direct:sendatoms_list");
 
@@ -220,27 +229,33 @@ void CommBrickDirectKokkos::setup()
 void CommBrickDirectKokkos::forward_comm(int dummy)
 {
   // the device path below packs coords only.  ghost velocities and atom
-  // styles with extra forward-comm fields both clear comm_x_only and are
-  // not handled there, so they use the host path instead
+  //   styles with extra forward-comm fields both clear comm_x_only and are
+  //   not handled there, so they use the host path instead
+  // forward_comm_legacy is set when MPI cannot be handed device memory
+  //   (or by package kokkos comm no), so it also forces the host path
 
-  if (comm_x_only && !atomKK->k_x.NEED_TRANSFORM) {
+  if (!lmp->kokkos->forward_comm_legacy && comm_x_only && !atomKK->k_x.NEED_TRANSFORM) {
     if (lmp->kokkos->forward_comm_on_host) forward_comm_device<LMPHostType>();
     else forward_comm_device<LMPDeviceType>();
     return;
   }
 
-  if (comm_x_only) {
-    atomKK->sync(Host,X_MASK);
-    atomKK->modified(Host,X_MASK);
-  } else if (ghost_velocity) {
-    atomKK->sync(Host,X_MASK | V_MASK);
-    atomKK->modified(Host,X_MASK | V_MASK);
-  } else {
-    atomKK->sync(Host,ALL_MASK);
-    atomKK->modified(Host,ALL_MASK);
-  }
+  // the host routine moves every field in fields_comm (or fields_comm_vel),
+  //   not just x and v, so sync and mark exactly those
+
+  k_sendatoms_list.sync_host();
+
+  if (ghost_velocity)
+    atomKK->sync(Host,atomKK->avecKK->datamask_comm_vel);
+  else
+    atomKK->sync(Host,atomKK->avecKK->datamask_comm);
 
   CommBrickDirect::forward_comm(dummy);
+
+  if (ghost_velocity)
+    atomKK->modified(Host,atomKK->avecKK->datamask_comm_vel);
+  else
+    atomKK->modified(Host,atomKK->avecKK->datamask_comm);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -251,11 +266,15 @@ void CommBrickDirectKokkos::forward_comm_device()
   // post all receives for ghost atoms, except for swaps with self
   // comm_x_only, so receive straight into the ghost region of x
 
+  // x must be current on this side before any receive is posted:
+  //   a later sync would copy over ghost coords MPI may already have written
+
+  atomKK->sync(ExecutionSpaceFromDevice<DeviceType>::space,X_MASK);
+  DeviceType().fence();
+
   int npost = 0;
   double *xdata = (double *) atomKK->k_x.view<DeviceType>().data();
   const int xcols = atomKK->k_x.view<DeviceType>().extent(1);
-
-  DeviceType().fence();
 
   for (int iswap = 0; iswap < ndirect; iswap++) {
     if (proc_direct[iswap] == me) continue;
@@ -316,8 +335,19 @@ void CommBrickDirectKokkos::forward_comm_device()
 
 void CommBrickDirectKokkos::reverse_comm()
 {
-  if (lmp->kokkos->reverse_comm_on_host) reverse_comm_device<LMPHostType>();
-  else reverse_comm_device<LMPDeviceType>();
+  if (!lmp->kokkos->reverse_comm_legacy) {
+    if (lmp->kokkos->reverse_comm_on_host) reverse_comm_device<LMPHostType>();
+    else reverse_comm_device<LMPDeviceType>();
+    return;
+  }
+
+  // reverse_comm_legacy is set when MPI cannot be handed device memory
+  //   (or by package kokkos comm no), so run the host routine
+
+  k_sendatoms_list.sync_host();
+  atomKK->sync(Host,atomKK->avecKK->datamask_reverse);
+  CommBrickDirect::reverse_comm();
+  atomKK->modified(Host,atomKK->avecKK->datamask_reverse);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -440,9 +470,15 @@ void CommBrickDirectKokkos::reverse_comm_device()
 
 void CommBrickDirectKokkos::exchange()
 {
-  atomKK->sync(Host,ALL_MASK);
+  // auto_sync, as in CommBrickKokkos, so arrays grown by unpack_exchange()
+  //   during the host routine are flagged on the host side
+
+  atomKK->sync(Host,atomKK->avecKK->datamask_exchange);
+  int prev_auto_sync = lmp->kokkos->auto_sync;
+  lmp->kokkos->auto_sync = 1;
   CommBrickDirect::exchange();
-  atomKK->modified(Host,ALL_MASK);
+  lmp->kokkos->auto_sync = prev_auto_sync;
+  atomKK->modified(Host,atomKK->avecKK->datamask_exchange);
 }
 
 
@@ -501,6 +537,7 @@ void CommBrickDirectKokkos::build_lists_device()
       Kokkos::TeamPolicy<DeviceType> config(nteam > 0 ? nteam : 1,team_size);
       Kokkos::parallel_for(config,f);
 
+      k_sendatoms_list.template modify<DeviceType>();
       k_total_send.template modify<DeviceType>();
       k_total_send.sync_host();
       nsend = k_total_send.view_host()();
