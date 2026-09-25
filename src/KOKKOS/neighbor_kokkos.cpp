@@ -51,6 +51,15 @@ NeighborKokkos::NeighborKokkos(LAMMPS *lmp) : Neighbor(lmp),
 
 NeighborKokkos::~NeighborKokkos()
 {
+  // Kokkos loops over this class use a copy of it as the functor, which also
+  // copies the topology builders; their destructors run after this one and
+  // must not release the topology lists of the original
+
+  if (copymode) {
+    neighbond_host.copymode = 1;
+    neighbond_device.copymode = 1;
+  }
+
   if (!copymode) {
     memoryKK->destroy_kokkos(k_cutneighsq,cutneighsq);
     cutneighsq = nullptr;
