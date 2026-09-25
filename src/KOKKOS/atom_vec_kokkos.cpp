@@ -2896,6 +2896,16 @@ static void swap_sort(MemoryKokkos *memoryKK, DV &kview, DV &scratch,
   memoryKK->grow_kokkos(kview,raw,nmax,name);  // rebind legacy raw pointer
 }
 
+// runtime-2D arrays: pass the column count so grow_kokkos keeps the width
+
+template<class DV, class PTR>
+static void swap_sort_2d(MemoryKokkos *memoryKK, DV &kview, DV &scratch,
+                         PTR &raw, int nmax, const char *name)
+{
+  std::swap(kview,scratch);
+  memoryKK->grow_kokkos(kview,raw,nmax,(int)kview.view_device().extent(1),name);
+}
+
 namespace LAMMPS_NS {
 
 template<class DeviceType,int DEFAULT,class PermuteView>
@@ -3200,35 +3210,35 @@ void AtomVecKokkos::sort_kokkos(Kokkos::BinSort<KeyViewType, BinOp> &Sorter)
   if (mask & MOLECULE_MASK) swap_sort(memoryKK,atomKK->k_molecule,k_molecule_sort,atomKK->molecule,nmax,"atom:molecule");
   if (mask & BOND_MASK) {
     swap_sort(memoryKK,atomKK->k_num_bond,k_num_bond_sort,atomKK->num_bond,nmax,"atom:num_bond");
-    swap_sort(memoryKK,atomKK->k_bond_type,k_bond_type_sort,atomKK->bond_type,nmax,"atom:bond_type");
-    swap_sort(memoryKK,atomKK->k_bond_atom,k_bond_atom_sort,atomKK->bond_atom,nmax,"atom:bond_atom");
+    swap_sort_2d(memoryKK,atomKK->k_bond_type,k_bond_type_sort,atomKK->bond_type,nmax,"atom:bond_type");
+    swap_sort_2d(memoryKK,atomKK->k_bond_atom,k_bond_atom_sort,atomKK->bond_atom,nmax,"atom:bond_atom");
   }
   if (mask & ANGLE_MASK) {
     swap_sort(memoryKK,atomKK->k_num_angle,k_num_angle_sort,atomKK->num_angle,nmax,"atom:num_angle");
-    swap_sort(memoryKK,atomKK->k_angle_type,k_angle_type_sort,atomKK->angle_type,nmax,"atom:angle_type");
-    swap_sort(memoryKK,atomKK->k_angle_atom1,k_angle_atom1_sort,atomKK->angle_atom1,nmax,"atom:angle_atom1");
-    swap_sort(memoryKK,atomKK->k_angle_atom2,k_angle_atom2_sort,atomKK->angle_atom2,nmax,"atom:angle_atom2");
-    swap_sort(memoryKK,atomKK->k_angle_atom3,k_angle_atom3_sort,atomKK->angle_atom3,nmax,"atom:angle_atom3");
+    swap_sort_2d(memoryKK,atomKK->k_angle_type,k_angle_type_sort,atomKK->angle_type,nmax,"atom:angle_type");
+    swap_sort_2d(memoryKK,atomKK->k_angle_atom1,k_angle_atom1_sort,atomKK->angle_atom1,nmax,"atom:angle_atom1");
+    swap_sort_2d(memoryKK,atomKK->k_angle_atom2,k_angle_atom2_sort,atomKK->angle_atom2,nmax,"atom:angle_atom2");
+    swap_sort_2d(memoryKK,atomKK->k_angle_atom3,k_angle_atom3_sort,atomKK->angle_atom3,nmax,"atom:angle_atom3");
   }
   if (mask & DIHEDRAL_MASK) {
     swap_sort(memoryKK,atomKK->k_num_dihedral,k_num_dihedral_sort,atomKK->num_dihedral,nmax,"atom:num_dihedral");
-    swap_sort(memoryKK,atomKK->k_dihedral_type,k_dihedral_type_sort,atomKK->dihedral_type,nmax,"atom:dihedral_type");
-    swap_sort(memoryKK,atomKK->k_dihedral_atom1,k_dihedral_atom1_sort,atomKK->dihedral_atom1,nmax,"atom:dihedral_atom1");
-    swap_sort(memoryKK,atomKK->k_dihedral_atom2,k_dihedral_atom2_sort,atomKK->dihedral_atom2,nmax,"atom:dihedral_atom2");
-    swap_sort(memoryKK,atomKK->k_dihedral_atom3,k_dihedral_atom3_sort,atomKK->dihedral_atom3,nmax,"atom:dihedral_atom3");
-    swap_sort(memoryKK,atomKK->k_dihedral_atom4,k_dihedral_atom4_sort,atomKK->dihedral_atom4,nmax,"atom:dihedral_atom4");
+    swap_sort_2d(memoryKK,atomKK->k_dihedral_type,k_dihedral_type_sort,atomKK->dihedral_type,nmax,"atom:dihedral_type");
+    swap_sort_2d(memoryKK,atomKK->k_dihedral_atom1,k_dihedral_atom1_sort,atomKK->dihedral_atom1,nmax,"atom:dihedral_atom1");
+    swap_sort_2d(memoryKK,atomKK->k_dihedral_atom2,k_dihedral_atom2_sort,atomKK->dihedral_atom2,nmax,"atom:dihedral_atom2");
+    swap_sort_2d(memoryKK,atomKK->k_dihedral_atom3,k_dihedral_atom3_sort,atomKK->dihedral_atom3,nmax,"atom:dihedral_atom3");
+    swap_sort_2d(memoryKK,atomKK->k_dihedral_atom4,k_dihedral_atom4_sort,atomKK->dihedral_atom4,nmax,"atom:dihedral_atom4");
   }
   if (mask & IMPROPER_MASK) {
     swap_sort(memoryKK,atomKK->k_num_improper,k_num_improper_sort,atomKK->num_improper,nmax,"atom:num_improper");
-    swap_sort(memoryKK,atomKK->k_improper_type,k_improper_type_sort,atomKK->improper_type,nmax,"atom:improper_type");
-    swap_sort(memoryKK,atomKK->k_improper_atom1,k_improper_atom1_sort,atomKK->improper_atom1,nmax,"atom:improper_atom1");
-    swap_sort(memoryKK,atomKK->k_improper_atom2,k_improper_atom2_sort,atomKK->improper_atom2,nmax,"atom:improper_atom2");
-    swap_sort(memoryKK,atomKK->k_improper_atom3,k_improper_atom3_sort,atomKK->improper_atom3,nmax,"atom:improper_atom3");
-    swap_sort(memoryKK,atomKK->k_improper_atom4,k_improper_atom4_sort,atomKK->improper_atom4,nmax,"atom:improper_atom4");
+    swap_sort_2d(memoryKK,atomKK->k_improper_type,k_improper_type_sort,atomKK->improper_type,nmax,"atom:improper_type");
+    swap_sort_2d(memoryKK,atomKK->k_improper_atom1,k_improper_atom1_sort,atomKK->improper_atom1,nmax,"atom:improper_atom1");
+    swap_sort_2d(memoryKK,atomKK->k_improper_atom2,k_improper_atom2_sort,atomKK->improper_atom2,nmax,"atom:improper_atom2");
+    swap_sort_2d(memoryKK,atomKK->k_improper_atom3,k_improper_atom3_sort,atomKK->improper_atom3,nmax,"atom:improper_atom3");
+    swap_sort_2d(memoryKK,atomKK->k_improper_atom4,k_improper_atom4_sort,atomKK->improper_atom4,nmax,"atom:improper_atom4");
   }
   if (mask & SPECIAL_MASK) {
-    swap_sort(memoryKK,atomKK->k_nspecial,k_nspecial_sort,atomKK->nspecial,nmax,"atom:nspecial");
-    swap_sort(memoryKK,atomKK->k_special,k_special_sort,atomKK->special,nmax,"atom:special");
+    swap_sort_2d(memoryKK,atomKK->k_nspecial,k_nspecial_sort,atomKK->nspecial,nmax,"atom:nspecial");
+    swap_sort_2d(memoryKK,atomKK->k_special,k_special_sort,atomKK->special,nmax,"atom:special");
   }
   if (mask & MU_MASK) swap_sort(memoryKK,atomKK->k_mu,k_mu_sort,atomKK->mu,nmax,"atom:mu");
   if (mask & SP_MASK) swap_sort(memoryKK,atomKK->k_sp,k_sp_sort,atomKK->sp,nmax,"atom:sp");
