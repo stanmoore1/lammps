@@ -300,6 +300,9 @@ void CommKokkos::reverse_comm_device()
 
   k_sendlist.sync<DeviceType>();
 
+  constexpr auto space = ExecutionSpaceFromDevice<DeviceType>::space;
+  atomKK->sync(space,atomKK->avecKK->datamask_reverse);
+
   if (comm->nprocs == 1 && !ghost_velocity) {
     k_swap.sync<DeviceType>();
     k_swap2.sync<DeviceType>();
@@ -363,6 +366,8 @@ void CommKokkos::reverse_comm_device()
       }
     }
   }
+
+  atomKK->modified(space, atomKK->avecKK->datamask_reverse);
 }
 
 /* ----------------------------------------------------------------------
