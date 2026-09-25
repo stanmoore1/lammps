@@ -137,7 +137,7 @@ void PairTIP4PCutKokkos<DeviceType>::operator()(TagPairTIP4PCutCompute<EVFLAG>,
 
 namespace LAMMPS_NS {
 template class PairTIP4PCutKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairTIP4PCutKokkos<LMPHostType>;
 #endif
 }

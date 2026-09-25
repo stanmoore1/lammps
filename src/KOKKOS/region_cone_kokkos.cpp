@@ -66,7 +66,7 @@ void RegConeKokkos<DeviceType>::operator()(TagRegConeMatchAll, const int &i) con
 
 namespace LAMMPS_NS {
 template class RegConeKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class RegConeKokkos<LMPHostType>;
 #endif
 }

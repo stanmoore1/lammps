@@ -345,7 +345,7 @@ void FixTISpringKokkos<DeviceType>::unpack_restart(int nlocal, int nth)
 
 namespace LAMMPS_NS {
 template class FixTISpringKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixTISpringKokkos<LMPHostType>;
 #endif
 }

@@ -68,7 +68,7 @@ void ComputeGyrationKokkos<DeviceType>::compute_vector()
 
 namespace LAMMPS_NS {
 template class ComputeGyrationKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeGyrationKokkos<LMPHostType>;
 #endif
 }

@@ -66,7 +66,7 @@ void RegPrismKokkos<DeviceType>::operator()(TagRegPrismMatchAll, const int &i) c
 
 namespace LAMMPS_NS {
 template class RegPrismKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class RegPrismKokkos<LMPHostType>;
 #endif
 }

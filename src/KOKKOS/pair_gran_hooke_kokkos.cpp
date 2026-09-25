@@ -410,7 +410,7 @@ void PairGranHookeKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, int i, int j,
 
 namespace LAMMPS_NS {
 template class PairGranHookeKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairGranHookeKokkos<LMPHostType>;
 #endif
 }

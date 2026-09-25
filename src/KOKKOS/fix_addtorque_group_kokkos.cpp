@@ -306,7 +306,7 @@ void FixAddTorqueGroupKokkos<DeviceType>::operator()(TagFixAddTorqueGroupRmass,
 
 namespace LAMMPS_NS {
 template class FixAddTorqueGroupKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixAddTorqueGroupKokkos<LMPHostType>;
 #endif
 }

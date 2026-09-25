@@ -289,7 +289,7 @@ void FixBAOABKokkos<DeviceType>::operator()(TagFixBAOABFinal<RMASS>, const int &
 
 namespace LAMMPS_NS {
 template class FixBAOABKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixBAOABKokkos<LMPHostType>;
 #endif
 }

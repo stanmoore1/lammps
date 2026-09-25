@@ -91,7 +91,7 @@ FixRigidNPTSmallKokkos<DeviceType>::FixRigidNPTSmallKokkos(LAMMPS *lmp, int narg
 
 namespace LAMMPS_NS {
 template class FixRigidNPTSmallKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixRigidNPTSmallKokkos<LMPHostType>;
 #endif
 }

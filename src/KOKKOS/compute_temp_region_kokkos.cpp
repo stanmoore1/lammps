@@ -289,7 +289,7 @@ void ComputeTempRegionKokkos<DeviceType>::operator()(TagComputeTempRegionRestore
 
 namespace LAMMPS_NS {
 template class ComputeTempRegionKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class ComputeTempRegionKokkos<LMPHostType>;
 #endif
 }

@@ -270,7 +270,7 @@ double PairLJExpandSphereKokkos<DeviceType>::init_one(int i, int j)
 
 namespace LAMMPS_NS {
 template class PairLJExpandSphereKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class PairLJExpandSphereKokkos<LMPHostType>;
 #endif
 }

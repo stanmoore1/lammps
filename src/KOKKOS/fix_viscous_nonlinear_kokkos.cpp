@@ -111,7 +111,7 @@ void FixViscousNonlinearKokkos<DeviceType>::operator()(TagFixViscousNonlinear,
 
 namespace LAMMPS_NS {
 template class FixViscousNonlinearKokkos<LMPDeviceType>;
-#ifdef LMP_KOKKOS_GPU
+#if defined(LMP_KOKKOS_GPU) || defined(LMP_KOKKOS_SPLIT_HOST)
 template class FixViscousNonlinearKokkos<LMPHostType>;
 #endif
 }
