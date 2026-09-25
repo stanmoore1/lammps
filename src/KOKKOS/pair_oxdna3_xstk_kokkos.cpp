@@ -64,7 +64,7 @@ PairOxdna3XstkKokkos<DeviceType>::PairOxdna3XstkKokkos(LAMMPS *lmp) : PairOxdna3
   fix_oxdna_lrfKK = nullptr;
   fix_oxdna_npairKK = nullptr;
   fix_oxdna_prime_neighsKK = nullptr;
-  last_prime_neighs_xstk3_lastcall = -1;
+  last_prime_neighs_xstk3_ncalls = -1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -165,9 +165,9 @@ void PairOxdna3XstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // Then get the precomputed 3'/5' neighbor map lookups for the screened npair list.
   // Done here (not in pre_force) so the pair's own list is always used,
   // ensuring ib-index correspondence between precompute and kernel.
-  if (last_prime_neighs_xstk3_lastcall != neighbor->lastcall) {
+  if (last_prime_neighs_xstk3_ncalls != neighbor->ncalls) {
     fix_oxdna_prime_neighsKK->compute_prime_neighs_oxdna3_xstk(list);
-    last_prime_neighs_xstk3_lastcall = neighbor->lastcall;
+    last_prime_neighs_xstk3_ncalls = neighbor->ncalls;
     d_prime_neighs_oxdna3_xstk = fix_oxdna_prime_neighsKK->d_prime_neighs_oxdna3_xstk;
   }
 
@@ -372,8 +372,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const
 
   KK_FLOAT sin1_sq = Kokkos::fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
   if (sin1_sq < static_cast<KK_FLOAT>(0.0)) sin1_sq = static_cast<KK_FLOAT>(0.0);
-  if (sin1_sq <= static_cast<KK_FLOAT>(1.0e-12)) return false;
-  const KK_FLOAT rsin1 = static_cast<KK_FLOAT>(Kokkos::rsqrt(sin1_sq));
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin1 = (sin1_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(Kokkos::rsqrt(sin1_sq)) : static_cast<KK_FLOAT>(0.0);
   // df4t1 = DF4_KK(theta1, l_a_xst1, l_theta_xst1_0, l_dtheta_xst1_ast,
   //                l_b_xst1, l_dtheta_xst1_c) * rsin1;
   df4t1 *= rsin1;
@@ -405,8 +408,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta2_terms(const int &atype, const
 
   KK_FLOAT sin2_sq = Kokkos::fma(-cost2, cost2, static_cast<KK_FLOAT>(1.0));
   if (sin2_sq < static_cast<KK_FLOAT>(0.0)) sin2_sq = static_cast<KK_FLOAT>(0.0);
-  if (sin2_sq <= static_cast<KK_FLOAT>(1.0e-12)) return false;
-  const KK_FLOAT rsin2 = static_cast<KK_FLOAT>(Kokkos::rsqrt(sin2_sq));
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin2 = (sin2_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(Kokkos::rsqrt(sin2_sq)) : static_cast<KK_FLOAT>(0.0);
   // df4t2 = DF4_KK(theta2, l_a_xst2, l_theta_xst2_0,
   //                l_dtheta_xst2_ast, l_b_xst2, l_dtheta_xst2_c) * rsin2;
   df4t2 *= rsin2;
@@ -438,8 +444,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta3_terms(const int &atype, const
 
   KK_FLOAT sin3_sq = Kokkos::fma(-cost3, cost3, static_cast<KK_FLOAT>(1.0));
   if (sin3_sq < static_cast<KK_FLOAT>(0.0)) sin3_sq = static_cast<KK_FLOAT>(0.0);
-  if (sin3_sq <= static_cast<KK_FLOAT>(1.0e-12)) return false;
-  const KK_FLOAT rsin3 = static_cast<KK_FLOAT>(Kokkos::rsqrt(sin3_sq));
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin3 = (sin3_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(Kokkos::rsqrt(sin3_sq)) : static_cast<KK_FLOAT>(0.0);
   // df4t3 = DF4_KK(theta3, l_a_xst3, l_theta_xst3_0,
   //                l_dtheta_xst3_ast, l_b_xst3, l_dtheta_xst3_c) * rsin3;
   df4t3 *= rsin3;
@@ -481,8 +490,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta4_terms(const int &atype, const
 
   KK_FLOAT sin4_sq = Kokkos::fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
   if (sin4_sq < static_cast<KK_FLOAT>(0.0)) sin4_sq = static_cast<KK_FLOAT>(0.0);
-  if (sin4_sq <= static_cast<KK_FLOAT>(1.0e-12)) return false;
-  const KK_FLOAT rsin4 = static_cast<KK_FLOAT>(Kokkos::rsqrt(sin4_sq));
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin4 = (sin4_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(Kokkos::rsqrt(sin4_sq)) : static_cast<KK_FLOAT>(0.0);
 
   // df4t4_33 = DF4_KK(theta4, l_a_xst4_33, l_theta_xst4_0_33, l_dtheta_xst4_ast_33, l_b_xst4_33, l_dtheta_xst4_c_33) * rsin4;
   // df4t4_55 = DF4_KK(theta4, l_a_xst4_55, l_theta_xst4_0_55, l_dtheta_xst4_ast_55, l_b_xst4_55, l_dtheta_xst4_c_55) * rsin4;
@@ -519,8 +531,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta7_terms(const int &atype, const
 
   KK_FLOAT sin7_sq = Kokkos::fma(-cost7, cost7, static_cast<KK_FLOAT>(1.0));
   if (sin7_sq < static_cast<KK_FLOAT>(0.0)) sin7_sq = static_cast<KK_FLOAT>(0.0);
-  if (sin7_sq <= static_cast<KK_FLOAT>(1.0e-12)) return false;
-  const KK_FLOAT rsin7 = static_cast<KK_FLOAT>(Kokkos::rsqrt(sin7_sq));
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin7 = (sin7_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(Kokkos::rsqrt(sin7_sq)) : static_cast<KK_FLOAT>(0.0);
 
   // df4t7_33 = DF4_KK(theta7, l_a_xst7, l_theta_xst7_0_33, l_dtheta_xst7_ast, l_b_xst7, l_dtheta_xst7_c) * rsin7;
   // df4t7_55 = DF4_KK(theta7, l_a_xst7, l_theta_xst7_0_55, l_dtheta_xst7_ast, l_b_xst7, l_dtheta_xst7_c) * rsin7;
@@ -557,8 +572,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const
 
   KK_FLOAT sin8_sq = Kokkos::fma(-cost8, cost8, static_cast<KK_FLOAT>(1.0));
   if (sin8_sq < static_cast<KK_FLOAT>(0.0)) sin8_sq = static_cast<KK_FLOAT>(0.0);
-  if (sin8_sq <= static_cast<KK_FLOAT>(1.0e-12)) return false;
-  const KK_FLOAT rsin8 = static_cast<KK_FLOAT>(Kokkos::rsqrt(sin8_sq));
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin8 = (sin8_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(Kokkos::rsqrt(sin8_sq)) : static_cast<KK_FLOAT>(0.0);
 
   // df4t8_33 = DF4_KK(theta8, l_a_xst8, l_theta_xst8_0_33, l_dtheta_xst8_ast, l_b_xst8, l_dtheta_xst8_c) * rsin8;
   // df4t8_55 = DF4_KK(theta8, l_a_xst8, l_theta_xst8_0_55, l_dtheta_xst8_ast, l_b_xst8, l_dtheta_xst8_c) * rsin8;
@@ -723,11 +741,14 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdna3XstkKokkos<DeviceType>::operator()(TagPairOxdna3XstkComputeNpair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ipair, EV_FLOAT &ev) const
 {
+  // one thread per neighbor pair: several threads update the same atoms
+  // with any neighbor list style, so all updates must be atomic
+
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
-  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_f = v_f.template access<Kokkos::Experimental::ScatterAtomic>();
   auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
-  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_torque = v_torque.template access<Kokkos::Experimental::ScatterAtomic>();
 
   const uint64_t pair = d_pairs_screened(ipair);
   const int a = static_cast<int>(pair >> 32);
@@ -850,7 +871,7 @@ void PairOxdna3XstkKokkos<DeviceType>::operator()(TagPairOxdna3XstkComputeNpair<
       ev.evdwl += (do_newton_b ? static_cast<KK_ACC_FLOAT>(1.0) : static_cast<KK_ACC_FLOAT>(0.5)) * evdwl;
     }
     if (vflag_either || eflag_atom) {
-      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,evdwl,
+      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR,1>(ev,a,b,evdwl,
         delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
     }
   }
@@ -919,7 +940,7 @@ void PairOxdna3XstkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdna3XstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
 }
 
@@ -928,10 +949,17 @@ void PairOxdna3XstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdna3XstkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   // atoms may have been reordered since the last run, so force a rebuild
   // of the cached prime neighbor table in the next compute()
 
-  last_prime_neighs_xstk3_lastcall = -1;
+  last_prime_neighs_xstk3_ncalls = -1;
 
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
@@ -967,12 +995,6 @@ void PairOxdna3XstkKokkos<DeviceType>::init_style()
   // oxdna3/xstk always uses the npair screened list; force rebuilds on all backends.
   fix_oxdna_npairKK->set_force_screening_all_backends(true);
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ----------------------------------------------------------------------
@@ -1104,7 +1126,7 @@ void PairOxdna3XstkKokkos<DeviceType>::coeff(int narg, char **arg)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_PAIR>
+template<int NEIGHFLAG, int NEWTON_PAIR, int PAIRWISE>
 KOKKOS_INLINE_FUNCTION
 void PairOxdna3XstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_ACC_FLOAT &fx, const KK_ACC_FLOAT &fy, const KK_ACC_FLOAT &fz,
@@ -1117,11 +1139,11 @@ void PairOxdna3XstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, 
 
   auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
-  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_eatom = v_eatom.template access<std::conditional_t<PAIRWISE,Kokkos::Experimental::ScatterAtomic,AtomicDup_v<NEIGHFLAG,DeviceType>>>();
 
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
-  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_vatom = v_vatom.template access<std::conditional_t<PAIRWISE,Kokkos::Experimental::ScatterAtomic,AtomicDup_v<NEIGHFLAG,DeviceType>>>();
 
   if (EFLAG) {
     if (eflag_atom) {

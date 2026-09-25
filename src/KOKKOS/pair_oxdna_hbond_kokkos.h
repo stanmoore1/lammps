@@ -83,7 +83,7 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdnaHbondComputeGPUPair<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
-  template<int NEIGHFLAG, int NEWTON_PAIR>
+  template<int NEIGHFLAG, int NEWTON_PAIR, int PAIRWISE = 0>
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
@@ -131,7 +131,7 @@ class PairOxdnaHbondKokkos : public PairOxdnaHbond, public KokkosBase {
   DAT::tdual_int_1d k_idc;
   typename AT::t_int_1d_randomread d_idc;
   int unique_basepair_enabled;
-  bigint last_idc_lastcall;
+  bigint last_idc_ncalls;
   int last_idc_nall;
 
   // hydrogen-bonding interaction parameters

@@ -49,7 +49,7 @@ PairOxdnaExcvKokkos<DeviceType>::PairOxdnaExcvKokkos(LAMMPS *lmp) : PairOxdnaExc
   fix_oxdna_lrfKK = nullptr;
   fix_oxdna_npairKK = nullptr;
   fix_oxdna_prime_neighsKK = nullptr;
-  last_prime_neighs_pair_lastcall = -1;
+  last_prime_neighs_pair_ncalls = -1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -65,6 +65,13 @@ PairOxdnaExcvKokkos<DeviceType>::~PairOxdnaExcvKokkos()
   }
 
   if (fix_oxdna_lrfKK) modify->delete_fix(fix_oxdna_lrfKK->id);
+
+  // also remove the other internal helper fixes, so they do not keep requesting
+  // neighbor lists after the oxDNA styles are gone. Styles that still need them
+  // create them again in their init_style().
+
+  if (modify->get_fix_by_id("npair_kk")) modify->delete_fix("npair_kk");
+  if (modify->get_fix_by_id("prime_neighs_kk")) modify->delete_fix("prime_neighs_kk");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -133,9 +140,9 @@ void PairOxdnaExcvKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // Precompute 3'/5' neighbor map lookups for the pair neighbor list.
   // Done here (not in pre_force) so the pair's own list is always used,
   // ensuring ib-index correspondence between precompute and kernel.
-  if (neighbor->lastcall != last_prime_neighs_pair_lastcall) {
+  if (neighbor->ncalls != last_prime_neighs_pair_ncalls) {
     fix_oxdna_prime_neighsKK->compute_prime_neighs_pair(list);
-    last_prime_neighs_pair_lastcall = neighbor->lastcall;
+    last_prime_neighs_pair_ncalls = neighbor->ncalls;
     d_prime_neighs_pair = fix_oxdna_prime_neighsKK->d_prime_neighs_pair;
   }
 
@@ -824,7 +831,7 @@ void PairOxdnaExcvKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdnaExcvKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
 }
 
@@ -833,10 +840,17 @@ void PairOxdnaExcvKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdnaExcvKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   // atoms may have been reordered since the last run, so force a rebuild
   // of the cached prime neighbor table in the next compute()
 
-  last_prime_neighs_pair_lastcall = -1;
+  last_prime_neighs_pair_ncalls = -1;
 
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
@@ -850,10 +864,14 @@ void PairOxdnaExcvKokkos<DeviceType>::init_style()
   if (!fix_oxdna_lrfKK) {
     fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(modify->add_fix("lrf_kk all OXDNA/LRF/kk"));
   }
-  // ensure fix OXDNA/NPAIR/kk is added
-  if (!fix_oxdna_npairKK) {
+  // ensure fix OXDNA/NPAIR/kk exists; reuse an existing one, since adding a fix
+  // with the same ID would delete the instance other styles refer to
+  auto npair_fixes = modify->get_fix_by_style("^OXDNA/NPAIR/kk");
+  if (npair_fixes.size() == 0)
     fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(modify->add_fix("npair_kk all OXDNA/NPAIR/kk"));
-  }
+  else
+    fix_oxdna_npairKK = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(npair_fixes[0]);
+  if (!fix_oxdna_npairKK) error->all(FLERR, "Fix OXDNA/NPAIR/kk not found");
 
   auto prime_fixes = modify->get_fix_by_style("^OXDNA/PRIME_NEIGHS/kk");
   if (prime_fixes.size() == 0) {

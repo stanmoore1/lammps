@@ -184,8 +184,11 @@ void PairOxdna3Excv::coeff(int narg, char **arg)
   MPI_Bcast(&cut_bsbs_ast_one, 1, MPI_DOUBLE, 0, world);
 
   // But for the tetramers, we put in the prefix
-  MPI_Bcast(&sigma4_bsbs[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut4_bsbs_ast[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  // number of entries per bond or pair type in the tetramer dependent arrays
+  const int ntetra = (atom->ntypes + 1) * (atom->ntypes + 1) * (atom->ntypes + 1) * (atom->ntypes + 1);
+
+  MPI_Bcast(&sigma4_bsbs[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut4_bsbs_ast[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
   // backbone-backbone
   count = 0;

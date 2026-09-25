@@ -45,7 +45,7 @@ PairOxdnaStkKokkos<DeviceType>::PairOxdnaStkKokkos(LAMMPS *lmp) : PairOxdnaStk(l
 
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
   fix_oxdna_prime_neighsKK = nullptr;
-  last_prime_neighs_bond_lastcall = -1;
+  last_prime_neighs_bond_ncalls = -1;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -98,9 +98,9 @@ void PairOxdnaStkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   nbondlist = neighborKK->nbondlist;
 
   // Keep bond-context precompute aligned with the current neighbor-list epoch.
-  if (last_prime_neighs_bond_lastcall != neighbor->lastcall) {
+  if (last_prime_neighs_bond_ncalls != neighbor->ncalls) {
     fix_oxdna_prime_neighsKK->compute_prime_neighs_bond(d_prime_neighs_bond_own);
-    last_prime_neighs_bond_lastcall = neighbor->lastcall;
+    last_prime_neighs_bond_ncalls = neighbor->ncalls;
   }
 
   d_prime_neighs_bond = d_prime_neighs_bond_own;
@@ -688,7 +688,7 @@ void PairOxdnaStkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdnaStkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -696,10 +696,17 @@ void PairOxdnaStkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdnaStkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   // atoms may have been reordered since the last run, so force a rebuild
   // of the cached prime neighbor table in the next compute()
 
-  last_prime_neighs_bond_lastcall = -1;
+  last_prime_neighs_bond_ncalls = -1;
 
   neighbor->add_request(this);
   auto request = neighbor->find_request(this);
@@ -722,12 +729,6 @@ void PairOxdnaStkKokkos<DeviceType>::init_style()
   if (!fix_oxdna_prime_neighsKK)
     error->all(FLERR, "Fix OXDNA/PRIME_NEIGHS/kk not found");
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */

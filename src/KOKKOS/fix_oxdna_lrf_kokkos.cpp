@@ -17,6 +17,7 @@
 #include "atom_masks.h"
 #include "error.h"
 #include "memory_kokkos.h"
+#include "update.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -60,6 +61,11 @@ void FixOxdnaLRFKokkos<DeviceType>::init()
 {
   avecEllipKK = dynamic_cast<AtomVecEllipsoidKokkos *>(atom->style_match("ellipsoid"));
   if (!avecEllipKK) error->all(FLERR, "Fix OXDNA/LRF/kk requires atom style ellipsoid/kk");
+
+  // with rRESPA the local reference frames would never be computed
+
+  if (utils::strmatch(update->integrate_style, "^respa"))
+    error->all(FLERR, "The oxDNA styles do not support run style respa");
 }
 
 /* ---------------------------------------------------------------------- */

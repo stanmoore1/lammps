@@ -93,6 +93,8 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   f = atomKK->k_f.template view<DeviceType>();
   torque = atomKK->k_torque.template view<DeviceType>();
   type = atomKK->k_type.template view<DeviceType>();
+  id5p = atomKK->k_id5p.template view<DeviceType>();
+  id3p = atomKK->k_id3p.template view<DeviceType>();
 
   nlocal = atom->nlocal;
   newton_pair = force->newton_pair;
@@ -248,6 +250,10 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
   auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
 
   const int a = d_alist(ia);
+
+  // a has to be a terminal nucleotide
+  if ((id3p(a) != -1) && (id5p(a) != -1)) return;
+
   const int atype = type(a);
   // vectors COM-backbone site, COM-stacking site in lab frame
   KK_FLOAT ra_cs[3], rb_cs[3], ra_cst[3], rb_cst[3];
@@ -289,6 +295,10 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
     int b = d_neighbors(a,ib);
     const KK_FLOAT factor_lj = special_lj[sbmask(b)];
     b &= NEIGHMASK;
+
+    // b has to be a terminal nucleotide
+    if ((id3p(b) != -1) && (id5p(b) != -1)) continue;
+
     const int btype = type(b);
 
     // vector COM b - stacking site b --- (st)
@@ -350,6 +360,8 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
       theta4 = acos(cost4);
       // f4t4 = f4 modulation factor
       f4t4 = F4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype),
+              d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype)) +
+             F4_KK(theta4, d_a_cxst4(atype,btype), MY_PI - d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype),
               d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype));
     // end of f4t1
 
@@ -410,8 +422,10 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::operator()(TagPairOxdnaCoaxstkCompute<N
               DF4_KK(theta1p, d_a_cxst1(atype,btype), d_theta_cxst1_0(atype,btype), d_dtheta_cxst1_ast(atype,btype),
                      d_b_cxst1(atype,btype), d_dtheta_cxst1_c(atype,btype)) ) / sin(theta1);
       // df4t4 = DF4 modulation factor
-      df4t4 = DF4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype),
-                     d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype)) / sin(theta4);
+      df4t4 = ( DF4_KK(theta4, d_a_cxst4(atype,btype), d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype),
+                     d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype)) +
+                DF4_KK(theta4, d_a_cxst4(atype,btype), MY_PI - d_theta_cxst4_0(atype, btype), d_dtheta_cxst4_ast(atype, btype),
+                     d_b_cxst4(atype, btype), d_dtheta_cxst4_c(atype, btype)) ) / sin(theta4);
       // df4t5 = DF4(theta5,..)/sin(theta5) - DF4(theta5p,..)/sin(theta5) modulation factors
       df4t5 = ( DF4_KK(theta5, d_a_cxst5(atype,btype), d_theta_cxst5_0(atype,btype), d_dtheta_cxst5_ast(atype,btype),
                      d_b_cxst5(atype,btype), d_dtheta_cxst5_c(atype,btype)) - \
@@ -800,7 +814,7 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdnaCoaxstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
 }
 
@@ -809,6 +823,13 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdnaCoaxstkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -823,12 +844,6 @@ void PairOxdnaCoaxstkKokkos<DeviceType>::init_style()
   if (fixes.size() == 0) error->all(FLERR, "Fix OXDNA/LRF/kk not found. Ensure pair ox*na*/excv/kk is present");
   else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
