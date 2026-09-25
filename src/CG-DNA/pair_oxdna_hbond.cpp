@@ -56,6 +56,7 @@ PairOxdnaHbond::PairOxdnaHbond(LAMMPS *lmp) :
   single_enable = 0;
   writedata = 0;
   trim_flag = 0;
+  seqdepflag = 0;
 
   // sequence-specific base-pairing strength
   // A:0 C:1 G:2 T:3, 5'- [i][j] -3'
