@@ -78,7 +78,7 @@ class PairOxdna2CoaxstkKokkos : public PairOxdna2Coaxstk, public KokkosBase {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairOxdna2CoaxstkComputeGPUPair<OXDNAFLAG,NEIGHFLAG,NEWTON_PAIR,EVFLAG>, const int&) const;
 
-  template<int NEIGHFLAG, int NEWTON_PAIR>
+  template<int NEIGHFLAG, int NEWTON_PAIR, int PAIRWISE = 0>
   KOKKOS_INLINE_FUNCTION
   void ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_ACC_FLOAT &fx, const KK_ACC_FLOAT &fy, const KK_ACC_FLOAT &fz,

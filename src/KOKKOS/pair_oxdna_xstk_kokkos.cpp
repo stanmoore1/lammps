@@ -1106,11 +1106,14 @@ KOKKOS_INLINE_FUNCTION
 void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<NEIGHFLAG,NEWTON_PAIR,EVFLAG>, \
   const int &ipair, EV_FLOAT &ev) const
 {
+  // one thread per neighbor pair: several threads update the same atoms
+  // with any neighbor list style, so all updates must be atomic
+
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
-  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_f = v_f.template access<Kokkos::Experimental::ScatterAtomic>();
   auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
-  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_torque = v_torque.template access<Kokkos::Experimental::ScatterAtomic>();
 
   // Direct packed pair lookup: high 32 bits = a, low 32 bits = b.
   const uint64_t pair = d_pairs_screened(ipair);
@@ -1240,7 +1243,7 @@ void PairOxdnaXstkKokkos<DeviceType>::operator()(TagPairOxdnaXstkComputeGPUPair<
     ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
 
     if (vflag_either || eflag_atom) {
-      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,evdwl,\
+      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR,1>(ev,a,b,evdwl,\
       delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
     }
   }
@@ -1384,7 +1387,7 @@ void PairOxdnaXstkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdnaXstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
 }
 
@@ -1393,6 +1396,13 @@ void PairOxdnaXstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdnaXstkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -1415,12 +1425,6 @@ void PairOxdnaXstkKokkos<DeviceType>::init_style()
   }
   if (!fix_oxdna_npairKK) error->all(FLERR, "Fix OXDNA/NPAIR/kk lookup failed");
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1585,7 +1589,7 @@ double PairOxdnaXstkKokkos<DeviceType>::init_one(int i, int j)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_PAIR>
+template<int NEIGHFLAG, int NEWTON_PAIR, int PAIRWISE>
 KOKKOS_INLINE_FUNCTION
 void PairOxdnaXstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_ACC_FLOAT &fx, const KK_ACC_FLOAT &fy, const KK_ACC_FLOAT &fz,
@@ -1598,11 +1602,11 @@ void PairOxdnaXstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, c
 
   auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
-  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_eatom = v_eatom.template access<std::conditional_t<PAIRWISE,Kokkos::Experimental::ScatterAtomic,AtomicDup_v<NEIGHFLAG,DeviceType>>>();
 
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
-  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_vatom = v_vatom.template access<std::conditional_t<PAIRWISE,Kokkos::Experimental::ScatterAtomic,AtomicDup_v<NEIGHFLAG,DeviceType>>>();
 
   if (EFLAG) {
     if (eflag_atom) {

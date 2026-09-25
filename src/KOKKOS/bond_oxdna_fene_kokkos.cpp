@@ -47,7 +47,7 @@ BondOxdnaFENEKokkos<DeviceType>::BondOxdnaFENEKokkos(LAMMPS *lmp) : BondOxdnaFen
 
   oxdnaflag = EnabledOXDNAFlag::OXDNA;
   fix_oxdna_prime_neighsKK = nullptr;
-  last_prime_neighs_bond_lastcall = -1;
+  last_prime_neighs_bond_ncalls = -1;
 
   d_flag = typename AT::t_int_scalar("bond:flag");
   h_flag = HAT::t_int_scalar("bond:flag_mirror");
@@ -69,6 +69,13 @@ BondOxdnaFENEKokkos<DeviceType>::~BondOxdnaFENEKokkos()
 template<class DeviceType>
 void BondOxdnaFENEKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   if (force->special_lj[1] != 0.0 || force->special_lj[2] != 1.0 || force->special_lj[3] != 1.0)
     error->all(FLERR, "Must use 'special_bonds lj 0 1 1' with bond style oxdna/fene/kk, oxdna2/fene/kk, " \
                       "oxdna3/fene/kk or oxrna2/fene/kk");
@@ -88,14 +95,8 @@ void BondOxdnaFENEKokkos<DeviceType>::init_style()
   if (!fix_oxdna_prime_neighsKK)
     error->all(FLERR, "Fix OXDNA/PRIME_NEIGHS/kk not found");
 
-  last_prime_neighs_bond_lastcall = -1;
+  last_prime_neighs_bond_ncalls = -1;
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -138,9 +139,9 @@ void BondOxdnaFENEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   // the 3'/5' lookups are indexed like the bond list this style is handed,
   // which under bond style hybrid is only the subset of its own bond types
 
-  if (last_prime_neighs_bond_lastcall != neighbor->lastcall) {
+  if (last_prime_neighs_bond_ncalls != neighbor->ncalls) {
     fix_oxdna_prime_neighsKK->compute_prime_neighs_bond(d_prime_neighs_bond_own);
-    last_prime_neighs_bond_lastcall = neighbor->lastcall;
+    last_prime_neighs_bond_ncalls = neighbor->ncalls;
   }
   d_prime_neighs_bond = d_prime_neighs_bond_own;
   nlocal = atom->nlocal;
@@ -315,7 +316,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
   // energy
 
   KK_FLOAT ebond = 0.0;
-  if (eflag) { ebond = -0.5*d_k[type]*log(rlogarg);}
+  if (eflag) { ebond = -0.5*d_k[type]*Kokkos::log(rlogarg);}
 
   // switching to capped force for r-r0 -> Delta at
   // r > r_max = r0 + Delta*sqrt(1-rlogarg) OR
@@ -329,7 +330,7 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
       rr0 = d_Delta(type, a3ptype, atype, btype, b5ptype)*Kokkos::sqrt(1.0 - rlogarg);
       // energy
       if (eflag) {
-        ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) *
+        ebond = -0.5 * d_k(type) * Kokkos::log(rlogarg) + d_k(type) *
                 Kokkos::sqrt(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
                 (r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype) -
                 d_Delta(type, a3ptype, atype, btype, b5ptype) * Kokkos::sqrt(1.0-rlogarg));
@@ -340,10 +341,10 @@ void BondOxdnaFENEKokkos<DeviceType>::operator()(TagBondOxdnaFENECompute<OXDNAFL
       rr0 = -d_Delta(type, a3ptype, atype, btype, b5ptype)*Kokkos::sqrt(1.0 - rlogarg);
       // energy
       if (eflag) {
-        ebond = -0.5 * d_k(type) * log(rlogarg) + d_k(type) *
+        ebond = -0.5 * d_k(type) * Kokkos::log(rlogarg) + d_k(type) *
                 Kokkos::sqrt(1.0-rlogarg) / rlogarg / d_Delta(type, a3ptype, atype, btype, b5ptype) *
-                (r_bkbk - d_r0(type, a3ptype, atype, btype, b5ptype) +
-                d_Delta(type, a3ptype, atype, btype, b5ptype) * Kokkos::sqrt(1.0-rlogarg));
+                (d_r0(type, a3ptype, atype, btype, b5ptype) -
+                d_Delta(type, a3ptype, atype, btype, b5ptype) * Kokkos::sqrt(1.0-rlogarg) - r_bkbk);
       }
     }
   }

@@ -106,9 +106,9 @@ template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::min_pre_force(int /*vflag*/)
 {
   if ((force_screening_all_backends || execution_space != HostKK) &&
-      last_allocate != neighbor->lastcall) {
+      last_allocate != neighbor->ncalls) {
      compute_neigh_screen_to_npair();
-     last_allocate = neighbor->lastcall;
+     last_allocate = neighbor->ncalls;
   }
 }
 
@@ -127,9 +127,9 @@ template<class DeviceType>
 void FixOxdnaNpairKokkos<DeviceType>::pre_force(int /*vflag*/)
 {
   if ((force_screening_all_backends || execution_space != HostKK) &&
-      last_allocate != neighbor->lastcall) {
+      last_allocate != neighbor->ncalls) {
      compute_neigh_screen_to_npair();
-     last_allocate = neighbor->lastcall;
+     last_allocate = neighbor->ncalls;
   }
 }
 
@@ -196,11 +196,8 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
                           screened_max_atoms);
     MemKK::realloc_kokkos(k_screened_offsets, "FixOxdnaNpair:screened_offsets",
                           screened_max_atoms + 1);
-    MemKK::realloc_kokkos(k_pairs_screened, "FixOxdnaNpair:pairs_screened",
-              screened_max_atoms * screened_max_neigh);
     d_numneigh_screened = k_numneigh_screened.template view<DeviceType>();
     d_screened_offsets = k_screened_offsets.template view<DeviceType>();
-    d_pairs_screened = k_pairs_screened.template view<DeviceType>();
   }
 
   atomKK->sync(execution_space, datamask_read);
@@ -245,6 +242,15 @@ void FixOxdnaNpairKokkos<DeviceType>::compute_neigh_screen_to_npair()
   Kokkos::deep_copy(
     k_screened_pair_count.view_host(), Kokkos::subview(d_screened_offsets_local, anum_local));
   screened_pair_count = k_screened_pair_count.view_host()();
+
+  // size the packed pair list by the number of pairs that survived screening,
+  // with some headroom to avoid reallocating at every rebuild
+
+  if ((bigint) screened_pair_count > (bigint) k_pairs_screened.extent(0)) {
+    const bigint newsize = (bigint) screened_pair_count + screened_pair_count / 5 + 1;
+    MemKK::realloc_kokkos(k_pairs_screened, "FixOxdnaNpair:pairs_screened", (size_t) newsize);
+  }
+  d_pairs_screened = k_pairs_screened.template view<DeviceType>();
 
   // Pass 3 (fill): re-screen each atom's neighbours and write its survivors as
   // packed (a,b) uint64 keys directly at d_screened_offsets(i)..+count. The

@@ -90,7 +90,8 @@ class FixOxdnaNpairKokkos : public Fix {
   typename AT::t_int_1d_randomread type;
 
   int anum;
-  int neighflag, last_allocate;
+  int neighflag;
+  bigint last_allocate;
   typename AT::t_neighbors_2d_randomread d_neighbors;
   typename AT::t_int_1d_randomread d_alist;
   typename AT::t_int_1d_randomread d_numneigh;

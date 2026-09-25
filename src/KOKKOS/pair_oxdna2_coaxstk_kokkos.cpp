@@ -209,7 +209,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
         case 12: run_compute_by_oxdnaflag(std::integral_constant<int,OXDNA2>{}, std::integral_constant<int,HALF>{},      std::integral_constant<int,1>{}, std::integral_constant<int,1>{}); break;
         case 13: run_compute_by_oxdnaflag(std::integral_constant<int,OXDNA2>{}, std::integral_constant<int,HALFTHREAD>{},std::integral_constant<int,1>{}, std::integral_constant<int,1>{}); break;
         case 14: run_compute_by_oxdnaflag(std::integral_constant<int,OXDNA2>{}, std::integral_constant<int,FULL>{},      std::integral_constant<int,1>{}, std::integral_constant<int,1>{}); break;
-        default: error->all(FLERR,"Illegal pair_style command");
+        default: error->all(FLERR, "Unsupported neighbor list setting in pair oxdna2/coaxstk/kk");
       }
       break;
     case EnabledOXDNAFlag::OXDNA3:
@@ -226,11 +226,11 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
         case 12: run_compute_by_oxdnaflag(std::integral_constant<int,OXDNA3>{}, std::integral_constant<int,HALF>{},      std::integral_constant<int,1>{}, std::integral_constant<int,1>{}); break;
         case 13: run_compute_by_oxdnaflag(std::integral_constant<int,OXDNA3>{}, std::integral_constant<int,HALFTHREAD>{},std::integral_constant<int,1>{}, std::integral_constant<int,1>{}); break;
         case 14: run_compute_by_oxdnaflag(std::integral_constant<int,OXDNA3>{}, std::integral_constant<int,FULL>{},      std::integral_constant<int,1>{}, std::integral_constant<int,1>{}); break;
-        default: error->all(FLERR,"Illegal pair_style command");
+        default: error->all(FLERR, "Unsupported neighbor list setting in pair oxdna2/coaxstk/kk");
       }
       break;
     default:
-      error->all(FLERR,"Illegal pair_style command");
+      error->all(FLERR, "Unknown oxDNA model in pair oxdna2/coaxstk/kk");
   }
 
   if (need_dup) {
@@ -712,9 +712,12 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta1_terms(const int &atype,
 
   // df4f6t1 = (DF4 + DF6) / sin(theta1)
   KK_FLOAT sin1_sq = Kokkos::fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
-  if (sin1_sq <= 0.0) return false;
-  KK_FLOAT sin1 = Kokkos::sqrt(sin1_sq);
-  df4f6t1 = (DF4_KK(theta1, a1, t10, dt1a, b1, dt1c) + DF6_KK(theta1, aa1, bb1)) / sin1;
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin1 = (sin1_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin1_sq) : static_cast<KK_FLOAT>(0.0);
+  df4f6t1 = (DF4_KK(theta1, a1, t10, dt1a, b1, dt1c) + DF6_KK(theta1, aa1, bb1)) * rsin1;
 
   return true;
 }
@@ -740,9 +743,13 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta4_terms(const int &atype,
   if (f4t4 == static_cast<KK_FLOAT>(0.0)) return false;
 
   KK_FLOAT sin4_sq = Kokkos::fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
-  if (sin4_sq <= 0.0) return false;
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin4 = (sin4_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin4_sq) : static_cast<KK_FLOAT>(0.0);
   df4t4 = ( DF4_KK(theta4, a4, t40, dt4a, b4, dt4c) +
-            DF4_KK(theta4, a4, MY_PI - t40, dt4a, b4, dt4c) ) / Kokkos::sqrt(sin4_sq);
+            DF4_KK(theta4, a4, MY_PI - t40, dt4a, b4, dt4c) ) * rsin4;
   return true;
 }
 
@@ -767,9 +774,13 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta5_terms(const int &atype,
   if (f4t5 == static_cast<KK_FLOAT>(0.0)) return false;
 
   KK_FLOAT sin5_sq = Kokkos::fma(-cost5, cost5, static_cast<KK_FLOAT>(1.0));
-  if (sin5_sq <= 0.0) return false;
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin5 = (sin5_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin5_sq) : static_cast<KK_FLOAT>(0.0);
   df4t5 = ( DF4_KK(theta5, a5, t50, dt5a, b5, dt5c) -
-            DF4_KK(theta5p, a5, t50, dt5a, b5, dt5c) ) / Kokkos::sqrt(sin5_sq);
+            DF4_KK(theta5p, a5, t50, dt5a, b5, dt5c) ) * rsin5;
   return true;
 }
 
@@ -794,9 +805,13 @@ bool PairOxdna2CoaxstkKokkos<DeviceType>::coaxstk_theta6_terms(const int &atype,
   if (f4t6 == static_cast<KK_FLOAT>(0.0)) return false;
 
   KK_FLOAT sin6_sq = Kokkos::fma(-cost6, cost6, static_cast<KK_FLOAT>(1.0));
-  if (sin6_sq <= 0.0) return false;
+  // at sin(theta) = 0 the angular force and torque directions vanish, so the
+  // derivative term is zero, but the pair still contributes its energy and
+  // its other force terms
+  const KK_FLOAT rsin6 = (sin6_sq > static_cast<KK_FLOAT>(0.0)) ?
+    static_cast<KK_FLOAT>(1.0) / Kokkos::sqrt(sin6_sq) : static_cast<KK_FLOAT>(0.0);
   df4t6 = ( DF4_KK(theta6, a6, t60, dt6a, b6, dt6c) -
-            DF4_KK(theta6p, a6, t60, dt6a, b6, dt6c) ) / Kokkos::sqrt(sin6_sq);
+            DF4_KK(theta6p, a6, t60, dt6a, b6, dt6c) ) * rsin6;
   return true;
 }
 
@@ -961,11 +976,14 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
 {
   // f and torque array are duplicated for OpenMP, atomic for GPU, and neither for Serial
 
+  // one thread per neighbor pair: several threads update the same atoms
+  // with any neighbor list style, so all updates must be atomic
+
   auto v_f = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,decltype(dup_f),decltype(ndup_f)>::get(dup_f,ndup_f);
-  auto a_f = v_f.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_f = v_f.template access<Kokkos::Experimental::ScatterAtomic>();
   auto v_torque = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_torque),decltype(ndup_torque)>::get(dup_torque,ndup_torque);
-  auto a_torque = v_torque.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_torque = v_torque.template access<Kokkos::Experimental::ScatterAtomic>();
 
   // Direct packed pair lookup: high 32 bits = a, low 32 bits = b.
   const uint64_t pair = d_pairs_screened(ipair);
@@ -1118,7 +1136,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::operator()(TagPairOxdna2CoaxstkCompute
     ev.evdwl += (((NEIGHFLAG==HALF || NEIGHFLAG==HALFTHREAD)&&(NEWTON_PAIR||(b<nlocal)))?1.0:0.5)*evdwl;
 
     if (vflag_either || eflag_atom) {
-      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR>(ev,a,b,evdwl,\
+      this->template ev_tally_xyz<NEIGHFLAG,NEWTON_PAIR,1>(ev,a,b,evdwl,\
       delf[0],delf[1],delf[2],x(a,0)-x(b,0), x(a,1)-x(b,1), x(a,2)-x(b,2));
     }
   }
@@ -1249,7 +1267,7 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdna2CoaxstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
 }
 
@@ -1258,6 +1276,13 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 template<class DeviceType>
 void PairOxdna2CoaxstkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -1280,12 +1305,6 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::init_style()
   }
   if (!fix_oxdna_npairKK) error->all(FLERR, "Fix OXDNA/NPAIR/kk lookup failed");
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1423,7 +1442,7 @@ double PairOxdna2CoaxstkKokkos<DeviceType>::init_one(int i, int j)
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-template<int NEIGHFLAG, int NEWTON_PAIR>
+template<int NEIGHFLAG, int NEWTON_PAIR, int PAIRWISE>
 KOKKOS_INLINE_FUNCTION
 void PairOxdna2CoaxstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &i, const int &j,
       const KK_FLOAT &epair, const KK_ACC_FLOAT &fx, const KK_ACC_FLOAT &fy, const KK_ACC_FLOAT &fz,
@@ -1436,11 +1455,11 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &
 
   auto v_eatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_eatom),decltype(ndup_eatom)>::get(dup_eatom,ndup_eatom);
-  auto a_eatom = v_eatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_eatom = v_eatom.template access<std::conditional_t<PAIRWISE,Kokkos::Experimental::ScatterAtomic,AtomicDup_v<NEIGHFLAG,DeviceType>>>();
 
   auto v_vatom = ScatterViewHelper<NeedDup_v<NEIGHFLAG,DeviceType>,\
     decltype(dup_vatom),decltype(ndup_vatom)>::get(dup_vatom,ndup_vatom);
-  auto a_vatom = v_vatom.template access<AtomicDup_v<NEIGHFLAG,DeviceType>>();
+  auto a_vatom = v_vatom.template access<std::conditional_t<PAIRWISE,Kokkos::Experimental::ScatterAtomic,AtomicDup_v<NEIGHFLAG,DeviceType>>>();
 
   if (EFLAG) {
     if (eflag_atom) {

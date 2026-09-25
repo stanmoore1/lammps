@@ -160,8 +160,11 @@ void BondOxdna3FENEKokkos<DeviceType>::coeff(int narg, char **arg)
 
   // communicate parameters for bond type ilo
   MPI_Bcast(&k[ilo], 1, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&Delta[ilo][0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&r0[ilo][0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  // number of entries per bond or pair type in the tetramer dependent arrays
+  const int ntetra = (this->atom->ntypes + 1) * (this->atom->ntypes + 1) * (this->atom->ntypes + 1) * (this->atom->ntypes + 1);
+
+  MPI_Bcast(&Delta[ilo][0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&r0[ilo][0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
   // set parameters for all other bond types
   int count = 0;

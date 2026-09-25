@@ -302,15 +302,18 @@ void PairOxdna3StkKokkos<DeviceType>::coeff(int narg, char **arg)
   MPI_Bcast(&epsilon_st_one, 1, MPI_DOUBLE, 0, world);
   MPI_Bcast(&a_st_one, 1, MPI_DOUBLE, 0, world);
 
-  MPI_Bcast(&cut_st_0[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_st_c[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_st_lo[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_st_hi[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&a_st4[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  // number of entries per bond or pair type in the tetramer dependent arrays
+  const int ntetra = (this->atom->ntypes + 1) * (this->atom->ntypes + 1) * (this->atom->ntypes + 1) * (this->atom->ntypes + 1);
+
+  MPI_Bcast(&cut_st_0[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_st_c[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_st_lo[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_st_hi[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&a_st4[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
   MPI_Bcast(&theta_st4_0_one, 1, MPI_DOUBLE, 0, world);
 
-  MPI_Bcast(&dtheta_st4_ast[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&dtheta_st4_ast[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
   MPI_Bcast(&a_st5_one, 1, MPI_DOUBLE, 0, world);
   MPI_Bcast(&theta_st5_0_one, 1, MPI_DOUBLE, 0, world);

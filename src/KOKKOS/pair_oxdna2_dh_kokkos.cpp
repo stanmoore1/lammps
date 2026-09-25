@@ -488,7 +488,7 @@ void PairOxdna2DhKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxdna2DhKokkos<DeviceType>::settings(int narg, char **/*arg*/)
 {
-  if (narg != 0) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 
 }
 
@@ -509,6 +509,13 @@ void PairOxdna2DhKokkos<DeviceType>::coeff(int narg, char **arg)
 template<class DeviceType>
 void PairOxdna2DhKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
@@ -523,12 +530,6 @@ void PairOxdna2DhKokkos<DeviceType>::init_style()
   if (fixes.size() == 0) error->all(FLERR, "Fix OXDNA/LRF/kk not found. Ensure pair ox*na*/excv/kk is present");
   else fix_oxdna_lrfKK = dynamic_cast<FixOxdnaLRFKokkos<DeviceType> *>(fixes[0]);
 
-  // the helper fixes are created for the default KOKKOS variant, so a /kk/host
-  // style on a GPU build would find helper fixes of the wrong type
-
-  if (!fix_oxdna_lrfKK)
-    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
-               "when LAMMPS is compiled for a GPU");
 }
 
 /* ---------------------------------------------------------------------- */

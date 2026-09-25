@@ -1098,15 +1098,18 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
 
   MPI_Bcast(&k_xst_one, 1, MPI_DOUBLE, 0, world);
 
-  MPI_Bcast(&cut_xst_0_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_xst_c_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_xst_lo_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_xst_hi_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  // number of entries per bond or pair type in the tetramer dependent arrays
+  const int ntetra = (atom->ntypes + 1) * (atom->ntypes + 1) * (atom->ntypes + 1) * (atom->ntypes + 1);
 
-  MPI_Bcast(&cut_xst_0_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_xst_c_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_xst_lo_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&cut_xst_hi_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_0_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_c_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_lo_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_hi_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+
+  MPI_Bcast(&cut_xst_0_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_c_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_lo_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&cut_xst_hi_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
   MPI_Bcast(&a_xst1_one, 1, MPI_DOUBLE, 0, world);
   MPI_Bcast(&theta_xst1_0_one, 1, MPI_DOUBLE, 0, world);
@@ -1120,13 +1123,13 @@ void PairOxdna3Xstk::coeff(int narg, char **arg)
   MPI_Bcast(&theta_xst3_0_one, 1, MPI_DOUBLE, 0, world);
   MPI_Bcast(&dtheta_xst3_ast_one, 1, MPI_DOUBLE, 0, world);
 
-  MPI_Bcast(&a_xst4_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&theta_xst4_0_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&dtheta_xst4_ast_33[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&a_xst4_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&theta_xst4_0_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&dtheta_xst4_ast_33[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
-  MPI_Bcast(&a_xst4_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&theta_xst4_0_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
-  MPI_Bcast(&dtheta_xst4_ast_55[0][0][0][0], 625, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&a_xst4_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&theta_xst4_0_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
+  MPI_Bcast(&dtheta_xst4_ast_55[0][0][0][0], ntetra, MPI_DOUBLE, 0, world);
 
   MPI_Bcast(&a_xst7_one, 1, MPI_DOUBLE, 0, world);
   MPI_Bcast(&theta_xst7_0_33_one, 1, MPI_DOUBLE, 0, world);

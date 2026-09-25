@@ -173,21 +173,19 @@ void FixOxdnaPrimeNeighsKokkos<DeviceType>::compute_prime_neighs_oxdna3_xstk(Nei
 {
   (void) neigh_list;
 
-  if (!fix_oxdna_npairKK) {
-    auto npair_fixes = modify->get_fix_by_style("^OXDNA/NPAIR/kk");
-    for (auto *fixptr : npair_fixes) {
-      auto *typed = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(fixptr);
-      if (typed) {
-        fix_oxdna_npairKK = typed;
-        break;
-      }
+  // look up the fix every time, since it may have been replaced since the last call
+
+  fix_oxdna_npairKK = nullptr;
+  auto npair_fixes = modify->get_fix_by_style("^OXDNA/NPAIR/kk");
+  for (auto *fixptr : npair_fixes) {
+    auto *typed = dynamic_cast<FixOxdnaNpairKokkos<DeviceType> *>(fixptr);
+    if (typed) {
+      fix_oxdna_npairKK = typed;
+      break;
     }
   }
 
-  if (!fix_oxdna_npairKK) {
-    error->all(FLERR, "FixOxdnaPrimeNeighsKokkos::compute_prime_neighs_oxdna3_xstk() "
-               "called but no matching OXDNA/NPAIR/kk fix is available");
-  }
+  if (!fix_oxdna_npairKK) error->all(FLERR, "Fix OXDNA/NPAIR/kk not found");
 
   npairlist = fix_oxdna_npairKK->screened_pair_count;
   pairlist = fix_oxdna_npairKK->k_pairs_screened.template view<DeviceType>();

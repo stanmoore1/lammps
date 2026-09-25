@@ -659,7 +659,7 @@ void PairOxrna2XstkKokkos<DeviceType>::allocate()
 template<class DeviceType>
 void PairOxrna2XstkKokkos<DeviceType>::settings(int narg, char ** /*arg*/)
 {
-  if (narg != 0) error->all(FLERR, "Illegal pair_style command");
+  if (narg != 0) error->all(FLERR, "The oxDNA and oxRNA pair styles do not take any arguments");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -667,6 +667,13 @@ void PairOxrna2XstkKokkos<DeviceType>::settings(int narg, char ** /*arg*/)
 template<class DeviceType>
 void PairOxrna2XstkKokkos<DeviceType>::init_style()
 {
+  // the internal helper fixes are always created for the default KOKKOS variant,
+  // so /kk/host styles cannot work with them when LAMMPS is compiled for a GPU
+
+  if (std::is_same_v<DeviceType, LMPHostType> && !std::is_same_v<DeviceType, LMPDeviceType>)
+    error->all(FLERR, "The /kk/host variants of the CG-DNA styles are not supported "
+               "when LAMMPS is compiled for a GPU");
+
   neighbor->add_request(this);
   neighflag = lmp->kokkos->neighflag;
   auto request = neighbor->find_request(this);
