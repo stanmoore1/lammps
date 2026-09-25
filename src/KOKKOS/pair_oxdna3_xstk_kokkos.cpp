@@ -348,6 +348,19 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_radial_terms(const int &atype, const
   return true;
 }
 
+/* ----------------------------------------------------------------------
+   length of the cross product of two vectors
+------------------------------------------------------------------------- */
+
+KOKKOS_INLINE_FUNCTION
+static KK_FLOAT cross_norm(const KK_FLOAT (&u)[3], const KK_FLOAT (&v)[3])
+{
+  const KK_FLOAT c0 = u[1] * v[2] - u[2] * v[1];
+  const KK_FLOAT c1 = u[2] * v[0] - u[0] * v[2];
+  const KK_FLOAT c2 = u[0] * v[1] - u[1] * v[0];
+  return Kokkos::sqrt(c0 * c0 + c1 * c1 + c2 * c2);
+}
+
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const int &btype,
@@ -357,7 +370,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const
   KK_FLOAT cost1 = -Kokkos::fma(a_nx[2], b_nx[2], Kokkos::fma(a_nx[1], b_nx[1], a_nx[0] * b_nx[0]));
   if (cost1 > static_cast<KK_FLOAT>(1.0)) cost1 = static_cast<KK_FLOAT>(1.0);
   if (cost1 < static_cast<KK_FLOAT>(-1.0)) cost1 = static_cast<KK_FLOAT>(-1.0);
-  const KK_FLOAT theta1 = acos(cost1);
+  // sin(theta) from the cross product and theta from atan2 stay accurate
+  // near 0 and pi, where 1 - cos^2 and acos() lose most of their digits
+  // in single precision
+  const KK_FLOAT sin1 = cross_norm(a_nx, b_nx);
+  const KK_FLOAT theta1 = Kokkos::atan2(sin1, cost1);
 
   const auto& p_xstk = d_params_xstk(atype, btype);
 
@@ -370,8 +387,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta1_terms(const int &atype, const
   f4t1 = F4_KK(theta1, l_a_xst1, l_theta_xst1_0, l_dtheta_xst1_ast, l_b_xst1, l_dtheta_xst1_c, df4t1);
   if (f4t1 == static_cast<KK_FLOAT>(0.0)) return false;
 
-  KK_FLOAT sin1_sq = Kokkos::fma(-cost1, cost1, static_cast<KK_FLOAT>(1.0));
-  if (sin1_sq < static_cast<KK_FLOAT>(0.0)) sin1_sq = static_cast<KK_FLOAT>(0.0);
+  const KK_FLOAT sin1_sq = sin1 * sin1;
   // at sin(theta) = 0 the angular force and torque directions vanish, so the
   // derivative term is zero, but the pair still contributes its energy and
   // its other force terms
@@ -393,7 +409,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta2_terms(const int &atype, const
   cost2 = -Kokkos::fma(a_nx[2], delr_hb_norm[2], Kokkos::fma(a_nx[1], delr_hb_norm[1], a_nx[0] * delr_hb_norm[0]));
   if (cost2 > static_cast<KK_FLOAT>(1.0)) cost2 = static_cast<KK_FLOAT>(1.0);
   if (cost2 < static_cast<KK_FLOAT>(-1.0)) cost2 = static_cast<KK_FLOAT>(-1.0);
-  const KK_FLOAT theta2 = acos(cost2);
+  // sin(theta) from the cross product and theta from atan2 stay accurate
+  // near 0 and pi, where 1 - cos^2 and acos() lose most of their digits
+  // in single precision
+  const KK_FLOAT sin2 = cross_norm(a_nx, delr_hb_norm);
+  const KK_FLOAT theta2 = Kokkos::atan2(sin2, cost2);
 
   const auto& p_xstk = d_params_xstk(atype, btype);
 
@@ -406,8 +426,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta2_terms(const int &atype, const
   f4t2 = F4_KK(theta2, l_a_xst2, l_theta_xst2_0, l_dtheta_xst2_ast, l_b_xst2, l_dtheta_xst2_c, df4t2);
   if (f4t2 == static_cast<KK_FLOAT>(0.0)) return false;
 
-  KK_FLOAT sin2_sq = Kokkos::fma(-cost2, cost2, static_cast<KK_FLOAT>(1.0));
-  if (sin2_sq < static_cast<KK_FLOAT>(0.0)) sin2_sq = static_cast<KK_FLOAT>(0.0);
+  const KK_FLOAT sin2_sq = sin2 * sin2;
   // at sin(theta) = 0 the angular force and torque directions vanish, so the
   // derivative term is zero, but the pair still contributes its energy and
   // its other force terms
@@ -429,7 +448,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta3_terms(const int &atype, const
   cost3 = Kokkos::fma(b_nx[2], delr_hb_norm[2], Kokkos::fma(b_nx[1], delr_hb_norm[1], b_nx[0] * delr_hb_norm[0]));
   if (cost3 > static_cast<KK_FLOAT>(1.0)) cost3 = static_cast<KK_FLOAT>(1.0);
   if (cost3 < static_cast<KK_FLOAT>(-1.0)) cost3 = static_cast<KK_FLOAT>(-1.0);
-  const KK_FLOAT theta3 = acos(cost3);
+  // sin(theta) from the cross product and theta from atan2 stay accurate
+  // near 0 and pi, where 1 - cos^2 and acos() lose most of their digits
+  // in single precision
+  const KK_FLOAT sin3 = cross_norm(b_nx, delr_hb_norm);
+  const KK_FLOAT theta3 = Kokkos::atan2(sin3, cost3);
 
   const auto& p_xstk = d_params_xstk(atype, btype);
 
@@ -442,8 +465,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta3_terms(const int &atype, const
   f4t3 = F4_KK(theta3, l_a_xst3, l_theta_xst3_0, l_dtheta_xst3_ast, l_b_xst3, l_dtheta_xst3_c, df4t3);
   if (f4t3 == static_cast<KK_FLOAT>(0.0)) return false;
 
-  KK_FLOAT sin3_sq = Kokkos::fma(-cost3, cost3, static_cast<KK_FLOAT>(1.0));
-  if (sin3_sq < static_cast<KK_FLOAT>(0.0)) sin3_sq = static_cast<KK_FLOAT>(0.0);
+  const KK_FLOAT sin3_sq = sin3 * sin3;
   // at sin(theta) = 0 the angular force and torque directions vanish, so the
   // derivative term is zero, but the pair still contributes its energy and
   // its other force terms
@@ -468,7 +490,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta4_terms(const int &atype, const
   KK_FLOAT cost4 = Kokkos::fma(a_nz[2], b_nz[2], Kokkos::fma(a_nz[1], b_nz[1], a_nz[0] * b_nz[0]));
   if (cost4 > static_cast<KK_FLOAT>(1.0)) cost4 = static_cast<KK_FLOAT>(1.0);
   if (cost4 < static_cast<KK_FLOAT>(-1.0)) cost4 = static_cast<KK_FLOAT>(-1.0);
-  const KK_FLOAT theta4 = acos(cost4);
+  // sin(theta) from the cross product and theta from atan2 stay accurate
+  // near 0 and pi, where 1 - cos^2 and acos() lose most of their digits
+  // in single precision
+  const KK_FLOAT sin4 = cross_norm(a_nz, b_nz);
+  const KK_FLOAT theta4 = Kokkos::atan2(sin4, cost4);
 
   const auto& p_33 = d_params_33(a3ptype, atype, btype, b3ptype);
   const auto& p_55 = d_params_55(a5ptype, atype, btype, b5ptype);
@@ -488,8 +514,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta4_terms(const int &atype, const
   f4t4_55 = F4_KK(theta4, l_a_xst4_55, l_theta_xst4_0_55, l_dtheta_xst4_ast_55, l_b_xst4_55, l_dtheta_xst4_c_55, df4t4_55);
   if (f4t4_33 == static_cast<KK_FLOAT>(0.0) && f4t4_55 == static_cast<KK_FLOAT>(0.0)) return false;
 
-  KK_FLOAT sin4_sq = Kokkos::fma(-cost4, cost4, static_cast<KK_FLOAT>(1.0));
-  if (sin4_sq < static_cast<KK_FLOAT>(0.0)) sin4_sq = static_cast<KK_FLOAT>(0.0);
+  const KK_FLOAT sin4_sq = sin4 * sin4;
   // at sin(theta) = 0 the angular force and torque directions vanish, so the
   // derivative term is zero, but the pair still contributes its energy and
   // its other force terms
@@ -515,7 +540,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta7_terms(const int &atype, const
   cost7 = -Kokkos::fma(a_nz[2], delr_hb_norm[2], Kokkos::fma(a_nz[1], delr_hb_norm[1], a_nz[0] * delr_hb_norm[0]));
   if (cost7 > static_cast<KK_FLOAT>(1.0)) cost7 = static_cast<KK_FLOAT>(1.0);
   if (cost7 < static_cast<KK_FLOAT>(-1.0)) cost7 = static_cast<KK_FLOAT>(-1.0);
-  const KK_FLOAT theta7 = acos(cost7);
+  // sin(theta) from the cross product and theta from atan2 stay accurate
+  // near 0 and pi, where 1 - cos^2 and acos() lose most of their digits
+  // in single precision
+  const KK_FLOAT sin7 = cross_norm(a_nz, delr_hb_norm);
+  const KK_FLOAT theta7 = Kokkos::atan2(sin7, cost7);
 
   const auto& p_t7 = d_params_t7(atype, btype);
 
@@ -529,8 +558,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta7_terms(const int &atype, const
   f4t7_55 = F4_KK(theta7, l_a_xst7, l_theta_xst7_0_55, l_dtheta_xst7_ast, l_b_xst7, l_dtheta_xst7_c, df4t7_55);
   if (f4t7_33 == static_cast<KK_FLOAT>(0.0) && f4t7_55 == static_cast<KK_FLOAT>(0.0)) return false;
 
-  KK_FLOAT sin7_sq = Kokkos::fma(-cost7, cost7, static_cast<KK_FLOAT>(1.0));
-  if (sin7_sq < static_cast<KK_FLOAT>(0.0)) sin7_sq = static_cast<KK_FLOAT>(0.0);
+  const KK_FLOAT sin7_sq = sin7 * sin7;
   // at sin(theta) = 0 the angular force and torque directions vanish, so the
   // derivative term is zero, but the pair still contributes its energy and
   // its other force terms
@@ -556,7 +584,11 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const
   cost8 = Kokkos::fma(b_nz[2], delr_hb_norm[2], Kokkos::fma(b_nz[1], delr_hb_norm[1], b_nz[0] * delr_hb_norm[0]));
   if (cost8 > static_cast<KK_FLOAT>(1.0)) cost8 = static_cast<KK_FLOAT>(1.0);
   if (cost8 < static_cast<KK_FLOAT>(-1.0)) cost8 = static_cast<KK_FLOAT>(-1.0);
-  const KK_FLOAT theta8 = acos(cost8);
+  // sin(theta) from the cross product and theta from atan2 stay accurate
+  // near 0 and pi, where 1 - cos^2 and acos() lose most of their digits
+  // in single precision
+  const KK_FLOAT sin8 = cross_norm(b_nz, delr_hb_norm);
+  const KK_FLOAT theta8 = Kokkos::atan2(sin8, cost8);
 
   const auto& p_t8 = d_params_t8(atype, btype);
 
@@ -570,8 +602,7 @@ bool PairOxdna3XstkKokkos<DeviceType>::xstk_theta8_terms(const int &atype, const
   f4t8_55 = F4_KK(theta8, l_a_xst8, l_theta_xst8_0_55, l_dtheta_xst8_ast, l_b_xst8, l_dtheta_xst8_c, df4t8_55);
   if (f4t8_33 == static_cast<KK_FLOAT>(0.0) && f4t8_55 == static_cast<KK_FLOAT>(0.0)) return false;
 
-  KK_FLOAT sin8_sq = Kokkos::fma(-cost8, cost8, static_cast<KK_FLOAT>(1.0));
-  if (sin8_sq < static_cast<KK_FLOAT>(0.0)) sin8_sq = static_cast<KK_FLOAT>(0.0);
+  const KK_FLOAT sin8_sq = sin8 * sin8;
   // at sin(theta) = 0 the angular force and torque directions vanish, so the
   // derivative term is zero, but the pair still contributes its energy and
   // its other force terms
