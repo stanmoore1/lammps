@@ -24,6 +24,7 @@
 #include "ewald_const.h"
 #include "force.h"
 #include "kokkos.h"
+#include "math_const.h"
 #include "memory_kokkos.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
@@ -37,9 +38,9 @@
 using namespace LAMMPS_NS;
 
 // the core/shell Ewald correction uses a longer erfc series than the A1..A5
-// form of the parent style, and a minimal separation so that r = 0
-// core/shell pairs stay finite until the special-bond factor removes them;
-// both are taken verbatim from the CPU style
+// form of the parent style and the exact erf() for excluded pairs, and adds
+// EPSILON to rsq so that r = 0 core/shell pairs stay finite; all taken
+// verbatim from the CPU style
 
 // the B series goes with its own EWALD_P, not the value EwaldConst pairs
 // with A1..A5
@@ -54,9 +55,8 @@ static constexpr double B4 = -5.80844129e-3;
 static constexpr double B5 =  1.14652755e-1;
 
 static constexpr double EPSILON = 1.0e-20;
-static constexpr double EPS_EWALD = 1.0e-6;
-static constexpr double EPS_EWALD_SQR = 1.0e-12;
 using namespace EwaldConst;
+using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
@@ -267,23 +267,16 @@ compute_fcoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
 
     if (factor_coul < static_cast<KK_FLOAT>(1.0)) {
 
-      // a bonded core/shell pair needs the minimal separation EPS_EWALD added
-      // to both the prefactor and the Ewald argument to keep the approximation
-      // valid, and the 1/r^2 scaling adjusted to match
+      // for excluded pairs (e.g. a bonded core/shell pair) the Ewald term and
+      // the special bond correction nearly cancel at short distances, which
+      // amplifies the error of the erfc() approximation, so use the exact erf()
 
-      const KK_FLOAT reps = r + static_cast<KK_FLOAT>(EPS_EWALD);
-      const KK_FLOAT grij = g_ewald_kk * reps;
+      const KK_FLOAT grij = g_ewald_kk * r;
       const KK_FLOAT expm2 = Kokkos::exp(-grij*grij);
-      const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) /
-        (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P_CS)*grij);
-      const KK_FLOAT u = static_cast<KK_FLOAT>(1.0) - t;
-      const KK_FLOAT erfc = t * (static_cast<KK_FLOAT>(1.0)+u*(static_cast<KK_FLOAT>(B0)+
-        u*(static_cast<KK_FLOAT>(B1)+u*(static_cast<KK_FLOAT>(B2)+u*(static_cast<KK_FLOAT>(B3)+
-        u*(static_cast<KK_FLOAT>(B4)+u*static_cast<KK_FLOAT>(B5))))))) * expm2;
-      const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / reps;
-      const KK_FLOAT forcecoul = prefactor * (erfc + static_cast<KK_FLOAT>(EWALD_F)*grij*expm2 -
-                                              (static_cast<KK_FLOAT>(1.0)-factor_coul));
-      return forcecoul / (rsq_cs + static_cast<KK_FLOAT>(EPS_EWALD_SQR));
+      const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / r;
+      const KK_FLOAT forcecoul = prefactor * (factor_coul - Kokkos::erf(grij) +
+                                              static_cast<KK_FLOAT>(MY_ISPI4)*grij*expm2);
+      return forcecoul / rsq_cs;
 
     } else {
 
@@ -334,23 +327,22 @@ compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
     return ecoul;
   } else {
     const KK_FLOAT r = Kokkos::sqrt(rsq_cs);
-    const KK_FLOAT reps = (factor_coul < static_cast<KK_FLOAT>(1.0)) ?
-      r + static_cast<KK_FLOAT>(EPS_EWALD) : r;
-    {
-      const KK_FLOAT grij = g_ewald_kk * reps;
-      const KK_FLOAT expm2 = Kokkos::exp(-grij*grij);
-      const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) /
-        (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P_CS)*grij);
-      const KK_FLOAT u = static_cast<KK_FLOAT>(1.0) - t;
-      const KK_FLOAT erfc = t * (static_cast<KK_FLOAT>(1.0)+u*(static_cast<KK_FLOAT>(B0)+
-        u*(static_cast<KK_FLOAT>(B1)+u*(static_cast<KK_FLOAT>(B2)+u*(static_cast<KK_FLOAT>(B3)+
-        u*(static_cast<KK_FLOAT>(B4)+u*static_cast<KK_FLOAT>(B5))))))) * expm2;
-      const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / reps;
-      KK_FLOAT ecoul = prefactor * erfc;
-      if (factor_coul < static_cast<KK_FLOAT>(1.0))
-        ecoul -= (static_cast<KK_FLOAT>(1.0)-factor_coul)*prefactor;
-      return ecoul;
-    }
+    const KK_FLOAT grij = g_ewald_kk * r;
+    const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / r;
+
+    // exact erf() for excluded pairs, consistent with compute_fcoul()
+
+    if (factor_coul < static_cast<KK_FLOAT>(1.0))
+      return prefactor * (factor_coul - Kokkos::erf(grij));
+
+    const KK_FLOAT expm2 = Kokkos::exp(-grij*grij);
+    const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) /
+      (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P_CS)*grij);
+    const KK_FLOAT u = static_cast<KK_FLOAT>(1.0) - t;
+    const KK_FLOAT erfc = t * (static_cast<KK_FLOAT>(1.0)+u*(static_cast<KK_FLOAT>(B0)+
+      u*(static_cast<KK_FLOAT>(B1)+u*(static_cast<KK_FLOAT>(B2)+u*(static_cast<KK_FLOAT>(B3)+
+      u*(static_cast<KK_FLOAT>(B4)+u*static_cast<KK_FLOAT>(B5))))))) * expm2;
+    return prefactor * erfc;
   }
 }
 
