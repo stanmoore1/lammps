@@ -43,6 +43,10 @@ struct ParticleArrays {
     // Integer base type: A=0, C=1, G=2, T=3 (same as LAMMPS btype convention)
     Kokkos::View<int *> btype;
 
+    // oxDNA particle type (A=0, G=1, C=2, T=3), used by oxDNA3 for the
+    // sequence-dependent (tetramer) table lookups (LAMMPS: atom type)
+    Kokkos::View<uint8_t *> ptype;
+
     // Per-atom Debye-Huckel charge (LAMMPS atom->qeff): 1, or 0.5 at a strand
     // end when half-charged ends are on. The dh kernel reads qeff(a) once per
     // atom and qeff(b) per in-range pair. Filled by ensure_qeff() (qeff_mode
@@ -100,6 +104,7 @@ struct ParticleArrays {
         nz          = Vec4("nz",          n);
         bonds       = Kokkos::View<LR_bonds *>   ("bonds",       n);
         btype       = Kokkos::View<int *>        ("btype",       n);
+        ptype       = Kokkos::View<uint8_t *>    ("ptype",       n);
         qeff        = Kokkos::View<c_number *>("qeff", n);
         qeff_mode   = -1;
         tetramer_tbl = Kokkos::View<c_number *>("tetramer_tbl", 256);
@@ -153,6 +158,7 @@ struct ParticleArraysHost {
     Vec4::host_mirror_type orientations;
     Kokkos::View<LR_bonds *>::host_mirror_type bonds;
     Kokkos::View<int *>::host_mirror_type btype;
+    Kokkos::View<uint8_t *>::host_mirror_type ptype;
     int N = 0;
 
     void allocate(int n) {
@@ -165,6 +171,7 @@ struct ParticleArraysHost {
         orientations = Vec4::host_mirror_type("orientations", n);
         bonds        = Kokkos::View<LR_bonds *>::host_mirror_type("bonds",        n);
         btype        = Kokkos::View<int *>::host_mirror_type("btype",        n);
+        ptype        = Kokkos::View<uint8_t *>::host_mirror_type("ptype",    n);
     }
 };
 
@@ -178,6 +185,7 @@ inline void copy_to_device(const ParticleArraysHost &h, ParticleArrays &d) {
     Kokkos::deep_copy(d.orientations, h.orientations);
     Kokkos::deep_copy(d.bonds,        h.bonds);
     Kokkos::deep_copy(d.btype,        h.btype);
+    Kokkos::deep_copy(d.ptype,        h.ptype);
 }
 
 inline void copy_to_host(const ParticleArrays &d, ParticleArraysHost &h) {
@@ -189,4 +197,5 @@ inline void copy_to_host(const ParticleArrays &d, ParticleArraysHost &h) {
     Kokkos::deep_copy(h.orientations, d.orientations);
     Kokkos::deep_copy(h.bonds,        d.bonds);
     Kokkos::deep_copy(h.btype,        d.btype);
+    Kokkos::deep_copy(h.ptype,        d.ptype);
 }

@@ -8,12 +8,16 @@
 #include "forces/dna_forces.h"
 #include "forces/bonded.h"
 #include "forces/params.h"
+#include "forces/params_dna3.h"
+#include "forces/dna3_forces.h"
+#include "forces/dna3_kernels.h"
 #include "io/topology_reader.h"
 #include "io/config_reader.h"
 #include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 struct SimConfig {
@@ -29,9 +33,18 @@ struct SimConfig {
     bool        timing      = false; // per-kernel breakdown (adds fences); off = production
     bool        lammps_overhead = false; // add LAMMPS per-step framework overheads (bond precompute, per-kernel scatter, host flag copy)
     bool        fuse_hbxstk = false; // fuse hbond+xstk into one screened-pair kernel (shared base-site geometry)
-    bool        coaxstk_terminal = false; // oxDNA2: LAMMPS-only terminal-nucleotide coaxstk + blunt theta4 lobe
-    int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
-    c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
+    bool        coaxstk_terminal = false; // oxDNA2/3: LAMMPS-only terminal-nucleotide coaxstk + blunt theta4 lobe
+    int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2, 3 = oxDNA3
+    c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2/oxDNA3)
+    // oxDNA3 only: sequence-dependence file (upstream key seq_dep_file) and
+    // Debye-Huckel options (upstream DNA2Interaction keys), as in bench/oxdna_kokkos
+    std::string seq_dep_file;        // empty -> default_dna3_seq_file()
+    bool        use_average_seq = false;
+    bool        dh_half_charged_ends = true;
+    double      dh_lambda   = 0.3616455;
+    double      dh_strength = 0.0543;
+    double      dh_rhigh    = -1;    // < 0 -> 3 * Debye length
+    bool        dna3_consistent_gamma = false;   // see DNA3Options::consistent_gamma
     bool        refresh_vel = false; // regenerate velocities from Maxwell-Boltzmann at startup
     // Brownian ("John") thermostat. newtonian_steps <= 0 disables it (NVE).
     int         newtonian_steps = 0;
@@ -39,6 +52,46 @@ struct SimConfig {
     c_number    pt          = 0.0;   // refresh probability (if >0, overrides diff_coeff)
     uint64_t    seed        = 12345;
 };
+
+// Default oxDNA3 parameter file. This bench does not ship its own copy: it
+// uses the one of the CUDA-faithful sibling (bench/oxdna_kokkos/params/),
+// whose absolute path is baked in at configure time
+// (OXDNA_DEFAULT_SEQ_DEP_FILE, see CMakeLists.txt), falling back to paths
+// relative to the working directory (the bench root or a tests/<case>/
+// directory). An explicit `seq_dep_file` is used as given (relative to the
+// working directory, as in the standalone oxDNA).
+inline std::string default_dna3_seq_file() {
+    const char *cands[] = {
+#ifdef OXDNA_DEFAULT_SEQ_DEP_FILE
+        OXDNA_DEFAULT_SEQ_DEP_FILE,
+#endif
+        "../oxdna_kokkos/params/oxDNA3_sequence_dependent_parameters.txt",
+        "../../../oxdna_kokkos/params/oxDNA3_sequence_dependent_parameters.txt",
+        "oxDNA3_sequence_dependent_parameters.txt",
+    };
+    for (const char *c : cands) {
+        std::ifstream t(c);
+        if (t.good()) return c;
+    }
+    throw std::runtime_error("oxDNA3: sequence-dependence file not found; set seq_dep_file "
+                             "(bench/oxdna_kokkos/params/oxDNA3_sequence_dependent_parameters.txt) "
+                             "or use_average_seq = 1");
+}
+
+inline DNA3Options dna3_options(const SimConfig &cfg) {
+    DNA3Options o;
+    o.T = cfg.T;
+    o.salt = cfg.salt;
+    o.average = cfg.use_average_seq;
+    if (!o.average)
+        o.seq_file = cfg.seq_dep_file.empty() ? default_dna3_seq_file() : cfg.seq_dep_file;
+    o.dh_half_charged_ends = cfg.dh_half_charged_ends;
+    o.dh_lambda = cfg.dh_lambda;
+    o.dh_strength = cfg.dh_strength;
+    o.dh_rhigh = cfg.dh_rhigh;
+    o.consistent_gamma = cfg.dna3_consistent_gamma;
+    return o;
+}
 
 class Simulation {
 public:
@@ -60,11 +113,24 @@ public:
             randomize_velocities(dev_, cfg_.T, cfg_.seed);
 
         // Force-field
-        par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
-                                 : make_oxdna1_params(cfg_.T);
-        if (cfg_.coaxstk_terminal && cfg_.model == 2) {
-            par_.cxst_terminal_only = true;
-            par_.cxst_t4_blunt      = true;
+        c_number cutsq_nb, screen_cutsq;
+        if (cfg_.model == 3) {
+            DNA3Options o = dna3_options(cfg_);
+            if (!o.average) std::cout << "oxDNA3: sequence-dependent parameters from " << o.seq_file << "\n";
+            if (cfg_.fuse_hbxstk)
+                std::cerr << "Warning: fuse_hbond_xstk is not available for oxDNA3 and is ignored\n";
+            dna3_ = make_dna3_model(o, cfg_.coaxstk_terminal);
+            cutsq_nb     = dna3_.p.cutsq_nb;
+            screen_cutsq = dna3_.p.screen_cutsq;
+        } else {
+            par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
+                                     : make_oxdna1_params(cfg_.T);
+            if (cfg_.coaxstk_terminal && cfg_.model == 2) {
+                par_.cxst_terminal_only = true;
+                par_.cxst_t4_blunt      = true;
+            }
+            cutsq_nb     = par_.cutsq_nb;
+            screen_cutsq = par_.screen_cutsq;
         }
 
         // Thermostat (optional)
@@ -73,7 +139,7 @@ public:
 
         // Neighbor list: cover the longest-range interaction (e.g. Debye-Huckel)
         c_number nl_cut = std::max(static_cast<double>(cfg_.cutoff),
-                                   std::sqrt(static_cast<double>(par_.cutsq_nb)));
+                                   std::sqrt(static_cast<double>(cutsq_nb)));
         nl_.init(nl_cut, cfg_.skin, N_, box_);
         // COM screen cutoff for the hbond/xstk/coaxstk pair kernels, mirroring
         // LAMMPS fix OXDNA/NPAIR::init_screen_cutoff: the derived interaction
@@ -81,8 +147,10 @@ public:
         // skin, i.e. the maximum per-atom drift between rebuilds. LAMMPS rebuilds
         // at a drift of skin/2; this list rebuilds at a drift of verlet_skin
         // (oxDNA convention), so the equivalent margin is + verlet_skin.
+        // oxDNA3: the range derived from the DNA3 tables (params_dna3.h),
+        // which unlike LAMMPS also covers the cross-stacking range.
         {
-            const double base = std::sqrt(static_cast<double>(par_.screen_cutsq));
+            const double base = std::sqrt(static_cast<double>(screen_cutsq));
             const double cut  = base + static_cast<double>(cfg_.skin);
             nl_.screen_cutsq  = static_cast<c_number>(cut * cut);
         }
@@ -91,10 +159,8 @@ public:
         // Initial forces, in the LAMMPS kernel order (runs the rebuild-step
         // precomputes too, so the per-bond tables exist before the first step).
         dev_.zero_forces();
-        epot_  = static_cast<c_number>(compute_pair_forces_step(dev_, nl_, par_, box_, true,
-                     cfg_.lammps_overhead, cfg_.fuse_hbxstk, /*neigh_rebuilt=*/true));
-        epot_ += static_cast<c_number>(compute_bond_forces_step(dev_, par_, box_, true,
-                     cfg_.lammps_overhead));
+        epot_  = static_cast<c_number>(pair_step(true, /*neigh_rebuilt=*/true));
+        epot_ += static_cast<c_number>(bond_step(true));
 
         std::cout << "Precision: "
                   << (sizeof(c_number) == 4 ? "single (float)" : "double")
@@ -160,12 +226,10 @@ public:
             // Pair section (LAMMPS order): LRF, excv, stk, hbond, xstk,
             // coaxstk, dh -- then the Bond section (fene).
             dev_.zero_forces();
-            c_acc ep = compute_pair_forces_step(dev_, nl_, par_, box_, want_e,
-                                                cfg_.lammps_overhead, cfg_.fuse_hbxstk,
-                                                neigh_rebuilt);
+            c_acc ep = pair_step(want_e, neigh_rebuilt);
             auto e = mark(); t_pair += sec(c, e);
 
-            ep += compute_bond_forces_step(dev_, par_, box_, want_e, cfg_.lammps_overhead);
+            ep += bond_step(want_e);
             if (want_e) epot_ = static_cast<c_number>(ep);
             auto f = mark(); t_bond += sec(e, f);
 
@@ -185,6 +249,21 @@ public:
     }
 
 private:
+    // Force evaluation, dispatched on the model on the host (the oxDNA1/2 and
+    // oxDNA3 kernels are separate; no per-pair model branch).
+    c_acc pair_step(bool want_e, bool neigh_rebuilt) {
+        if (cfg_.model == 3)
+            return compute_pair_forces_step_dna3(dev_, nl_, dna3_, box_, want_e,
+                                                 cfg_.lammps_overhead, neigh_rebuilt);
+        return compute_pair_forces_step(dev_, nl_, par_, box_, want_e,
+                                        cfg_.lammps_overhead, cfg_.fuse_hbxstk, neigh_rebuilt);
+    }
+    c_acc bond_step(bool want_e) {
+        if (cfg_.model == 3)
+            return compute_bond_forces_step_dna3(dev_, dna3_, box_, want_e, cfg_.lammps_overhead);
+        return compute_bond_forces_step(dev_, par_, box_, want_e, cfg_.lammps_overhead);
+    }
+
     void print_performance(double loop, double t_neigh, double t_bond,
                            double t_pair, double t_mod, double t_out) const {
         const long long nsteps = cfg_.nsteps;
@@ -235,6 +314,7 @@ private:
     ParticleArraysHost host_;
     ParticleArrays   dev_;
     DNAParams        par_;
+    DNA3Model        dna3_;
     NeighborList     nl_;
     Thermostat       thermo_;
     c_number         epot_= 0;

@@ -29,6 +29,20 @@ target_compile_features(oxdna_kokkos_lammps PRIVATE cxx_std_20)
 target_link_libraries(oxdna_kokkos_lammps PRIVATE Kokkos::kokkos)
 target_include_directories(oxdna_kokkos_lammps PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+# Default oxDNA3 sequence-dependence file (used when the input file has no
+# `seq_dep_file` key). This bench does not ship its own copy of upstream
+# oxDNA's oxDNA3_sequence_dependent_parameters.txt (15k lines): it uses the
+# one in the CUDA-faithful sibling, bench/oxdna_kokkos/params/.
+set(OXDNA_DEFAULT_SEQ_DEP_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../oxdna_kokkos/params/oxDNA3_sequence_dependent_parameters.txt"
+    CACHE FILEPATH "Default oxDNA3 sequence-dependent parameter file")
+if(NOT EXISTS "${OXDNA_DEFAULT_SEQ_DEP_FILE}")
+    message(WARNING "oxDNA3 parameter file not found at ${OXDNA_DEFAULT_SEQ_DEP_FILE}; "
+                    "oxDNA3 inputs then need an explicit seq_dep_file")
+endif()
+set(OXDNA_SEQ_DEFS OXDNA_DEFAULT_SEQ_DEP_FILE="${OXDNA_DEFAULT_SEQ_DEP_FILE}")
+target_compile_definitions(oxdna_kokkos_lammps PRIVATE ${OXDNA_SEQ_DEFS})
+
 # -----------------------------------------------------------------------
 # Precision (default: double)
 # -----------------------------------------------------------------------
@@ -82,7 +96,7 @@ if(OXDNA_BUILD_TESTS)
     target_compile_features(fd_test PRIVATE cxx_std_20)
     target_link_libraries(fd_test PRIVATE Kokkos::kokkos)
     target_include_directories(fd_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_compile_definitions(fd_test PRIVATE ${OXDNA_PREC_DEFS})
+    target_compile_definitions(fd_test PRIVATE ${OXDNA_PREC_DEFS} ${OXDNA_SEQ_DEFS})
 endif()
 
 if(OXDNA_BUILD_TESTS)
@@ -90,5 +104,5 @@ if(OXDNA_BUILD_TESTS)
     target_compile_features(xcheck PRIVATE cxx_std_20)
     target_link_libraries(xcheck PRIVATE Kokkos::kokkos)
     target_include_directories(xcheck PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_compile_definitions(xcheck PRIVATE ${OXDNA_PREC_DEFS})
+    target_compile_definitions(xcheck PRIVATE ${OXDNA_PREC_DEFS} ${OXDNA_SEQ_DEFS})
 endif()

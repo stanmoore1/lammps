@@ -12,8 +12,11 @@
 //
 // Recognized keys:
 //   topology, conf_file, energy_file
-//   interaction_type   DNA|DNA1 -> oxDNA1, DNA2 -> oxDNA2
-//   salt_concentration                           (oxDNA2)
+//   interaction_type   DNA|DNA1 -> oxDNA1, DNA2 -> oxDNA2, DNA3|DNA3_nomesh -> oxDNA3
+//   salt_concentration                           (oxDNA2, oxDNA3)
+//   seq_dep_file, use_average_seq                (oxDNA3; see README)
+//   dh_half_charged_ends, dh_lambda, dh_strength, debye_huckel_rhigh   (oxDNA3)
+//   dna3_consistent_gamma                        (oxDNA3, bench-only; default 0)
 //   T                  e.g. "20C", "300K", or a number in oxDNA units
 //   dt, steps, verlet_skin, print_energy_every, seed
 //   thermostat         brownian|john (enables NVT); anything else -> NVE
@@ -21,7 +24,7 @@
 //   timing             0|1  (Kokkos-specific: per-kernel timing breakdown)
 //   lammps_overhead    0|1  (model LAMMPS framework overheads, see README)
 //   fuse_hbond_xstk    0|1  (bench-only fused hbond+xstk kernel)
-//   lammps_coaxstk_terminal 0|1 (oxDNA2: LAMMPS-only terminal-nucleotide
+//   lammps_coaxstk_terminal 0|1 (oxDNA2/oxDNA3: LAMMPS-only terminal-nucleotide
 //                      coaxial stacking + blunt-end theta4 lobe; changes energies)
 
 #include "../simulation.h"
@@ -31,6 +34,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 
 namespace inp_detail {
 
@@ -169,9 +173,30 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
 
     if (has("interaction_type")) {
         std::string it = inp_detail::lower(str("interaction_type"));
-        cfg.model = (it == "dna2") ? 2 : 1;   // DNA / DNA1 -> 1, DNA2 -> 2
+        if (it == "dna3" || it == "dna3_nomesh") cfg.model = 3;
+        else cfg.model = (it == "dna2") ? 2 : 1;   // DNA / DNA1 -> 1, DNA2 -> 2
     }
     if (has("salt_concentration")) cfg.salt = num("salt_concentration");
+
+    auto boolean = [&](const char *k) {
+        std::string v = inp_detail::lower(str(k));
+        return (v == "1" || v == "yes" || v == "true" || v == "on");
+    };
+    if (cfg.model == 3) {
+        // oxDNA3 is sequence dependent by default here (upstream defaults to
+        // use_average_seq = true, which for DNA3 leaves the tables at averaged
+        // oxDNA1/oxDNA2 values; set use_average_seq = false upstream).
+        if (has("use_average_seq"))      cfg.use_average_seq = boolean("use_average_seq");
+        if (has("seq_dep_file"))         cfg.seq_dep_file = str("seq_dep_file");
+        if (has("dh_half_charged_ends")) cfg.dh_half_charged_ends = boolean("dh_half_charged_ends");
+        if (has("dh_lambda"))            cfg.dh_lambda = num("dh_lambda");
+        if (has("dh_strength"))          cfg.dh_strength = num("dh_strength");
+        if (has("debye_huckel_rhigh"))   cfg.dh_rhigh = num("debye_huckel_rhigh");
+        // bench-only: exact stacking-dihedral gradient (see README, oxDNA3 notes)
+        if (has("dna3_consistent_gamma")) cfg.dna3_consistent_gamma = boolean("dna3_consistent_gamma");
+        for (const char *k : {"max_backbone_force", "major_minor_grooving", "hb_multiplier"})
+            if (has(k)) std::fprintf(stderr, "Warning: input key '%s' is not supported for oxDNA3 and is ignored\n", k);
+    }
 
     if (has("T"))                  cfg.T = inp_detail::parse_T(str("T"), kv);
     if (has("dt"))                 cfg.dt = num("dt");

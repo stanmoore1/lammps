@@ -1,2 +1,5 @@
 build/
 *.o
+tests/*/energy_dna3.dat
+tests/*/trajectory_dna3.dat
+tests/*/last_conf_dna3.dat

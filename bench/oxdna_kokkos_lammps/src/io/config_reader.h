@@ -149,4 +149,23 @@ inline void read_config(const std::string &filename, ParticleArraysHost &host,
     }
 
     if (!f && !f.eof()) throw std::runtime_error("Config file truncated or malformed");
+
+    // The cell list bins positions in [-L/2, 3L/2) (oxDNA confs are in [0, L),
+    // the integrator keeps them in [-L/2, L/2)). Unwrapped configurations (e.g.
+    // standalone-oxDNA trajectory frames, whose strands may stick out of the
+    // box) are folded into [-L/2, L/2) as the integrator does; configurations
+    // already in range are left untouched.
+    const double L[3] = {(double)box.Lx, (double)box.Ly, (double)box.Lz};
+    bool out_of_range = false;
+    for (int i = 0; i < N && !out_of_range; i++)
+        for (int d = 0; d < 3; d++) {
+            double x = (double)host.poss(i, d);
+            if (x < -0.5 * L[d] || x >= 1.5 * L[d]) { out_of_range = true; break; }
+        }
+    if (out_of_range)
+        for (int i = 0; i < N; i++)
+            for (int d = 0; d < 3; d++) {
+                double x = (double)host.poss(i, d);
+                host.poss(i, d) = static_cast<c_number>(x - L[d] * std::floor(x / L[d] + 0.5));
+            }
 }

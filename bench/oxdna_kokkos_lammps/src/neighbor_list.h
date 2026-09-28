@@ -76,6 +76,13 @@ struct NeighborList {
     // neighbor-rebuild steps by build_prime_pair() (dna_forces.h).
     mutable Kokkos::View<int ***> prime_pair;   // grown lazily by the (const) excv driver
 
+    // LAMMPS fix OXDNA/PRIME_NEIGHS oxDNA3 cross-stacking table
+    // (d_prime_neighs_oxdna3_xstk, shape (npair, 4)): per screened pair (a, b)
+    // the flanks (3' nbr of a, 5' nbr of a, 3' nbr of b, 5' nbr of b), -1 if
+    // none. Built on neighbor-rebuild steps by build_prime_xstk()
+    // (dna3_kernels.h) in lammps_overhead mode; grow-only.
+    mutable Kokkos::View<int *[4], Kokkos::LayoutLeft> prime_xstk;
+
     // Cell list
     Kokkos::View<int *>    d_cell_count;     // particles per cell
     Kokkos::View<int *>    d_cell_offset;    // prefix-sum for cell start
