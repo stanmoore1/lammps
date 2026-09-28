@@ -81,7 +81,7 @@ nucleotide oligomer proxy, 2000 steps).  On a GPU the kernels that run every ste
 That is about 14-16 launches plus 1 host sync per step, against 4 for standalone.
 Every force kernel re-reads x (double[3]) and the nx/ny/nz frames for both atoms
 and re-derives the interaction sites.  Each kernel scatters into f and torque
-with atomics; with `KOKKOS_PREC=mixed` these are double atomics.  `oxdna3/xstk`
+with atomics; these are double-precision atomics in mixed and double builds.  `oxdna3/xstk`
 issues up to 18 atomic adds per pair
 (`src/KOKKOS/pair_oxdna3_xstk_kokkos.cpp:815-864`).  In the screened list
 (`fix_oxdna_npair_kokkos.cpp`) the pairs of one atom a are adjacent, so the
@@ -109,39 +109,7 @@ neighbor list uses the centers of mass (commit 713adeda23).
 
 ## 4. Hypotheses, ranked, with how to confirm and what to try
 
-### H1. Precision: the KOKKOS build may be running FP64 (most likely single biggest factor)
-
-* `KOKKOS_PREC` defaults to `double` (`cmake/Modules/Packages/KOKKOS.cmake:15`).
-  The GPU build directory in `examples/PACKAGES/cgdna/examples/test_KOKKOS.sh`
-  is named `double_prec_CUDAg1t2`.  RTX 4090/3050 run FP64 at 1/64 of the FP32
-  rate; the 7900XT at 1/32.  Standalone is float with `-use_fast_math`.
-* This matches the density dependence.  The dilute oligomer is compute-bound:
-  every listed pair lies within one duplex and passes all the distance gates, so
-  it does the full angular math (acos, exp, many products).  The dense brick is
-  more bound by memory and neighbor-list streaming, where most pairs fail cheap
-  cutoff tests.
-* Even with `mixed`/`single`, double literals promote float math to FP64.  Examples:
-  `k * 0.5 * (...)` and `1.0 / rsq`, `1.0 / r` (`src/KOKKOS/mf_oxdna_kokkos.h:116,135,172,178`);
-  `rinv_hb = 1.0 / r_hb` (`pair_oxdna_hbond_kokkos.cpp:375`);
-  `2.0 * qeff_a * ...` (`pair_oxdna2_dh_kokkos.cpp:373`);
-  `if (cost < -1.0)` clamps in hbond/coaxstk.
-* **CONFIRM:**
-  * `grep KOKKOS_PREC CMakeCache.txt` in the benchmark build.
-  * Count FP64 instructions per kernel:
-    `cuobjdump -sass lmp | awk '/Function :/{f=$3} /DFMA|DMUL|DADD|DSETP|MUFU.RCP64H/{c[f]++} END{for(k in c)print c[k],k}' | sort -n`
-  * With Nsight Compute, check `smsp__sass_thread_inst_executed_op_dfma_pred_on.sum` and the
-    FP64 pipe utilization of the xstk/hbond/stk kernels.
-* **TRY:**
-  1. Rebuild with `-D KOKKOS_PREC=mixed` (and `single`) and rerun both
-     benchmarks.  This alone may close most of the oligomer gap.
-  2. Remove the FP64 promotions in the oxDNA kernels (`static_cast<KK_FLOAT>(...)`
-     or `KK_FLOAT(0.5)`), then check again that the SASS has no DFMA/DMUL in
-     the float kernels.
-  3. Measure fast math: add `--use_fast_math` for the oxDNA kernels, or use
-     `__expf`/`__fdividef`-style intrinsics through a small wrapper.  Compare the
-     energies against the CPU run before accepting it.
-
-### H2. Work split into 7 passes with atomics, where standalone does 1 pass with no atomics
+### H1. Work split into 7 passes with atomics, where standalone does 1 pass with no atomics
 
 * In a dilute system, most of the per-nucleotide work is intra-duplex:
   * 7 half-neighbor visits per nucleotide in each of excv, dh, hbond, xstk and coaxstk;
@@ -179,7 +147,7 @@ neighbor list uses the centers of mass (commit 713adeda23).
   single hybrid-aware "oxdna3/kk fused" path, enabled when all six oxDNA3 pair
   sub-styles are present in `pair_style hybrid/overlay`.
 
-### H3. Launch and sync latency at small N
+### H2. Launch and sync latency at small N
 
 * At 8192 nucleotides on the 4090, KOKKOS takes 140 us per step against 55 us.  That fits about 15
   launches plus host syncs at a few us each.  The 7900XT being flat at about 0.85 ms
@@ -188,13 +156,13 @@ neighbor list uses the centers of mass (commit 713adeda23).
   `cudaStreamSynchronize`/`cudaMemcpy` per step, and gaps between kernels.
   Check which host syncs happen every step: the neighbor check, thermo, and any
   `DualView::sync` host round trip.
-* **TRY:** the fusion in H2; fold the f/torque zeroing into the first force kernel;
+* **TRY:** the fusion in H1; fold the f/torque zeroing into the first force kernel;
   fold `OXDNA/LRF` into the end of `nve/asphere` final integrate (the ghost frames
   then need forward comm of the frames or a small ghost-only kernel); fuse the
   langevin post_force into the force pass or integrator.  Run with thermo output
   far apart (`thermo 0` or large).
 
-### H4. Rebuild costs that scale with box volume (dilute systems)
+### H3. Rebuild costs that scale with box volume (dilute systems)
 
 * On GPUs, `NeighborKokkos::set_binsize_kokkos()` sets binsize = cutneighmax
   (`neighbor_kokkos.cpp:392-395`), so the number of bins is proportional to box
@@ -214,21 +182,23 @@ neighbor list uses the centers of mass (commit 713adeda23).
   * Set `package kokkos binsize` (or `neigh_modify binsize`) larger for dilute systems.
   * Consider capping mbins at about 2N as standalone does.
 
-### H5. Memory layout
+### H4. Memory layout
 
 * x is `double[3]` LayoutRight (24 B stride); frames are 3 separate `[3]` arrays.
   Standalone uses a float4 position and a float4 quaternion.
-* **TRY** after H1/H2: a packed float4 position+type copy for the force kernels;
+* **TRY** after H1: a packed float4 position+type copy for the force kernels;
   one array of frames (the fusion branch already did "LayoutRight AoS").
   Alternatively, rebuild the frames from a float4 quaternion in the kernel
   (tried in `aa59e87056`, later reverted to precomputed frames in `06eb06031f`).
 
-### H6. Things that are NOT the cause (checked)
+### H5. Things that are NOT the cause (checked)
 
 * The prime-neighbor map lookups run only on rebuild steps.
 * Ghost communication: the oligomer proxy has 0 ghosts on 1 rank.
 * The neighbor-list size: KOKKOS (cutoff 3.30 at skin 1.0) is about the same as
   standalone (about 3.36).
+* Build precision: the benchmark build's precision setting has been checked and
+  is correct.
 
 ## 5. Caveats
 
@@ -241,15 +211,13 @@ neighbor list uses the centers of mass (commit 713adeda23).
 
 ## 6. Suggested GPU session plan
 
-1. Record the build config (`KOKKOS_PREC`, arch, nvcc flags) and the benchmark
-   inputs (skin, salt, thermostat, box, `package kokkos` options).
-2. Rebuild `mixed`; rerun oligomer 65k and 524k and polybrick 543k.  If the
-   oligomer gap collapses, H1 is confirmed.
-3. `nsys profile --stats=true` on oligomer 65k for 1000 steps: kernel list, time
+1. Record the build config (arch, nvcc flags) and the benchmark inputs (skin,
+   salt, thermostat, box, `package kokkos` options).
+2. `nsys profile --stats=true` on oligomer 65k for 1000 steps: kernel list, time
    per kernel, launches and syncs per step, rebuild spikes.
-4. `ncu --set full -k regex:"Xstk|Hbond|Stk|Excv|Dh|Coaxstk|FENE"` on a few
-   launches: FP64 instruction count, atomics, registers and occupancy, memory throughput.
-5. Then apply H2 (fusion), H3 and H4 in order of measured payoff; check each
+3. `ncu --set full -k regex:"Xstk|Hbond|Stk|Excv|Dh|Coaxstk|FENE"` on a few
+   launches: atomics, registers and occupancy, memory throughput.
+4. Then apply H1 (fusion), H2 and H3 in order of measured payoff; check each
    change against the CPU energies (`examples/PACKAGES/cgdna/examples/test_KOKKOS.sh`).
 
 ## 7. Reproducing the CPU proxy measurements
