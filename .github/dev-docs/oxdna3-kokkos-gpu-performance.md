@@ -1,11 +1,20 @@
 # oxDNA3 KOKKOS vs standalone oxDNA CUDA: why "oligomer" is slow, and what to try
 
-Handoff notes for an agent that will profile on a GPU.  Written from a code
-comparison of branch `oxdna3KK` (head ec131639a7) with the standalone code
-`lorenzo-rovigatti/oxDNA` (head c2c74cc).  The comparison was done without a GPU;
-CPU (OpenMP) Kokkos runs were used only to count kernels and neighbors.
-Everything below marked **CONFIRM** is a hypothesis that must be checked
-with a GPU profile before code is changed.
+Handoff notes for an agent that will profile and optimize on a GPU.  They compare
+branch `oxdna3KK` (head ec131639a7) with the standalone code
+`lorenzo-rovigatti/oxDNA` (head c2c74cc).  No GPU was available, so the analysis
+combines:
+
+* a line-by-line code comparison of the force paths;
+* a CUDA 12.6 compile of both codes for sm_89 (RTX 4090): registers, stack,
+  kernel-parameter size and SASS instruction mix for each kernel (section 5);
+* CPU (OpenMP) KOKKOS runs of an oligomer proxy and a dense proxy, with the GPU
+  pair kernels forced onto the host and instrumented to count how many pairs
+  pass each early-exit test (section 4), plus Kokkos Tools kernel counts.
+
+Out of scope here: the build precision (checked by the user) and double
+precision constants in the kernels (handled separately).  Everything marked
+**CONFIRM** must be checked with a GPU profile before code is changed.
 
 ## 1. The performance gap (read from the benchmark plots, +/- 10%)
 
@@ -19,218 +28,294 @@ Time per step, RTX 4090 (benchmark repo `lrussell676/oxDNA-KOKKOS-LAMMPS-Benchma
 | oligomer  | 65536       | 0.40 ms | 0.15 ms    | 2.7   |
 | oligomer  | 524288      | 2.7 ms  | 1.0 ms     | 2.7   |
 
-RTX 3050 oligomer: about 3x at every size.  RX 7900XT KOKKOS oligomer is
-flat at about 0.85 ms from 8k to 65k nucleotides (standalone has no HIP port).
+RTX 3050 oligomer: about 3x at every size.  RX 7900XT KOKKOS oligomer is flat
+at about 0.85 ms from 8k to 65k nucleotides (there is no standalone HIP port).
 
-**Cost per nucleotide per step is the key number:**
+Cost per nucleotide per step:
 
 | | polybrick (2174k) | oligomer (524k) |
 |---|---|---|
 | KOKKOS, 4090     | 5.8 ns | 5.2 ns |
 | standalone, 4090 | 5.6 ns | 1.9 ns |
 
-The KOKKOS cost per nucleotide hardly changes between the dense brick and the
-dilute oligomer.  The standalone code gets about 3x cheaper per nucleotide for the dilute system.
-So the gap is not "KOKKOS is slow at pair math in general".  KOKKOS has a
-per-nucleotide cost that does not shrink when there are few neighbors.  In the
-dense system that cost is hidden, because standalone also pays a lot there:
-it evaluates every listed pair twice (full list) with no center-of-mass screening.
+The oligomer sizes are 8^3 ... 64^3 copies of the 16-nucleotide octamer duplex in
+`examples/PACKAGES/cgdna/examples/lj_units/oxDNA3/duplex2`.  **CONFIRM** the box
+per duplex and the other input settings in the benchmark inputs.
 
-The oligomer sizes are 8^3, 16^3, 32^3 and 64^3 copies of a 16-nucleotide
-octamer duplex (`examples/PACKAGES/cgdna/examples/lj_units/oxDNA3/duplex2`).
-With the example's 40^3 box per duplex, the system is extremely dilute.  Each
-nucleotide's neighbors are then only the other 15 nucleotides of its own duplex.
-**CONFIRM** the box size and the input settings in the benchmark inputs.
+## 2. Main conclusions
 
-## 2. What the standalone code does per step (mixed precision, default)
+1. **The useful work is the same in dense and dilute systems; only the rejected
+   neighbor visits differ.**  In both CPU proxies the number of pairs that
+   actually interact per step is identical: hbond 3,880, xstk 7,480,
+   coaxstk about 400, stk 6,656 (section 4).  The dense proxy only adds neighbors
+   that are rejected by cheap distance tests.
+2. **Standalone scales with rejected visits; KOKKOS does not.**  Standalone
+   runs one pass over a full list with no screening, so it pays for every
+   rejected neighbor.  That makes it about 3x more expensive per nucleotide in
+   the brick than in the oligomer.  KOKKOS screens those neighbors cheaply
+   (center-of-mass pre-filter, half lists), so its cost per nucleotide hardly
+   changes with density.
+3. **So the oligomer shows KOKKOS's baseline cost.**  That baseline is the cost of
+   the useful interactions plus the fixed per-atom, per-thread and per-launch
+   overhead, and it is about 2.7x the whole standalone step.  In the brick the
+   baseline is hidden, because standalone spends that much on rejected visits.
+   **To speed up KOKKOS, make the useful work and the fixed overhead cheaper.
+   Better screening will not help.**
+4. The baseline is high because of how the work is split and laid out, not
+   because the physics costs more (sections 3-5):
+   * about 14 launches per step, against 4;
+   * 3 separate thread-per-pair kernels (hbond, xstk, coaxstk) over the same
+     screened list; 85-99% of their threads exit early, so warps run mostly
+     empty (divergence);
+   * about 12 separate 4-byte gathers per neighbor visit, against 2-3 16-byte
+     loads;
+   * 192 atomic-update sites across the force kernels, against 0;
+   * a stk kernel that spills to local memory;
+   * 14-16 KB of kernel parameters per force launch, against about 100 bytes.
 
-Source: `src/CUDA/Backends/MD_CUDABackend.cu:567-619`, `src/CUDA/Interactions/CUDA_DNA3.cuh`.
+## 3. Side-by-side structure
 
-* 4 kernels per step, one thread per particle, 64 threads per block:
-  `first_step_mixed` (integrates, and flags a list rebuild when any particle
-  moves more than the skin), `set_external_forces` (zeroes forces),
-  `DNA3_forces`, `second_step_mixed`.
-* `DNA3_forces` is one fused kernel over a full list with no atomics.  Each thread:
-  * computes its own two bonded neighbors (n3, n5), so each bond is computed twice;
-  * loops over its nonbonded neighbors and evaluates excluded volume, Debye-Hueckel,
-    hbond, cross-stacking and coaxial stacking in one pass;
-  * accumulates the force and torque in registers and writes them once.
-* All pair math is float and built with `-use_fast_math`.  Positions are float4
-  with the type packed into .w.  Quaternions are float4 and turned into axes for
-  each neighbor.  Parameter tables are read with `__ldg`.
-* There is no center-of-mass screening.  Every listed pair goes through every
-  term, each gated by its own distance window.
-* List radius = rcut + 2 * verlet_skin (rcut includes 2*|r_back| + DH cutoff;
-  about 3.26 at 0.5 M salt).  Cell count is capped at about 2N, independent of
-  box volume (`CUDASimpleVerletList.cu:96-110`).
-* Sorting is off by default.  There are about 6 `cudaDeviceSynchronize` per step (timers).
+| | standalone oxDNA CUDA (mixed backend) | KOKKOS `oxdna3KK` |
+|---|---|---|
+| kernels per step (no rebuild) | 4: `first_step_mixed`, `set_external_forces`, `DNA3_forces`, `second_step_mixed` | about 14: 7 force kernels (excv, dh, hbond, xstk, coaxstk, stk, fene), nve/asphere (fused), langevin x2, OXDNA/LRF, zero f, zero torque, neighbor-check reduction (plus comm kernels when there are ghosts) |
+| host syncs per step | rebuild flag read after a synced timer | `check_distance` reduction read back every step (`neighbor_kokkos.cpp:232-238`) |
+| force decomposition | one fused kernel, one thread per particle, full list; all terms in one pass, in registers | 5 nonbonded + 2 bonded kernels; each re-reads positions and frames and re-derives the interaction sites |
+| nonbonded thread mapping | one thread per particle, loop over about 13-15 (oligomer) full-list neighbors | excv, dh: one thread per atom over the half list; hbond, xstk, coaxstk: **one thread per screened pair** (`fix_oxdna_npair_kokkos.cpp`) |
+| bonded (FENE, stacking, bonded excv) | inside `DNA3_forces`: each bond computed twice, once from each end, no atomics | `oxdna3/stk` and `oxdna3/fene`: one thread per bond, with atomics on both atoms |
+| force accumulation | registers, one store per particle | atomics on f and torque (double in mixed builds); 192 atomic-update sites across the force kernels |
+| per-particle data | float4 position (type packed in .w) + float4 quaternion; axes rebuilt per neighbor | x as `float[3]` LayoutRight (12 B, not vector aligned); frames as 3 separate `float*[3]` LayoutLeft views (`fix_oxdna_lrf_kokkos.h:55`), i.e. 9 scalar arrays |
+| gathers per neighbor visit | 2 x 16 B (pos, quat) + 8 B bonds + 2 type bytes | 3 (x) + 3-9 (frames) scalar gathers, each in a different array, repeated in every kernel that visits the pair |
+| parameter tables | `__ldg` global tables, flat `[6][5][5][6]` sequence-dependent | a separate `View` per parameter (2-D or 4-D), each gathered separately |
+| thermostat | Brownian, applied every `newtonian_steps` (often about 100) | `fix langevin ... angmom`: 2 RNG kernels every step (**CONFIRM** the thermostats in the benchmark inputs) |
+| list build | cells capped at about 2N; list = rcut + 2*skin; one sync for the overflow flag | bins of size cutneighmax (count proportional to box volume), then the screening pass + scan + `deep_copy` of the pair count to the host, then 3 prime-neighbor precomputes |
 
-## 3. What KOKKOS does per step (`oxdna3KK`)
+## 4. Measured workload: pairs per step and early-exit pass rates
 
-Kernel profile (Kokkos Tools simple-kernel-timer, OpenMP backend, 8192
-nucleotide oligomer proxy, 2000 steps).  On a GPU the kernels that run every step are:
+Method: in a copy of `oxdna3KK`, the hbond and coaxstk GPU pair kernels were
+forced onto the host (screened pair path).  xstk already uses that path on all
+backends.  Every top-level early `return` in the xstk, hbond, coaxstk and stk
+operators, and the neighbor and cutoff tests in dh and excv, got an atomic
+counter.  Settings: 8192 nucleotides, 200 steps, skin 1.0, 0.5 M salt.
+Oligomer proxy: `duplex2` replicated 8^3 in its 40^3 box.  Dense proxy: the same
+duplex in a 2.8 x 2.8 x 3.72 box (parallel-helix bundle, 0.55 nt per sigma^3).
 
-* 7 force kernels: `oxdna3/excv` (thread per atom, half list), `oxdna3/dh`
-  (thread per atom), `oxdna3/hbond` / `oxdna3/xstk` / `oxdna3/coaxstk` (GPU path:
-  thread per screened pair), `oxdna3/stk` and `oxdna3/fene` (thread per bond);
-* `nve/asphere` fused integrate, `langevin` post_force and angmom (2),
-  `OXDNA/LRF` quaternion to frame (1), 2 zeroing kernels for f and torque;
-* the neighbor check reduction, which reads back to the host every step;
-* forward and reverse comm kernels (the oligomer proxy had 0 ghosts on 1 rank).
+Per step, all 8192 nucleotides:
 
-That is about 14-16 launches plus 1 host sync per step, against 4 for standalone.
-Every force kernel re-reads x (double[3]) and the nx/ny/nz frames for both atoms
-and re-derives the interaction sites.  Each kernel scatters into f and torque
-with atomics; these are double-precision atomics in mixed and double builds.  `oxdna3/xstk`
-issues up to 18 atomic adds per pair
-(`src/KOKKOS/pair_oxdna3_xstk_kokkos.cpp:815-864`).  In the screened list
-(`fix_oxdna_npair_kokkos.cpp`) the pairs of one atom a are adjacent, so the
-threads of a warp atomically add to the same address.
+| quantity | oligomer (7.5 half neighbors/nt) | dense (39 half neighbors/nt) |
+|---|---|---|
+| screened pairs = threads launched in each of hbond, xstk, coaxstk | 50,688 (6.2/nt) | 77,312 (9.4/nt) |
+| ... exit immediately (1-2 bonded pairs, special factor 0) | 13% | 9% |
+| hbond: pass the radial test / compute fully | 9.1% / 7.7% (3,879) | 6.0% / 5.0% (3,880) |
+| xstk: pass the radial test / compute fully | 16.5% / 14.8% (7,480) | 10.8% / 9.7% (7,477) |
+| coaxstk: pass the terminal filter / pass all angle tests / pass the radial test | 10% / 3.9% / 0.8% (404) | 12% / 2.5% / 0.5% (403) |
+| stk bonds (all pass every test) | 6,656 | 6,656 |
+| dh neighbor visits / within the DH cutoff | 61,440 / 41,340 | 322,560 / 108,063 |
+| excv neighbor visits | 61,440 | 322,560 |
 
-CPU time split for the oligomer proxy: xstk 22%, stk 12%, hbond 12%, dh 10%, excv 6%,
-nve 6%, coaxstk 4%, fene 4%, langevin 4%.  For a dense proxy (the same duplex in a
-2.8 x 2.8 x 3.72 box, 40 half-neighbors per atom): dh 17%, hbond 14%, xstk 13%,
-excv 12%, coaxstk 9%, stk 6%.  So in the dilute system the bonded kernels and
-xstk take a much larger share.  The host path of hbond differs from the GPU path,
-so treat these splits only as a guide.
+What this means for the GPU:
 
-Neighbor list, measured for the oligomer proxy (0.5 M salt, cutoff set by DH, 2.30):
+* In each pair kernel, 85-99% of the threads leave early.  Because the pairs of
+  one atom are adjacent in the screened list, a warp of 32 pairs almost always
+  contains at least one pair that runs the full angular path.  The warp then
+  executes that path with only a few active lanes, so each kernel costs about
+  (screened pairs / 32) x (full path length).
+* 13% of the screened pairs are 1-2 bonded pairs.  They are in the list only
+  because excv needs them for the bonded excluded volume: `neighbor.cpp:560-585`
+  forces `special_flag = 2` whenever an `ox*/excv` style is present.  hbond, xstk
+  and coaxstk launch a thread for each of them just to return.
+* coaxstk launches a thread for every screened pair.  Only 0.8% of them pass,
+  and it tests the cheap radial window **last**, after 4 angle terms each with
+  an acos (`pair_oxdna2_coaxstk_kokkos.cpp:1050-1066`).  Standalone tests the
+  r^2 window first.
+* hbond has no base-complementarity test before the site geometry, sqrt and F1
+  evaluation.  Non-complementary pairs are rejected inside `hbond_radial_terms`
+  through epsilon = 0.  Standalone tests `int_type == 3` and the r^2 window first.
 
-| skin | master cutoff | half neighbors per atom | rebuilds per 2000 steps (dt 0.003) |
-|------|---------------|-------------------------|------------------------------------|
-| 0.3  | 2.60          | 7.2                     | 29                                 |
-| 1.0  | 3.30          | 7.5                     | 5                                  |
-| 2.0  | 4.30          | 7.5                     | 1                                  |
+## 5. Static GPU code metrics (sm_89, CUDA 12.6, `KOKKOS_PREC=mixed`)
 
-For the oligomer, the neighbor count does not depend on the skin (the dense
-proxy went from 18 to 94).  Note that the kk-fixes branch documents that the skin
-must be at least about 1.0: the cutoffs are between interaction sites, but the
-neighbor list uses the centers of mass (commit 713adeda23).
+KOKKOS kernels as launched in an oxDNA3 run: half list, meaning HALFTHREAD on
+the GPU, newton on, no energy/virial.  The instruction counts are static SASS
+counts for the whole kernel, not dynamic counts.
 
-## 4. Hypotheses, ranked, with how to confirm and what to try
+| kernel | regs | stack (B) | kernel params (B) | SASS instr | LDG | atomic sites | MUFU | local ld/st |
+|---|---|---|---|---|---|---|---|---|
+| standalone `DNA3_forces` (everything) | 153 | 0 | ~100 | 6,070 | 409 | 0 | 221 | 0 |
+| standalone `first_step_mixed` | 42 | 48 | - | 695 | 15 | 0 | 10 | 8 |
+| standalone `second_step_mixed` | 22 | 0 | - | 62 | 8 | 0 | 0 | 0 |
+| KK xstk (`ComputeNpair`) | 74 | 0 | 3,904 | 1,227 | 81 | 18 | 19 | 0 |
+| KK hbond (`ComputeGPUPair`) | 80 | 0 | 16,200 | 1,689 | 65 | 18 | 32 | 0 |
+| KK coaxstk (`ComputeGPUPair`) | 72 | 0 | 14,584 | 1,466 | 63 | 18 | 21 | 0 |
+| KK excv (per atom) | 94 | 0 | 15,304 | 1,382 | 80 | 42 | 23 | 0 |
+| KK dh (per atom) | 72 | 0 | 4,096 | 327 | 31 | 12 | 2 | 0 |
+| KK stk (per bond) | 72 | **96** | 14,784 | 3,083 | 133 | **60** | 22 | **84** |
+| KK fene (per bond) | 42 | **64** | 2,392 | 933 | 33 | 24 | 8 | **33** |
+| KK nve/asphere fused | 47 | 0 | 1,384 | 590 | 34 | 0 | 13 | 0 |
+| KK langevin angmom + post_force | 48 / 40 | 0 | 3,704 / - | 671 / 571 | 20 / 11 | 2 / 2 | 15 / 16 | 0 |
+| KK OXDNA/LRF | 34 | 0 | 1,512 | 129 | 6 | 0 | 0 | 0 |
 
-### H1. Work split into 7 passes with atomics, where standalone does 1 pass with no atomics
+Notes:
 
-* In a dilute system, most of the per-nucleotide work is intra-duplex:
-  * 7 half-neighbor visits per nucleotide in each of excv, dh, hbond, xstk and coaxstk;
-  * about 1 bond per nucleotide in each of stk and fene.
+* The "kernel params" column is the size of constant bank 0 (`CONSTANT[0]`
+  from `cuobjdump -res-usage`).  That is the kernel parameters plus about
+  350 B of fixed overhead.  Kokkos passes the functor, i.e. the whole pair-style object
+  (`*this`), by value.  That object holds every coefficient table as a DualView
+  (host and device halves) plus all the Pair base members.  The GPU needs only
+  a few device views and scalars.  Large kernel parameters make each launch
+  slower (**CONFIRM**: `cudaLaunchKernel` time in Nsight Systems).
+* Register counts are moderate (72-94), so occupancy is not the obvious
+  limit.  Standalone runs at 153 registers and about 25% occupancy and is still
+  faster.
+* stk and fene use a stack frame with local-memory traffic (84 and 33 local
+  load/store instructions).  Check with `-Xptxas -v` and fix these first; they
+  run on every bond, every step.
 
-  Each pass reloads positions and frames, recomputes the site vectors, and ends with
-  6-18 double atomics.  Standalone loads each neighbor once and computes all terms
-  in registers.
-* **CONFIRM:** in Nsight Systems, the sum of the 7 force kernels against
-  `DNA3_forces`; in Nsight Compute, the memory throughput, L2 atomic throughput
-  (`lts__t_sectors_op_red.sum`, `lts__t_sectors_op_atom.sum`) and stall reasons
-  of xstk/hbond/stk.
-* **TRY (in this order):**
-  1. Build on the earlier fusion work: branches `oxdna-hbxstk-fusion`,
-     `oxdna-hbxstk-fusion-clean` (hbond+xstk fused, precomputed frames,
-     packed per-type-pair coefficient structs, launch bounds) and
-     `oxdna-screened-acosf-lb`.  Rebase them onto the current kk-fixes code and
-     measure them.
-  2. Fuse all nonbonded terms (excv + dh + hbond + xstk + coaxstk) into one
-     kernel, one thread per atom, over a full list, accumulating in registers with
-     no atomics, as `DNA3_forces` does.  With newton off and a full list, each pair
-     is computed twice but with no atomics.  In the dilute regime (7-15 neighbors)
-     this should win; in the dense brick, compare against the current screened
-     half list.  Keep per-style energy and virial tallies only when `eflag`/`vflag`
-     are set.
-  3. Fuse `oxdna3/stk` and `oxdna3/fene`: they share the bond list and the
-     precomputed 3'/5' table.  Better still, compute the bonded terms in the
-     per-atom kernel from `id3p`/`id5p` mapped to local indices, as standalone
-     does, and remove the bond-list atomics.
-  4. If one thread per pair is kept: reduce the pairs of the same atom a within the
-     warp (segmented reduction) before the atomic, or interleave the pair order so
-     a warp does not hit one address 32 times.
+## 6. Why the oligomer baseline is 2.7x: ranked contributors
 
-  These cross the LAMMPS "one style = one kernel" boundary.  One option is a
-  single hybrid-aware "oxdna3/kk fused" path, enabled when all six oxDNA3 pair
-  sub-styles are present in `pair_style hybrid/overlay`.
+These are estimates, to be confirmed by the GPU profile in section 8.
 
-### H2. Launch and sync latency at small N
+1. **Divergent thread-per-pair kernels over the same screened list (hbond, xstk,
+   coaxstk).**  That is 3 x 6.2 = 18.6 pair threads per nucleotide per step,
+   of which about 1.4 do useful work.  Each thread gathers 10-20 scalars and
+   each warp runs the full path.  Standalone runs about 13 neighbor iterations
+   per nucleotide in one kernel and loads each neighbor once.
+2. **Memory-access pattern.**  About 12 separate 4-byte gathers per neighbor
+   visit (x as unaligned float[3], frames as 9 separate arrays), repeated in
+   up to 5 kernels, against 2 aligned float4 loads once.  In the oligomer every
+   gather is for a neighbor in the same duplex, so these are cache hits, but
+   they still cost load instructions and L1 bandwidth.
+3. **Atomics.**  192 atomic-update sites across the force kernels.  Screened
+   pairs of the same atom a are adjacent, so a warp's atomics to a's force and
+   torque hit the same address and serialize.  Standalone does 0.
+4. **Bonded kernels.**  stk has 3,083 SASS instructions, 60 atomic sites and a
+   96 B stack; fene has a 64 B stack.  They run for every bond (0.81 per
+   nucleotide) and none of their work is filtered out.
+5. **Per-step fixed overhead.**  About 14 launches with 1.4-16 KB parameters,
+   1 host sync, 2 zeroing kernels, a thermostat every step and a separate frame
+   kernel.  This dominates at 8k nucleotides (0.14 vs 0.055 ms), and the
+   7900XT's flat 0.85 ms fits it.
+6. **Neighbor rebuild** (minor at skin >= 1.0: 5 rebuilds per 2000 steps in
+   the proxy).  With a small skin it becomes important: 29 rebuilds per 2000
+   steps at skin 0.3, and GPU bins scale with box volume (section 3).
 
-* At 8192 nucleotides on the 4090, KOKKOS takes 140 us per step against 55 us.  That fits about 15
-  launches plus host syncs at a few us each.  The 7900XT being flat at about 0.85 ms
-  points the same way (HIP launches cost more).
-* **CONFIRM:** Nsight Systems timeline of a 8k oligomer run: count kernels,
-  `cudaStreamSynchronize`/`cudaMemcpy` per step, and gaps between kernels.
-  Check which host syncs happen every step: the neighbor check, thermo, and any
-  `DualView::sync` host round trip.
-* **TRY:** the fusion in H1; fold the f/torque zeroing into the first force kernel;
-  fold `OXDNA/LRF` into the end of `nve/asphere` final integrate (the ghost frames
-  then need forward comm of the frames or a small ghost-only kernel); fuse the
-  langevin post_force into the force pass or integrator.  Run with thermo output
-  far apart (`thermo 0` or large).
+## 7. Recommendations, in suggested order
 
-### H3. Rebuild costs that scale with box volume (dilute systems)
+Validate every change against the CPU energies
+(`examples/PACKAGES/cgdna/examples/test_KOKKOS.sh`) and re-benchmark both systems.
 
-* On GPUs, `NeighborKokkos::set_binsize_kokkos()` sets binsize = cutneighmax
-  (`neighbor_kokkos.cpp:392-395`), so the number of bins is proportional to box
-  volume.  `k_bins` is `mbins x atoms_per_bin(16)` ints
-  (`nbin_kokkos.cpp:31,67-71`).  The GPU build uses one team per 2 bins
-  (`npair_kokkos.cpp:264-323`); empty bins exit early but still cost a block.
-  With a 40^3 box per duplex, there are hundreds of bins per nucleotide.
-* Per rebuild the oxDNA helper fixes also:
-  * run a screening pass plus a scan, then read back the pair count with a
-    `deep_copy` to the host (`fix_oxdna_npair_kokkos.cpp:220`);
-  * run the 3'/5' prime-neighbor precomputes (3 kernels).
-* **CONFIRM:** `bins = ...` in the log, `Neighbor list builds`, and the time
-  per rebuild step in Nsight Systems.  Check GPU memory use at 4.2M nucleotides.
-* **TRY:**
-  * For the oligomer, use a larger skin: measured neighbor counts do not change,
-    and rebuilds drop from 29 to 1 per 2000 steps.
-  * Set `package kokkos binsize` (or `neigh_modify binsize`) larger for dilute systems.
-  * Consider capping mbins at about 2N as standalone does.
+**R1. Cheap fixes to the existing kernels (small, low risk).**
+* Leave 1-2 bonded pairs out of the screened list in `TagFixOxdnaNpairFill`:
+  test `sbmask(braw)` against `special_lj == 0`.  Every screened-pair thread
+  drops by 9-13%.
+* Build separate compacted lists at rebuild time instead of one shared list:
+  * coaxstk: only pairs where both nucleotides are strand ends.  This removes
+    about 90% of its threads, and in the oligomer nearly all of them.
+  * hbond: only complementary base types, with a site-aware distance cutoff.
+  * xstk: its own tighter cutoff.
 
-### H4. Memory layout
+  The lists are rebuilt only on neighbor rebuilds, so the extra passes are cheap.
+* coaxstk: test the radial window before the four angle terms.  hbond: test
+  type complementarity and the r^2 window before the site math.
+* Remove the stack frames of stk and fene; find the arrays that go to local
+  memory with `-Xptxas -v` and `cuobjdump -sass` (look for STL/LDL).
 
-* x is `double[3]` LayoutRight (24 B stride); frames are 3 separate `[3]` arrays.
-  Standalone uses a float4 position and a float4 quaternion.
-* **TRY** after H1: a packed float4 position+type copy for the force kernels;
-  one array of frames (the fusion branch already did "LayoutRight AoS").
-  Alternatively, rebuild the frames from a float4 quaternion in the kernel
-  (tried in `aa59e87056`, later reverted to precomputed frames in `06eb06031f`).
+**R2. Reduce the divergence and atomics of the pair kernels (medium).**
+* Two-phase per step: a cheap kernel tests the radial window and appends the
+  surviving pair indices to a compact list (warp-aggregated atomic append or
+  scan); the heavy kernel then runs only on the survivors.  Warps become
+  nearly fully active.  Survival is 8-15% for hbond/xstk and under 1% for
+  coaxstk, so the heavy kernels shrink by roughly 7x to 100x in thread count.
+* Reduce the pairs of the same atom a within a warp (segmented reduction by a)
+  before the atomic update, or give each atom one thread over its screened
+  pairs and accumulate a in registers (atomics only for b).
+* Fuse hbond + xstk + coaxstk into one screened-pair kernel that computes the
+  shared geometry once: sites, base-base vector, frames of a and b.  Start from
+  branches `oxdna-hbxstk-fusion` / `oxdna-hbxstk-fusion-clean` (hbond+xstk fused,
+  packed per-type-pair coefficient structs, launch bounds).  Rebase them onto the
+  kk-fixes code first.
 
-### H5. Things that are NOT the cause (checked)
+**R3. Data layout (medium).**
+* Keep a packed float4 per atom (x, y, z, type) and either a float4 quaternion
+  (rebuild the axes in the kernel, as standalone does and as commit
+  `aa59e87056` tried) or the 9 frame values as one AoS record (e.g.
+  `View<float*[12]>`, LayoutRight, 16-byte aligned).  Fill them in the LRF
+  kernel, which already runs every step over nall.
+* Pack the coefficients needed per type pair into one struct, so a pair loads
+  one record instead of about 20 separate views (as in the fusion branches).
 
-* The prime-neighbor map lookups run only on rebuild steps.
-* Ghost communication: the oligomer proxy has 0 ghosts on 1 rank.
-* The neighbor-list size: KOKKOS (cutoff 3.30 at skin 1.0) is about the same as
-  standalone (about 3.36).
-* Build precision: the benchmark build's precision setting has been checked and
-  is correct.
+**R4. Bonded terms (medium).**
+* Fuse stk and fene: same bond, same sites, same prime-neighbor table.
+* Or compute them in a per-atom kernel from local `id3p`/`id5p` indices, once
+  from each end with no atomics, as standalone does.  This fits naturally into
+  R5.
 
-## 5. Caveats
+**R5. Full standalone-style kernel (large; the target design for dilute systems).**
+* One kernel, one thread per atom, over a full list (or the screened list made
+  full).  It computes the bonded terms of the atom's own n3/n5 bonds and all
+  nonbonded terms, accumulates force and torque in registers, and writes once
+  with no atomics.  Energy and virial tallies only when `eflag`/`vflag` are set.
+* It can be a single hybrid-aware `oxdna3` KOKKOS path, enabled when all six
+  oxDNA3 pair sub-styles and `oxdna3/fene` are in use.  Compare it against R2
+  on both the oligomer and the brick; the brick may favor the screened half-list
+  design.
 
-* The bug-fix branch `oxdna3KK-kk-fixes` (lammps PR #57 in this fork) added
-  atomics to the hbond/xstk/coaxstk GPU pair kernels, which had races with full
-  lists.  The published benchmark likely predates this.  Re-baseline on the
-  fixed code before measuring improvements.
-* Standalone can skip some work that LAMMPS cannot (no ghosts, minimum image,
-  energies always in .w, no virial).  Compare with `thermo` far apart.
+**R6. Per-step framework overhead (small to medium).**
+* Slim the functors: launch on a small struct holding only device views and
+  scalars instead of `*this`.  Parameters go from 14-16 KB to a few hundred
+  bytes.  Measure `cudaLaunchKernel` time first.
+* Fold the zeroing of f and torque into the first force kernel, and the LRF
+  frame update into the nve/asphere final integrate (ghosts then need forward
+  comm of the frames).
+* Compare thermostats like for like.  If the benchmark uses standalone's
+  Brownian thermostat every about 100 steps against `fix langevin` every step,
+  the comparison is not fair to KOKKOS.
 
-## 6. Suggested GPU session plan
+**R7. Neighbor rebuild (only if the profile shows it).**
+* Use a larger skin for dilute systems: in the proxy the neighbor count did not
+  change from skin 0.3 to 2.0, while rebuilds dropped from 29 to 1 per 2000 steps.
+* Cap the bin count for dilute boxes (`package kokkos binsize`).  Avoid the
+  host read-back of the screened pair count, e.g. by sizing from a device-side
+  upper bound.
 
-1. Record the build config (arch, nvcc flags) and the benchmark inputs (skin,
-   salt, thermostat, box, `package kokkos` options).
-2. `nsys profile --stats=true` on oligomer 65k for 1000 steps: kernel list, time
-   per kernel, launches and syncs per step, rebuild spikes.
-3. `ncu --set full -k regex:"Xstk|Hbond|Stk|Excv|Dh|Coaxstk|FENE"` on a few
-   launches: atomics, registers and occupancy, memory throughput.
-4. Then apply H1 (fusion), H2 and H3 in order of measured payoff; check each
-   change against the CPU energies (`examples/PACKAGES/cgdna/examples/test_KOKKOS.sh`).
+## 8. GPU session plan
 
-## 7. Reproducing the CPU proxy measurements
+1. Record the inputs (box, skin, salt, thermostat, `package kokkos` options) and
+   rerun oligomer 65k/524k and polybrick 543k on the kk-fixes code.  That branch
+   added atomics to the hbond/xstk/coaxstk GPU kernels, so re-baseline first.
+2. `nsys profile --stats=true -t cuda,nvtx` on oligomer 65k, 1000 steps:
+   * time per kernel, and the sum of the 7 force kernels vs `DNA3_forces`;
+   * `cudaLaunchKernel` API time per launch (functor size, R6);
+   * gaps between kernels and synchronizations per step;
+   * the cost of a rebuild step.
+3. `ncu --set full -k regex:"Xstk|Hbond|Coaxstk|Stk|FENE|Excv|Dh"`, a few
+   launches each.  Check:
+   * warp execution efficiency (`smsp__thread_inst_executed_per_inst_executed.ratio`), for divergence (R2);
+   * L1/L2 atomic traffic (`lts__t_sectors_op_red.sum`, `lts__t_sectors_op_atom.sum`);
+   * local memory traffic of stk/fene (R1);
+   * L1 hit rate and sectors per request of the frame and x gathers (R3).
+4. Apply R1, then R2/R3/R4 in order of measured payoff.  Prototype R5 in
+   parallel if the fused design looks like the only way to reach the standalone
+   time.
 
-Build (CPU only): `cmake -S cmake -B build -G Ninja -D PKG_KOKKOS=on -D Kokkos_ENABLE_OPENMP=on
--D BUILD_OMP=on -D PKG_CG-DNA=on -D PKG_MOLECULE=on -D PKG_ASPHERE=on -D BUILD_MPI=off`.
+## 9. Reproducing the static analysis and the counts without a GPU
 
-Oligomer proxy: the `duplex2` input with `replicate ${n} ${n} ${n}`,
-`fix nve/asphere` + `fix langevin 0.1 0.1 2.5 457145 angmom 10`, `timestep 0.003`,
-`oxdna3/dh 0.1 0.5`, and `-k on t 4 -sf kk -pk kokkos neigh half newton on`.
-
-Dense proxy: the same with the data file box changed to `-1.31 1.49`, `-2.15 0.65`,
-`-0.20 3.52` (a square-lattice bundle of parallel duplexes, 0.55 nt per sigma^3).
-
-Kernel counts: `KOKKOS_TOOLS_LIBS=.../libkp_kernel_timer.so` from kokkos-tools;
-Kokkos needs `Kokkos_ENABLE_LIBDL=on`.
+* CUDA toolchain without a GPU: download the NVIDIA redist archives (`cuda_nvcc`,
+  `cuda_cudart`, `cuda_cccl`, `cuda_cuobjdump`, `cuda_nvdisasm`, `libcurand`,
+  version 12.6) from `developer.download.nvidia.com/compute/cuda/redist/` and
+  unpack them into one prefix.
+* LAMMPS: `cmake -S cmake -B build-cuda -G Ninja
+  -D CMAKE_CXX_COMPILER=$PWD/lib/kokkos/bin/nvcc_wrapper -D PKG_KOKKOS=on
+  -D Kokkos_ENABLE_CUDA=on -D Kokkos_ARCH_ADA89=on -D KOKKOS_PREC=mixed
+  -D PKG_CG-DNA=on -D PKG_MOLECULE=on -D PKG_ASPHERE=on -D BUILD_MPI=off`.
+  Then build only the object files with `ninja <obj>`, and inspect them with
+  `cuobjdump -res-usage` / `cuobjdump -sass`.
+* Standalone: `nvcc -std=c++17 -arch=sm_89 -O3 -use_fast_math -include string
+  -I src -I src/extern -Xptxas -v -c src/CUDA/Interactions/CUDADNA3Interaction.cu`.
+* Early-exit counts: CPU build (`Kokkos_ENABLE_OPENMP=on`).  In the hbond and
+  coaxstk `compute()`, force `use_host_launch = false` and the screened list.
+  Put a `Kokkos::atomic_inc` on a global counter after every top-level early
+  `return` in the pair operators, and print the counters in the destructor only
+  when `copymode == 0`.
+* Proxies: the `duplex2` input with `replicate 8 8 8`, `fix nve/asphere`,
+  `fix langevin 0.1 0.1 2.5 457145 angmom 10`, `timestep 0.003`,
+  `oxdna3/dh 0.1 0.5`, `-k on t 4 -sf kk -pk kokkos neigh half newton on`.
+  Dense proxy: data file box `-1.31 1.49`, `-2.15 0.65`, `-0.20 3.52`.
