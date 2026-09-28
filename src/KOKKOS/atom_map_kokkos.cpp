@@ -437,12 +437,6 @@ void AtomKokkos::map_delete()
   sametag = nullptr;
   max_same = 0;
 
-  // as Atom::map_delete() does: the next map_set() decides whether to allocate
-  // by comparing against max_same, so leaving the old high-water mark here
-  // makes it skip the allocation and write through the view just destroyed
-
-  max_same = 0;
-
   if (map_style == MAP_ARRAY) {
     memoryKK->destroy_kokkos(k_map_array, map_array);
     map_array = nullptr;

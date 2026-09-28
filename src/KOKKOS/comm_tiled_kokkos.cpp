@@ -398,12 +398,6 @@ void CommTiledKokkos::exchange()
 {
   atomKK->sync(Host,atomKK->avecKK->datamask_exchange);
 
-  // the host path below refills the send buffer through buf_send, the raw
-  // host pointer, so a claim left standing by an earlier device pack would
-  // make the next sync overwrite what it wrote
-
-  k_buf_send.clear_sync_state();
-
   int prev_auto_sync = lmp->kokkos->auto_sync;
   lmp->kokkos->auto_sync = 1;
   CommTiled::exchange();
@@ -429,10 +423,6 @@ void CommTiledKokkos::borders()
     atomKK->sync(Host,atomKK->avecKK->datamask_border_vel);
   else
     atomKK->sync(Host,atomKK->avecKK->datamask_border);
-
-  // as in exchange() above: CommTiled::borders() packs through buf_send
-
-  k_buf_send.clear_sync_state();
 
   int prev_auto_sync = lmp->kokkos->auto_sync;
   lmp->kokkos->auto_sync = 1;

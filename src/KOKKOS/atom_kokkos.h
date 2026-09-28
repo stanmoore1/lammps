@@ -187,7 +187,7 @@ class AtomKokkos : public Atom {
   }
 
   void init() override;
-  void update_property_atom(class Fix *exclude = nullptr);
+  void update_property_atom();
   void allocate_type_arrays() override;
 
   void sync_host_arrays(uint64_t mask) override { sync(Host, mask); }

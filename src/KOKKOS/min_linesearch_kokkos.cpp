@@ -254,11 +254,6 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
 
   // store box and values of all dof at start of linesearch
 
-  // a fix consulted for max_alpha above may have left the host side newer,
-  // and xvec reads the device side through a plain pointer
-
-  atomKK->sync(Device,X_MASK);
-
   {
     // local variables for lambda capture
 
