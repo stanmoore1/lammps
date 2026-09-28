@@ -8,6 +8,8 @@
 #include "forces/dna_forces.h"
 #include "forces/bonded.h"
 #include "forces/params.h"
+#include "forces/dna3_forces.h"
+#include "forces/params_dna3.h"
 #include "io/topology_reader.h"
 #include "io/config_reader.h"
 #include <chrono>
@@ -27,8 +29,17 @@ struct SimConfig {
     c_number    skin        = 0.3;
     int         output_freq = 1000;
     bool        timing      = false; // per-kernel breakdown (adds fences); off = production
-    int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
-    c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
+    int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2, 3 = oxDNA3
+    c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2/oxDNA3)
+    // oxDNA3 only: sequence-dependence file (upstream key seq_dep_file) and
+    // Debye-Huckel options (upstream DNA2Interaction keys)
+    std::string seq_dep_file;        // empty -> default_dna3_seq_file()
+    bool        use_average_seq = false;
+    bool        dh_half_charged_ends = true;
+    double      dh_lambda   = 0.3616455;
+    double      dh_strength = 0.0543;
+    double      dh_rhigh    = -1;    // < 0 -> 3 * Debye length
+    bool        dna3_consistent_gamma = false;   // see DNA3Options::consistent_gamma
     bool        refresh_vel = false; // regenerate velocities from Maxwell-Boltzmann at startup
     // Brownian ("John") thermostat. newtonian_steps <= 0 disables it (NVE).
     int         newtonian_steps = 0;
@@ -36,6 +47,39 @@ struct SimConfig {
     c_number    pt          = 0.0;   // refresh probability (if >0, overrides diff_coeff)
     uint64_t    seed        = 12345;
 };
+
+// Default oxDNA3 parameter file: the copy shipped in params/ (absolute path
+// baked in at configure time), falling back to paths relative to the working
+// directory. An explicit `seq_dep_file` is used as given (relative to the
+// working directory, as in the standalone oxDNA).
+inline std::string default_dna3_seq_file() {
+    const char *cands[] = {
+#ifdef OXDNA_DEFAULT_SEQ_DEP_FILE
+        OXDNA_DEFAULT_SEQ_DEP_FILE,
+#endif
+        "params/oxDNA3_sequence_dependent_parameters.txt",
+        "oxDNA3_sequence_dependent_parameters.txt",
+    };
+    for (const char *c : cands) {
+        std::ifstream t(c);
+        if (t.good()) return c;
+    }
+    return "oxDNA3_sequence_dependent_parameters.txt";
+}
+
+inline DNA3Options dna3_options(const SimConfig &cfg) {
+    DNA3Options o;
+    o.T = cfg.T;
+    o.salt = cfg.salt;
+    o.average = cfg.use_average_seq;
+    o.seq_file = cfg.seq_dep_file.empty() ? default_dna3_seq_file() : cfg.seq_dep_file;
+    o.dh_half_charged_ends = cfg.dh_half_charged_ends;
+    o.dh_lambda = cfg.dh_lambda;
+    o.dh_strength = cfg.dh_strength;
+    o.dh_rhigh = cfg.dh_rhigh;
+    o.consistent_gamma = cfg.dna3_consistent_gamma;
+    return o;
+}
 
 class Simulation {
 public:
@@ -57,8 +101,17 @@ public:
             randomize_velocities(dev_, cfg_.T, cfg_.seed);
 
         // Force-field
-        par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
-                                 : make_oxdna1_params(cfg_.T);
+        c_number cutsq_nb;
+        if (cfg_.model == 3) {
+            DNA3Options o = dna3_options(cfg_);
+            if (!o.average) std::cout << "oxDNA3: sequence-dependent parameters from " << o.seq_file << "\n";
+            par3_ = make_oxdna3_params(o);
+            cutsq_nb = par3_.cutsq_nb;
+        } else {
+            par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
+                                     : make_oxdna1_params(cfg_.T);
+            cutsq_nb = par_.cutsq_nb;
+        }
 
         // Thermostat (optional)
         thermo_.init(cfg_.T, cfg_.newtonian_steps, cfg_.dt, cfg_.diff_coeff,
@@ -66,15 +119,14 @@ public:
 
         // Neighbor list: cover the longest-range interaction (e.g. Debye-Huckel)
         c_number nl_cut = std::max(static_cast<double>(cfg_.cutoff),
-                                   std::sqrt(static_cast<double>(par_.cutsq_nb)));
+                                   std::sqrt(static_cast<double>(cutsq_nb)));
         nl_.init(nl_cut, cfg_.skin, N_, box_);
         nl_.build(dev_, box_);
 
         // Initial forces: nonbonded (atomic scatter) first, then the bonded
         // gather kernel adds on top (each thread owns its particle, no atomics).
         dev_.zero_forces();
-        epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_);
-        epot_ += compute_bonded_forces(dev_, par_, box_);
+        epot_ = compute_forces(true);
 
         std::cout << "Precision: "
                   << (sizeof(c_number) == 4 ? "single (float)" : "double")
@@ -136,10 +188,14 @@ public:
             const bool want_e = ((s + 1) % cfg_.output_freq == 0);
 
             dev_.zero_forces();
-            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e);
+            epot_  = (cfg_.model == 3)
+                   ? compute_nonbonded_forces_dna3(dev_, nl_, par3_, box_, want_e)
+                   : compute_nonbonded_forces(dev_, nl_, par_, box_, want_e);
             auto e = mark(); t_nb += sec(c, e);
 
-            epot_ += compute_bonded_forces(dev_, par_, box_, want_e);
+            epot_ += (cfg_.model == 3)
+                   ? compute_bonded_forces_dna3(dev_, par3_, box_, want_e)
+                   : compute_bonded_forces(dev_, par_, box_, want_e);
             auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);
@@ -158,6 +214,16 @@ public:
     }
 
 private:
+    // Nonbonded (atomic scatter) first, then the bonded gather kernel on top.
+    c_number compute_forces(bool want_e) {
+        if (cfg_.model == 3) {
+            c_number e = compute_nonbonded_forces_dna3(dev_, nl_, par3_, box_, want_e);
+            return e + compute_bonded_forces_dna3(dev_, par3_, box_, want_e);
+        }
+        c_number e = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e);
+        return e + compute_bonded_forces(dev_, par_, box_, want_e);
+    }
+
     void print_performance(double loop, double t_neigh, double t_bond,
                            double t_nb, double t_mod, double t_out) const {
         const long long nsteps = cfg_.nsteps;
@@ -208,6 +274,7 @@ private:
     ParticleArraysHost host_;
     ParticleArrays   dev_;
     DNAParams        par_;
+    DNA3Params       par3_;
     NeighborList     nl_;
     Thermostat       thermo_;
     c_number         epot_= 0;

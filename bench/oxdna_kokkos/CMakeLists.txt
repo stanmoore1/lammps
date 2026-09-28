@@ -29,6 +29,15 @@ target_compile_features(oxdna_kokkos PRIVATE cxx_std_20)
 target_link_libraries(oxdna_kokkos PRIVATE Kokkos::kokkos)
 target_include_directories(oxdna_kokkos PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+# Default oxDNA3 sequence-dependence file (used when the input file has no
+# `seq_dep_file` key): the copy of upstream oxDNA's
+# oxDNA3_sequence_dependent_parameters.txt shipped in params/.
+set(OXDNA_DEFAULT_SEQ_DEP_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/params/oxDNA3_sequence_dependent_parameters.txt"
+    CACHE FILEPATH "Default oxDNA3 sequence-dependent parameter file")
+target_compile_definitions(oxdna_kokkos PRIVATE
+    OXDNA_DEFAULT_SEQ_DEP_FILE="${OXDNA_DEFAULT_SEQ_DEP_FILE}")
+
 # -----------------------------------------------------------------------
 # Precision (default: double)
 # -----------------------------------------------------------------------
@@ -73,6 +82,8 @@ if(OXDNA_BUILD_TESTS)
     target_compile_features(fd_test PRIVATE cxx_std_20)
     target_link_libraries(fd_test PRIVATE Kokkos::kokkos)
     target_include_directories(fd_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(fd_test PRIVATE
+        OXDNA_DEFAULT_SEQ_DEP_FILE="${OXDNA_DEFAULT_SEQ_DEP_FILE}")
     if(OXDNA_SINGLE_PRECISION)
         target_compile_definitions(fd_test PRIVATE OXDNA_SINGLE_PRECISION)
     endif()
@@ -83,4 +94,9 @@ if(OXDNA_BUILD_TESTS)
     target_compile_features(xcheck PRIVATE cxx_std_20)
     target_link_libraries(xcheck PRIVATE Kokkos::kokkos)
     target_include_directories(xcheck PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(xcheck PRIVATE
+        OXDNA_DEFAULT_SEQ_DEP_FILE="${OXDNA_DEFAULT_SEQ_DEP_FILE}")
+    if(OXDNA_SINGLE_PRECISION)
+        target_compile_definitions(xcheck PRIVATE OXDNA_SINGLE_PRECISION)
+    endif()
 endif()

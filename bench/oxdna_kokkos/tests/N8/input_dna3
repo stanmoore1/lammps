@@ -1,0 +1,27 @@
+# oxDNA3 N8 benchmark -- runnable by both oxdna_kokkos and the standalone oxDNA.
+# Run from this directory:  ../../build/oxdna_kokkos input_dna3
+backend = CPU
+sim_type = MD
+interaction_type = DNA3
+use_average_seq = false
+seq_dep_file = ../../params/oxDNA3_sequence_dependent_parameters.txt
+salt_concentration = 1.0
+T = 20C
+dt = 0.003
+steps = 10000
+thermostat = brownian
+newtonian_steps = 103
+diff_coeff = 2.5
+verlet_skin = 0.5
+print_energy_every = 1000
+seed = 12345
+refresh_vel = 1
+timing = 0
+time_scale = linear
+restart_step_counter = 1
+trajectory_file = trajectory_dna3.dat
+energy_file = energy_dna3.dat
+lastconf_file = last_conf_dna3.dat
+print_conf_interval = ${$(steps) / 10}
+topology = topology_N8.top
+conf_file = init_conf_N8.dat

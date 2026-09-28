@@ -62,3 +62,18 @@ per-particle energies to ~1e-5 and forces/torques to ~1e-4.
 Note: the `N32768` configuration stores only 9 columns per line (position, a1,
 a3) with no velocity/angular-momentum — the config reader handles such
 velocity-less confs (missing v/L default to zero).
+
+## oxDNA3
+
+`input_dna3` runs the same system with the sequence-dependent oxDNA3 model
+(`interaction_type = DNA3`, `use_average_seq = false`, `seq_dep_file =
+../../params/oxDNA3_sequence_dependent_parameters.txt`); it also runs unchanged
+with the standalone oxDNA. Cross-check:
+
+```bash
+./build/xcheck 3 0.0977166666666667 1.0 tests/N8/topology_N8.top tests/N8/init_conf_N8.dat ft_kok.txt
+```
+
+against `interaction_type = DNA3_nomesh`: all 8 split energies identical to the
+printed 6 decimals (total -1.185172 / nt), forces / torques 3.5e-6 / 1e-6
+relative (see the main README).
