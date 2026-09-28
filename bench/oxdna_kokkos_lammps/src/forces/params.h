@@ -143,6 +143,13 @@ struct DNAParams {
                                  // 1 = harmonic f4(t)+SA*(t-SB)^2  [oxDNA2]
     c_number cxst_t1_SA = 0, cxst_t1_SB = 0;
     bool     cxst_has_cosphi = true;  // oxDNA1 has the cosphi3 factor; oxDNA2 doesn't
+    // LAMMPS-only oxDNA2 coaxial-stacking variant (lammps_coaxstk_terminal input
+    // toggle; off by default = standalone oxDNA physics). When on, the coaxstk
+    // kernel only acts on pairs of strand-terminal nucleotides and theta4 gets a
+    // second, mirrored lobe, as in LAMMPS pair oxdna2/coaxstk since 3c86796749
+    // ("terminal criterion") and 78d6dcb303 ("blunt end stacking").
+    bool     cxst_terminal_only = false;
+    bool     cxst_t4_blunt = false;
 
     // --- Backbone interaction site offset (BACK = pb1*a1 + pb2*a2) ---
     // oxDNA1: (-0.4, 0). oxDNA2 grooving: (POS_MM_BACK1, POS_MM_BACK2).

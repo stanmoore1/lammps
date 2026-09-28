@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.h"
+#include "forces/params.h"
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
 
@@ -21,11 +22,10 @@ struct ParticleArrays {
     // Angular momentum (x, y, z, 0)
     Vec4 Ls;
 
-    // Net force (x, y, z, 0) — zeroed before each force evaluation
-    Vec4 forces;
-
-    // Net torque (x, y, z, 0) — zeroed before each force evaluation
-    Vec4 torques;
+    // Net force / torque (x, y, z, 0) -- zeroed before each force evaluation.
+    // Stored in the accumulation precision c_acc (LAMMPS KK_ACC_FLOAT).
+    VecA4 forces;
+    VecA4 torques;
 
     // Orientation as unit quaternion (w, x, y, z) stored in .x/.y/.z/.w
     Vec4 orientations;
@@ -43,10 +43,31 @@ struct ParticleArrays {
     // Integer base type: A=0, C=1, G=2, T=3 (same as LAMMPS btype convention)
     Kokkos::View<int *> btype;
 
-    // LAMMPS-overhead mode scratch: the per-bond "prime-neigh" table that LAMMPS
-    // re-derives every step (TagPair...PrecomputeBondPrimeNeighs). Unused unless
-    // the lammps_overhead toggle is on.
-    Kokkos::View<int *[4]> bond_prime_neighs;
+    // Per-atom Debye-Huckel charge (LAMMPS atom->qeff): 1, or 0.5 at a strand
+    // end when half-charged ends are on. The dh kernel reads qeff(a) once per
+    // atom and qeff(b) per in-range pair. Filled by ensure_qeff() (qeff_mode
+    // records which convention the view currently holds; -1 = not yet filled).
+    Kokkos::View<c_number *> qeff;
+    int qeff_mode = -1;
+
+    // LAMMPS-style bond list (neighbor->bondlist): one entry per bond, built
+    // once from the topology. Column 0 = 5' end (the atom whose n3 is set),
+    // column 1 = its 3' neighbour. Used by the lammps_overhead per-bond kernels.
+    Kokkos::View<int *[2]> bondlist;
+    int nbonds = 0;
+
+    // LAMMPS fix OXDNA/PRIME_NEIGHS bond table (d_prime_neighs_bond, t_int_1d_4,
+    // LayoutLeft on GPU): per bond (a, b, a3p, b5p) with a = 3' end, b = 5' end,
+    // a3p = 3' neighbour of a, b5p = 5' neighbour of b (-1 if none). Rebuilt on
+    // neighbor-rebuild steps in lammps_overhead mode; the per-bond stk/fene
+    // kernels read their atoms and tetramer context only from this table.
+    Kokkos::View<int *[4], Kokkos::LayoutLeft> prime_bond;
+
+    // lammps_overhead mode: LAMMPS' 4D (5^4) base-base excluded-volume tables
+    // used by excv's bonded (tetramer) branch. Uniform for oxDNA1/2 (physics
+    // unchanged); tet_excv_key caches the 2D values they were filled from.
+    Kokkos::View<ExcvParams *> tet_excv_bsbs;
+    ExcvParams tet_excv_key{};
 
     // LAMMPS-overhead mode: a 256-entry tetramer coefficient table, filled with
     // 1.0, used by the per-bond stk/fene kernels to model LAMMPS's 4D
@@ -71,15 +92,16 @@ struct ParticleArrays {
         poss        = Vec4("poss",        n);
         vels        = Vec4("vels",        n);
         Ls          = Vec4("Ls",          n);
-        forces      = Vec4("forces",      n);
-        torques     = Vec4("torques",     n);
+        forces      = VecA4("forces",      n);
+        torques     = VecA4("torques",     n);
         orientations= Vec4("orientations",n);
         nx          = Vec4("nx",          n);
         ny          = Vec4("ny",          n);
         nz          = Vec4("nz",          n);
         bonds       = Kokkos::View<LR_bonds *>   ("bonds",       n);
         btype       = Kokkos::View<int *>        ("btype",       n);
-        bond_prime_neighs = Kokkos::View<int *[4]>("bond_prime_neighs", n);
+        qeff        = Kokkos::View<c_number *>("qeff", n);
+        qeff_mode   = -1;
         tetramer_tbl = Kokkos::View<c_number *>("tetramer_tbl", 256);
         Kokkos::deep_copy(tetramer_tbl, c_number(1));
         overstretch_flag      = Kokkos::View<int>("overstretch_flag");
@@ -87,8 +109,37 @@ struct ParticleArrays {
     }
 
     void zero_forces() {
-        Kokkos::deep_copy(forces,  c_number(0));
-        Kokkos::deep_copy(torques, c_number(0));
+        Kokkos::deep_copy(forces,  c_acc(0));
+        Kokkos::deep_copy(torques, c_acc(0));
+    }
+
+    // Build the LAMMPS-style bond list from bonds(i).n3 (topology is static,
+    // so this runs once, on the host, like LAMMPS' initial bond-list build).
+    void build_bondlist() {
+        auto h_bonds = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), bonds);
+        int nb = 0;
+        for (int i = 0; i < N; i++) if (h_bonds(i).n3 >= 0) nb++;
+        nbonds     = nb;
+        bondlist   = Kokkos::View<int *[2]>("bondlist", nb);
+        prime_bond = Kokkos::View<int *[4], Kokkos::LayoutLeft>("prime_bond", nb);
+        auto h_bl  = Kokkos::create_mirror_view(bondlist);
+        nb = 0;
+        for (int i = 0; i < N; i++)
+            if (h_bonds(i).n3 >= 0) { h_bl(nb,0) = i; h_bl(nb,1) = h_bonds(i).n3; nb++; }
+        Kokkos::deep_copy(bondlist, h_bl);
+    }
+
+    // Fill qeff for the requested half-charged-ends convention (device kernel;
+    // only re-run when the convention changes).
+    void ensure_qeff(bool half_ends) {
+        const int mode = half_ends ? 1 : 0;
+        if (qeff_mode == mode) return;
+        auto q = qeff; auto b = bonds;
+        Kokkos::parallel_for("oxdna_qeff", N, KOKKOS_LAMBDA(int i) {
+            const bool end = (b(i).n3 < 0 || b(i).n5 < 0);
+            q(i) = (half_ends && end) ? c_number(0.5) : c_number(1);
+        });
+        qeff_mode = mode;
     }
 };
 
@@ -97,8 +148,8 @@ struct ParticleArraysHost {
     Vec4::host_mirror_type poss;
     Vec4::host_mirror_type vels;
     Vec4::host_mirror_type Ls;
-    Vec4::host_mirror_type forces;
-    Vec4::host_mirror_type torques;
+    VecA4::host_mirror_type forces;
+    VecA4::host_mirror_type torques;
     Vec4::host_mirror_type orientations;
     Kokkos::View<LR_bonds *>::host_mirror_type bonds;
     Kokkos::View<int *>::host_mirror_type btype;
@@ -109,8 +160,8 @@ struct ParticleArraysHost {
         poss         = Vec4::host_mirror_type("poss",         n);
         vels         = Vec4::host_mirror_type("vels",         n);
         Ls           = Vec4::host_mirror_type("Ls",           n);
-        forces       = Vec4::host_mirror_type("forces",       n);
-        torques      = Vec4::host_mirror_type("torques",      n);
+        forces       = VecA4::host_mirror_type("forces",       n);
+        torques      = VecA4::host_mirror_type("torques",      n);
         orientations = Vec4::host_mirror_type("orientations", n);
         bonds        = Kokkos::View<LR_bonds *>::host_mirror_type("bonds",        n);
         btype        = Kokkos::View<int *>::host_mirror_type("btype",        n);

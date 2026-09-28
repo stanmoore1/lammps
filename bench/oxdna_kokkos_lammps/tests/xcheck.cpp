@@ -1,6 +1,9 @@
 // Prints Kokkos potential energy (total and per group) for one model, for
 // cross-checking against the standalone oxDNA split potential energy.
-// Groups: backbone(FENE+bonded excv), stacking, nonbonded(excv+HB+cross+coax+DH).
+// Groups follow the LAMMPS style split: "nonbonded" = excv (incl. the bonded
+// excluded volume, computed from the special 1-2 neighbours as in LAMMPS) +
+// HB + cross + coax + DH; "bonded" = stacking + FENE.
+// Optional 7th argument "overhead" runs the lammps_overhead kernel variants.
 #include <Kokkos_Core.hpp>
 #include "../src/simulation.h"
 #include "../src/forces/dna_forces.h"
@@ -8,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <string>
 
 int main(int argc, char**argv){
     int model = (argc>1)? std::atoi(argv[1]) : 1;
@@ -15,7 +19,8 @@ int main(int argc, char**argv){
     double salt=(argc>3)? std::atof(argv[3]) : 0.5;
     const char* top  = (argc>4)? argv[4] : "tests/8bp_duplex/test.top";
     const char* conf = (argc>5)? argv[5] : "tests/8bp_duplex/test.conf";
-    const char* ftout= (argc>6)? argv[6] : nullptr;  // if set, dump per-particle force/torque
+    const char* ftout= (argc>6 && std::string(argv[6]) != "-")? argv[6] : nullptr;  // if set, dump per-particle force/torque
+    const bool overhead = (argc>7) && std::string(argv[7]) == "overhead";
     Kokkos::initialize(argc,argv);
     {
         ParticleArraysHost host; int N;
@@ -30,13 +35,13 @@ int main(int argc, char**argv){
         nl.build(dev, box);
 
         dev.zero_forces();
-        c_number e_nb   = compute_nonbonded_forces(dev, nl, par, box);
-        c_number e_bond = compute_bonded_forces(dev, par, box);
+        c_number e_nb   = compute_nonbonded_forces(dev, nl, par, box, true, overhead);
+        c_number e_bond = compute_bonded_forces(dev, par, box, true, overhead);
         Kokkos::fence();
         c_number tot = e_nb + e_bond;
         std::printf("Kokkos oxDNA%d  N=%d  T=%.4f salt=%.3f\n", model, N, T, salt);
         std::printf("  nonbonded(all)       = %12.6f  (%.6f /particle)\n", (double)e_nb,   (double)e_nb/N);
-        std::printf("  bonded(FENE+excv+stk)= %12.6f  (%.6f /particle)\n", (double)e_bond, (double)e_bond/N);
+        std::printf("  bonded(stk+FENE)     = %12.6f  (%.6f /particle)\n", (double)e_bond, (double)e_bond/N);
         std::printf("  TOTAL                = %12.6f  (%.6f /particle)\n", (double)tot,    (double)tot/N);
 
         if (ftout) {

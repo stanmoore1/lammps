@@ -70,8 +70,8 @@ struct FirstStepFunctor {
     Vec4 poss;
     Vec4 vels;
     Vec4 Ls;
-    Vec4c forces;
-    Vec4c torques;
+    VecA4c forces;
+    VecA4c torques;
     Vec4 orientations;
     c_number dt;
     SimBox box;
@@ -136,8 +136,8 @@ struct FirstStepFunctor {
 struct SecondStepFunctor {
     Vec4 vels;
     Vec4 Ls;
-    Vec4c forces;
-    Vec4c torques;
+    VecA4c forces;
+    VecA4c torques;
     c_number dt;
 
     KOKKOS_INLINE_FUNCTION

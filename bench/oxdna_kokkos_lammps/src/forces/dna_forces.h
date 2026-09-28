@@ -1,40 +1,16 @@
 #pragma once
 
-// DNA nonbonded force computation kernel (oxDNA1).
-// One Kokkos thread per edge (pair i,j) — no inner loop, perfect load balance.
+// oxDNA nonbonded physics helpers + the LAMMPS-faithful nonbonded kernels.
 //
-// Physics (matches the standalone DNAInteraction::pair_interaction_nonbonded):
-//   nonbonded excluded volume + hydrogen bonding + cross stacking + coaxial stacking.
-// Each angular/dihedral term is a faithful port of the standalone force/torque
-// expressions; torques are accumulated in the lab frame (the integrator uses unit
-// isotropic inertia, so lab-frame angular momentum integration is exact).
+// The physics helpers (add_excv_contrib, hbond_pair, crst_pair, cxst_pair,
+// dh_pair, eval_f4, ...) are the validated standalone-oxDNA ports shared with
+// bench/oxdna_kokkos, so energies agree with it. The kernels at the end of this
+// file reproduce the KERNEL STRUCTURE of the LAMMPS KOKKOS oxDNA styles
+// (tracking LAMMPS origin/oxdna3KK): which list each term iterates, what it
+// reads, how it accumulates and scatters, and its launch policy.
 
 #include "../types.h"
 
-// ---------------------------------------------------------------------------
-// Launch-bounds / register-pressure tuning for the nonbonded edge kernel (GPU).
-//
-// The edge kernel is register-heavy (all nonbonded terms inlined), so without a
-// register cap the compiler may use enough registers to limit occupancy. A
-// Kokkos::LaunchBounds<MaxThreadsPerBlock, MinBlocksPerSM> emits CUDA
-// __launch_bounds__, telling the compiler to fit at least MinBlocksPerSM blocks
-// of MaxThreadsPerBlock threads per SM (i.e. cap registers to
-// regs <= 65536 / (MaxThreads * MinBlocks) on most NVIDIA SMs).
-//
-// These defaults are a starting point, NOT a tuned optimum: the sweet spot is
-// GPU- and precision-dependent (too aggressive a MinBlocks forces register
-// spills and gets slower). Sweep them on the target GPU, e.g.
-//   -DOXDNA_NB_MAXT=64  -DOXDNA_NB_MINB=16   (mirrors oxDNA's 64-thread blocks)
-//   -DOXDNA_NB_MAXT=128 -DOXDNA_NB_MINB=8
-// and compare achieved occupancy / registers-per-thread in Nsight Compute.
-// LaunchBounds is ignored on CPU backends, so this is a no-op there.
-// ---------------------------------------------------------------------------
-#ifndef OXDNA_NB_MAXT
-#define OXDNA_NB_MAXT 128
-#endif
-#ifndef OXDNA_NB_MINB
-#define OXDNA_NB_MINB 6
-#endif
 #include "../particles.h"
 #include "../neighbor_list.h"
 #include "orient.h"
@@ -389,6 +365,13 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
     eval_cxst_t1(cost1, par.cxst_t1, par.cxst_t1_mode, par.cxst_t1_SA, par.cxst_t1_SB, f4t1, D1);
     eval_f4(cost4, par.cxst_t4, f4t4, D4);
     c_number f4p, Dp, f4m, Dm;
+    c_number f4t4Ds = -D4;
+    if (par.cxst_t4_blunt) {
+        // LAMMPS oxdna2/coaxstk (NEW, "3'3'/5'5' blunt end stacking"): a second,
+        // mirrored theta4 lobe F4(theta4; pi - theta4_0) == f4(-cost4).
+        eval_f4(-cost4, par.cxst_t4, f4m, Dm);
+        f4t4 += f4m;  f4t4Ds += Dm;
+    }
     eval_f4( cost5, par.cxst_t5, f4p, Dp); eval_f4(-cost5, par.cxst_t5, f4m, Dm);
     c_number f4t5 = f4p + f4m;  c_number f4t5Ds = -Dp + Dm;
     eval_f4( cost6, par.cxst_t6, f4p, Dp); eval_f4(-cost6, par.cxst_t6, f4m, Dm);
@@ -408,7 +391,7 @@ c_number cxst_pair(const c_number ra_st[3], const c_number rb_st[3],
     c_number f5D = par.cxst_has_cosphi
         ? DF5(cosphi3, par.cxst_cp.a, par.cxst_cp.x_ast, par.cxst_cp.b, par.cxst_cp.x_c)
         : c_number(0);
-    c_number f4t1Ds = D1, f4t4Ds = -D4;
+    c_number f4t1Ds = D1;
 
     c_number force[3] = {0,0,0}, tp[3] = {0,0,0}, tq[3] = {0,0,0};
 
@@ -537,23 +520,30 @@ c_number dh_pair(const c_number ra_bk[3], const c_number rb_bk[3],
 
 
 // =======================================================================
-// LAMMPS-FAITHFUL fragmented force kernels.
+// LAMMPS-FAITHFUL force kernels (tracks LAMMPS origin/oxdna3KK, ec131639).
 //
-// This standalone reproduces the LAMMPS-KOKKOS oxDNA kernel structure:
-//   * a separate kernel per interaction term (excv / hbond / xstk / coaxstk
-//     / dh), each reading positions + PRECOMPUTED body frames (nx/ny/nz)
-//     and doing its OWN atomic scatter to f/torque, and
-//   * LAMMPS neighbor handling: excv & dh iterate per-atom over the half
-//     neighbor matrix (each pair once, HALFTHREAD style); hbond / xstk /
-//     coaxstk iterate per-screened-pair over the flat screened pair list.
-//
-// The PHYSICS is unchanged: every kernel calls the SAME helper functions
-// (add_excv_contrib / hbond_pair / crst_pair / cxst_pair / dh_pair) with the
-// SAME site vectors as the original fused edge operator, so energies match.
+// Mirrors the LAMMPS KOKKOS oxDNA kernel structure, one kernel per style:
+//   * fix OXDNA/LRF: a per-atom pass stores the body frames nx/ny/nz; every
+//     force kernel READS them.
+//   * pair oxdna*/excv: one thread per atom over the half neighbor list
+//     (HALFTHREAD), bonded (special) pairs included: backbone-backbone is
+//     knocked out by special_lj = 0, the other three site pairs give the
+//     bonded excluded volume. The base-base term first runs the NEW per-pair
+//     topology (tetramer) test. Atom a accumulates in registers and is flushed
+//     once; atom b gets atomics per active term. OxdnaRangePolicy launch bounds.
+//   * pair oxdna/hbond, oxdna/xstk, oxdna2/coaxstk: one thread per screened
+//     pair (fix OXDNA/NPAIR packed uint64 list), special pairs exit early,
+//     plain RangePolicy, atomics to both atoms.
+//   * pair oxdna/coaxstk (oxDNA1): one thread per atom over the half list.
+//   * pair oxdna2/dh: one thread per atom over the half list, per-atom qeff,
+//     rsq cutoff test before rsqrt, register accumulation of atom a,
+//     OxdnaRangePolicy launch bounds.
+// Force / torque accumulation is in c_acc (KK_ACC_FLOAT). Every kernel makes
+// its own ScatterView (non-duplicated = atomics), as each LAMMPS pair style does.
 // =======================================================================
 
 using ScatterF4 = Kokkos::Experimental::ScatterView<
-    c_number *[4],
+    c_acc *[4],
     Kokkos::LayoutRight,
     Kokkos::DefaultExecutionSpace,
     Kokkos::Experimental::ScatterSum,
@@ -561,7 +551,7 @@ using ScatterF4 = Kokkos::Experimental::ScatterView<
 
 // -----------------------------------------------------------------------
 // LRF precompute: one thread per atom. Compute a1,a2,a3 from the quaternion
-// and STORE them in nx/ny/nz. Mirrors LAMMPS `fix oxdna/lrf`.
+// and STORE them in nx/ny/nz. Mirrors LAMMPS `fix OXDNA/LRF`.
 // -----------------------------------------------------------------------
 inline void compute_lrf(ParticleArrays &p) {
     auto ori = p.orientations;
@@ -583,146 +573,303 @@ void load_frame(const Vec4cr &nx, const Vec4cr &ny, const Vec4cr &nz, int i,
     a3[0]=nz(i,0); a3[1]=nz(i,1); a3[2]=nz(i,2);
 }
 
+KOKKOS_INLINE_FUNCTION
+c_number fma_dot3(const c_number d[3]) {
+    return Kokkos::fma(d[2], d[2], Kokkos::fma(d[1], d[1], d[0]*d[0]));
+}
+
+// Scatter one pair's force/torque increments to both atoms (atomics on GPU).
+template <class AF, class AT>
+KOKKOS_INLINE_FUNCTION
+void scatter_pair(const AF &af, const AT &at, int ia, int ib,
+                  const c_number (&delf_a)[3], const c_number (&delta_a)[3],
+                  const c_number (&delf_b)[3], const c_number (&delta_b)[3]) {
+    af(ia,0)+=delf_a[0];  af(ia,1)+=delf_a[1];  af(ia,2)+=delf_a[2];
+    af(ib,0)+=delf_b[0];  af(ib,1)+=delf_b[1];  af(ib,2)+=delf_b[2];
+    at(ia,0)+=delta_a[0]; at(ia,1)+=delta_a[1]; at(ia,2)+=delta_a[2];
+    at(ib,0)+=delta_b[0]; at(ib,1)+=delta_b[1]; at(ib,2)+=delta_b[2];
+}
+
+// Unpack a LAMMPS fix OXDNA/NPAIR screened pair: a in the upper 32 bits, the
+// raw neighbor index (special bits preserved) in the lower 32 bits.
+KOKKOS_INLINE_FUNCTION
+void unpack_pair(uint64_t v, int &ia, int &braw) {
+    ia   = static_cast<int>(v >> 32);
+    braw = static_cast<int>(static_cast<uint32_t>(v & 0xffffffffu));
+}
+
+// Index into the (ntypes+1)^4 = 5^4 tetramer tables of LAMMPS (atom types 1..4,
+// index 0 = no neighbour). Bench base types are 0..3 and -1 = none.
+KOKKOS_INLINE_FUNCTION
+int tet_index(int t3p, int ta, int tb, int t5p) {
+    return (((t3p + 1) * 5 + (ta + 1)) * 5 + (tb + 1)) * 5 + (t5p + 1);
+}
+
+// LAMMPS 4D base-base excluded-volume table (d_cut4sq_bsbs_c & co). For the
+// oxDNA1/2 models every entry equals the 2D value (vanilla pair_oxdna_excv
+// fills them uniformly), so this only reproduces the memory traffic. Refilled
+// only when the base-base parameters change.
+inline void ensure_tet_excv(ParticleArrays &p, const DNAParams &par) {
+    const ExcvParams &e = par.excv_bsbs;
+    const ExcvParams &c = p.tet_excv_key;
+    if (p.tet_excv_bsbs.extent(0) == 625 && c.eps == e.eps && c.lj1 == e.lj1 &&
+        c.lj2 == e.lj2 && c.b == e.b && c.cutsq_ast == e.cutsq_ast &&
+        c.cutsq_c == e.cutsq_c && c.cut_c == e.cut_c) return;
+    if (p.tet_excv_bsbs.extent(0) != 625)
+        p.tet_excv_bsbs = Kokkos::View<ExcvParams *>("tet_excv_bsbs", 625);
+    auto h = Kokkos::create_mirror_view(p.tet_excv_bsbs);
+    for (int i = 0; i < 625; i++) h(i) = e;
+    Kokkos::deep_copy(p.tet_excv_bsbs, h);
+    p.tet_excv_key = e;
+}
+
 // -----------------------------------------------------------------------
-// EXCV kernel: per-atom over the half neighbor matrix. The 4 excluded-volume
-// site-site terms (base-base, back-base, base-back, back-back). Scatters to
-// both ia and j (each pair once, like LAMMPS HALFTHREAD).
+// fix OXDNA/PRIME_NEIGHS::compute_prime_neighs_pair (lammps_overhead mode,
+// neighbor-rebuild steps): one thread per atom over all its neighbors, writing
+// (3' nbr of a, 5' nbr of b, 3' nbr of b, 5' nbr of a) per neighbor slot.
+// (LAMMPS resolves these with tag->local map lookups; here they are the
+// equivalent bonds() reads.) Grow-only (N, max_neigh, 4) table.
 // -----------------------------------------------------------------------
+inline void build_prime_pair(const ParticleArrays &p, const NeighborList &nl) {
+    if (nl.prime_pair.extent(0) < static_cast<size_t>(p.N) ||
+        nl.prime_pair.extent(1) < static_cast<size_t>(nl.max_neigh))
+        nl.prime_pair = Kokkos::View<int ***>("prime_neighs_pair", p.N, nl.max_neigh, 4);
+    auto tab = nl.prime_pair; auto nnum = nl.d_num_neigh; auto nmat = nl.d_neigh_matrix;
+    auto bonds = p.bonds;
+    Kokkos::parallel_for("oxdna_prime_neighs_pair", p.N, KOKKOS_LAMBDA(int a) {
+        const int m = nnum(a);
+        for (int k = 0; k < m; k++) {
+            const int b = nmat(a, k) & OX_NEIGHMASK;
+            tab(a,k,0) = bonds(a).n3;
+            tab(a,k,1) = bonds(b).n5;
+            tab(a,k,2) = bonds(b).n3;
+            tab(a,k,3) = bonds(a).n5;
+        }
+    });
+}
+
+// -----------------------------------------------------------------------
+// EXCV (pair oxdna*/excv): per atom over the half list incl. bonded pairs.
+// Term order as LAMMPS: bkbk (x special_lj), bk(a)-bs(b), bs(a)-bk(b), bsbs.
+// GROOVED = oxDNA2 backbone site (-0.34 a1 + 0.3408 a2); oxDNA1 reads only nx.
+// -----------------------------------------------------------------------
+template <bool GROOVED>
 struct ExcvFunctor {
     Vec4cr poss, nx, ny, nz;
+    RandomRead<LR_bonds> bonds;
+    RandomRead<int> btype;
     Kokkos::View<const int *>  num_neigh;
     Kokkos::View<const int **> neigh_matrix;
+    Kokkos::View<const int ***> prime_pair;
+    Kokkos::View<const ExcvParams *, Kokkos::MemoryTraits<Kokkos::RandomAccess>> bsbs4;
+    bool use_prime = false;
     DNAParams par;
     ScatterF4 sf, st;
     SimBox box;
 
-    KOKKOS_INLINE_FUNCTION void operator()(int ia) const { c_number ev=0; (*this)(ia, ev); }
+    // One excluded-volume site pair. d = (b site) - (a site). Force on a is
+    // -d*fpair (kept in registers), on b +d*fpair (atomic, immediately).
+    template <class AF, class AT>
+    KOKKOS_INLINE_FUNCTION
+    void term(const c_number ra[3], const c_number rb[3], const c_number dcom[3],
+              const ExcvParams &ep, c_number factor,
+              c_acc (&ftmp)[3], c_acc (&ttmp)[3],
+              const AF &af, const AT &at, int ib, c_acc &ev) const {
+        c_number d[3] = {dcom[0]+rb[0]-ra[0], dcom[1]+rb[1]-ra[1], dcom[2]+rb[2]-ra[2]};
+        const c_number rsq = fma_dot3(d);
+        if (rsq >= ep.cutsq_c) return;
+        c_number fpair = 0;
+        c_number U = F3(rsq, ep.cutsq_ast, ep.cut_c, ep.lj1, ep.lj2, ep.eps, ep.b, fpair);
+        fpair *= factor;
+        U     *= factor;
+        ev += U;
+        c_number df[3] = {d[0]*fpair, d[1]*fpair, d[2]*fpair};
+        c_number ta[3], tb[3];
+        cross3(ra, df, ta);
+        cross3(rb, df, tb);
+        ftmp[0] -= df[0]; ftmp[1] -= df[1]; ftmp[2] -= df[2];
+        ttmp[0] -= ta[0]; ttmp[1] -= ta[1]; ttmp[2] -= ta[2];
+        af(ib,0) += df[0]; af(ib,1) += df[1]; af(ib,2) += df[2];
+        at(ib,0) += tb[0]; at(ib,1) += tb[1]; at(ib,2) += tb[2];
+    }
+
+    KOKKOS_INLINE_FUNCTION void operator()(int ia) const { c_acc ev=0; (*this)(ia, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int ia, c_number &ev) const {
+    void operator()(int ia, c_acc &ev) const {
         const int m = num_neigh(ia);
-        if (m == 0) return;
-        c_number xai = poss(ia,0), yai = poss(ia,1), zai = poss(ia,2);
-        c_number a1[3], a2[3], a3[3];
-        load_frame(nx, ny, nz, ia, a1, a2, a3);
-        c_number pb1 = par.pb1, pb2 = par.pb2, d_cbs = par.d_cbs;
-        c_number ra_cbk[3] = {pb1*a1[0]+pb2*a2[0], pb1*a1[1]+pb2*a2[1], pb1*a1[2]+pb2*a2[2]};
-        c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
+        const c_number xai = poss(ia,0), yai = poss(ia,1), zai = poss(ia,2);
+        const int ta = btype(ia);
+        const LR_bonds ba = bonds(ia);
+        const c_number pb1 = par.pb1, pb2 = par.pb2, d_cbs = par.d_cbs;
+        c_number ra_cbk[3], ra_cbs[3];
+        {
+            const c_number a1[3] = {nx(ia,0), nx(ia,1), nx(ia,2)};
+            if (GROOVED) {
+                const c_number a2[3] = {ny(ia,0), ny(ia,1), ny(ia,2)};
+                for (int c = 0; c < 3; c++) ra_cbk[c] = Kokkos::fma(pb2, a2[c], pb1*a1[c]);
+            } else {
+                for (int c = 0; c < 3; c++) ra_cbk[c] = pb1*a1[c];
+            }
+            for (int c = 0; c < 3; c++) ra_cbs[c] = d_cbs*a1[c];
+        }
 
+        c_acc ftmp[3] = {0,0,0}, ttmp[3] = {0,0,0};
         auto af = sf.access();
         auto at = st.access();
 
         for (int k = 0; k < m; k++) {
-            int ib = neigh_matrix(ia, k);
-            c_number dx = poss(ib,0)-xai, dy = poss(ib,1)-yai, dz = poss(ib,2)-zai;
-            box.wrap(dx, dy, dz);
-            c_number b1[3], b2[3], b3[3];
-            load_frame(nx, ny, nz, ib, b1, b2, b3);
-            c_number rb_cbk[3] = {pb1*b1[0]+pb2*b2[0], pb1*b1[1]+pb2*b2[1], pb1*b1[2]+pb2*b2[2]};
-            c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
+            const int braw = neigh_matrix(ia, k);
+            const c_number factor_lj = ox_sbmask(braw) ? c_number(0) : c_number(1);
+            const int ib = braw & OX_NEIGHMASK;
+            const int tb = btype(ib);
 
-            c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
-            c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
-            c_number evdwl = 0;
-            { c_number d[3]={dx+rb_cbs[0]-ra_cbs[0], dy+rb_cbs[1]-ra_cbs[1], dz+rb_cbs[2]-ra_cbs[2]};
-              add_excv_contrib(ra_cbs, rb_cbs, d, par.excv_bsbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl); }
-            { c_number d[3]={dx+rb_cbs[0]-ra_cbk[0], dy+rb_cbs[1]-ra_cbk[1], dz+rb_cbs[2]-ra_cbk[2]};
-              add_excv_contrib(ra_cbk, rb_cbs, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl); }
-            { c_number d[3]={dx+rb_cbk[0]-ra_cbs[0], dy+rb_cbk[1]-ra_cbs[1], dz+rb_cbk[2]-ra_cbs[2]};
-              add_excv_contrib(ra_cbs, rb_cbk, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl); }
-            { c_number d[3]={dx+rb_cbk[0]-ra_cbk[0], dy+rb_cbk[1]-ra_cbk[1], dz+rb_cbk[2]-ra_cbk[2]};
-              add_excv_contrib(ra_cbk, rb_cbk, d, par.excv_bkbk, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl); }
-            ev += evdwl;
+            c_number rb_cbk[3], rb_cbs[3];
+            {
+                const c_number b1[3] = {nx(ib,0), nx(ib,1), nx(ib,2)};
+                if (GROOVED) {
+                    const c_number b2[3] = {ny(ib,0), ny(ib,1), ny(ib,2)};
+                    for (int c = 0; c < 3; c++) rb_cbk[c] = Kokkos::fma(pb2, b2[c], pb1*b1[c]);
+                } else {
+                    for (int c = 0; c < 3; c++) rb_cbk[c] = pb1*b1[c];
+                }
+                for (int c = 0; c < 3; c++) rb_cbs[c] = d_cbs*b1[c];
+            }
+            c_number dcom[3] = {poss(ib,0)-xai, poss(ib,1)-yai, poss(ib,2)-zai};
+            box.wrap(dcom[0], dcom[1], dcom[2]);
 
-            c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
-            if (nzc > c_number(0)) {
-                af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
-                af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
-                at(ia,0)+=delta_a[0]; at(ia,1)+=delta_a[1]; at(ia,2)+=delta_a[2];
-                at(ib,0)+=delta_b[0]; at(ib,1)+=delta_b[1]; at(ib,2)+=delta_b[2];
+            term(ra_cbk, rb_cbk, dcom, par.excv_bkbk, factor_lj, ftmp, ttmp, af, at, ib, ev); // bkbk
+            term(ra_cbk, rb_cbs, dcom, par.excv_bkbs, 1,         ftmp, ttmp, af, at, ib, ev); // bk(a)-bs(b)
+            term(ra_cbs, rb_cbk, dcom, par.excv_bkbs, 1,         ftmp, ttmp, af, at, ib, ev); // bs(a)-bk(b)
+
+            // base-base: NEW tetramer topology test (a is b's 3' neighbour, or
+            // its 5' neighbour) before falling back to the 2D table.
+            const LR_bonds bb = bonds(ib);
+            if (bb.n3 == ia && ba.n5 == ib) {
+                if (use_prime) {
+                    const int p3 = prime_pair(ia,k,0), p5 = prime_pair(ia,k,1);
+                    const int t3 = (p3 >= 0) ? btype(p3) : -1;
+                    const int t5 = (p5 >= 0) ? btype(p5) : -1;
+                    const ExcvParams e4 = bsbs4(tet_index(t3, ta, tb, t5));
+                    term(ra_cbs, rb_cbs, dcom, e4, 1, ftmp, ttmp, af, at, ib, ev);
+                } else {
+                    term(ra_cbs, rb_cbs, dcom, par.excv_bsbs, 1, ftmp, ttmp, af, at, ib, ev);
+                }
+            } else if (bb.n5 == ia && ba.n3 == ib) {
+                if (use_prime) {
+                    const int p3 = prime_pair(ia,k,2), p5 = prime_pair(ia,k,3);
+                    const int t3 = (p3 >= 0) ? btype(p3) : -1;
+                    const int t5 = (p5 >= 0) ? btype(p5) : -1;
+                    const ExcvParams e4 = bsbs4(tet_index(t3, tb, ta, t5));
+                    term(ra_cbs, rb_cbs, dcom, e4, 1, ftmp, ttmp, af, at, ib, ev);
+                } else {
+                    term(ra_cbs, rb_cbs, dcom, par.excv_bsbs, 1, ftmp, ttmp, af, at, ib, ev);
+                }
+            } else {
+                term(ra_cbs, rb_cbs, dcom, par.excv_bsbs, 1, ftmp, ttmp, af, at, ib, ev);
             }
         }
+
+        af(ia,0) += ftmp[0]; af(ia,1) += ftmp[1]; af(ia,2) += ftmp[2];
+        at(ia,0) += ttmp[0]; at(ia,1) += ttmp[1]; at(ia,2) += ttmp[2];
     }
 };
 
 // -----------------------------------------------------------------------
-// DH kernel: per-atom over the half neighbor matrix (backbone-site
-// separation; respects dh_enabled / dh_half_ends / cutoff dh_RC).
+// DH (pair oxdna2/dh): per atom over the half list. Special pairs skipped
+// first; rsq tested against the cutoff before any sqrt; rinv = rsqrt(rsq),
+// r = rsq*rinv; per-atom qeff (qeff(a) hoisted, qeff(b) after the cutoff);
+// atom a accumulated in registers, atom b by atomics.
 // -----------------------------------------------------------------------
 struct DHFunctor {
-    Vec4cr poss, nx, ny, nz;
-    RandomRead<LR_bonds> bonds;
+    Vec4cr poss, nx, ny;
+    RandomRead<c_number> qeff;
     Kokkos::View<const int *>  num_neigh;
     Kokkos::View<const int **> neigh_matrix;
     DNAParams par;
+    c_number rcsq;
     ScatterF4 sf, st;
     SimBox box;
 
-    KOKKOS_INLINE_FUNCTION void operator()(int ia) const { c_number ev=0; (*this)(ia, ev); }
+    KOKKOS_INLINE_FUNCTION void operator()(int ia) const { c_acc ev=0; (*this)(ia, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int ia, c_number &ev) const {
+    void operator()(int ia, c_acc &ev) const {
         const int m = num_neigh(ia);
-        if (m == 0) return;
-        c_number xai = poss(ia,0), yai = poss(ia,1), zai = poss(ia,2);
-        c_number a1[3], a2[3], a3[3];
-        load_frame(nx, ny, nz, ia, a1, a2, a3);
-        c_number pb1 = par.pb1, pb2 = par.pb2;
-        c_number ra_cbk[3] = {pb1*a1[0]+pb2*a2[0], pb1*a1[1]+pb2*a2[1], pb1*a1[2]+pb2*a2[2]};
-        bool a_end = (bonds(ia).n3 < 0 || bonds(ia).n5 < 0);
+        const c_number qeff_a = qeff(ia);
+        const c_number xai = poss(ia,0), yai = poss(ia,1), zai = poss(ia,2);
+        const c_number pb1 = par.pb1, pb2 = par.pb2;
+        const c_number ra0 = Kokkos::fma(pb2, ny(ia,0), pb1*nx(ia,0));
+        const c_number ra1 = Kokkos::fma(pb2, ny(ia,1), pb1*nx(ia,1));
+        const c_number ra2 = Kokkos::fma(pb2, ny(ia,2), pb1*nx(ia,2));
 
+        c_acc ftmp0 = 0, ftmp1 = 0, ftmp2 = 0, ttmp0 = 0, ttmp1 = 0, ttmp2 = 0;
         auto af = sf.access();
         auto at = st.access();
 
         for (int k = 0; k < m; k++) {
-            int ib = neigh_matrix(ia, k);
+            const int braw = neigh_matrix(ia, k);
+            if (ox_sbmask(braw)) continue;          // special_lj = 0
+            const int ib = braw & OX_NEIGHMASK;
             c_number dx = poss(ib,0)-xai, dy = poss(ib,1)-yai, dz = poss(ib,2)-zai;
             box.wrap(dx, dy, dz);
-            c_number b1[3], b2[3], b3[3];
-            load_frame(nx, ny, nz, ib, b1, b2, b3);
-            c_number rb_cbk[3] = {pb1*b1[0]+pb2*b2[0], pb1*b1[1]+pb2*b2[1], pb1*b1[2]+pb2*b2[2]};
+            const c_number rb0 = Kokkos::fma(pb2, ny(ib,0), pb1*nx(ib,0));
+            const c_number rb1 = Kokkos::fma(pb2, ny(ib,1), pb1*nx(ib,1));
+            const c_number rb2 = Kokkos::fma(pb2, ny(ib,2), pb1*nx(ib,2));
+            const c_number d0 = dx + rb0 - ra0, d1 = dy + rb1 - ra1, d2 = dz + rb2 - ra2;
+            const c_number rsq = Kokkos::fma(d2, d2, Kokkos::fma(d1, d1, d0*d0));
+            if (rsq > rcsq) continue;
 
-            c_number d[3] = {dx+rb_cbk[0]-ra_cbk[0], dy+rb_cbk[1]-ra_cbk[1], dz+rb_cbk[2]-ra_cbk[2]};
-            c_number rmod = Kokkos::sqrt(dot3(d,d));
-            if (rmod <= 0 || rmod >= par.dh_RC) continue;
-            c_number cut_factor = 1;
-            if (par.dh_half_ends) {
-                if (a_end) cut_factor *= c_number(0.5);
-                if (bonds(ib).n3 < 0 || bonds(ib).n5 < 0) cut_factor *= c_number(0.5);
+            const c_number qq   = qeff_a * qeff(ib);
+            const c_number rinv = Kokkos::rsqrt(rsq);
+            const c_number r    = rsq * rinv;
+            c_number U, fmag;                        // standalone "force" = d*rinv*fmag
+            if (r <= par.dh_RHIGH) {
+                const c_number ex = Kokkos::exp(r * par.dh_minus_kappa);
+                U    = qq * par.dh_prefactor * ex * rinv;
+                fmag = -qq * par.dh_prefactor * ex * (par.dh_minus_kappa * rinv - rinv*rinv);
+            } else {
+                const c_number dr = r - par.dh_RC;
+                U    = qq * par.dh_B * dr * dr;
+                fmag = -2 * qq * par.dh_B * dr;
             }
-            c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
-            c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
-            ev += dh_pair(ra_cbk, rb_cbk, d, rmod, cut_factor, par,
-                          delf_a, delta_a, delf_b, delta_b);
-
-            c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
-            if (nzc > c_number(0)) {
-                af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
-                af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
-                at(ia,0)+=delta_a[0]; at(ia,1)+=delta_a[1]; at(ia,2)+=delta_a[2];
-                at(ib,0)+=delta_b[0]; at(ib,1)+=delta_b[1]; at(ib,2)+=delta_b[2];
-            }
+            ev += U;
+            const c_number s  = fmag * rinv;
+            const c_number f0 = d0*s, f1 = d1*s, f2 = d2*s;
+            ftmp0 -= f0; ftmp1 -= f1; ftmp2 -= f2;
+            ttmp0 -= Kokkos::fma(ra1, f2, -ra2*f1);
+            ttmp1 -= Kokkos::fma(ra2, f0, -ra0*f2);
+            ttmp2 -= Kokkos::fma(ra0, f1, -ra1*f0);
+            af(ib,0) += f0; af(ib,1) += f1; af(ib,2) += f2;
+            at(ib,0) += Kokkos::fma(rb1, f2, -rb2*f1);
+            at(ib,1) += Kokkos::fma(rb2, f0, -rb0*f2);
+            at(ib,2) += Kokkos::fma(rb0, f1, -rb1*f0);
         }
+
+        af(ia,0) += ftmp0; af(ia,1) += ftmp1; af(ia,2) += ftmp2;
+        at(ia,0) += ttmp0; at(ia,1) += ttmp1; at(ia,2) += ttmp2;
     }
 };
 
 // -----------------------------------------------------------------------
-// Screened-pair functors: one thread per screened (a,b) pair.
-// HBOND (gated by alpha_hb), XSTK (crst), COAXSTK (cxst).
+// Screened-pair functors (one thread per fix OXDNA/NPAIR pair).
 // -----------------------------------------------------------------------
 struct HbondFunctor {
     Vec4cr poss, nx, ny, nz;
     RandomRead<int> btype;
-    Kokkos::View<const int *> sa, sb;
+    Kokkos::View<const uint64_t *> sp;
     DNAParams par;
     ScatterF4 sf, st;
     SimBox box;
 
-    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_number ev=0; (*this)(e, ev); }
+    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_acc ev=0; (*this)(e, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int e, c_number &ev) const {
-        const int ia = sa(e), ib = sb(e);
+    void operator()(int e, c_acc &ev) const {
+        int ia, braw;
+        unpack_pair(sp(e), ia, braw);
+        if (ox_sbmask(braw)) return;                 // special_lj = 0
+        const int ib = braw & OX_NEIGHMASK;
         int at_t = btype(ia), bt_t = btype(ib);
         c_number alpha = par.alpha_hb[at_t][bt_t];
         if (alpha == 0) return;
@@ -736,39 +883,36 @@ struct HbondFunctor {
         c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
         c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
         c_number d[3] = {dx+rb_cbs[0]-ra_cbs[0], dy+rb_cbs[1]-ra_cbs[1], dz+rb_cbs[2]-ra_cbs[2]};
-        c_number rsq = dot3(d,d);
+        c_number rsq = fma_dot3(d);
+        if (rsq <= 0) return;
         c_number r = Kokkos::sqrt(rsq);
-        if (r <= 0) return;
         c_number rinv = 1 / r;
 
         c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
         c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
-        ev += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
-                         a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-
-        c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
-        if (nzc > c_number(0)) {
-            auto af = sf.access(); auto atv = st.access();
-            af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
-            af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
-            atv(ia,0)+=delta_a[0]; atv(ia,1)+=delta_a[1]; atv(ia,2)+=delta_a[2];
-            atv(ib,0)+=delta_b[0]; atv(ib,1)+=delta_b[1]; atv(ib,2)+=delta_b[2];
-        }
+        c_number e_p = hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
+                                  a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+        if (e_p == 0) return;
+        ev += e_p;
+        scatter_pair(sf.access(), st.access(), ia, ib, delf_a, delta_a, delf_b, delta_b);
     }
 };
 
 struct XstkFunctor {
     Vec4cr poss, nx, ny, nz;
-    Kokkos::View<const int *> sa, sb;
+    Kokkos::View<const uint64_t *> sp;
     DNAParams par;
     ScatterF4 sf, st;
     SimBox box;
 
-    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_number ev=0; (*this)(e, ev); }
+    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_acc ev=0; (*this)(e, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int e, c_number &ev) const {
-        const int ia = sa(e), ib = sb(e);
+    void operator()(int e, c_acc &ev) const {
+        int ia, braw;
+        unpack_pair(sp(e), ia, braw);
+        if (ox_sbmask(braw)) return;                 // special_lj = 0
+        const int ib = braw & OX_NEIGHMASK;
         c_number dx = poss(ib,0)-poss(ia,0), dy = poss(ib,1)-poss(ia,1), dz = poss(ib,2)-poss(ia,2);
         box.wrap(dx, dy, dz);
         c_number a1[3], a2[3], a3[3], b1[3], b2[3], b3[3];
@@ -778,89 +922,138 @@ struct XstkFunctor {
         c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
         c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
         c_number d[3] = {dx+rb_cbs[0]-ra_cbs[0], dy+rb_cbs[1]-ra_cbs[1], dz+rb_cbs[2]-ra_cbs[2]};
-        c_number r = Kokkos::sqrt(dot3(d,d));
-        if (r <= 0) return;
+        c_number rsq = fma_dot3(d);
+        if (rsq <= 0) return;                        // NEW rsq_hb <= 0 guard
+        c_number r = Kokkos::sqrt(rsq);
         c_number rinv = 1 / r;
 
         c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
         c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
-        ev += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
-                        a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-
-        c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
-        if (nzc > c_number(0)) {
-            auto af = sf.access(); auto atv = st.access();
-            af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
-            af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
-            atv(ia,0)+=delta_a[0]; atv(ia,1)+=delta_a[1]; atv(ia,2)+=delta_a[2];
-            atv(ib,0)+=delta_b[0]; atv(ib,1)+=delta_b[1]; atv(ib,2)+=delta_b[2];
-        }
+        c_number e_p = crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
+                                 a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+        if (e_p == 0) return;
+        ev += e_p;
+        scatter_pair(sf.access(), st.access(), ia, ib, delf_a, delta_a, delf_b, delta_b);
     }
 };
 
-struct CoaxstkFunctor {
+// Coaxial stacking for one (ia, ib) pair (shared by the screened oxDNA2 kernel
+// and the per-atom oxDNA1 kernel).
+KOKKOS_INLINE_FUNCTION
+c_number coaxstk_pair_geom(const Vec4cr &poss, const Vec4cr &nx, const Vec4cr &ny,
+                           const Vec4cr &nz, const DNAParams &par, const SimBox &box,
+                           int ia, int ib,
+                           c_number (&delf_a)[3], c_number (&delta_a)[3],
+                           c_number (&delf_b)[3], c_number (&delta_b)[3]) {
+    c_number dx = poss(ib,0)-poss(ia,0), dy = poss(ib,1)-poss(ia,1), dz = poss(ib,2)-poss(ia,2);
+    box.wrap(dx, dy, dz);
+    c_number delr_com[3] = {dx, dy, dz};
+    c_number a1[3], a2[3], a3[3], b1[3], b2[3], b3[3];
+    load_frame(nx, ny, nz, ia, a1, a2, a3);
+    load_frame(nx, ny, nz, ib, b1, b2, b3);
+    c_number d_cstk = par.d_cstk;
+    c_number ra_st[3] = {d_cstk*a1[0], d_cstk*a1[1], d_cstk*a1[2]};
+    c_number rb_st[3] = {d_cstk*b1[0], d_cstk*b1[1], d_cstk*b1[2]};
+    c_number d[3] = {dx+rb_st[0]-ra_st[0], dy+rb_st[1]-ra_st[1], dz+rb_st[2]-ra_st[2]};
+    c_number r = Kokkos::sqrt(fma_dot3(d));
+    if (r <= 0) return 0;
+    c_number rinv = 1 / r;
+    return cxst_pair(ra_st, rb_st, d, r, rinv, delr_com, par,
+                     a1, a2, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+}
+
+// pair oxdna2/coaxstk: one thread per screened pair. With the LAMMPS-only
+// terminal criterion enabled (par.cxst_terminal_only), both nucleotides must be
+// strand ends, tested right after the special check (4 extra int loads).
+struct Coaxstk2Functor {
     Vec4cr poss, nx, ny, nz;
-    Kokkos::View<const int *> sa, sb;
+    RandomRead<LR_bonds> bonds;
+    Kokkos::View<const uint64_t *> sp;
     DNAParams par;
     ScatterF4 sf, st;
     SimBox box;
 
-    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_number ev=0; (*this)(e, ev); }
+    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_acc ev=0; (*this)(e, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int e, c_number &ev) const {
-        const int ia = sa(e), ib = sb(e);
-        c_number dx = poss(ib,0)-poss(ia,0), dy = poss(ib,1)-poss(ia,1), dz = poss(ib,2)-poss(ia,2);
-        box.wrap(dx, dy, dz);
-        c_number delr_com[3] = {dx, dy, dz};
-        c_number a1[3], a2[3], a3[3], b1[3], b2[3], b3[3];
-        load_frame(nx, ny, nz, ia, a1, a2, a3);
-        load_frame(nx, ny, nz, ib, b1, b2, b3);
-        c_number d_cstk = par.d_cstk;
-        c_number ra_st[3] = {d_cstk*a1[0], d_cstk*a1[1], d_cstk*a1[2]};
-        c_number rb_st[3] = {d_cstk*b1[0], d_cstk*b1[1], d_cstk*b1[2]};
-        c_number d[3] = {dx+rb_st[0]-ra_st[0], dy+rb_st[1]-ra_st[1], dz+rb_st[2]-ra_st[2]};
-        c_number r = Kokkos::sqrt(dot3(d,d));
-        if (r <= 0) return;
-        c_number rinv = 1 / r;
-
+    void operator()(int e, c_acc &ev) const {
+        int ia, braw;
+        unpack_pair(sp(e), ia, braw);
+        if (ox_sbmask(braw)) return;                 // special_lj = 0
+        const int ib = braw & OX_NEIGHMASK;
+        if (par.cxst_terminal_only) {
+            const LR_bonds ba = bonds(ia), bb = bonds(ib);
+            if (ba.n3 >= 0 && ba.n5 >= 0) return;
+            if (bb.n3 >= 0 && bb.n5 >= 0) return;
+        }
         c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
         c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
-        ev += cxst_pair(ra_st, rb_st, d, r, rinv, delr_com, par,
-                        a1, a2, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-
-        c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
-        if (nzc > c_number(0)) {
-            auto af = sf.access(); auto atv = st.access();
-            af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
-            af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
-            atv(ia,0)+=delta_a[0]; atv(ia,1)+=delta_a[1]; atv(ia,2)+=delta_a[2];
-            atv(ib,0)+=delta_b[0]; atv(ib,1)+=delta_b[1]; atv(ib,2)+=delta_b[2];
-        }
+        c_number e_p = coaxstk_pair_geom(poss, nx, ny, nz, par, box, ia, ib,
+                                         delf_a, delta_a, delf_b, delta_b);
+        if (e_p == 0) return;
+        ev += e_p;
+        scatter_pair(sf.access(), st.access(), ia, ib, delf_a, delta_a, delf_b, delta_b);
     }
 };
+
+// pair oxdna/coaxstk (oxDNA1): one thread per atom over the half list (it is
+// not registered with the screen in LAMMPS); atom a in registers.
+struct Coaxstk1Functor {
+    Vec4cr poss, nx, ny, nz;
+    Kokkos::View<const int *>  num_neigh;
+    Kokkos::View<const int **> neigh_matrix;
+    DNAParams par;
+    ScatterF4 sf, st;
+    SimBox box;
+
+    KOKKOS_INLINE_FUNCTION void operator()(int ia) const { c_acc ev=0; (*this)(ia, ev); }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int ia, c_acc &ev) const {
+        const int m = num_neigh(ia);
+        c_acc ftmp[3] = {0,0,0}, ttmp[3] = {0,0,0};
+        auto af = sf.access();
+        auto at = st.access();
+        for (int k = 0; k < m; k++) {
+            const int braw = neigh_matrix(ia, k);
+            if (ox_sbmask(braw)) continue;           // special_lj = 0
+            const int ib = braw & OX_NEIGHMASK;
+            c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
+            c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
+            c_number e_p = coaxstk_pair_geom(poss, nx, ny, nz, par, box, ia, ib,
+                                             delf_a, delta_a, delf_b, delta_b);
+            if (e_p == 0) continue;
+            ev += e_p;
+            for (int c = 0; c < 3; c++) { ftmp[c] += delf_a[c]; ttmp[c] += delta_a[c]; }
+            af(ib,0) += delf_b[0];  af(ib,1) += delf_b[1];  af(ib,2) += delf_b[2];
+            at(ib,0) += delta_b[0]; at(ib,1) += delta_b[1]; at(ib,2) += delta_b[2];
+        }
+        af(ia,0) += ftmp[0]; af(ia,1) += ftmp[1]; af(ia,2) += ftmp[2];
+        at(ia,0) += ttmp[0]; at(ia,1) += ttmp[1]; at(ia,2) += ttmp[2];
+    }
+};
+
 // -----------------------------------------------------------------------
-// FUSED hbond+xstk: one thread per screened pair computes BOTH terms. They
-// share the entire base-site geometry (positions, a1/a3 & b1/b3 frames, the
-// COM->base-site offsets, and the base-base separation d/r/rinv), so fusing
-// loads that geometry once and scatters the summed force/torque once, instead
-// of the two separate kernels each re-loading and re-scattering. Selected by the
-// fuse_hbond_xstk input toggle so it can be A/B'd against the split kernels;
-// physics is identical up to floating-point summation order.
+// FUSED hbond+xstk (bench-only experiment, fuse_hbond_xstk toggle): one thread
+// per screened pair computes BOTH terms, sharing the base-site geometry and
+// scattering once. No LAMMPS equivalent; physics identical up to summation order.
 // -----------------------------------------------------------------------
 struct HbondXstkFusedFunctor {
     Vec4cr poss, nx, ny, nz;
     RandomRead<int> btype;
-    Kokkos::View<const int *> sa, sb;
+    Kokkos::View<const uint64_t *> sp;
     DNAParams par;
     ScatterF4 sf, st;
     SimBox box;
 
-    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_number ev=0; (*this)(e, ev); }
+    KOKKOS_INLINE_FUNCTION void operator()(int e) const { c_acc ev=0; (*this)(e, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int e, c_number &ev) const {
-        const int ia = sa(e), ib = sb(e);
+    void operator()(int e, c_acc &ev) const {
+        int ia, braw;
+        unpack_pair(sp(e), ia, braw);
+        if (ox_sbmask(braw)) return;                 // special_lj = 0
+        const int ib = braw & OX_NEIGHMASK;
 
         c_number dx = poss(ib,0)-poss(ia,0), dy = poss(ib,1)-poss(ia,1), dz = poss(ib,2)-poss(ia,2);
         box.wrap(dx, dy, dz);
@@ -871,40 +1064,126 @@ struct HbondXstkFusedFunctor {
         c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
         c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
         c_number d[3] = {dx+rb_cbs[0]-ra_cbs[0], dy+rb_cbs[1]-ra_cbs[1], dz+rb_cbs[2]-ra_cbs[2]};
-        c_number r = Kokkos::sqrt(dot3(d,d));
-        if (r <= 0) return;
+        c_number rsq = fma_dot3(d);
+        if (rsq <= 0) return;
+        c_number r = Kokkos::sqrt(rsq);
         c_number rinv = 1 / r;
 
         c_number delf_a[3]={0,0,0}, delf_b[3]={0,0,0};
         c_number delta_a[3]={0,0,0}, delta_b[3]={0,0,0};
-
-        // Hydrogen bonding (only for complementary base pairs).
+        c_number e_p = 0;
         c_number alpha = par.alpha_hb[btype(ia)][btype(ib)];
         if (alpha != 0) {
-            ev += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
-                             a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+            e_p += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
+                              a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
         }
-        // Cross stacking (same base-site geometry) - accumulates into the same
-        // force/torque registers, so the pair is scattered just once below.
-        ev += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
-                        a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-
-        c_number nzc = dot3(delf_a,delf_a)+dot3(delta_a,delta_a)+dot3(delf_b,delf_b)+dot3(delta_b,delta_b);
-        if (nzc > c_number(0)) {
-            auto af = sf.access(); auto atv = st.access();
-            af(ia,0)+=delf_a[0]; af(ia,1)+=delf_a[1]; af(ia,2)+=delf_a[2];
-            af(ib,0)+=delf_b[0]; af(ib,1)+=delf_b[1]; af(ib,2)+=delf_b[2];
-            atv(ia,0)+=delta_a[0]; atv(ia,1)+=delta_a[1]; atv(ia,2)+=delta_a[2];
-            atv(ib,0)+=delta_b[0]; atv(ib,1)+=delta_b[1]; atv(ib,2)+=delta_b[2];
-        }
+        e_p += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
+                         a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+        if (e_p == 0) return;
+        ev += e_p;
+        scatter_pair(sf.access(), st.access(), ia, ib, delf_a, delta_a, delf_b, delta_b);
     }
 };
 
 // -----------------------------------------------------------------------
-// Driver: dispatch the fragmented nonbonded kernels in LAMMPS order
-//   LRF precompute -> excv -> hbond -> xstk -> coaxstk -> dh
-// Keeps the SAME public signature as the original fused driver so the
-// validation tools (fd_test / xcheck) build unchanged.
+// Per-style launchers. Each makes its own ScatterView (like each LAMMPS pair
+// style's dup_f / dup_torque) and runs parallel_reduce only on energy steps.
+// -----------------------------------------------------------------------
+template <class Policy, class F>
+inline c_acc launch_term(const char *label, int n, const F &f, bool want_energy) {
+    c_acc e = 0;
+    if (n <= 0) return e;
+    if (want_energy) Kokkos::parallel_reduce(label, Policy(0, n), f, e);
+    else             Kokkos::parallel_for(label, Policy(0, n), f);
+    return e;
+}
+
+inline c_acc run_excv(ParticleArrays &p, const NeighborList &nl, const DNAParams &par,
+                      const SimBox &box, bool want_energy, bool lammps_overhead,
+                      bool neigh_rebuilt) {
+    if (lammps_overhead) {
+        ensure_tet_excv(p, par);
+        if (neigh_rebuilt || nl.prime_pair.extent(0) == 0) build_prime_pair(p, nl);
+    }
+    auto setup = [&](auto &f) {
+        f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz;
+        f.bonds = p.bonds; f.btype = p.btype;
+        f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
+        f.use_prime = lammps_overhead;
+        if (lammps_overhead) { f.prime_pair = nl.prime_pair; f.bsbs4 = p.tet_excv_bsbs; }
+        f.par = par; f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques); f.box = box;
+    };
+    if (par.pb2 != 0) {
+        ExcvFunctor<true> f; setup(f);
+        return launch_term<OxdnaRangePolicy>("oxdna_excv", p.N, f, want_energy);
+    }
+    ExcvFunctor<false> f; setup(f);
+    return launch_term<OxdnaRangePolicy>("oxdna_excv", p.N, f, want_energy);
+}
+
+inline c_acc run_hbond_xstk(ParticleArrays &p, const NeighborList &nl, const DNAParams &par,
+                            const SimBox &box, bool want_energy, bool fuse_hbond_xstk) {
+    using Plain = Kokkos::RangePolicy<>;
+    c_acc e = 0;
+    if (fuse_hbond_xstk) {
+        HbondXstkFusedFunctor f;
+        f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz; f.btype = p.btype;
+        f.sp = nl.screened_pair; f.par = par; f.box = box;
+        f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
+        return launch_term<Plain>("oxdna_hbond_xstk", nl.N_screened, f, want_energy);
+    }
+    {
+        HbondFunctor f;
+        f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz; f.btype = p.btype;
+        f.sp = nl.screened_pair; f.par = par; f.box = box;
+        f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
+        e += launch_term<Plain>("oxdna_hbond", nl.N_screened, f, want_energy);
+    }
+    {
+        XstkFunctor f;
+        f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz;
+        f.sp = nl.screened_pair; f.par = par; f.box = box;
+        f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
+        e += launch_term<Plain>("oxdna_xstk", nl.N_screened, f, want_energy);
+    }
+    return e;
+}
+
+inline c_acc run_coaxstk(ParticleArrays &p, const NeighborList &nl, const DNAParams &par,
+                         const SimBox &box, bool want_energy) {
+    using Plain = Kokkos::RangePolicy<>;
+    if (par.model == 1) {
+        Coaxstk1Functor f;
+        f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz;
+        f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
+        f.par = par; f.box = box;
+        f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
+        return launch_term<Plain>("oxdna_coaxstk", p.N, f, want_energy);
+    }
+    Coaxstk2Functor f;
+    f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz; f.bonds = p.bonds;
+    f.sp = nl.screened_pair; f.par = par; f.box = box;
+    f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
+    return launch_term<Plain>("oxdna2_coaxstk", nl.N_screened, f, want_energy);
+}
+
+inline c_acc run_dh(ParticleArrays &p, const NeighborList &nl, const DNAParams &par,
+                    const SimBox &box, bool want_energy) {
+    if (!par.dh_enabled) return 0;
+    p.ensure_qeff(par.dh_half_ends);
+    DHFunctor f;
+    f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.qeff = p.qeff;
+    f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
+    f.par = par; f.rcsq = par.dh_RC * par.dh_RC; f.box = box;
+    f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
+    return launch_term<OxdnaRangePolicy>("oxdna2_dh", p.N, f, want_energy);
+}
+
+// -----------------------------------------------------------------------
+// Nonbonded driver for standalone callers (fd_test / xcheck): LRF + excv
+// (incl. the bonded excluded volume, as in LAMMPS) + hbond + xstk + coaxstk
+// + dh. The MD loop uses compute_pair_forces_step() (bonded.h), which also
+// interleaves stk in LAMMPS' pair_style hybrid/overlay order.
 // -----------------------------------------------------------------------
 inline c_number compute_nonbonded_forces(
     ParticleArrays &p,
@@ -913,95 +1192,14 @@ inline c_number compute_nonbonded_forces(
     const SimBox &box,
     bool want_energy = true,
     bool lammps_overhead = false,
-    bool fuse_hbond_xstk = false)
+    bool fuse_hbond_xstk = false,
+    bool neigh_rebuilt = true)
 {
-    // LRF precompute (always — every kernel below reads nx/ny/nz).
     compute_lrf(p);
-
-    if (nl.N_edges == 0) return 0;
-
-    ScatterF4 sf(p.forces);
-    ScatterF4 st(p.torques);
-
-    c_number etot = 0, e_term = 0;
-
-    Vec4cr poss_cr = p.poss;
-    Vec4cr nx_cr = p.nx, ny_cr = p.ny, nz_cr = p.nz;
-
-    // Launch bounds for the nonbonded kernels (LaunchBounds is ignored on CPU).
-    using NBPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_NB_MAXT, OXDNA_NB_MINB>>;
-
-    // ---- EXCV (per-atom half list) ----
-    {
-        ExcvFunctor f;
-        f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-        f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
-        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-        if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_excv", NBPolicy(0, p.N), f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_excv", NBPolicy(0, p.N), f);
-    }
-
-    if (fuse_hbond_xstk) {
-        // ---- FUSED HBOND + XSTK (per screened pair, shared base-site geometry) ----
-        if (nl.N_screened > 0) {
-            HbondXstkFusedFunctor f;
-            f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-            f.btype = p.btype; f.sa = nl.screened_a; f.sb = nl.screened_b;
-            f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-            if (want_energy) { e_term = 0;
-                Kokkos::parallel_reduce("oxdna_hbond_xstk", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
-            } else Kokkos::parallel_for("oxdna_hbond_xstk", NBPolicy(0, nl.N_screened), f);
-        }
-    } else {
-        // ---- HBOND (per screened pair) ----
-        if (nl.N_screened > 0) {
-            HbondFunctor f;
-            f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-            f.btype = p.btype; f.sa = nl.screened_a; f.sb = nl.screened_b;
-            f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-            if (want_energy) { e_term = 0;
-                Kokkos::parallel_reduce("oxdna_hbond", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
-            } else Kokkos::parallel_for("oxdna_hbond", NBPolicy(0, nl.N_screened), f);
-        }
-
-        // ---- XSTK (per screened pair) ----
-        if (nl.N_screened > 0) {
-            XstkFunctor f;
-            f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-            f.sa = nl.screened_a; f.sb = nl.screened_b;
-            f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-            if (want_energy) { e_term = 0;
-                Kokkos::parallel_reduce("oxdna_xstk", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
-            } else Kokkos::parallel_for("oxdna_xstk", NBPolicy(0, nl.N_screened), f);
-        }
-    }
-
-    // ---- COAXSTK (per screened pair) ----
-    if (nl.N_screened > 0) {
-        CoaxstkFunctor f;
-        f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-        f.sa = nl.screened_a; f.sb = nl.screened_b;
-        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-        if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_coaxstk", NBPolicy(0, nl.N_screened), f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_coaxstk", NBPolicy(0, nl.N_screened), f);
-    }
-
-    // ---- DH (per-atom half list) ----
-    if (par.dh_enabled) {
-        DHFunctor f;
-        f.poss = poss_cr; f.nx = nx_cr; f.ny = ny_cr; f.nz = nz_cr;
-        f.bonds = p.bonds;
-        f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
-        f.par = par; f.sf = lammps_overhead ? ScatterF4(p.forces) : sf; f.st = lammps_overhead ? ScatterF4(p.torques) : st; f.box = box;
-        if (want_energy) { e_term = 0;
-            Kokkos::parallel_reduce("oxdna_dh", NBPolicy(0, p.N), f, e_term); etot += e_term;
-        } else Kokkos::parallel_for("oxdna_dh", NBPolicy(0, p.N), f);
-    }
-
-    Kokkos::Experimental::contribute(p.forces, sf);
-    Kokkos::Experimental::contribute(p.torques, st);
-
-    return etot;
+    c_acc e = 0;
+    e += run_excv(p, nl, par, box, want_energy, lammps_overhead, neigh_rebuilt);
+    e += run_hbond_xstk(p, nl, par, box, want_energy, fuse_hbond_xstk);
+    e += run_coaxstk(p, nl, par, box, want_energy);
+    e += run_dh(p, nl, par, box, want_energy);
+    return static_cast<c_number>(e);
 }

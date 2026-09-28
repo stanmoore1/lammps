@@ -29,6 +29,7 @@ struct SimConfig {
     bool        timing      = false; // per-kernel breakdown (adds fences); off = production
     bool        lammps_overhead = false; // add LAMMPS per-step framework overheads (bond precompute, per-kernel scatter, host flag copy)
     bool        fuse_hbxstk = false; // fuse hbond+xstk into one screened-pair kernel (shared base-site geometry)
+    bool        coaxstk_terminal = false; // oxDNA2: LAMMPS-only terminal-nucleotide coaxstk + blunt theta4 lobe
     int         model       = 1;     // 1 = oxDNA1, 2 = oxDNA2
     c_number    salt        = 0.5;   // salt concentration [mol/L] (oxDNA2 only)
     bool        refresh_vel = false; // regenerate velocities from Maxwell-Boltzmann at startup
@@ -61,6 +62,10 @@ public:
         // Force-field
         par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
                                  : make_oxdna1_params(cfg_.T);
+        if (cfg_.coaxstk_terminal && cfg_.model == 2) {
+            par_.cxst_terminal_only = true;
+            par_.cxst_t4_blunt      = true;
+        }
 
         // Thermostat (optional)
         thermo_.init(cfg_.T, cfg_.newtonian_steps, cfg_.dt, cfg_.diff_coeff,
@@ -70,22 +75,33 @@ public:
         c_number nl_cut = std::max(static_cast<double>(cfg_.cutoff),
                                    std::sqrt(static_cast<double>(par_.cutsq_nb)));
         nl_.init(nl_cut, cfg_.skin, N_, box_);
-        // Derived COM screen cutoff for the hbond/xstk/coaxstk pair kernels
-        // (mirrors LAMMPS fix_oxdna_npair); must be set before the first build.
-        nl_.screen_cutsq = par_.screen_cutsq;
+        // COM screen cutoff for the hbond/xstk/coaxstk pair kernels, mirroring
+        // LAMMPS fix OXDNA/NPAIR::init_screen_cutoff: the derived interaction
+        // range (max cut_hc + 0.8 site margin) plus half the LAMMPS neighbor
+        // skin, i.e. the maximum per-atom drift between rebuilds. LAMMPS rebuilds
+        // at a drift of skin/2; this list rebuilds at a drift of verlet_skin
+        // (oxDNA convention), so the equivalent margin is + verlet_skin.
+        {
+            const double base = std::sqrt(static_cast<double>(par_.screen_cutsq));
+            const double cut  = base + static_cast<double>(cfg_.skin);
+            nl_.screen_cutsq  = static_cast<c_number>(cut * cut);
+        }
         nl_.build(dev_, box_);
 
-        // Initial forces: nonbonded (atomic scatter) first, then the bonded
-        // gather kernel adds on top (each thread owns its particle, no atomics).
+        // Initial forces, in the LAMMPS kernel order (runs the rebuild-step
+        // precomputes too, so the per-bond tables exist before the first step).
         dev_.zero_forces();
-        epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, true, false, cfg_.fuse_hbxstk);
-        epot_ += compute_bonded_forces(dev_, par_, box_);
+        epot_  = static_cast<c_number>(compute_pair_forces_step(dev_, nl_, par_, box_, true,
+                     cfg_.lammps_overhead, cfg_.fuse_hbxstk, /*neigh_rebuilt=*/true));
+        epot_ += static_cast<c_number>(compute_bond_forces_step(dev_, par_, box_, true,
+                     cfg_.lammps_overhead));
 
         std::cout << "Precision: "
                   << (sizeof(c_number) == 4 ? "single (float)" : "double")
                   << " (" << (sizeof(c_number) * 8) << "-bit c_number)\n";
         std::cout << "Initialized " << N_ << " particles, "
-                  << nl_.N_edges << " nonbonded pairs.\n";
+                  << nl_.N_edges << " neighbor pairs (" << nl_.N_screened
+                  << " screened).\n";
     }
 
     void run() {
@@ -94,7 +110,7 @@ public:
         // the kernels pipelined and reports the true loop time; the breakdown is
         // exact on CPU and adds one sync per section on GPU (like LAMMPS
         // `timer full`).
-        double t_neigh = 0, t_bond = 0, t_nb = 0, t_mod = 0, t_out = 0;
+        double t_neigh = 0, t_bond = 0, t_pair = 0, t_mod = 0, t_out = 0;
         auto clk  = []{ return std::chrono::high_resolution_clock::now(); };
         auto sec  = [](auto a, auto b){ return std::chrono::duration<double>(b - a).count(); };
         auto mark = [&]{ if (cfg_.timing) Kokkos::fence(); return clk(); };
@@ -141,13 +157,16 @@ public:
             // kernel / device->host scalar copy), which keeps higher occupancy.
             const bool want_e = ((s + 1) % cfg_.output_freq == 0);
 
+            // Pair section (LAMMPS order): LRF, excv, stk, hbond, xstk,
+            // coaxstk, dh -- then the Bond section (fene).
             dev_.zero_forces();
-            epot_  = compute_nonbonded_forces(dev_, nl_, par_, box_, want_e, cfg_.lammps_overhead, cfg_.fuse_hbxstk);
-            auto e = mark(); t_nb += sec(c, e);
+            c_acc ep = compute_pair_forces_step(dev_, nl_, par_, box_, want_e,
+                                                cfg_.lammps_overhead, cfg_.fuse_hbxstk,
+                                                neigh_rebuilt);
+            auto e = mark(); t_pair += sec(c, e);
 
-            // run_lrf=false: compute_nonbonded_forces above already ran the LRF
-            // frame precompute this step (LAMMPS runs the oxdna/lrf fix once/step).
-            epot_ += compute_bonded_forces(dev_, par_, box_, want_e, cfg_.lammps_overhead, neigh_rebuilt, /*run_lrf=*/false);
+            ep += compute_bond_forces_step(dev_, par_, box_, want_e, cfg_.lammps_overhead);
+            if (want_e) epot_ = static_cast<c_number>(ep);
             auto f = mark(); t_bond += sec(e, f);
 
             second_step(dev_, cfg_.dt);
@@ -162,12 +181,12 @@ public:
         auto loop1 = clk();
         double loop_time = sec(loop0, loop1);
 
-        print_performance(loop_time, t_neigh, t_bond, t_nb, t_mod, t_out);
+        print_performance(loop_time, t_neigh, t_bond, t_pair, t_mod, t_out);
     }
 
 private:
     void print_performance(double loop, double t_neigh, double t_bond,
-                           double t_nb, double t_mod, double t_out) const {
+                           double t_pair, double t_mod, double t_out) const {
         const long long nsteps = cfg_.nsteps;
         const int    nthreads = Kokkos::DefaultExecutionSpace().concurrency();
         const char  *backend  = Kokkos::DefaultExecutionSpace::name();
@@ -186,7 +205,7 @@ private:
             return;
         }
 
-        const double sum   = t_neigh + t_bond + t_nb + t_mod + t_out;
+        const double sum   = t_neigh + t_bond + t_pair + t_mod + t_out;
         const double other = (loop > sum) ? (loop - sum) : 0.0;
         auto row = [&](const char *name, double t) {
             std::printf("%-22s | %10.4f | %6.2f | %10.3f\n",
@@ -196,9 +215,9 @@ private:
         std::printf("\nKernel timing breakdown:\n");
         std::printf("%-22s | %10s | %6s | %10s\n", "Section", "time (s)", "%loop", "us/step");
         std::printf("------------------------------------------------------------\n");
+        row("Pair",                    t_pair);    // LAMMPS Pair: lrf+excv+stk+hbond+xstk+coaxstk+dh
+        row("Bond",                    t_bond);    // LAMMPS Bond: fene
         row("Neigh",                   t_neigh);   // neighbor list build + rebuild check
-        row("Pair: nonbonded",         t_nb);      // LAMMPS: Pair (excv/hbond/xstk/coax/dh)
-        row("Bonded (FENE+excv+stk)",  t_bond);    // LAMMPS: Bond + bonded part of Pair
         row("Modify (integ+thermo)",   t_mod);     // LAMMPS: Modify (nve + thermostat)
         row("Output",                  t_out);
         row("Other",                   other);

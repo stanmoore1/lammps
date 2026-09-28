@@ -40,12 +40,18 @@ struct NeighborList {
     int max_neigh = 0;
 
     // -------------------------------------------------------------------
-    // Screened flat pair list (LAMMPS-faithful "fix oxdna/npair").
-    // The hbond / xstk / coaxstk kernels run one thread per *screened* pair:
-    // a flat list of (a,b) pairs whose center-of-mass separation is within a
-    // constexpr screen cutoff (rsq_com < 4.0, i.e. r < 2.0 — the same value
-    // LAMMPS uses in fix_oxdna_npair_kokkos.cpp). Rebuilt only when the
+    // Screened flat pair list (LAMMPS-faithful "fix OXDNA/NPAIR").
+    // The hbond / xstk / oxDNA2-coaxstk kernels run one thread per *screened*
+    // pair: a flat list of (a,b) pairs whose center-of-mass separation is
+    // within the screen cutoff (screen_cutsq: the derived hbond/xstk/coaxstk
+    // range + 0.8 site margin + the skin margin, as in
+    // fix_oxdna_npair_kokkos::init_screen_cutoff). Rebuilt only when the
     // neighbor list rebuilds (inside build()).
+    //
+    // Each entry is packed into one uint64 exactly like LAMMPS: a in the upper
+    // 32 bits and the RAW neighbor index b (special-bond bits preserved) in the
+    // lower 32 bits, so the kernels apply special_lj on unpack. Bonded pairs
+    // therefore stay in the list and exit early in the kernels, as in LAMMPS.
     //
     // The list is built with a prefix-scan (count -> scan -> fill), exactly
     // like fix_oxdna_npair_kokkos, rather than an atomic running counter. The
@@ -53,16 +59,22 @@ struct NeighborList {
     // so the screened list and the downstream force-accumulation order are
     // reproducible run-to-run.
     // -------------------------------------------------------------------
-    Kokkos::View<int *>    screened_a;
-    Kokkos::View<int *>    screened_b;
+    Kokkos::View<uint64_t *> screened_pair;
     Kokkos::View<int *>    d_num_screened;     // per-atom screened-neighbor count
     Kokkos::View<int *>    d_screened_offsets; // prefix-sum offsets (length N+1)
     int N_screened = 0;
     int screened_capacity = 0;
-    // COM-COM screen cutoff squared (set from DNAParams::screen_cutsq before the
-    // first build). Mirrors the derived cutoff in LAMMPS fix_oxdna_npair; the old
-    // hardcoded 4.0 (r < 2.0) is the fallback if it is never set.
+    // COM-COM screen cutoff squared (set by the driver before the first build,
+    // see Simulation::init). Mirrors LAMMPS fix OXDNA/NPAIR; 4.0 (r < 2.0) is
+    // the LAMMPS fallback if it is never set.
     c_number screen_cutsq = c_number(4.0);
+
+    // LAMMPS fix OXDNA/PRIME_NEIGHS pair table (d_prime_neighs_pair, shape
+    // (N, max_neigh, 4)), used by the excv kernel's bonded base-base branch in
+    // lammps_overhead mode. Per neighbor slot k of atom a (b = neighbor):
+    // (3' nbr of a, 5' nbr of b, 3' nbr of b, 5' nbr of a). Rebuilt on
+    // neighbor-rebuild steps by build_prime_pair() (dna_forces.h).
+    mutable Kokkos::View<int ***> prime_pair;   // grown lazily by the (const) excv driver
 
     // Cell list
     Kokkos::View<int *>    d_cell_count;     // particles per cell
@@ -108,8 +120,7 @@ struct NeighborList {
         edge_i = Kokkos::View<int *>("edge_i", 0);
         edge_j = Kokkos::View<int *>("edge_j", 0);
 
-        screened_a = Kokkos::View<int *>("screened_a", 0);
-        screened_b = Kokkos::View<int *>("screened_b", 0);
+        screened_pair = Kokkos::View<uint64_t *>("screened_pair", 0);
         d_num_screened     = Kokkos::View<int *>("num_screened", N);
         d_screened_offsets = Kokkos::View<int *>("screened_offsets", N + 1);
     }
@@ -222,13 +233,17 @@ struct NeighListFunctor {
             for (int k = 0; k < ncell; k++) {
                 int j = d_cell_members(cid * max_per_cell + k);
                 if (j <= i) continue;       // store pair once (i < j)
-                if (j == n3i || j == n5i) continue; // skip bonded
                 c_number dx = poss(j,0) - xi;
                 c_number dy = poss(j,1) - yi;
                 c_number dz = poss(j,2) - zi;
                 box.wrap(dx, dy, dz);
                 if (dx*dx + dy*dy + dz*dz < cutsq && count < max_neigh) {
-                    d_neigh_matrix(i, count++) = j;
+                    // Bonded (1-2) neighbours are KEPT with the special bit set
+                    // (LAMMPS special_flag = 2 for oxDNA): excv computes the
+                    // bonded excluded volume from them, every other kernel
+                    // skips them via special_lj = 0.
+                    const bool bonded = (j == n3i || j == n5i);
+                    d_neigh_matrix(i, count++) = bonded ? (j | (1 << OX_SBBITS)) : j;
                 }
             }
         }}}
@@ -345,9 +360,9 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     Kokkos::deep_copy(d_needs_rebuild, 0);
 
     // -------------------------------------------------------------------
-    // Build the screened flat pair list (LAMMPS-faithful "fix oxdna/npair").
+    // Build the screened flat pair list (LAMMPS-faithful "fix OXDNA/NPAIR").
     // Scan the per-atom half neighbor matrix for (a,b) pairs whose
-    // center-of-mass separation is within the screen cutoff (rsq_com < 4.0).
+    // center-of-mass separation is within the screen cutoff (screen_cutsq).
     //
     // Deterministic prefix-scan construction, mirroring
     // fix_oxdna_npair_kokkos::compute_neigh_screen_to_npair:
@@ -375,12 +390,12 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
             int m = nnum(i);
             int ns = 0;
             for (int k = 0; k < m; k++) {
-                int j = nmat(i, k);
+                int j = nmat(i, k) & OX_NEIGHMASK;
                 c_number dx = poss_d(j,0) - xi;
                 c_number dy = poss_d(j,1) - yi;
                 c_number dz = poss_d(j,2) - zi;
                 box_d.wrap(dx, dy, dz);
-                if (dx*dx + dy*dy + dz*dz < screen_cutsq_l) ns++;
+                if (Kokkos::fma(dz, dz, Kokkos::fma(dy, dy, dx*dx)) < screen_cutsq_l) ns++;
             }
             nscreen(i) = ns;
         });
@@ -410,8 +425,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     // always <= total_edges).
     if (total_screened > screened_capacity) {
         screened_capacity = total_screened + total_screened / 5 + 64;
-        screened_a = Kokkos::View<int *>("screened_a", screened_capacity);
-        screened_b = Kokkos::View<int *>("screened_b", screened_capacity);
+        screened_pair = Kokkos::View<uint64_t *>("screened_pair", screened_capacity);
     }
 
     // 3. re-screen and write each survivor at its deterministic slot
@@ -420,8 +434,7 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
         auto nmat     = d_neigh_matrix;
         auto nnum     = d_num_neigh;
         auto soff     = d_screened_offsets;
-        auto sa       = screened_a;
-        auto sb       = screened_b;
+        auto sp       = screened_pair;
         auto box_d    = box;
         const c_number screen_cutsq_l = screen_cutsq;   // derived cutoff (LAMMPS)
         Kokkos::parallel_for("fill_screened", N, KOKKOS_LAMBDA(int i) {
@@ -430,14 +443,15 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
             int base = soff(i);
             int ns = 0;
             for (int k = 0; k < m; k++) {
-                int j = nmat(i, k);
+                const int braw = nmat(i, k);
+                const int j = braw & OX_NEIGHMASK;
                 c_number dx = poss_d(j,0) - xi;
                 c_number dy = poss_d(j,1) - yi;
                 c_number dz = poss_d(j,2) - zi;
                 box_d.wrap(dx, dy, dz);
-                if (dx*dx + dy*dy + dz*dz < screen_cutsq_l) {
-                    sa(base + ns) = i;
-                    sb(base + ns) = j;
+                if (Kokkos::fma(dz, dz, Kokkos::fma(dy, dy, dx*dx)) < screen_cutsq_l) {
+                    sp(base + ns) = (static_cast<uint64_t>(i) << 32)
+                                  | static_cast<uint64_t>(static_cast<uint32_t>(braw));
                     ns++;
                 }
             }

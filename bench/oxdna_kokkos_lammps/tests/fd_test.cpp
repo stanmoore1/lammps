@@ -1,10 +1,14 @@
 // Comprehensive self-checking test suite for the oxDNA-Kokkos force field.
 //
-// For both oxDNA1 and oxDNA2 it checks:
+// For both oxDNA1 and oxDNA2 it checks (on the 8bp duplex):
 //   1. analytic forces & torques vs central finite difference of the energy
 //      (every term: backbone, stacking, nonbonded, and all combined),
 //   2. NVE total-energy conservation over a short trajectory,
 //   3. Andersen-thermostat temperature control (equipartition).
+// It also runs the FD check on a nicked 8bp duplex (coaxial stacking across the
+// nick), for oxDNA1, oxDNA2 and oxDNA2 with the LAMMPS-only terminal-nucleotide
+// coaxial stacking (+ blunt-end theta4 lobe), and in lammps_overhead mode.
+// The finite-difference checks need a double-precision build.
 //
 // Exits non-zero if any check exceeds its tolerance.
 #include <Kokkos_Core.hpp>
@@ -34,13 +38,18 @@ static void check(const char* what, double err, double tol) {
     std::printf("  [%s] %-34s err=%.3e (tol=%.1e)\n", ok ? "PASS" : "FAIL", what, err, tol);
 }
 
-static void load(Sys &s, int model) {
-    read_topology("tests/8bp_duplex/test.top", s.host, s.N);
+static bool g_overhead = false;
+
+static void load(Sys &s, int model, const char *top = "tests/8bp_duplex/test.top",
+                 const char *conf = "tests/8bp_duplex/test.conf", bool terminal = false) {
+    read_topology(top, s.host, s.N);
     long long step;
-    read_config("tests/8bp_duplex/test.conf", s.host, s.box, step);
+    read_config(conf, s.host, s.box, step);
     s.dev.allocate(s.N);
     copy_to_device(s.host, s.dev);
     s.par = (model == 2) ? make_oxdna2_params(0.1, 0.5) : make_oxdna1_params(0.1);
+    s.par.cxst_terminal_only = terminal;
+    s.par.cxst_t4_blunt      = terminal;
     double nl_cut = std::max(2.5, std::sqrt((double)s.par.cutsq_nb));
     s.nl.init(nl_cut, 1.0, s.N, s.box);
     s.nl.build(s.dev, s.box);
@@ -49,8 +58,8 @@ static void load(Sys &s, int model) {
 static c_number energy(Sys &s, Term t) {
     s.dev.zero_forces();
     c_number e = 0;
-    if (t==NONBONDED|| t==ALL) e += compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
-    if (t==BONDED   || t==ALL) e += compute_bonded_forces(s.dev, s.par, s.box);
+    if (t==NONBONDED|| t==ALL) e += compute_nonbonded_forces(s.dev, s.nl, s.par, s.box, true, g_overhead);
+    if (t==BONDED   || t==ALL) e += compute_bonded_forces(s.dev, s.par, s.box, true, g_overhead);
     Kokkos::fence();
     return e;
 }
@@ -77,7 +86,7 @@ static void fd_term(Sys &s, Term t, const char* name) {
     const double h = 1e-5;
     double maxferr=0, maxterr=0, maxf=1e-12, maxtq=1e-12;
     for (int k=0; k<s.N; k++) {
-        for (int d=0; d<3; d++) { maxf=std::max(maxf,std::fabs(F(k,d))); maxtq=std::max(maxtq,std::fabs(Tq(k,d))); }
+        for (int d=0; d<3; d++) { maxf=std::max(maxf,(double)std::fabs(F(k,d))); maxtq=std::max(maxtq,(double)std::fabs(Tq(k,d))); }
         for (int d=0; d<3; d++) {
             Kokkos::deep_copy(P, s.dev.poss); double x0=P(k,d);
             P(k,d)=x0+h; Kokkos::deep_copy(s.dev.poss,P); double ep=energy(s,t);
@@ -161,6 +170,20 @@ int main(int argc, char**argv){
             { Sys s; load(s, model);
               test_thermostat(s, 0.1, 12000); }
         }
+        struct NickCase { int model; bool terminal; bool overhead; const char *label; };
+        const NickCase nick[4] = {
+            {1, false, false, "oxDNA1, nicked duplex"},
+            {2, false, false, "oxDNA2, nicked duplex"},
+            {2, true,  false, "oxDNA2, nicked, LAMMPS terminal coaxstk"},
+            {2, true,  true,  "oxDNA2, nicked, terminal coaxstk, lammps_overhead"}};
+        for (const NickCase &c : nick) {
+            std::printf("================ %s ================\n", c.label);
+            g_overhead = c.overhead;
+            Sys s; load(s, c.model, "tests/8bp_nicked/test.top", "tests/8bp_nicked/test.conf", c.terminal);
+            std::printf("  E_nonbonded = %.10f\n", (double)energy(s, NONBONDED));
+            for (int t=0;t<3;t++) fd_term(s,(Term)t,names[t]);
+        }
+        g_overhead = false;
         std::printf("\n%s (%d failure%s)\n", g_fail==0?"ALL TESTS PASSED":"TESTS FAILED",
                     g_fail, g_fail==1?"":"s");
     }
