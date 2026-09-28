@@ -411,9 +411,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
     // output for thermo, dump, restart files
 
     if (output->next == ntimestep) {
-      // as in VerletKokkos::run(): a plain compute or fix reached from the
-      // output may write through the host pointers and re-enter the force
-      // pipeline, and auto_sync is what carries those writes to the device
+      // as in VerletKokkos::run()
 
       int prev_auto_sync = lmp->kokkos->auto_sync;
       lmp->kokkos->auto_sync = 1;
@@ -427,10 +425,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
     }
   }
 
-  // no claim is taken here: every device write in the loop above claims itself,
-  // and the output block leaves the host claimed.  Claiming the device on top
-  // of that makes both sides dirty with nothing to say which one is current,
-  // which is what the early exits above and the other minimizers already do.
+  // no claim here: the device writes above claim themselves
 
   return MAXITER;
 }

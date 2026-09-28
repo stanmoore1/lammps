@@ -51,15 +51,8 @@ NeighborKokkos::NeighborKokkos(LAMMPS *lmp) : Neighbor(lmp),
 
 NeighborKokkos::~NeighborKokkos()
 {
-  // this object (and its neighbond_host/neighbond_device members, held by
-  // value) gets bitwise-copied whenever copymode=1 code below hands *this
-  // to a Kokkos parallel_for/parallel_reduce (e.g. check_distance_kokkos()).
-  // Kokkos destroys that temporary copy when the loop finishes.  Checking
-  // copymode here protects this object's own arrays, but neighbond_host and
-  // neighbond_device have their own independent copymode flag that this
-  // copy never set, so their destructors would still run for real and free
-  // neighbor->bondlist/anglelist/etc out from under the live Neighbor -- so
-  // propagate the guard into them before their member destructors run.
+  // kernel copies of this object also copy neighbond_host/device by value;
+  // pass copymode on so their destructors do not free the live bond lists
   if (copymode) {
     neighbond_host.copymode = 1;
     neighbond_device.copymode = 1;
@@ -146,10 +139,7 @@ void NeighborKokkos::create_kokkos_list(int i)
 
 /* ---------------------------------------------------------------------- */
 
-// create_kokkos() overwrites the plain pointer without looking at it, so an
-// allocation left from an earlier run has to be released first.  Neighbor::init()
-// calls these once per run, and the exclusion lists are the only arrays of the
-// base class that the KOKKOS package re-allocates behind its back
+// called every run; create_kokkos() does not free the old allocation
 
 void NeighborKokkos::init_ex_type_kokkos(int n)
 {

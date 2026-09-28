@@ -161,17 +161,11 @@ void AtomKokkos::init()
 
 /* ---------------------------------------------------------------------- */
 
-void AtomKokkos::update_property_atom(Fix *exclude)
+void AtomKokkos::update_property_atom()
 {
-  // Modify::delete_fix() runs the destructor before it takes the fix out of
-  // its list, so a fix rebuilding this list from its own destructor still
-  // finds itself there.  It would be re-added and then freed, leaving a
-  // dangling pointer that the next sync() calls through.
-
   nprop_atom = 0;
   std::vector<Fix *> prop_atom_fixes;
   for (auto &ifix : modify->get_fix_by_style("^property/atom")) {
-    if (ifix == exclude) continue;
     if (!ifix->kokkosable)
       error->all(FLERR, "Fix property/atom {} must use the Kokkos-enabled style "
                  "property/atom/kk when running with the KOKKOS package", ifix->id);
@@ -249,19 +243,10 @@ void *AtomKokkos::extract(const char *name)
 
 void AtomKokkos::sync(const ExecutionSpace space, uint64_t mask)
 {
-  // whatever the caller asked for, and before the exclusion below can return
-  // early: the mask names the per-atom arrays and the per-type masses are not
-  // one of them, so no reader ever names them and no force region excludes
-  // them.  See sync_mass() for why that is safe and cheap.
-
+  // before the early return below; readers never name MASS_MASK
   sync_mass(space, MASS_MASK);
 
-  // an overlapping force region keeps some arrays, above all the forces, out
-  // of play: the host styles accumulate into the host copy alone and the two
-  // sides are added together afterwards.  Syncing one over the other in the
-  // middle of that would lose a contribution or count one twice, so drop the
-  // excluded arrays from the request.  The mask is zero everywhere else, which
-  // leaves a caller outside such a region unaffected.
+  // skip arrays excluded by an overlapping force region
 
   mask &= ~datamask_exclude;
   if (!mask) return;
@@ -282,30 +267,8 @@ void AtomKokkos::sync(const ExecutionSpace space, uint64_t mask)
 }
 
 /* ----------------------------------------------------------------------
-   atom->mass is indexed by type, not by atom, so the atom style knows nothing
-   about it and neither of the calls above carries it.  It is only ever written
-   on the host -- the KOKKOS styles read the per-type masses and none of them
-   writes one -- so the host copy is the authoritative one, a claim is only
-   meaningful for that side, and these two calls just carry a host write
-   forward.
-
-   The two directions are therefore not symmetric.  A claim happens only when
-   the caller names MASS_MASK, which is what makes ALL_MASK the signal: that is
-   the mask ModifyKokkos brackets a style that is not Kokkos-aware with, so a
-   style that rewrites the masses in place is picked up without having to know
-   about the KOKKOS package.  A sync happens on every call, because the readers
-   name only per-atom arrays and would never ask for this one -- the integrators
-   reconciled the per-type masses in init() and then not again for the rest of
-   the run, which is fine until something changes them mid-run.
-
-   fix drude/transform does change them mid-run, twice a timestep: it folds each
-   Drude particle's mass into its core and unfolds it again.  Without this the
-   device kept the masses from init() and integrated every core and every Drude
-   particle with the wrong one.
-
-   The copy itself is ntypes+1 doubles and only happens after a real host write,
-   so syncing unconditionally costs a flag test on a call that already walks
-   every per-atom array.
+   the per-type masses are only written on the host; sync() calls this every
+   time, modified() only when MASS_MASK is named
 ------------------------------------------------------------------------- */
 
 void AtomKokkos::sync_mass(const ExecutionSpace space, uint64_t mask)
@@ -321,9 +284,7 @@ void AtomKokkos::sync_mass(const ExecutionSpace space, uint64_t mask)
 
 void AtomKokkos::modified(const ExecutionSpace space, uint64_t mask)
 {
-  // see the note in sync(): claiming an excluded array would mark one side
-  // newer than the other and make a later sync copy over a contribution that
-  // still has to be merged in
+  // skip arrays excluded by an overlapping force region
 
   mask &= ~datamask_exclude;
   if (!mask) return;
@@ -333,8 +294,7 @@ void AtomKokkos::modified(const ExecutionSpace space, uint64_t mask)
   avecKK->modified(space, mask);
   for (int n = 0; n < nprop_atom; n++) fix_prop_atom[n]->modified(space, mask);
 
-  // see sync_mass(): only the host writes the per-type masses, so a claim from
-  // the device side is not one and must not retire the host's
+  // only the host writes the per-type masses
   if ((mask & MASS_MASK) && mass && (space == Host)) k_mass.modify_host();
 
   if ((space == Device || space == HostKK) && lmp->kokkos->auto_sync) {
@@ -484,8 +444,8 @@ void AtomKokkos::sort_device()
 
   if (domain->triclinic) domain->lamda2x(nlocal);
 
-  sync(Device, X_MASK);
   auto d_x = k_x.view_device();
+  sync(Device, X_MASK);
 
   // sort
 

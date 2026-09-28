@@ -164,18 +164,7 @@ void ThirdOrderKokkos::update_force()
     }
   }
 
-  // keep the force array out of play for the length of the force region, the
-  // same way VerletKokkos::run() does: the host styles accumulate into the host
-  // copy alone and the two sides are merged at the end of the region.  Masking
-  // centrally also covers the sync() and modified() calls inside the force
-  // styles themselves, which name the plain datamask_read and so include
-  // F_MASK; left unmasked they copy the device force over the zeroed host
-  // buffer and the merge counts the device contribution twice.
-  //
-  // gated on exactly the condition of that merge: with no host style, or with
-  // the two sides sharing one allocation, there is nothing to keep apart and
-  // nothing to merge, and masking anyway would strip the claim the pair style
-  // makes on its own device write
+  // as in VerletKokkos::run()
 
   AtomKokkos::ExcludeMask exclude_guard(atomKK,
     (execute_on_host && !std::is_same_v<LMPHostType,LMPDeviceType>)
@@ -290,8 +279,7 @@ void ThirdOrderKokkos::update_force()
     atomKK->k_f.modify_device();
   }
 
-  // the two sides have been brought together, so the force array is back in
-  // play for the reverse communication and everything after it
+  // host and device forces are merged, so sync() and modified() may touch them again
 
   exclude_guard.release();
 

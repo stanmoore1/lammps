@@ -203,10 +203,8 @@ void EwaldDisp::init()
   if (!gewaldflag) g_ewald = 1.0;
   if (!gewaldflag_6) g_ewald_6 = 1.0;
 
-  // initialize the pair style to get the coefficients (so B is defined)
-  // Force::init() calls it again, so discard the duplicate neighbor requests
-  // made here: find_request() returns the first match, so a duplicate never
-  // gets the accelerator flags and becomes a plain list the style then miscasts
+  // init the pair style for its coefficients (so B is defined), without
+  // keeping its neighbor requests; Force::init() calls it again
 
   neighrequest_flag = 0;
   int nrequest_hold = neighbor->nrequest;

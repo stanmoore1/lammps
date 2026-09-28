@@ -20,6 +20,7 @@
 #include "ewald_const.h"
 #include "force.h"
 #include "kokkos.h"
+#include "math_const.h"
 #include "memory_kokkos.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
@@ -33,9 +34,8 @@
 
 using namespace LAMMPS_NS;
 
-// the core/shell Ewald correction uses a longer erfc series than the A1..A5
-// form of the parent style, and a minimal separation so that r = 0
-// core/shell pairs stay finite until the special-bond factor removes them
+// the core/shell Ewald correction uses a longer erfc series than A1..A5,
+// and the exact erf() for excluded pairs
 
 // the B series goes with its own EWALD_P, not the value EwaldConst pairs
 // with A1..A5
@@ -49,56 +49,13 @@ static constexpr double B3 = -8.88822059e-3;
 static constexpr double B4 = -5.80844129e-3;
 static constexpr double B5 =  1.14652755e-1;
 
-// A minimal separation so that r = 0 core/shell pairs stay finite until the
-// special-bond factor removes them.  The CPU styles use 1.0e-20, which cannot
-// be carried over unchanged when KK_FLOAT is float, for two reasons.
-//
-// It overflows.  What has to stay in range is the steepest quantity the kernel
-// forms, not the energy: the vdW force is returned as force*r2inv, which for
-// these styles reaches rsq^-4 to rsq^-7.  At rsq = 1.0e-20 that is 1e80 to
-// 1e140 -- finite in double, infinite in single -- and the zero special-bond
-// factor of a core/shell pair then gives NaN rather than removing the pair.
-//
-// It also cancels.  The excluded Coulomb term of a bonded pair is formed as
-// prefactor*erfc(g*r) - prefactor, a difference of two values of order 1/r
-// whose true value is finite as r -> 0, and the force divides that difference
-// by rsq as well.  The smaller the separation, the fewer significant digits
-// survive; in float this alone puts an O(1) error on the energy of a nearly
-// coincident pair, which is where the NaN-free but still wrong results come
-// from.
-//
-// 1.0e-4 addresses both: it keeps even rsq^-7 at 1e28, ten orders inside the
-// range of float, and leaves the excluded Coulomb term with enough digits to
-// be correct to ~1e-4 absolute.  It is applied as a floor rather than as an
-// unconditional add, which is what lets it be this large -- an *added* 1.0e-4
-// would perturb every normal pair, since 1.0f + 1.0e-4f != 1.0f, whereas a
-// floor only touches separations below 0.01 distance units, which no
-// non-bonded pair ever reaches.
-//
-// Bonded core/shell pairs do get down to ~0.001 in practice, so the floor is
-// a deliberate approximation for them, and a favorable one: both the excluded
-// force and the excluded energy are within a fraction of a percent of their
-// r -> 0 limits already at 0.01, so clamping costs far less than the
-// cancellation error of evaluating them at the true separation in float.  On
-// examples/coreshell this is the difference between a step-0 Coulomb energy
-// off by 0.6 and one off by 0.04.
-//
-// In double precision it stays an unconditional add of 1.0e-20, exactly as the
-// CPU styles do.
-//
-// EPS_EWALD and EPS_EWALD_SQR below keep their CPU values in both precisions.
-// They exist to hold the Ewald approximation of a bonded pair valid at small r,
-// and the floor already puts r well above the point where that matters, so
-// scaling them too (as the GPU package does with its smaller EPSILON) would
-// have no effect here.
+// minimal separation for r = 0 core/shell pairs; 1.0e-20 overflows and
+// cancels in single precision, so use 1.0e-4 there, applied as a floor
 
 static constexpr double EPSILON = std::is_same_v<KK_FLOAT, float> ? 1.0e-4 : 1.0e-20;
 
-// these two are taken verbatim from the CPU style
-
-static constexpr double EPS_EWALD = 1.0e-6;
-static constexpr double EPS_EWALD_SQR = 1.0e-12;
 using namespace EwaldConst;
+using namespace MathConst;
 
 /* ---------------------------------------------------------------------- */
 
@@ -230,9 +187,7 @@ KOKKOS_INLINE_FUNCTION
 KK_FLOAT PairLJClass2CoulLongCSKokkos<DeviceType>::
 compute_fpair(const KK_FLOAT &rsq_in, const int &, const int &,
               const int &itype, const int &jtype) const {
-  // r = 0 must stay finite here.  In double precision EPSILON is added
-  // unconditionally, exactly as the CPU style does; in single precision it is
-  // applied as a floor instead.  See the comment on EPSILON above.
+  // EPSILON keeps r = 0 finite, see above
 
   const KK_FLOAT rsq = std::is_same_v<KK_FLOAT, float> ?
     ((rsq_in > static_cast<KK_FLOAT>(EPSILON)) ? rsq_in : static_cast<KK_FLOAT>(EPSILON)) :
@@ -264,9 +219,7 @@ compute_fcoul(const KK_FLOAT &rsq, const int &/*i*/, const int &j,
   const KK_FLOAT g_ewald_kk = static_cast<KK_FLOAT>(g_ewald);
   const KK_FLOAT tabinnersq_kk = static_cast<KK_FLOAT>(tabinnersq);
 
-  // r = 0 must stay finite here.  In double precision EPSILON is added
-  // unconditionally, exactly as the CPU style does; in single precision it is
-  // applied as a floor instead.  See the comment on EPSILON above.
+  // EPSILON keeps r = 0 finite, see above
 
   const KK_FLOAT rsq_cs = std::is_same_v<KK_FLOAT, float> ?
     ((rsq > static_cast<KK_FLOAT>(EPSILON)) ? rsq : static_cast<KK_FLOAT>(EPSILON)) :
@@ -290,23 +243,14 @@ compute_fcoul(const KK_FLOAT &rsq, const int &/*i*/, const int &j,
 
     if (factor_coul < static_cast<KK_FLOAT>(1.0)) {
 
-      // a bonded core/shell pair needs the minimal separation EPS_EWALD added
-      // to both the prefactor and the Ewald argument to keep the approximation
-      // valid, and the 1/r^2 scaling adjusted to match
+      // for excluded pairs the correction nearly cancels the Ewald term: use erf()
 
-      const KK_FLOAT reps = r + static_cast<KK_FLOAT>(EPS_EWALD);
-      const KK_FLOAT grij = g_ewald_kk * reps;
+      const KK_FLOAT grij = g_ewald_kk * r;
       const KK_FLOAT expm2 = Kokkos::exp(-grij*grij);
-      const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) /
-        (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P_CS)*grij);
-      const KK_FLOAT u = static_cast<KK_FLOAT>(1.0) - t;
-      const KK_FLOAT erfc = t * (static_cast<KK_FLOAT>(1.0)+u*(static_cast<KK_FLOAT>(B0)+
-        u*(static_cast<KK_FLOAT>(B1)+u*(static_cast<KK_FLOAT>(B2)+u*(static_cast<KK_FLOAT>(B3)+
-        u*(static_cast<KK_FLOAT>(B4)+u*static_cast<KK_FLOAT>(B5))))))) * expm2;
-      const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / reps;
-      const KK_FLOAT forcecoul = prefactor * (erfc + static_cast<KK_FLOAT>(EWALD_F)*grij*expm2 -
-                                              (static_cast<KK_FLOAT>(1.0)-factor_coul));
-      return forcecoul / (rsq_cs + static_cast<KK_FLOAT>(EPS_EWALD_SQR));
+      const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / r;
+      const KK_FLOAT forcecoul = prefactor * (factor_coul - Kokkos::erf(grij) +
+                                              static_cast<KK_FLOAT>(MY_ISPI4)*grij*expm2);
+      return forcecoul / rsq_cs;
 
     } else {
 
@@ -335,9 +279,7 @@ KOKKOS_INLINE_FUNCTION
 KK_FLOAT PairLJClass2CoulLongCSKokkos<DeviceType>::
 compute_evdwl(const KK_FLOAT& rsq_in, const int& i, const int&j,
               const int& itype, const int& jtype) const {
-  // r = 0 must stay finite here.  In double precision EPSILON is added
-  // unconditionally, exactly as the CPU style does; in single precision it is
-  // applied as a floor instead.  See the comment on EPSILON above.
+  // EPSILON keeps r = 0 finite, see above
 
   const KK_FLOAT rsq = std::is_same_v<KK_FLOAT, float> ?
     ((rsq_in > static_cast<KK_FLOAT>(EPSILON)) ? rsq_in : static_cast<KK_FLOAT>(EPSILON)) :
@@ -369,9 +311,7 @@ compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
   const KK_FLOAT g_ewald_kk = static_cast<KK_FLOAT>(g_ewald);
   const KK_FLOAT tabinnersq_kk = static_cast<KK_FLOAT>(tabinnersq);
 
-  // r = 0 must stay finite here.  In double precision EPSILON is added
-  // unconditionally, exactly as the CPU style does; in single precision it is
-  // applied as a floor instead.  See the comment on EPSILON above.
+  // EPSILON keeps r = 0 finite, see above
 
   const KK_FLOAT rsq_cs = std::is_same_v<KK_FLOAT, float> ?
     ((rsq > static_cast<KK_FLOAT>(EPSILON)) ? rsq : static_cast<KK_FLOAT>(EPSILON)) :
@@ -392,23 +332,22 @@ compute_ecoul(const KK_FLOAT& rsq, const int& /*i*/, const int&j,
     return ecoul;
   } else {
     const KK_FLOAT r = Kokkos::sqrt(rsq_cs);
-    const KK_FLOAT reps = (factor_coul < static_cast<KK_FLOAT>(1.0)) ?
-      r + static_cast<KK_FLOAT>(EPS_EWALD) : r;
-    {
-      const KK_FLOAT grij = g_ewald_kk * reps;
-      const KK_FLOAT expm2 = Kokkos::exp(-grij*grij);
-      const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) /
-        (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P_CS)*grij);
-      const KK_FLOAT u = static_cast<KK_FLOAT>(1.0) - t;
-      const KK_FLOAT erfc = t * (static_cast<KK_FLOAT>(1.0)+u*(static_cast<KK_FLOAT>(B0)+
-        u*(static_cast<KK_FLOAT>(B1)+u*(static_cast<KK_FLOAT>(B2)+u*(static_cast<KK_FLOAT>(B3)+
-        u*(static_cast<KK_FLOAT>(B4)+u*static_cast<KK_FLOAT>(B5))))))) * expm2;
-      const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / reps;
-      KK_FLOAT ecoul = prefactor * erfc;
-      if (factor_coul < static_cast<KK_FLOAT>(1.0))
-        ecoul -= (static_cast<KK_FLOAT>(1.0)-factor_coul)*prefactor;
-      return ecoul;
-    }
+    const KK_FLOAT grij = g_ewald_kk * r;
+    const KK_FLOAT prefactor = qqrd2e * qtmp*q[j] / r;
+
+    // exact erf() for excluded pairs, consistent with compute_fcoul()
+
+    if (factor_coul < static_cast<KK_FLOAT>(1.0))
+      return prefactor * (factor_coul - Kokkos::erf(grij));
+
+    const KK_FLOAT expm2 = Kokkos::exp(-grij*grij);
+    const KK_FLOAT t = static_cast<KK_FLOAT>(1.0) /
+      (static_cast<KK_FLOAT>(1.0) + static_cast<KK_FLOAT>(EWALD_P_CS)*grij);
+    const KK_FLOAT u = static_cast<KK_FLOAT>(1.0) - t;
+    const KK_FLOAT erfc = t * (static_cast<KK_FLOAT>(1.0)+u*(static_cast<KK_FLOAT>(B0)+
+      u*(static_cast<KK_FLOAT>(B1)+u*(static_cast<KK_FLOAT>(B2)+u*(static_cast<KK_FLOAT>(B3)+
+      u*(static_cast<KK_FLOAT>(B4)+u*static_cast<KK_FLOAT>(B5))))))) * expm2;
+    return prefactor * erfc;
   }
 }
 
