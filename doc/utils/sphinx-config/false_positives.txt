@@ -2162,6 +2162,7 @@ Leimkuhler
 Leite
 leiu
 lemonchiffon
+Lemmon
 Lenart
 lennard
 Lennard
@@ -2423,6 +2424,7 @@ mbx
 mc
 mcmoves
 McLachlan
+McLinden
 mcmoves
 mctc
 md
@@ -3305,6 +3307,7 @@ postfixed
 postfixes
 Postma
 Potapkin
+Potoff
 potentiostat
 potin
 Pourtois
