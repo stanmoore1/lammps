@@ -1,4 +1,3 @@
-// clang-format off
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    https://www.lammps.org/, Sandia National Laboratories
@@ -26,47 +25,43 @@
 #include "error.h"
 #include "force.h"
 #include "group.h"
-#include "input.h"
 #include "memory.h"
 #include "modify.h"
-#include "molecule.h"
 #include "neighbor.h"
 #include "pair.h"
 #include "random_park.h"
 #include "universe.h"
 #include "update.h"
-#include "variable.h"
 
-// for molecule
-#include "angle.h"
-#include "bond.h"
-#include "dihedral.h"
-#include "improper.h"
-#include "kspace.h"
-
+#include <cmath>
+#include <cstdint>
 #include <cstring>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
+static constexpr double RESTART_VERSION = 2.0;
+
 /* ---------------------------------------------------------------------- */
 
 FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
     Fix(lmp, narg, arg), c_pe(nullptr), local_gas_list(nullptr), sublo(nullptr), subhi(nullptr),
-    random_universe(nullptr), random_world(nullptr), random_proc(nullptr)
+    comm_replica(MPI_COMM_NULL), random_universe(nullptr), random_world(nullptr),
+    random_proc(nullptr)
 {
-  if (narg != 11) utils::missing_cmd_args(FLERR, "fix gemc", error);
+  if (narg < 11) utils::missing_cmd_args(FLERR, "fix gemc", error);
 
-  // must have only two boxes
+  // must have exactly two boxes
 
-  if (universe->nworlds != 2) error->universe_all(FLERR, "Must use exactly two partitions with fix gemc");
+  if (universe->nworlds != 2)
+    error->universe_all(FLERR, "Must use exactly two partitions with fix gemc");
 
-  molecule_flag = atom->molecule_flag;
-  if (molecule_flag) error->universe_all(FLERR, "Using fix gemc with molecules not (yet) supported");
+  if (atom->molecular != Atom::ATOMIC)
+    error->all(FLERR, "Fix gemc does not (yet) support molecular systems");
 
-  // various fix flags (partial copy from gcmc)
+  // various fix flags
 
-  time_integrate = 0; // do not time integrate (use only MC moves)
+  time_integrate = 0;
   global_freq = 1;
   time_depend = 1;
   restart_global = 1;
@@ -76,61 +71,75 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
 
   // box size changes with volume MC moves
 
-  box_change |= BOX_CHANGE_X;
-  box_change |= BOX_CHANGE_Y;
-  box_change |= BOX_CHANGE_Z;
-
-  // set up reneighboring
-
-  force_reneighbor = 1;
-  next_reneighbor = update->ntimestep + 1;
-  nrotate = 0;
+  box_change |= BOX_CHANGE_SIZE;
 
   // required user args
 
-  nevery = utils::inumeric(FLERR,     arg[3], false, lmp);
+  nevery = utils::inumeric(FLERR, arg[3], false, lmp);
   ntranslate = utils::inumeric(FLERR, arg[4], false, lmp);
-  nexchange = utils::inumeric(FLERR,  arg[5], false, lmp);
-  nvolume = utils::inumeric(FLERR,    arg[6], false, lmp);
-  box_temp = utils::numeric(FLERR,    arg[7], false, lmp);
-  displace = utils::numeric(FLERR,    arg[8], false, lmp);
-  max_dlogvolratio = utils::numeric(FLERR,  arg[9], false, lmp);
-  seed = utils::inumeric(FLERR,       arg[10], false, lmp);
+  nexchange = utils::inumeric(FLERR, arg[5], false, lmp);
+  nvolume = utils::inumeric(FLERR, arg[6], false, lmp);
+  box_temp = utils::numeric(FLERR, arg[7], false, lmp);
+  displace = utils::numeric(FLERR, arg[8], false, lmp);
+  max_dlogvolratio = utils::numeric(FLERR, arg[9], false, lmp);
+  seed = utils::inumeric(FLERR, arg[10], false, lmp);
 
-  // set up comm_replica = communicator between proc 0s across boxes
+  if (nevery <= 0) error->all(FLERR, 3, "Illegal fix gemc N value {}: must be > 0", nevery);
+  if (ntranslate < 0) error->all(FLERR, 4, "Illegal fix gemc M value {}: must be >= 0", ntranslate);
+  if (nexchange < 0) error->all(FLERR, 5, "Illegal fix gemc X value {}: must be >= 0", nexchange);
+  if (nvolume < 0) error->all(FLERR, 6, "Illegal fix gemc V value {}: must be >= 0", nvolume);
+  if (ntranslate + nexchange + nvolume <= 0)
+    error->all(FLERR, "Fix gemc requires at least one type of Monte Carlo move");
+  if (box_temp <= 0.0)
+    error->all(FLERR, 7, "Illegal fix gemc temperature {}: must be > 0", box_temp);
+  if (displace < 0.0)
+    error->all(FLERR, 8, "Illegal fix gemc displace value {}: must be >= 0", displace);
+  if (max_dlogvolratio <= 0.0)
+    error->all(FLERR, 9, "Illegal fix gemc maxdlogvolratio value {}: must be > 0",
+               max_dlogvolratio);
+  if ((seed <= 0) || (seed > MAXSMALLINT - 3 - universe->nprocs))
+    error->all(FLERR, 10, "Illegal fix gemc random number seed {}", seed);
 
-  MPI_Comm_rank(world,&me);
-  MPI_Comm_size(world,&nprocs);
+  // optional keywords
+
+  full_flag = 0;
+  int iarg = 11;
+  while (iarg < narg) {
+    if (strcmp(arg[iarg], "full_energy") == 0) {
+      full_flag = 1;
+      iarg++;
+    } else {
+      error->all(FLERR, iarg, "Unknown fix gemc keyword: {}", arg[iarg]);
+    }
+  }
+  local_flag = 0;
+  ghosts_stale = 0;
+
+  // set up comm_replica = communicator between the same ranks of both boxes
+  // only rank 0 of each box uses it, rank 0 of box 1 is rank 0 of comm_replica
+
+  MPI_Comm_rank(world, &me);
   myworld = universe->iworld;
+  MPI_Comm_split(universe->uworld, me, myworld, &comm_replica);
 
-  MPI_Comm_split(universe->uworld, me, 0, &comm_replica);
+  // random number generators: unique to each rank, synchronized across one box,
+  // and synchronized across both boxes. all seeds are different.
 
-  // unique to proc and world
-
-  random_proc = new RanPark(lmp,seed+3*(myworld+1)+7*(me+1));
-
-  // unique to world, sync between procs
-
-  random_world = new RanPark(lmp,seed+13*(myworld+1));
-
-  // sync between universes
-
-  random_universe = new RanPark(lmp,seed);
-
-  // detect if any rigid fixes exist so rigid bodies move when box is remapped
-
-  rfix.clear();
-  for (const auto &ifix : modify->get_fix_list())
-    if (ifix->rigid_flag) rfix.push_back(ifix);
-
-  gemc_nmax = 0;
-  local_gas_list = nullptr;
+  random_universe = new RanPark(lmp, seed);
+  random_world = new RanPark(lmp, seed + 1 + myworld);
+  random_proc = new RanPark(lmp, seed + 3 + universe->me);
 
   ntranslation_attempts = ntranslation_successes = 0.0;
-  nrotation_attempts = nrotation_successes = 0.0;
   nvolume_attempts = nvolume_successes = 0.0;
   nexchange_attempts = nexchange_successes = 0.0;
   for (auto &n : nlast) n = 0.0;
+
+  force_reneighbor = 1;
+  next_reneighbor = update->ntimestep + 1;
+
+  gemc_nmax = 0;
+  natom_lower = natom_local = natom_total = 0;
+  logvolratio = voltot = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -141,7 +150,7 @@ FixGEMC::~FixGEMC()
   delete random_world;
   delete random_universe;
   memory->destroy(local_gas_list);
-  MPI_Comm_free(&comm_replica);
+  if (comm_replica != MPI_COMM_NULL) MPI_Comm_free(&comm_replica);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -157,61 +166,82 @@ int FixGEMC::setmask()
 
 void FixGEMC::init()
 {
-  if (!atom->mass) error->all(FLERR, Error::NOLASTLINE, "Fix gemc requires per atom type masses");
-  if (domain->triclinic) error->all(FLERR, "Fix gemc does not support triclinic boxes");
-  if (force->kspace) error->all(FLERR, "Fix gemc does not support long-range electrostatics");
+  if (domain->dimension != 3) error->all(FLERR, "Fix gemc requires a 3d system");
+  if (domain->triclinic) error->all(FLERR, "Fix gemc does not (yet) support triclinic boxes");
+  if (domain->nonperiodic) error->all(FLERR, "Fix gemc requires a fully periodic box");
+  if (!atom->tag_enable) error->all(FLERR, "Fix gemc requires atom IDs");
+  if (!atom->mass) error->all(FLERR, "Fix gemc requires per-type masses");
   if (atom->rmass_flag && (comm->me == 0))
-    error->warning(FLERR, "Fix gemc will use per atom type masses for velocity initialization");
+    error->warning(FLERR, "Fix gemc will use per-type masses for velocity initialization");
+  if (force->kspace) error->all(FLERR, "Fix gemc does not (yet) support long-range electrostatics");
+  if (atom->q_flag) {
+    int nonzero = 0;
+    for (int i = 0; i < atom->nlocal; i++)
+      if (atom->q[i] != 0.0) nonzero = 1;
+    int nonzero_any;
+    MPI_Allreduce(&nonzero, &nonzero_any, 1, MPI_INT, MPI_MAX, world);
+    if (nonzero_any) error->all(FLERR, "Fix gemc does not (yet) support charged atoms");
+  }
+  if (force->pair && force->pair->tail_flag && !force->pair->reinitflag)
+    error->all(FLERR, "Fix gemc with pair_modify tail yes is not supported by pair style {}",
+               force->pair_style);
 
-  progress = 0;
+  // decide whether single-atom energies can replace full energy evaluations
+  // for translation and exchange moves. requires a pair style that
+  // provides single() and has no many-body terms, no tail corrections,
+  // no neighbor list exclusions, and no fixes contributing to the potential energy.
+  // displacements must stay within the neighbor skin so that ghost atoms
+  // cover all interactions of a displaced atom.
 
-  // set probabilities for exchange, volume, and translate moves
-
-  if (!molecule_flag) nrotate = 0;
-
-  // total moves is a double to avoid type casting later
-
-  nmoves = nvolume + nexchange + ntranslate + nrotate;
-
-  double d_nmoves    = nmoves;
-  double p_exchange  = nexchange/d_nmoves;
-  double p_volume    = nvolume/d_nmoves;
-  double p_translate = ntranslate/d_nmoves;
-  double p_rotate    = nrotate/d_nmoves;
-
-  // normalize probabilities
-
-  double p_total = p_exchange + p_volume + p_translate + p_rotate;
-
-  // compute cumulative probabilities
-
-  pc_exchange = p_exchange/p_total;
-  pc_volume = (p_volume+p_exchange)/p_total;
-  if (molecule_flag) {
-    pc_translate = (p_volume+p_exchange+p_translate)/p_total;
-    pc_rotate = 1.0;
-  } else {
-    pc_translate = 1.0;
-    pc_rotate = 0.0;
+  local_flag = 0;
+  if (!full_flag) {
+    local_flag = 1;
+    std::string reason;
+    if (!force->pair) {
+      reason = "no pair style";
+    } else if (!force->pair->single_enable) {
+      reason = fmt::format("pair style {} does not support single()", force->pair_style);
+    } else if (force->pair->manybody_flag) {
+      reason = fmt::format("pair style {} is a many-body potential", force->pair_style);
+    } else if (force->pair->tail_flag) {
+      reason = "pair_modify tail yes is used";
+    } else if (neighbor->exclude) {
+      reason = "neighbor list exclusions are used";
+    } else if (displace > neighbor->skin) {
+      reason = "the displace value is larger than the neighbor skin";
+    } else {
+      for (const auto &ifix : modify->get_fix_list())
+        if (ifix->energy_global_flag && ifix->thermo_energy)
+          reason = fmt::format("fix {} contributes to the potential energy", ifix->id);
+    }
+    if (!reason.empty()) {
+      local_flag = 0;
+      if (comm->me == 0)
+        error->warning(FLERR, "Fix gemc uses full energy evaluations for all moves because {}",
+                       reason);
+    }
   }
 
-  // for full energy
+  // total energy is taken from the thermo_pe compute
 
   c_pe = modify->get_compute_by_id("thermo_pe");
+  if (!c_pe) error->all(FLERR, "Fix gemc could not find thermo_pe compute");
 
-  // check if atoms charged
+  // move type selection probabilities
 
-  q_flag = atom->q_flag;
+  nmoves = nvolume + nexchange + ntranslate;
+  pc_exchange = static_cast<double>(nexchange) / nmoves;
+  pc_volume = static_cast<double>(nexchange + nvolume) / nmoves;
 
-  // pre compute scaled temperature
+  beta = 1.0 / (force->boltz * box_temp);
 
-  beta = 1.0/(force->boltz*box_temp);
+  // rigid fixes need to be told when the box is rescaled
 
-  // get domain dim
+  rfix.clear();
+  for (const auto &ifix : modify->get_fix_list())
+    if (ifix->rigid_flag) rfix.push_back(ifix);
 
-  triclinic_flag = domain->triclinic;
-
-  // get domain dims
+  // update box dimensions and list of atoms in the fix group
 
   xlo = domain->boxlo[0];
   xhi = domain->boxhi[0];
@@ -219,75 +249,81 @@ void FixGEMC::init()
   yhi = domain->boxhi[1];
   zlo = domain->boxlo[2];
   zhi = domain->boxhi[2];
+  sublo = domain->sublo;
+  subhi = domain->subhi;
 
-  // get subdomain
+  update_gas_atoms_list();
+  progress = 0;
+}
 
-  if (triclinic_flag) {
-    sublo = domain->sublo_lamda;
-    subhi = domain->subhi_lamda;
-  } else {
-    sublo = domain->sublo;
-    subhi = domain->subhi;
+/* ----------------------------------------------------------------------
+   checks and initialization that require communication between the boxes.
+   done in setup() and not in init(), since only setup() is guaranteed to be
+   called at the same time in both partitions (at the start of a run).
+------------------------------------------------------------------------- */
+
+void FixGEMC::setup(int /*vflag*/)
+{
+  // both boxes must use the same settings, or they would fall out of step and hang
+
+  // this includes the state of the synchronized random number generator
+  // and the group definitions, since group bitmasks are transferred between boxes
+
+  uint32_t hash = 2166136261u;
+  for (int igroup = 0; igroup < Group::MAX_GROUP; igroup++) {
+    std::string name = group->names[igroup] ? group->names[igroup] : "";
+    name += '\n';
+    for (const auto c : name) hash = (hash ^ (uint32_t) (unsigned char) c) * 16777619u;
   }
 
-  // create unique group name for atoms to be excluded for particle exchange
-  // keeps temporarily deleted particles from being added in potential energy calc
+  constexpr int NCHECK = 13;
+  int mismatch = 0;
+  if (me == 0) {
+    double mine[NCHECK] = {(double) nevery,
+                           (double) ntranslate,
+                           (double) nexchange,
+                           (double) nvolume,
+                           box_temp,
+                           displace,
+                           max_dlogvolratio,
+                           (double) seed,
+                           (double) atom->ntypes,
+                           (double) update->ntimestep,
+                           (double) next_reneighbor,
+                           (double) random_universe->state(),
+                           (double) hash};
+    double other[NCHECK];
+    MPI_Sendrecv(mine, NCHECK, MPI_DOUBLE, 1 - myworld, 0, other, NCHECK, MPI_DOUBLE, 1 - myworld,
+                 0, comm_replica, MPI_STATUS_IGNORE);
+    for (int i = 0; i < NCHECK; i++)
+      if (mine[i] != other[i]) mismatch = 1;
+  }
+  MPI_Bcast(&mismatch, 1, MPI_INT, 0, world);
+  if (mismatch)
+    error->universe_all(FLERR,
+                        "Fix gemc settings, groups, number of atom types, timestep, and "
+                        "restart status must be the same in both partitions");
 
-  // id from fix
+  // initialize log volume ratio and total volume
 
-  auto group_id = std::string("FixGEMC:gemc_exclusion_group:") + id;
-  group->assign(group_id + " subtract all all");
-  exclusion_group = group->find(group_id);
-  if (exclusion_group == -1)
-    error->universe_all(FLERR,"Could not find fix gemc exclusion group ID");
-  exclusion_group_bit = group->bitmask[exclusion_group];
-
-  // neighbor list exclusion setup
-  // turn off interactions between group all and the exclusion group
-
-  neighbor->modify_params(fmt::format("exclude group {} all",group_id));
-
-  groupbitall = 1 | groupbit;
-
-  // initialize log volume ratio
-
-  double vol_i, vol_j;
-  vol_i = (xhi - xlo) * (yhi - ylo) * (zhi - zlo);
+  double vol_i = domain->xprd * domain->yprd * domain->zprd;
+  double vol_j = 0.0;
   if (me == 0)
-    MPI_Sendrecv(&vol_i, 1, MPI_DOUBLE, 1 - myworld, 0,
-                 &vol_j, 1, MPI_DOUBLE, 1 - myworld, 0,
+    MPI_Sendrecv(&vol_i, 1, MPI_DOUBLE, 1 - myworld, 0, &vol_j, 1, MPI_DOUBLE, 1 - myworld, 0,
                  comm_replica, MPI_STATUS_IGNORE);
   MPI_Bcast(&vol_j, 1, MPI_DOUBLE, 0, world);
 
   voltot = vol_i + vol_j;
   if (myworld == 0)
-    logvolratio = log(vol_i/vol_j);
+    logvolratio = log(vol_i / vol_j);
   else
-    logvolratio = log(vol_j/vol_i);
-
-  // initialize total atom count
-
-  int n_i, n_j;
-  update_gas_atoms_list();
-  n_i = natom_total;
-  if (me == 0)
-    MPI_Sendrecv(&n_i, 1, MPI_INT, 1 - myworld, 0,
-                 &n_j, 1, MPI_INT, 1 - myworld, 0,
-                 comm_replica, MPI_STATUS_IGNORE);
-  MPI_Bcast(&n_j, 1, MPI_INT, 0, world);
-  ntot = n_i + n_j;
-
-  massper = group->mass(igroup)/group->count(igroup);
-
-  sigma = sqrt(force->boltz * box_temp / massper / force->mvv2e);
+    logvolratio = log(vol_j / vol_i);
 }
 
 /* ----------------------------------------------------------------------
-   attempt Monte Carlo translations, rotations, insertions, and deletions
+   attempt Monte Carlo translations, exchanges, and volume changes
    done before exchange, borders, reneighbor
    so that ghost atoms and neighbor lists will be correct
-
-   gcmc + extra volume step and modified insertion/deletion
 ------------------------------------------------------------------------- */
 
 void FixGEMC::pre_exchange()
@@ -296,106 +332,84 @@ void FixGEMC::pre_exchange()
 
   if (next_reneighbor != update->ntimestep) return;
 
-  // get domain dims
-
   xlo = domain->boxlo[0];
   xhi = domain->boxhi[0];
   ylo = domain->boxlo[1];
   yhi = domain->boxhi[1];
   zlo = domain->boxlo[2];
   zhi = domain->boxhi[2];
-
-  // get subdomain
-
-  if (triclinic_flag) {
-    sublo = domain->sublo_lamda;
-    subhi = domain->subhi_lamda;
-  } else {
-    sublo = domain->sublo;
-    subhi = domain->subhi;
-  }
-
-  // three steps in GEMC:
-  // 1) translate particles within each box
-  // 2) exchange particles between boxes
-  // 3) change box volume + scale particle positions
-
-  // update next time to call
+  sublo = domain->sublo;
+  subhi = domain->subhi;
 
   next_reneighbor = update->ntimestep + nevery;
 
-  double imove;
-  update_gas_atoms_list();
+  // the move type sequence comes from the synchronized RNG,
+  // so both boxes always attempt the same type of move
 
   energy_stored = energy_full();
+  update_gas_atoms_list();
 
-   for (int i = 0; i < nmoves; i++) {
-    imove = random_universe->uniform();
-
-    if (imove < pc_exchange) attempt_atomic_exchange_full();
-    else if (imove < pc_volume) attempt_volume_change_full();
-    else attempt_atomic_translation_full();
-
+  for (int i = 0; i < nmoves; i++) {
+    double imove = random_universe->uniform();
+    if (imove < pc_exchange)
+      attempt_atomic_exchange_full();
+    else if (imove < pc_volume)
+      attempt_volume_change_full();
+    else
+      attempt_atomic_translation_full();
   }
 
-  // print progress info to universe screen/logfile
-
-  if (universe->me == 0) {
-    double delta = update->ntimestep - update->beginstep;
-    if ((delta != 0.0) && (update->beginstep != update->endstep))
-      delta /= update->endstep - update->beginstep;
-    int status = static_cast<int>(delta * 100.0);
-    if (status > progress) {
-      progress = status;
-
-      auto msg = fmt::format(
-          " GEMC run progress: {:>3d}% \n  Trans: {:g}/{:g}\n"
-          "  Vol: {:g}/{:g}\n  Ex: {:g}/{:g}\n",
-          progress,
-          ntranslation_successes - nlast[0], ntranslation_attempts - nlast[1],
-          nvolume_successes - nlast[2], nvolume_attempts - nlast[3],
-          nexchange_successes - nlast[4], nexchange_attempts - nlast[5]);
-      if (universe->uscreen) utils::print(universe->uscreen, msg);
-      if (universe->ulogfile) utils::print(universe->ulogfile, msg);
-
-      double vol1 = voltot / (1 + exp(-logvolratio));
-      double vol2 = voltot / (1 + exp(logvolratio));
-
-      int n1 = natom_total;
-      int n2 = ntot - natom_total;
-
-      // should measure mass dynamically using
-      //    mass_i = group->mass(igroup);
-
-      double rho1 = force->mv2d * massper * n1 / vol1;
-      double rho2 = force->mv2d * massper * n2 / vol2;
-      double rhotot = force->mv2d * massper * ntot / voltot;
-
-      msg = fmt::format(
-                        "  Replica Volume Nparticles Density:\n"
-                        "   1: {:g} {:d} {:g}\n"
-                        "   2: {:g} {:d} {:g}\n"
-                        "   Total: {:g} {:d} {:g}\n",
-                        vol1, n1, rho1,
-                        vol2, n2, rho2,
-                        voltot, ntot, rhotot
-                        );
-      if (universe->uscreen) utils::print(universe->uscreen, msg);
-      if (universe->ulogfile) utils::print(universe->ulogfile, msg);
-
-      nlast[0] = ntranslation_successes;
-      nlast[1] = ntranslation_attempts;
-      nlast[2] = nvolume_successes;
-      nlast[3] = nvolume_attempts;
-      nlast[4] = nexchange_successes;
-      nlast[5] = nexchange_attempts;
-    }
-  }
+  print_progress();
 }
 
 /* ----------------------------------------------------------------------
-   update per-proc atom count (same for molecules)
-   assume all atoms are candidates for MC moves
+   print progress info to universe screen/logfile, about every 1% of a run
+------------------------------------------------------------------------- */
+
+void FixGEMC::print_progress()
+{
+  // world 0 needs the atom count of world 1 for the message
+
+  int n_other = 0;
+  if (me == 0)
+    MPI_Sendrecv(&natom_total, 1, MPI_INT, 1 - myworld, 0, &n_other, 1, MPI_INT, 1 - myworld, 0,
+                 comm_replica, MPI_STATUS_IGNORE);
+
+  if (universe->me != 0) return;
+
+  double delta = update->ntimestep - update->beginstep;
+  if ((delta != 0.0) && (update->beginstep != update->endstep))
+    delta /= update->endstep - update->beginstep;
+  int status = static_cast<int>(delta * 100.0);
+  if (status <= progress) return;
+  progress = status;
+
+  double now[6] = {ntranslation_successes, ntranslation_attempts, nvolume_successes,
+                   nvolume_attempts,       nexchange_successes,   nexchange_attempts};
+  double d[6];
+  for (int i = 0; i < 6; i++) {
+    d[i] = now[i] - nlast[i];
+    nlast[i] = now[i];
+  }
+
+  double vol1 = voltot / (1.0 + exp(-logvolratio));
+  double vol2 = voltot / (1.0 + exp(logvolratio));
+  int n1 = natom_total;
+  int n2 = n_other;
+
+  auto msg = fmt::format(" GEMC run progress: {:>3d}% \n  Trans: {:g}/{:g}\n"
+                         "  Vol: {:g}/{:g}\n  Ex: {:g}/{:g}\n"
+                         "  Replica Volume Nparticles Number-density:\n"
+                         "   1: {:g} {:d} {:g}\n"
+                         "   2: {:g} {:d} {:g}\n",
+                         progress, d[0], d[1], d[2], d[3], d[4], d[5], vol1, n1, n1 / vol1, vol2,
+                         n2, n2 / vol2);
+  if (universe->uscreen) utils::print(universe->uscreen, msg);
+  if (universe->ulogfile) utils::print(universe->ulogfile, msg);
+}
+
+/* ----------------------------------------------------------------------
+   update list of local atoms in fix group and their counts
 ------------------------------------------------------------------------- */
 
 void FixGEMC::update_gas_atoms_list()
@@ -404,24 +418,140 @@ void FixGEMC::update_gas_atoms_list()
   int *mask = atom->mask;
 
   if (nlocal > gemc_nmax) {
-    memory->destroy(local_gas_list);
+    memory->sfree(local_gas_list);
     gemc_nmax = atom->nmax;
-    memory->create(local_gas_list, gemc_nmax, "gemc:local_gas_list");
+    local_gas_list = (int *) memory->smalloc(gemc_nmax * sizeof(int), "GEMC:local_gas_list");
   }
 
   natom_local = 0;
-  for (int i = 0; i < nlocal; i++) {
-    if (mask[i] & groupbit) {
-      local_gas_list[natom_local] = i;
-      natom_local++;
-    }
-  }
-
-  // natom_total is total atoms in whole system
+  for (int i = 0; i < nlocal; i++)
+    if (mask[i] & groupbit) local_gas_list[natom_local++] = i;
 
   MPI_Allreduce(&natom_local, &natom_total, 1, MPI_INT, MPI_SUM, world);
   MPI_Scan(&natom_local, &natom_lower, 1, MPI_INT, MPI_SUM, world);
   natom_lower -= natom_local;
+}
+
+/* ----------------------------------------------------------------------
+   return local index of a randomly chosen group atom in my box
+   or -1 if not owned by this rank. must be called by all ranks of the box.
+------------------------------------------------------------------------- */
+
+int FixGEMC::pick_random_gas_atom()
+{
+  int i = -1;
+  int iwhichglobal = static_cast<int>(natom_total * random_world->uniform());
+  if ((iwhichglobal >= natom_lower) && (iwhichglobal < natom_lower + natom_local))
+    i = local_gas_list[iwhichglobal - natom_lower];
+  return i;
+}
+
+/* ----------------------------------------------------------------------
+   joint Metropolis decision for a move that changes both boxes
+   dU = my box's contribution to the effective energy change (valid on rank 0)
+   overflow = 1 if my box's trial energy is unusable (valid on rank 0)
+   both boxes compute the same sum and draw the same random number,
+   so they always reach the same decision
+------------------------------------------------------------------------- */
+
+int FixGEMC::accept_both(double dU, int overflow)
+{
+  double rnd = random_universe->uniform();
+  int success = 0;
+  if (me == 0) {
+    double mine[2] = {dU, (double) overflow};
+    double other[2];
+    MPI_Sendrecv(mine, 2, MPI_DOUBLE, 1 - myworld, 0, other, 2, MPI_DOUBLE, 1 - myworld, 0,
+                 comm_replica, MPI_STATUS_IGNORE);
+    double all_dU = mine[0] + other[0];
+    if ((mine[1] == 0.0) && (other[1] == 0.0) && std::isfinite(all_dU))
+      success = (all_dU <= 0.0) || (rnd < exp(-beta * all_dU));
+  }
+  MPI_Bcast(&success, 1, MPI_INT, 0, world);
+  return success;
+}
+
+/* ----------------------------------------------------------------------
+   move atoms to their owning ranks, rebuild ghost atoms and neighbor lists
+------------------------------------------------------------------------- */
+
+void FixGEMC::reset_comm()
+{
+  refresh_ghosts();
+  if (modify->n_pre_neighbor) modify->pre_neighbor();
+  neighbor->build(1);
+}
+
+/* ----------------------------------------------------------------------
+   move atoms to their owning ranks and rebuild ghost atoms, no neighbor lists
+   atoms are reordered, so the list of local group atoms is regenerated
+------------------------------------------------------------------------- */
+
+void FixGEMC::refresh_ghosts()
+{
+  domain->pbc();
+  comm->exchange();
+  atom->nghost = 0;
+  comm->borders();
+  ghosts_stale = 0;
+  update_gas_atoms_list();
+}
+
+/* ----------------------------------------------------------------------
+   return 1 if a translation or exchange move in my box can use energy_local()
+   the box must be larger than the pair cutoff, so that an atom does
+   not interact with its own periodic images
+------------------------------------------------------------------------- */
+
+int FixGEMC::use_local()
+{
+  if (!local_flag) return 0;
+  double cut = force->pair->cutforce;
+  if ((domain->xprd <= cut) || (domain->yprd <= cut) || (domain->zprd <= cut)) return 0;
+  if (ghosts_stale) refresh_ghosts();
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   pair energy of atom with local index i, type itype, and atom ID itag
+   placed at coord with all owned and ghost atoms, except for its own images.
+   i may be a scratch index beyond the ghost atoms for an atom not yet inserted.
+   if coord2 is not null, also return the energy at coord2 in energy2
+------------------------------------------------------------------------- */
+
+double FixGEMC::energy_local(int i, int itype, tagint itag, double *coord, double *coord2,
+                             double *energy2)
+{
+  double **x = atom->x;
+  int *type = atom->type;
+  tagint *tag = atom->tag;
+  int nall = atom->nlocal + atom->nghost;
+  Pair *pair = force->pair;
+  double **cutsq = pair->cutsq;
+  double *cutsqi = cutsq[itype];
+  double fpair;
+
+  double total_energy = 0.0;
+  double total_energy2 = 0.0;
+  for (int j = 0; j < nall; j++) {
+    if (tag[j] == itag) continue;
+    int jtype = type[j];
+    double delx = coord[0] - x[j][0];
+    double dely = coord[1] - x[j][1];
+    double delz = coord[2] - x[j][2];
+    double rsq = delx * delx + dely * dely + delz * delz;
+    if (rsq < cutsqi[jtype]) total_energy += pair->single(i, j, itype, jtype, rsq, 1.0, 1.0, fpair);
+    if (coord2) {
+      delx = coord2[0] - x[j][0];
+      dely = coord2[1] - x[j][1];
+      delz = coord2[2] - x[j][2];
+      rsq = delx * delx + dely * dely + delz * delz;
+      if (rsq < cutsqi[jtype])
+        total_energy2 += pair->single(i, j, itype, jtype, rsq, 1.0, 1.0, fpair);
+    }
+  }
+  if (energy2) *energy2 = total_energy2;
+  return total_energy;
 }
 
 /* ----------------------------------------------------------------------
@@ -430,35 +560,19 @@ void FixGEMC::update_gas_atoms_list()
 
 double FixGEMC::energy_full()
 {
-  if (triclinic_flag) domain->x2lamda(atom->nlocal);
-  domain->pbc();
-  comm->exchange();
-  atom->nghost = 0;
-  comm->borders();
-  if (triclinic_flag) domain->lamda2x(atom->nlocal+atom->nghost);
-  if (modify->n_pre_neighbor) modify->pre_neighbor();
-  neighbor->build(1);
+  reset_comm();
   int eflag = 1;
   int vflag = 0;
 
   // clear forces so they don't accumulate over multiple
-  // calls within fix gcmc timestep, e.g. for fix shake
+  // calls within fix gemc timestep, e.g. for fix shake
 
   size_t nbytes = sizeof(double) * (atom->nlocal + atom->nghost);
-  if (nbytes) memset(&atom->f[0][0],0,3*nbytes);
+  if (nbytes) memset(&atom->f[0][0], 0, 3 * nbytes);
 
   if (modify->n_pre_force) modify->pre_force(vflag);
 
-  if (force->pair) force->pair->compute(eflag,vflag);
-
-  if (atom->molecular != Atom::ATOMIC) {
-    if (force->bond) force->bond->compute(eflag,vflag);
-    if (force->angle) force->angle->compute(eflag,vflag);
-    if (force->dihedral) force->dihedral->compute(eflag,vflag);
-    if (force->improper) force->improper->compute(eflag,vflag);
-  }
-
-  if (force->kspace) force->kspace->compute(eflag,vflag);
+  if (force->pair) force->pair->compute(eflag, vflag);
 
   if (modify->n_post_force_any) modify->post_force(vflag);
 
@@ -468,9 +582,7 @@ double FixGEMC::energy_full()
   //   will contribute to total MC energy via pe->compute_scalar()
 
   update->eflag_global = update->ntimestep;
-  double total_energy = c_pe->compute_scalar();
-
-  return total_energy;
+  return c_pe->compute_scalar();
 }
 
 /* ----------------------------------------------------------------------
@@ -480,15 +592,14 @@ double FixGEMC::energy_full()
 void FixGEMC::write_restart(FILE *fp)
 {
   int n = 0;
-  double list[13];
+  double list[12];
+  list[n++] = -RESTART_VERSION;
   list[n++] = random_proc->state();
   list[n++] = random_world->state();
   list[n++] = random_universe->state();
   list[n++] = ubuf(next_reneighbor).d;
   list[n++] = ntranslation_attempts;
   list[n++] = ntranslation_successes;
-  list[n++] = nrotation_attempts;
-  list[n++] = nrotation_successes;
   list[n++] = nexchange_attempts;
   list[n++] = nexchange_successes;
   list[n++] = nvolume_attempts;
@@ -504,6 +615,8 @@ void FixGEMC::write_restart(FILE *fp)
 
 /* ----------------------------------------------------------------------
    use state info from restart file to restart the Fix
+   restart files written before the version marker was added start with the
+   (positive) random number generator state and contain rotation counters
 ------------------------------------------------------------------------- */
 
 void FixGEMC::restart(char *buf)
@@ -511,33 +624,33 @@ void FixGEMC::restart(char *buf)
   int n = 0;
   auto *list = (double *) buf;
 
-  seed = static_cast<int> (list[n++]);
-  random_proc->reset(seed);
+  int oldformat = (list[0] > 0.0);
+  if (!oldformat) n++;
 
-  seed = static_cast<int> (list[n++]);
-  random_world->reset(seed);
+  // only the state of rank 0 was saved, so give each rank a distinct stream
 
-  seed = static_cast<int> (list[n++]);
-  random_universe->reset(seed);
+  double coord[3] = {(double) universe->me, (double) myworld, 0.0};
+  random_proc->reset(static_cast<int>(list[n++]), coord);
+  random_world->reset(static_cast<int>(list[n++]));
+  random_universe->reset(static_cast<int>(list[n++]));
 
   next_reneighbor = (bigint) ubuf(list[n++]).i;
 
-  ntranslation_attempts  = list[n++];
+  ntranslation_attempts = list[n++];
   ntranslation_successes = list[n++];
-  nrotation_attempts     = list[n++];
-  nrotation_successes    = list[n++];
-  nexchange_attempts     = list[n++];
-  nexchange_successes    = list[n++];
-  nvolume_attempts    = list[n++];
-  nvolume_successes   = list[n++];
+  if (oldformat) n += 2;
+  nexchange_attempts = list[n++];
+  nexchange_successes = list[n++];
+  nvolume_attempts = list[n++];
+  nvolume_successes = list[n++];
 
   bigint ntimestep_restart = (bigint) ubuf(list[n++]).i;
   if (ntimestep_restart != update->ntimestep)
-    error->all(FLERR,"Must not reset timestep when restarting fix gemc");
+    error->all(FLERR, "Must not reset timestep when restarting fix gemc");
 }
 
 /* ----------------------------------------------------------------------
-  return acceptance ratios
+   return cumulative attempt and success counts of this box
 ------------------------------------------------------------------------- */
 
 double FixGEMC::compute_vector(int n)

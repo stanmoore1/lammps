@@ -1,0 +1,170 @@
+LAMMPS (2 Sep 2026)
+Processor partition = 0
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
+  using 1 OpenMP thread(s) per MPI task
+# vapor-liquid coexistence of the Lennard-Jones fluid truncated and
+# shifted at 2.5 sigma with Gibbs ensemble Monte Carlo (GEMC)
+#
+# requires two partitions, one for each box, e.g.:
+#   mpirun -np 2 lmp -in in.gemc.lj -partition 1 1
+#   mpirun -np 4 lmp -in in.gemc.lj -partition 1 3
+#
+# coexistence densities from the equation of state of Thol et al. (2015):
+#   T = 0.9: vapor 0.0453, liquid 0.664
+
+variable        T index 0.9                  # temperature
+variable        nsteps index 20000           # number of MC cycles
+variable        rho world 0.05 0.65          # initial densities of the boxes
+variable        N world 100 400              # initial numbers of atoms
+variable        L equal (v_N/v_rho)^(1.0/3.0)
+
+units           lj
+atom_style      atomic
+
+region          box block 0 ${L} 0 ${L} 0 ${L}
+region          box block 0 12.5992104989487 0 ${L} 0 ${L}
+region          box block 0 12.5992104989487 0 12.5992104989487 0 ${L}
+region          box block 0 12.5992104989487 0 12.5992104989487 0 12.5992104989487
+create_box      1 box
+Created orthogonal box = (0 0 0) to (12.59921 12.59921 12.59921)
+  1 by 1 by 1 MPI processor grid
+create_atoms    1 random ${N} 4321 NULL overlap 0.9 maxtry 1000
+create_atoms    1 random 100 4321 NULL overlap 0.9 maxtry 1000
+Created 100 atoms
+  using lattice units in orthogonal box = (0 0 0) to (12.59921 12.59921 12.59921)
+  create_atoms CPU = 0.000 seconds
+mass            1 1.0
+
+pair_style      lj/cut 2.5
+pair_modify     shift yes
+pair_coeff      1 1 1.0 1.0
+
+neighbor        0.3 bin
+neigh_modify    every 1 delay 0 check yes
+
+# remove overlaps from random placement
+
+minimize        1.0e-4 1.0e-6 100 1000
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.8
+  ghost atom cutoff = 2.8
+  binsize = 1.4, bins = 9 9 9
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 4.194 | 4.194 | 4.194 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+         0   0             -0.13445723     0             -0.13445723     0.055090638  
+        40   0             -0.73463977     0             -0.73463977    -0.0025705996 
+Loop time of 0.000644621 on 1 procs for 40 steps with 100 atoms
+
+7.8% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+Minimization stats:
+  Stopping criterion = energy tolerance
+  Energy initial, next-to-last, final = 
+    -0.134457230988791  -0.73462797631033 -0.734639770404377
+  Force two-norm initial, final = 253.76784 9.9838146
+  Force max component initial, final = 107.10236 5.1502792
+  Final line search alpha, max atom move = 0.016787337 0.086459474
+  Iterations, force evaluations = 40 81
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.00015016 | 0.00015016 | 0.00015016 |   0.0 | 23.29
+Neigh   | 0.00028405 | 0.00028405 | 0.00028405 |   0.0 | 44.06
+Comm    | 8.2002e-05 | 8.2002e-05 | 8.2002e-05 |   0.0 | 12.72
+Output  | 0          | 0          | 0          |   0.0 |  0.00
+Modify  | 0          | 0          | 0          |   0.0 |  0.00
+Other   |            | 0.0001284  |            |       | 19.92
+
+Nlocal:            100 ave         100 max         100 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:            200 ave         200 max         200 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:            203 ave         203 max         203 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 203
+Ave neighs/atom = 2.03
+Neighbor list builds = 10
+Dangerous builds = 0
+reset_timestep  0
+
+# pure Monte Carlo: every step attempt on average 100 translations,
+# 100 atom exchanges, and 2 volume exchanges
+
+#   args:        N  M   X  V  T    displace maxdlogvolratio seed
+fix             mc all gemc 1  100 100 2 ${T} 0.3      0.05            29494
+fix             mc all gemc 1  100 100 2 0.9 0.3      0.05            29494
+compute_modify  thermo_temp dynamic/dof yes
+
+# number density and cumulative move attempts/successes of this box
+
+variable        rho_n equal atoms/vol
+thermo_style    custom step atoms vol pe v_rho_n f_mc[1] f_mc[2]                 f_mc[3] f_mc[4] f_mc[5] f_mc[6]
+thermo_modify   norm no
+thermo          1000
+
+run             ${nsteps}
+run             20000
+WARNING: No fixes with time integration, atoms won't move
+For more information see https://docs.lammps.org/err0028 (src/verlet.cpp:60)
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Per MPI rank memory allocation (min/avg/max) = 3.069 | 3.069 | 3.069 Mbytes
+   Step        Atoms        Volume         PotEng        v_rho_n        f_mc[1]        f_mc[2]        f_mc[3]        f_mc[4]        f_mc[5]        f_mc[6]    
+         0         100   2000          -73.463977      0.05           0              0              0              0              0              0            
+      1000          91   1995.78       -49.372628      0.045596207    99860          90095          100108         1719           2032           726          
+      2000          97   2009.6425     -37.237113      0.048267291    199773         175823         200228         2985           3999           1429         
+      3000         101   2005.7013     -43.001371      0.050356452    299650         259629         300359         4371           5991           2172         
+      4000          95   1993.6724     -26.466483      0.047650758    399778         342298         400234         5507           7988           2912         
+      5000          73   1974.5606     -23.68653       0.036970251    500192         428810         499824         6799           9984           3656         
+      6000          80   1979.3127     -30.424748      0.040418069    600083         514067         599985         7946           11932          4345         
+      7000          94   1976.7545     -37.688078      0.047552692    700316         599661         699720         8934           13964          5053         
+      8000          76   1968.8734     -32.494183      0.038600755    800534         684196         799492         10160          15974          5774         
+      9000          88   1984.99       -51.391374      0.044332718    900373         769912         899612         11280          18015          6522         
+     10000          86   1981.6356     -31.017167      0.043398495    1000164        854047         999843         12472          19993          7246         
+     11000          78   1979.473      -19.930132      0.039404427    1100092        940001         1099981        13784          21927          7941         
+     12000          61   1914.6659     -19.259901      0.031859343    1200384        1027427        1199710        14987          23906          8642         
+     13000          98   1990.9255     -50.44018       0.049223337    1300286        1111920        1299794        16622          25920          9355         
+     14000          86   1985.7322     -27.69066       0.043308962    1400140        1194991        1399971        17920          27889          10081        
+     15000          80   1976.2412     -28.487214      0.040480889    1500137        1281592        1499987        19166          29876          10803        
+     16000          87   1994.9604     -38.238279      0.043609887    1600153        1368230        1599840        20225          32007          11557        
+     17000          88   2004.8525     -35.269406      0.043893504    1700116        1454092        1699897        21318          33987          12297        
+     18000          98   2002.4264     -34.844251      0.048940625    1800259        1536703        1799709        22280          36032          13031        
+     19000          71   1973.1691     -13.855061      0.035982725    1900423        1622440        1899507        23613          38070          13735        
+     20000          83   1987.0558     -34.802659      0.041770342    2000673        1708825        1999289        24661          40038          14440        
+Loop time of 77.8489 on 1 procs for 20000 steps with 83 atoms
+
+Performance: 110984.240 tau/day, 256.908 timesteps/s, 21.323 katom-step/s
+98.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.05203    | 0.05203    | 0.05203    |   0.0 |  0.07
+Neigh   | 0.49327    | 0.49327    | 0.49327    |   0.0 |  0.63
+Comm    | 0.061104   | 0.061104   | 0.061104   |   0.0 |  0.08
+Output  | 0.0007712  | 0.0007712  | 0.0007712  |   0.0 |  0.00
+Modify  | 77.199     | 77.199     | 77.199     |   0.0 | 99.17
+Other   |            | 0.04245    |            |       |  0.05
+
+Nlocal:             83 ave          83 max          83 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:            151 ave         151 max         151 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:            189 ave         189 max         189 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 189
+Ave neighs/atom = 2.2771084
+Neighbor list builds = 80038
+Dangerous builds = 0
+Total wall time: 0:01:17

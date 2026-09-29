@@ -1442,6 +1442,7 @@ gdot
 GeC
 Geesthacht
 Geier
+GEMC
 gencode
 Geocomputing
 georg
@@ -2239,6 +2240,7 @@ Littmark
 Liu
 Livermore
 lj
+LJTS
 llammps
 lld
 LLVM
@@ -3684,6 +3686,7 @@ Rudzinski
 Runge
 runtime
 Rupp
+Rutkai
 Rutuparna
 rx
 rxd
@@ -4156,6 +4159,7 @@ Thiaville
 Thibaudeau
 Thijsse
 Thirumalai
+Thol
 thr
 Threadripper
 threebody
@@ -4486,6 +4490,7 @@ Vorselaars
 Voth
 Voyiatzis
 vpz
+Vrabec
 vratio
 Vries
 Vsevolod

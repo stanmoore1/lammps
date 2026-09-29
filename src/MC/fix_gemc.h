@@ -30,6 +30,7 @@ class FixGEMC : public Fix {
   ~FixGEMC() override;
   int setmask() override;
   void init() override;
+  void setup(int) override;
   void pre_exchange() override;
   void write_restart(FILE *) override;
   void restart(char *) override;
@@ -38,118 +39,87 @@ class FixGEMC : public Fix {
  private:
   // user provided inputs
 
-  int nevery;           // frequency this fix is called
-  int ntranslate;       // number of translation each box performs each step
-  int nrotate;          // number of rotations each box performs each step
-  int nexchange;        // number of particle exchanges between the boxes each step
-  int nvolume;          // number of volume exchanges between the boxes each step
-  double box_temp;      // temperature of each box (assumed equal)
-  double displace;      // maximum displacement for translations
-  double max_dlogvolratio; // maximum change in logvolratio
-  int seed;             // RNG seed
+  int ntranslate;             // number of translations attempted every nevery steps
+  int nexchange;              // number of particle exchanges attempted every nevery steps
+  int nvolume;                // number of volume exchanges attempted every nevery steps
+  double box_temp;            // temperature of both boxes
+  double displace;            // maximum displacement for translations
+  double max_dlogvolratio;    // maximum change in log(V1/V2)
+  int seed;                   // RNG seed
+  int full_flag;              // 1 if user requested full energy for all moves
+  int local_flag;      // 1 if single-atom energies may be used for translations and exchanges
+  int ghosts_stale;    // 1 if ghost atoms may be out of date
 
   // for evaluating probability
 
-  int overlap_flag;           // check for overlap
-  double overlap_cutoffsq;    // check for max cutoff
-  double beta;                // 1 / kT
-  double energy_stored;       // current potential energy
-  class Compute *c_pe;        // compute to get full potential energy
+  double beta;             // 1 / kT
+  double energy_stored;    // current potential energy
+  class Compute *c_pe;     // compute to get full potential energy
 
   // for determining which move to make
 
-  int nmoves;    // total MC moves (translate/rotate + exchange + volume)
-  // cummulative probabilites
-  double pc_exchange;     // probability MC move is an exchange
-  double pc_volume;       // probability MV move is a volume change
-  double pc_translate;    // probability MC move is a translation
-  double pc_rotate;       // probability MC move is a rotation
+  int nmoves;            // total MC moves (translate + exchange + volume)
+  double pc_exchange;    // cumulative probability MC move is an exchange
+  double pc_volume;      // cumulative probability MC move is exchange or volume change
 
   // for tracking how many attempts/successes
 
   double ntranslation_attempts;
   double ntranslation_successes;
-  double nrotation_attempts;
-  double nrotation_successes;
   double nexchange_attempts;
   double nexchange_successes;
   double nvolume_attempts;
   double nvolume_successes;
-  double nlast[6];    // counters at the time of the last progress message
-  double logvolratio;         // log(V1/V2)
+  double nlast[6];       // counters at the time of the last progress message
+  double logvolratio;    // log(V1/V2), identical in both boxes
 
   // particle - related props
 
-  int natom_lower;    // lower index for local atoms - same as before
-  int natom_local;    // number of atoms in this proc - same as local
-  int natom_total;    // total number of atoms in world I'm in - same as ngas
-  int gemc_nmax;
-  int *local_gas_list;
-
-  int molecule_flag;    // 0 for atom; 1 for molecule
-  int full_flag;        // compute full energy
-  int q_flag;           // particles charged?
-  double massper;       // mass of exchanged particle
-
-  // MC exchange
-
-  int groupbitall;
-  int exclusion_group, exclusion_group_bit;    // mask for excluding certain atoms
-  double sigma;   // factor for creating thermal velocities
+  int natom_lower;                     // number of group atoms on lower ranks of my box
+  int natom_local;                     // number of group atoms on this rank
+  int natom_total;                     // number of group atoms in my box
+  int gemc_nmax;                       // allocated length of local_gas_list
+  int *local_gas_list;                 // local indices of group atoms
+  std::vector<double> exchange_buf;    // storage for an atom removed during a trial exchange
 
   // domain - related props
 
-  int triclinic_flag;
-  double xlo, ylo, zlo;                // lower domain bounds
-  double xhi, yhi, zhi;                // upper domain bounds
-  double *sublo, *subhi;               // sub domain bounds
-  double xhi_tmp, yhi_tmp, zhi_tmp;    // temporary upper domain bounds
-  std::vector<Fix *> rfix;             // indices of rigid fixes
-  double voltot;                       // V1+V2, conserved
-  int ntot;                            // N1+N2, conserved
+  double xlo, ylo, zlo;       // lower domain bounds
+  double xhi, yhi, zhi;       // upper domain bounds
+  double *sublo, *subhi;      // sub domain bounds
+  std::vector<Fix *> rfix;    // rigid fixes
+  double voltot;              // V1+V2, conserved
 
   // for communication
 
-  int me, nprocs;    // rank and nprocs in my world
-  int myworld;       // rank of my world
+  int me;         // rank in my box
+  int myworld;    // index of my box (0 or 1)
 
-  MPI_Comm comm_replica;    // for communication between replicas
+  MPI_Comm comm_replica;    // for communication between rank 0 of both boxes
 
-  class RanPark *random_universe;    // sync'd RNG for all worlds
-  class RanPark *random_world;       // sync'd RNG for one world
-  class RanPark *random_proc;        // RNG for each proc (not sync'd)
+  class RanPark *random_universe;    // RNG synchronized across all ranks of both boxes
+  class RanPark *random_world;       // RNG synchronized across all ranks of one box
+  class RanPark *random_proc;        // RNG unique to each rank
 
-  // misc
-
-  int progress;    // tracks remaining simulation time
-
-  // optional args that user can provide
-
-  void options(int, char **);
-
-  // for MC translate/rotation moves
+  int progress;    // last percentage of the run reported
 
   void attempt_atomic_translation_full();
-  void attempt_molecule_translation_full();
-  void attempt_molecule_rotation_full();
-
-  // for MC volume moves (always full)
-
   void attempt_volume_change_full();
-  void scale_positions(const double);
-  void unscale_positions(const double);
-
-  // for MC exchange moves
-
   void attempt_atomic_exchange_full();
-  void attempt_molecule_exchange_full();
 
-  // misc functions for all MC moves
-
-  double energy_full();                 // computes full potential energy
-  void update_gas_atoms_list();         // updates count for local number of atoms
-  int pick_random_gas_atom();           // picks random atom
-  tagint pick_random_gas_molecule();    // picks random atom
+  int accept_both(double, int);    // joint acceptance decision of both boxes
+  void reset_comm();               // re-distribute atoms and rebuild ghosts and neighbor lists
+  double energy_full();            // computes full potential energy
+  double energy_local(int, int, tagint, double *, double * = nullptr,
+                      double * = nullptr);    // pair energy of one atom
+  int use_local();                            // 1 if the next move in my box may use energy_local()
+  void refresh_ghosts();
+  tagint insert_atom(
+      int, int, double *,
+      int);    // insert atom into my box                // re-distribute atoms and rebuild ghost atoms
+  void update_gas_atoms_list();    // updates list of local group atoms
+  int pick_random_gas_atom();      // picks random group atom
+  void print_progress();
 };
 
 }    // namespace LAMMPS_NS
