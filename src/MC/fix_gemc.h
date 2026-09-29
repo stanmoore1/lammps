@@ -45,15 +45,25 @@ class FixGEMC : public Fix {
   double box_temp;            // temperature of both boxes
   double displace;            // maximum displacement for translations
   double max_dlogvolratio;    // maximum change in log(V1/V2)
+  double maxangle;            // maximum rotation angle of molecules (radians)
   int seed;                   // RNG seed
   int tune_every;             // adjust step sizes every this many invocations (0 = never)
-  double tune_trans;          // target acceptance ratio of translations
+  double tune_trans;          // target acceptance ratio of translations and rotations
   double tune_vol;            // target acceptance ratio of volume changes
-  double tune_last[4];        // counters at the last adjustment
+  double tune_last[6];        // counters at the last adjustment
   int ntune_calls;            // number of invocations since the start of the run
   int full_flag;              // 1 if user requested full energy for all moves
   int local_flag;      // 1 if single-atom energies may be used for translations and exchanges
   int ghosts_stale;    // 1 if ghost atoms may be out of date
+
+  // molecule exchange
+
+  int molflag;                // 1 if whole molecules are moved and exchanged
+  char *idmol;                // ID of molecule template
+  class Molecule *onemol;     // molecule template
+  int natoms_per_molecule;    // number of atoms in each molecule
+  int group_charged;          // 1 if atoms in the fix group have charges (atoms only)
+  int charge_warned;          // 1 if warning about charged exchanges was printed
 
   // for evaluating probability
 
@@ -71,6 +81,8 @@ class FixGEMC : public Fix {
 
   double ntranslation_attempts;
   double ntranslation_successes;
+  double nrotation_attempts;
+  double nrotation_successes;
   double nexchange_attempts;
   double nexchange_successes;
   double nvolume_attempts;
@@ -85,15 +97,15 @@ class FixGEMC : public Fix {
   int natom_total;                     // number of group atoms in my box
   int gemc_nmax;                       // allocated length of local_gas_list
   int *local_gas_list;                 // local indices of group atoms
-  std::vector<double> exchange_buf;    // storage for an atom removed during a trial exchange
+  std::vector<double> exchange_buf;    // storage for atoms removed during a trial exchange
 
   // domain - related props
 
-  double xlo, ylo, zlo;       // lower domain bounds
-  double xhi, yhi, zhi;       // upper domain bounds
-  double *sublo, *subhi;      // sub domain bounds
-  std::vector<Fix *> rfix;    // rigid fixes
-  double voltot;              // V1+V2, conserved
+  int triclinic;                 // 1 if the box is triclinic
+  double xlo, ylo, zlo;          // lower domain bounds
+  double xhi, yhi, zhi;          // upper domain bounds
+  double boxxy, boxxz, boxyz;    // tilt factors
+  double voltot;                 // V1+V2, conserved
 
   // for communication
 
@@ -111,19 +123,31 @@ class FixGEMC : public Fix {
   void attempt_atomic_translation_full();
   void attempt_volume_change_full();
   void attempt_atomic_exchange_full();
+  void attempt_molecule_translation_full();
+  void attempt_molecule_rotation_full();
+  void attempt_molecule_exchange_full();
 
+  int any_box(int);                // 1 if flag is set in either box
   int accept_both(double, int);    // joint acceptance decision of both boxes
   void reset_comm();               // re-distribute atoms and rebuild ghosts and neighbor lists
+  void refresh_ghosts();           // re-distribute atoms and rebuild ghost atoms
   double energy_full();            // computes full potential energy
   double energy_local(int, int, tagint, double *, double * = nullptr,
                       double * = nullptr);    // pair energy of one atom
   int use_local();                            // 1 if the next move in my box may use energy_local()
-  void refresh_ghosts();
-  tagint insert_atom(
-      int, int, double *,
-      int);    // insert atom into my box                // re-distribute atoms and rebuild ghost atoms
-  void update_gas_atoms_list();    // updates list of local group atoms
-  int pick_random_gas_atom();      // picks random group atom
+  tagint insert_atom(int, int, double, double *, double *, int);    // insert atom into my box
+  void update_gas_atoms_list();                           // updates list of local group atoms
+  int pick_random_gas_atom();                             // picks random group atom
+  tagint pick_random_molecule();                          // picks random molecule of the group
+  void gather_molecule(tagint, std::vector<double> &);    // gather atoms of one molecule
+  bigint scale_positions(double, int);    // scale molecule centers and atoms relative to box origin
+  void set_box(double, double, double, double, double, double);    // change box size
+  double box_volume();
+  double min_box_width();
+  int owns(double *);    // 1 if a point in the box is inside my subdomain
+  void random_point(double *);
+  void changed_atoms();    // update after atoms or charges changed
+  void check_molecules();
   void print_progress();
   void tune_steps();    // adjust maximum displacement and volume change
 };

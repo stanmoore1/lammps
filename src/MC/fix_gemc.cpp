@@ -17,36 +17,48 @@
 
 #include "fix_gemc.h"
 
+#include "angle.h"
 #include "atom.h"
 #include "atom_vec.h"
+#include "bond.h"
 #include "comm.h"
 #include "compute.h"
+#include "dihedral.h"
 #include "domain.h"
 #include "error.h"
 #include "force.h"
 #include "group.h"
+#include "improper.h"
+#include "kspace.h"
+#include "math_const.h"
 #include "memory.h"
 #include "modify.h"
+#include "molecule.h"
 #include "neighbor.h"
 #include "pair.h"
 #include "random_park.h"
 #include "universe.h"
 #include "update.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <map>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
+using MathConst::MY_PI;
 
-static constexpr double RESTART_VERSION = 2.0;
+static constexpr double RESTART_VERSION = 3.0;
 static constexpr double MAXDLOGVOLRATIO = 1.0;
+static constexpr double DEG2RAD = MY_PI / 180.0;
 
 /* ---------------------------------------------------------------------- */
 
 FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), c_pe(nullptr), local_gas_list(nullptr), sublo(nullptr), subhi(nullptr),
+    Fix(lmp, narg, arg), idmol(nullptr), onemol(nullptr), c_pe(nullptr), local_gas_list(nullptr),
     comm_replica(MPI_COMM_NULL), random_universe(nullptr), random_world(nullptr),
     random_proc(nullptr)
 {
@@ -57,9 +69,6 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   if (universe->nworlds != 2)
     error->universe_all(FLERR, "Must use exactly two partitions with fix gemc");
 
-  if (atom->molecular != Atom::ATOMIC)
-    error->all(FLERR, "Fix gemc does not (yet) support molecular systems");
-
   // various fix flags
 
   time_integrate = 0;
@@ -67,7 +76,7 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   time_depend = 1;
   restart_global = 1;
   vector_flag = 1;
-  size_vector = 8;
+  size_vector = 11;
   extvector = 0;
 
   // box size changes with volume MC moves
@@ -104,6 +113,8 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   // optional keywords
 
   full_flag = 0;
+  molflag = 0;
+  maxangle = 30.0 * DEG2RAD;
   tune_every = 0;
   tune_trans = tune_vol = 0.4;
   int iarg = 11;
@@ -111,6 +122,23 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
     if (strcmp(arg[iarg], "full_energy") == 0) {
       full_flag = 1;
       iarg++;
+    } else if (strcmp(arg[iarg], "mol") == 0) {
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix gemc mol", error);
+      if (atom->find_molecule(arg[iarg + 1]) == -1)
+        error->all(FLERR, iarg + 1, "Molecule template ID {} for fix gemc does not exist",
+                   arg[iarg + 1]);
+      delete[] idmol;
+      idmol = utils::strdup(arg[iarg + 1]);
+      molflag = 1;
+      iarg += 2;
+    } else if (strcmp(arg[iarg], "maxangle") == 0) {
+      if (iarg + 2 > narg) utils::missing_cmd_args(FLERR, "fix gemc maxangle", error);
+      maxangle = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+      if ((maxangle <= 0.0) || (maxangle > 180.0))
+        error->all(FLERR, iarg + 1, "Illegal fix gemc maxangle value {}: must be > 0 and <= 180",
+                   maxangle);
+      maxangle *= DEG2RAD;
+      iarg += 2;
     } else if (strcmp(arg[iarg], "tune") == 0) {
       if (iarg + 4 > narg) utils::missing_cmd_args(FLERR, "fix gemc tune", error);
       tune_every = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
@@ -130,6 +158,16 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   }
   local_flag = 0;
   ghosts_stale = 0;
+  charge_warned = 0;
+  group_charged = 0;
+  natoms_per_molecule = 1;
+
+  if (molflag) {
+    if (!atom->molecule_flag)
+      error->all(FLERR, "Fix gemc keyword mol requires an atom style with molecule IDs");
+    if (atom->molecular == Atom::TEMPLATE)
+      error->all(FLERR, "Fix gemc does not support atom style template");
+  }
 
   // set up comm_replica = communicator between the same ranks of both boxes
   // only rank 0 of each box uses it, rank 0 of box 1 is rank 0 of comm_replica
@@ -146,6 +184,7 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   random_proc = new RanPark(lmp, seed + 3 + universe->me);
 
   ntranslation_attempts = ntranslation_successes = 0.0;
+  nrotation_attempts = nrotation_successes = 0.0;
   nvolume_attempts = nvolume_successes = 0.0;
   nexchange_attempts = nexchange_successes = 0.0;
   for (auto &n : nlast) n = 0.0;
@@ -158,6 +197,8 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   gemc_nmax = 0;
   natom_lower = natom_local = natom_total = 0;
   logvolratio = voltot = 0.0;
+  triclinic = 0;
+  xlo = ylo = zlo = xhi = yhi = zhi = boxxy = boxxz = boxyz = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -168,6 +209,7 @@ FixGEMC::~FixGEMC()
   delete random_world;
   delete random_universe;
   memory->destroy(local_gas_list);
+  delete[] idmol;
   if (comm_replica != MPI_COMM_NULL) MPI_Comm_free(&comm_replica);
 }
 
@@ -185,24 +227,57 @@ int FixGEMC::setmask()
 void FixGEMC::init()
 {
   if (domain->dimension != 3) error->all(FLERR, "Fix gemc requires a 3d system");
-  if (domain->triclinic) error->all(FLERR, "Fix gemc does not (yet) support triclinic boxes");
   if (domain->nonperiodic) error->all(FLERR, "Fix gemc requires a fully periodic box");
   if (!atom->tag_enable) error->all(FLERR, "Fix gemc requires atom IDs");
   if (!atom->mass) error->all(FLERR, "Fix gemc requires per-type masses");
-  if (atom->rmass_flag && (comm->me == 0))
-    error->warning(FLERR, "Fix gemc will use per-type masses for velocity initialization");
-  if (force->kspace) error->all(FLERR, "Fix gemc does not (yet) support long-range electrostatics");
-  if (atom->q_flag) {
-    int nonzero = 0;
-    for (int i = 0; i < atom->nlocal; i++)
-      if (atom->q[i] != 0.0) nonzero = 1;
-    int nonzero_any;
-    MPI_Allreduce(&nonzero, &nonzero_any, 1, MPI_INT, MPI_MAX, world);
-    if (nonzero_any) error->all(FLERR, "Fix gemc does not (yet) support charged atoms");
-  }
+  if (atom->rmass_flag)
+    error->all(FLERR, "Fix gemc does not support atom styles with per-atom masses");
   if (force->pair && force->pair->tail_flag && !force->pair->reinitflag)
     error->all(FLERR, "Fix gemc with pair_modify tail yes is not supported by pair style {}",
                force->pair_style);
+  for (const auto &ifix : modify->get_fix_list())
+    if (ifix->rigid_flag || utils::strmatch(ifix->style, "^shake") ||
+        utils::strmatch(ifix->style, "^rattle"))
+      error->all(FLERR, "Fix gemc does not support constraints like fix {}", ifix->style);
+
+  triclinic = domain->triclinic;
+
+  // molecule template
+
+  if (molflag) {
+    int imol = atom->find_molecule(idmol);
+    if (imol == -1) error->all(FLERR, "Molecule template ID {} for fix gemc does not exist", idmol);
+    onemol = atom->molecules[imol];
+    if ((onemol->nset > 1) && (comm->me == 0))
+      error->warning(FLERR,
+                     "Molecule template {} for fix gemc has multiple molecules; "
+                     "using only the first",
+                     idmol);
+    if (!onemol->xflag || !onemol->typeflag)
+      error->all(FLERR, "Molecule template {} for fix gemc must define coordinates and types",
+                 idmol);
+    if (onemol->ntypes > atom->ntypes)
+      error->all(FLERR, "Molecule template {} for fix gemc has invalid atom types", idmol);
+    if (atom->molecular == Atom::MOLECULAR) {
+      if ((onemol->bondflag && !atom->avec->bonds_allow) ||
+          (onemol->angleflag && !atom->avec->angles_allow) ||
+          (onemol->dihedralflag && !atom->avec->dihedrals_allow) ||
+          (onemol->improperflag && !atom->avec->impropers_allow))
+        error->all(FLERR,
+                   "Molecule template {} for fix gemc has topology not allowed by the "
+                   "atom style",
+                   idmol);
+      if (onemol->specialflag && (onemol->maxspecial > atom->maxspecial))
+        error->all(FLERR,
+                   "Molecule template {} for fix gemc has too many special neighbors; "
+                   "use extra/special/per/atom",
+                   idmol);
+    }
+    natoms_per_molecule = onemol->natoms;
+  } else {
+    natoms_per_molecule = 1;
+  }
+  check_molecules();
 
   // decide whether single-atom energies can replace full energy evaluations
   // for translation and exchange moves. requires a pair style that
@@ -217,6 +292,12 @@ void FixGEMC::init()
     std::string reason;
     if (!force->pair) {
       reason = "no pair style";
+    } else if (molflag) {
+      reason = "molecules are exchanged";
+    } else if (force->kspace) {
+      reason = "a long-range solver is used";
+    } else if (group_charged) {
+      reason = "exchanged atoms are charged";
     } else if (!force->pair->single_enable) {
       reason = fmt::format("pair style {} does not support single()", force->pair_style);
     } else if (force->pair->manybody_flag) {
@@ -253,12 +334,6 @@ void FixGEMC::init()
 
   beta = 1.0 / (force->boltz * box_temp);
 
-  // rigid fixes need to be told when the box is rescaled
-
-  rfix.clear();
-  for (const auto &ifix : modify->get_fix_list())
-    if (ifix->rigid_flag) rfix.push_back(ifix);
-
   // update box dimensions and list of atoms in the fix group
 
   xlo = domain->boxlo[0];
@@ -267,11 +342,125 @@ void FixGEMC::init()
   yhi = domain->boxhi[1];
   zlo = domain->boxlo[2];
   zhi = domain->boxhi[2];
-  sublo = domain->sublo;
-  subhi = domain->subhi;
+  boxxy = domain->xy;
+  boxxz = domain->xz;
+  boxyz = domain->yz;
 
   update_gas_atoms_list();
   progress = 0;
+}
+
+/* ----------------------------------------------------------------------
+   check that atoms in the fix group can be moved and exchanged:
+   without mol keyword, the group atoms must not belong to molecules;
+   with mol keyword, each group molecule must match the template:
+   consecutive atom IDs in the order of the template atoms, same types.
+   also warn once if exchanged atoms or molecules carry a net charge.
+------------------------------------------------------------------------- */
+
+void FixGEMC::check_molecules()
+{
+  int nlocal = atom->nlocal;
+  int *mask = atom->mask;
+  tagint *molecule = atom->molecule;
+  double *q = atom->q;
+
+  int flag = 0;
+  int charged = 0;
+  group_charged = 0;
+
+  if (!molflag) {
+    int anyq = 0;
+    for (int i = 0; i < nlocal; i++) {
+      if (!(mask[i] & groupbit)) continue;
+      if (molecule && (molecule[i] > 0)) flag = 1;
+      if (q && (q[i] != 0.0)) charged = anyq = 1;
+    }
+    MPI_Allreduce(&anyq, &group_charged, 1, MPI_INT, MPI_MAX, world);
+    int flag_all;
+    MPI_Allreduce(&flag, &flag_all, 1, MPI_INT, MPI_MAX, world);
+    if (flag_all)
+      error->all(FLERR, "Fix gemc group contains atoms with molecule IDs; use the mol keyword");
+  } else {
+    // gather (molecule ID, atom ID, type, charge) of all group atoms
+
+    std::vector<double> mine;
+    for (int i = 0; i < nlocal; i++) {
+      if (!(mask[i] & groupbit)) continue;
+      if (molecule[i] <= 0) flag = 1;
+      mine.push_back(ubuf(molecule[i]).d);
+      mine.push_back(ubuf(atom->tag[i]).d);
+      mine.push_back(atom->type[i]);
+      mine.push_back(q ? q[i] : 0.0);
+    }
+    int flag_all;
+    MPI_Allreduce(&flag, &flag_all, 1, MPI_INT, MPI_MAX, world);
+    if (flag_all)
+      error->all(FLERR, "Fix gemc group atoms must all belong to molecules with the mol keyword");
+
+    int nprocs = comm->nprocs;
+    std::vector<int> counts(nprocs), displs(nprocs);
+    int nsend = mine.size();
+    MPI_Allgather(&nsend, 1, MPI_INT, counts.data(), 1, MPI_INT, world);
+    int ntotal = 0;
+    for (int iproc = 0; iproc < nprocs; iproc++) {
+      displs[iproc] = ntotal;
+      ntotal += counts[iproc];
+    }
+    std::vector<double> all(ntotal + 1);
+    MPI_Allgatherv(mine.data(), nsend, MPI_DOUBLE, all.data(), counts.data(), displs.data(),
+                   MPI_DOUBLE, world);
+
+    struct Entry {
+      tagint mol, tag;
+      int type;
+      double q;
+    };
+    std::vector<Entry> entries(ntotal / 4);
+    for (size_t k = 0; k < entries.size(); k++)
+      entries[k] = {(tagint) ubuf(all[4 * k]).i, (tagint) ubuf(all[4 * k + 1]).i,
+                    (int) all[4 * k + 2], all[4 * k + 3]};
+    std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) {
+      return (a.mol < b.mol) || ((a.mol == b.mol) && (a.tag < b.tag));
+    });
+
+    size_t k = 0;
+    while (k < entries.size()) {
+      size_t kend = k;
+      while ((kend < entries.size()) && (entries[kend].mol == entries[k].mol)) kend++;
+      if ((int) (kend - k) != natoms_per_molecule) flag = 1;
+      double qmol = 0.0;
+      for (size_t n = k; n < kend; n++) {
+        int iatom = n - k;
+        if (iatom < natoms_per_molecule) {
+          if (entries[n].type != onemol->type[iatom]) flag = 1;
+          if (entries[n].tag != entries[k].tag + iatom) flag = 1;
+        }
+        qmol += entries[n].q;
+      }
+      if (fabs(qmol) > 1.0e-6) charged = 1;
+      k = kend;
+    }
+    if (flag)
+      error->all(FLERR,
+                 "Molecules in fix gemc group must match molecule template {}: same number and "
+                 "types of atoms, with consecutive atom IDs in template order",
+                 idmol);
+    if (onemol->qflag) {
+      double qmol = 0.0;
+      for (int i = 0; i < onemol->natoms; i++) qmol += onemol->q[i];
+      if (fabs(qmol) > 1.0e-6) charged = 1;
+    }
+  }
+
+  int charged_all;
+  MPI_Allreduce(&charged, &charged_all, 1, MPI_INT, MPI_MAX, world);
+  if (charged_all && !charge_warned && (comm->me == 0))
+    error->warning(FLERR,
+                   "Fix gemc exchanges {} with a net charge, so the boxes will not be "
+                   "charge neutral",
+                   molflag ? "molecules" : "atoms");
+  if (charged_all) charge_warned = 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -300,11 +489,25 @@ void FixGEMC::setup(int /*vflag*/)
   tune_last[1] = ntranslation_successes;
   tune_last[2] = nvolume_attempts;
   tune_last[3] = nvolume_successes;
+  tune_last[4] = nrotation_attempts;
+  tune_last[5] = nrotation_successes;
   ntune_calls = 0;
 
-  // the maximum displacement may differ between the boxes
+  // the maximum displacement and rotation may differ between the boxes
 
-  constexpr int NCHECK = 15;
+  // signature of atom style and molecule template: types, topology, charges
+
+  double molsig = atom->molecular + 3.0 * atom->q_flag;
+  if (molflag) {
+    molsig += 7.0 * onemol->nbonds + 11.0 * onemol->nangles + 13.0 * onemol->ndihedrals +
+        17.0 * onemol->nimpropers;
+    for (int i = 0; i < onemol->natoms; i++) {
+      molsig += 19.0 * (i + 1) * onemol->type[i];
+      if (onemol->qflag) molsig += 23.0 * (i + 1) * onemol->q[i];
+    }
+  }
+
+  constexpr int NCHECK = 18;
   int mismatch = 0;
   if (me == 0) {
     double mine[NCHECK] = {(double) nevery,
@@ -321,7 +524,10 @@ void FixGEMC::setup(int /*vflag*/)
                            (double) update->ntimestep,
                            (double) next_reneighbor,
                            (double) random_universe->state(),
-                           (double) hash};
+                           (double) hash,
+                           (double) molflag,
+                           (double) natoms_per_molecule,
+                           molsig};
     double other[NCHECK];
     MPI_Sendrecv(mine, NCHECK, MPI_DOUBLE, 1 - myworld, 0, other, NCHECK, MPI_DOUBLE, 1 - myworld,
                  0, comm_replica, MPI_STATUS_IGNORE);
@@ -331,12 +537,13 @@ void FixGEMC::setup(int /*vflag*/)
   MPI_Bcast(&mismatch, 1, MPI_INT, 0, world);
   if (mismatch)
     error->universe_all(FLERR,
-                        "Fix gemc settings, groups, number of atom types, timestep, and "
-                        "restart status must be the same in both partitions");
+                        "Fix gemc settings, groups, number of atom types, atom style, molecule "
+                        "template, timestep, and restart status must be the same in both "
+                        "partitions");
 
   // initialize log volume ratio and total volume
 
-  double vol_i = domain->xprd * domain->yprd * domain->zprd;
+  double vol_i = box_volume();
   double vol_j = 0.0;
   if (me == 0)
     MPI_Sendrecv(&vol_i, 1, MPI_DOUBLE, 1 - myworld, 0, &vol_j, 1, MPI_DOUBLE, 1 - myworld, 0,
@@ -368,8 +575,9 @@ void FixGEMC::pre_exchange()
   yhi = domain->boxhi[1];
   zlo = domain->boxlo[2];
   zhi = domain->boxhi[2];
-  sublo = domain->sublo;
-  subhi = domain->subhi;
+  boxxy = domain->xy;
+  boxxz = domain->xz;
+  boxyz = domain->yz;
 
   next_reneighbor = update->ntimestep + nevery;
 
@@ -381,12 +589,22 @@ void FixGEMC::pre_exchange()
 
   for (int i = 0; i < nmoves; i++) {
     double imove = random_universe->uniform();
-    if (imove < pc_exchange)
-      attempt_atomic_exchange_full();
-    else if (imove < pc_volume)
+    if (imove < pc_exchange) {
+      if (molflag)
+        attempt_molecule_exchange_full();
+      else
+        attempt_atomic_exchange_full();
+    } else if (imove < pc_volume) {
       attempt_volume_change_full();
-    else
+    } else if (molflag) {
+      // translation or rotation, chosen independently in each box
+      if (random_world->uniform() < 0.5)
+        attempt_molecule_translation_full();
+      else
+        attempt_molecule_rotation_full();
+    } else {
       attempt_atomic_translation_full();
+    }
   }
 
   if (tune_every && (++ntune_calls % tune_every == 0)) tune_steps();
@@ -409,7 +627,7 @@ void FixGEMC::tune_steps()
   if (dtrans >= MINATTEMPTS) {
     double ratio = (ntranslation_successes - tune_last[1]) / dtrans;
     double factor = MIN(MAX(ratio / tune_trans, 0.5), 1.5);
-    double maxdisp = 0.5 * MIN(MIN(domain->xprd, domain->yprd), domain->zprd);
+    double maxdisp = 0.5 * min_box_width();
     if (local_flag) maxdisp = MIN(maxdisp, neighbor->skin);
     displace = MIN(displace * factor, maxdisp);
     displace = MAX(displace, 1.0e-6 * maxdisp);
@@ -425,6 +643,16 @@ void FixGEMC::tune_steps()
     max_dlogvolratio = MAX(max_dlogvolratio, 1.0e-6);
     tune_last[2] = nvolume_attempts;
     tune_last[3] = nvolume_successes;
+  }
+
+  double drot = nrotation_attempts - tune_last[4];
+  if (drot >= MINATTEMPTS) {
+    double ratio = (nrotation_successes - tune_last[5]) / drot;
+    double factor = MIN(MAX(ratio / tune_trans, 0.5), 1.5);
+    maxangle = MIN(maxangle * factor, MY_PI);
+    maxangle = MAX(maxangle, 1.0e-6);
+    tune_last[4] = nrotation_attempts;
+    tune_last[5] = nrotation_successes;
   }
 }
 
@@ -460,16 +688,17 @@ void FixGEMC::print_progress()
 
   double vol1 = voltot / (1.0 + exp(-logvolratio));
   double vol2 = voltot / (1.0 + exp(logvolratio));
-  int n1 = natom_total;
-  int n2 = n_other;
+  int n1 = natom_total / natoms_per_molecule;
+  int n2 = n_other / natoms_per_molecule;
 
-  auto msg = fmt::format(" GEMC run progress: {:>3d}% \n  Trans: {:g}/{:g}\n"
-                         "  Vol: {:g}/{:g}\n  Ex: {:g}/{:g}\n"
-                         "  Replica Volume Nparticles Number-density:\n"
-                         "   1: {:g} {:d} {:g}\n"
-                         "   2: {:g} {:d} {:g}\n",
-                         progress, d[0], d[1], d[2], d[3], d[4], d[5], vol1, n1, n1 / vol1, vol2,
-                         n2, n2 / vol2);
+  auto msg =
+      fmt::format(" GEMC run progress: {:>3d}% \n  Trans: {:g}/{:g}\n"
+                  "  Vol: {:g}/{:g}\n  Ex: {:g}/{:g}\n"
+                  "  Replica Volume N{} Number-density:\n"
+                  "   1: {:g} {:d} {:g}\n"
+                  "   2: {:g} {:d} {:g}\n",
+                  progress, d[0], d[1], d[2], d[3], d[4], d[5], molflag ? "molecules" : "particles",
+                  vol1, n1, n1 / vol1, vol2, n2, n2 / vol2);
   if (universe->uscreen) utils::print(universe->uscreen, msg);
   if (universe->ulogfile) utils::print(universe->ulogfile, msg);
 }
@@ -510,6 +739,23 @@ int FixGEMC::pick_random_gas_atom()
   if ((iwhichglobal >= natom_lower) && (iwhichglobal < natom_lower + natom_local))
     i = local_gas_list[iwhichglobal - natom_lower];
   return i;
+}
+
+/* ----------------------------------------------------------------------
+   return 1 if flag (valid on rank 0) is set in either box, on all ranks of both boxes
+------------------------------------------------------------------------- */
+
+int FixGEMC::any_box(int flag)
+{
+  int result = 0;
+  if (me == 0) {
+    int other;
+    MPI_Sendrecv(&flag, 1, MPI_INT, 1 - myworld, 0, &other, 1, MPI_INT, 1 - myworld, 0,
+                 comm_replica, MPI_STATUS_IGNORE);
+    result = (flag || other) ? 1 : 0;
+  }
+  MPI_Bcast(&result, 1, MPI_INT, 0, world);
+  return result;
 }
 
 /* ----------------------------------------------------------------------
@@ -555,10 +801,12 @@ void FixGEMC::reset_comm()
 
 void FixGEMC::refresh_ghosts()
 {
+  if (triclinic) domain->x2lamda(atom->nlocal);
   domain->pbc();
   comm->exchange();
   atom->nghost = 0;
   comm->borders();
+  if (triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
   ghosts_stale = 0;
   update_gas_atoms_list();
 }
@@ -572,8 +820,7 @@ void FixGEMC::refresh_ghosts()
 int FixGEMC::use_local()
 {
   if (!local_flag) return 0;
-  double cut = force->pair->cutforce;
-  if ((domain->xprd <= cut) || (domain->yprd <= cut) || (domain->zprd <= cut)) return 0;
+  if (min_box_width() <= force->pair->cutforce) return 0;
   if (ghosts_stale) refresh_ghosts();
   return 1;
 }
@@ -640,6 +887,15 @@ double FixGEMC::energy_full()
 
   if (force->pair) force->pair->compute(eflag, vflag);
 
+  if (atom->molecular != Atom::ATOMIC) {
+    if (force->bond) force->bond->compute(eflag, vflag);
+    if (force->angle) force->angle->compute(eflag, vflag);
+    if (force->dihedral) force->dihedral->compute(eflag, vflag);
+    if (force->improper) force->improper->compute(eflag, vflag);
+  }
+
+  if (force->kspace) force->kspace->compute(eflag, vflag);
+
   if (modify->n_post_force_any) modify->post_force(vflag);
 
   // NOTE: all fixes with energy_global_flag set and which
@@ -658,7 +914,7 @@ double FixGEMC::energy_full()
 void FixGEMC::write_restart(FILE *fp)
 {
   int n = 0;
-  double list[12];
+  double list[14];
   list[n++] = -RESTART_VERSION;
   list[n++] = random_proc->state();
   list[n++] = random_world->state();
@@ -670,6 +926,8 @@ void FixGEMC::write_restart(FILE *fp)
   list[n++] = nexchange_successes;
   list[n++] = nvolume_attempts;
   list[n++] = nvolume_successes;
+  list[n++] = nrotation_attempts;
+  list[n++] = nrotation_successes;
   list[n++] = ubuf(update->ntimestep).d;
 
   if (comm->me == 0) {
@@ -691,6 +949,7 @@ void FixGEMC::restart(char *buf)
   auto *list = (double *) buf;
 
   int oldformat = (list[0] > 0.0);
+  int version = oldformat ? 1 : static_cast<int>(-list[0]);
   if (!oldformat) n++;
 
   // only the state of rank 0 was saved, so give each rank a distinct stream
@@ -709,6 +968,10 @@ void FixGEMC::restart(char *buf)
   nexchange_successes = list[n++];
   nvolume_attempts = list[n++];
   nvolume_successes = list[n++];
+  if (version >= 3) {
+    nrotation_attempts = list[n++];
+    nrotation_successes = list[n++];
+  }
 
   bigint ntimestep_restart = (bigint) ubuf(list[n++]).i;
   if (ntimestep_restart != update->ntimestep)
@@ -729,5 +992,238 @@ double FixGEMC::compute_vector(int n)
   if (n == 5) return nvolume_successes;
   if (n == 6) return displace;
   if (n == 7) return max_dlogvolratio;
+  if (n == 8) return nrotation_attempts;
+  if (n == 9) return nrotation_successes;
+  if (n == 10) return maxangle / DEG2RAD;
   return 0.0;
+}
+
+/* ----------------------------------------------------------------------
+   volume of the box (also for triclinic boxes)
+------------------------------------------------------------------------- */
+
+double FixGEMC::box_volume()
+{
+  return domain->xprd * domain->yprd * domain->zprd;
+}
+
+/* ----------------------------------------------------------------------
+   smallest distance between opposite faces of the box
+------------------------------------------------------------------------- */
+
+double FixGEMC::min_box_width()
+{
+  if (!triclinic) return MIN(MIN(domain->xprd, domain->yprd), domain->zprd);
+
+  // rows of the inverse box matrix are normal to the box faces,
+  // their lengths are the inverse face distances
+
+  double *h_inv = domain->h_inv;
+  double wx = 1.0 / sqrt(h_inv[0] * h_inv[0] + h_inv[5] * h_inv[5] + h_inv[4] * h_inv[4]);
+  double wy = 1.0 / sqrt(h_inv[1] * h_inv[1] + h_inv[3] * h_inv[3]);
+  double wz = 1.0 / h_inv[2];
+  return MIN(MIN(wx, wy), wz);
+}
+
+/* ----------------------------------------------------------------------
+   uniformly distributed random point in my box, identical on all ranks of the box
+------------------------------------------------------------------------- */
+
+void FixGEMC::random_point(double *coord)
+{
+  double lamda[3];
+  lamda[0] = random_world->uniform();
+  lamda[1] = random_world->uniform();
+  lamda[2] = random_world->uniform();
+  domain->lamda2x(lamda, coord);
+  domain->remap(coord);
+}
+
+/* ----------------------------------------------------------------------
+   1 if a point inside the box belongs to the subdomain of this rank
+------------------------------------------------------------------------- */
+
+int FixGEMC::owns(double *coord)
+{
+  double *lo, *hi;
+  double c[3];
+  if (triclinic) {
+    domain->x2lamda(coord, c);
+    lo = domain->sublo_lamda;
+    hi = domain->subhi_lamda;
+
+    // round-off may place a point just outside the unit cube
+
+    for (int k = 0; k < 3; k++) {
+      if (c[k] >= 1.0) c[k] -= 1.0;
+      if (c[k] < 0.0) c[k] += 1.0;
+      if (c[k] >= 1.0) c[k] = 0.0;
+    }
+  } else {
+    c[0] = coord[0];
+    c[1] = coord[1];
+    c[2] = coord[2];
+    lo = domain->sublo;
+    hi = domain->subhi;
+  }
+  return (c[0] >= lo[0]) && (c[0] < hi[0]) && (c[1] >= lo[1]) && (c[1] < hi[1]) &&
+      (c[2] >= lo[2]) && (c[2] < hi[2]);
+}
+
+/* ----------------------------------------------------------------------
+   update after atoms were added or removed or charges changed
+   ghost atoms are rebuilt by the next energy_full() or use_local()
+------------------------------------------------------------------------- */
+
+void FixGEMC::changed_atoms()
+{
+  // new or restored atoms were appended after the owned atoms and have
+  // overwritten ghost atoms, so the ghost atoms are invalid until rebuilt
+
+  atom->nghost = 0;
+  ghosts_stale = 1;
+  if (atom->map_style != Atom::MAP_NONE) atom->map_init();
+  if (force->kspace) force->kspace->qsum_qsq();
+  if (force->pair && force->pair->tail_flag) force->pair->reinit();
+}
+
+/* ----------------------------------------------------------------------
+   set box to lower corner lo (unchanged) with given upper bounds and tilts
+------------------------------------------------------------------------- */
+
+void FixGEMC::set_box(double xhi_new, double yhi_new, double zhi_new, double xy_new, double xz_new,
+                      double yz_new)
+{
+  domain->boxhi[0] = xhi_new;
+  domain->boxhi[1] = yhi_new;
+  domain->boxhi[2] = zhi_new;
+  if (triclinic) {
+    domain->xy = xy_new;
+    domain->xz = xz_new;
+    domain->yz = yz_new;
+  }
+  domain->set_global_box();
+  domain->set_local_box();
+  comm->setup();
+  if (neighbor->style) neighbor->setup_bins();
+  if (force->kspace) force->kspace->setup();
+}
+
+/* ----------------------------------------------------------------------
+   scale positions for a change of all box lengths by factor s about the
+   lower box corner lo, before the box itself is changed.
+   atoms that belong to a molecule are displaced together with the center of
+   mass of their molecule, so molecules are not deformed:
+     unwrapped x += (s-1) (xcm - lo)
+   for the wrapped coordinate x of an atom with unwrapped coordinate xu
+   this is x += (s-1) (x + xcm - xu - lo).  atoms without a molecule ID
+   are scaled individually, x += (s-1) (x - lo).
+   returns the number of independent units (molecules plus single atoms).
+   if check is set and the scaled box would be narrower than twice the largest
+   molecule, nothing is changed and -1 is returned in both boxes, since bonded
+   interactions use the closest periodic image of bond partners.
+   must be called at the same time in both boxes if check is set.
+------------------------------------------------------------------------- */
+
+bigint FixGEMC::scale_positions(double s, int check)
+{
+  int nlocal = atom->nlocal;
+  double **x = atom->x;
+  imageint *image = atom->image;
+  tagint *molecule = atom->molecule;
+  int *type = atom->type;
+  double *mass = atom->mass;
+  double *rmass = atom->rmass;
+  double *lo = domain->boxlo;
+  double sm1 = s - 1.0;
+
+  // centers of mass of all molecules with atoms on this rank, from all ranks
+
+  std::map<tagint, std::array<double, 4>> com;
+  bigint nfree = 0;
+  if (molecule) {
+    std::map<tagint, std::array<double, 4>> partial;
+    double xu[3];
+    for (int i = 0; i < nlocal; i++) {
+      if (molecule[i] <= 0) continue;
+      double m = rmass ? rmass[i] : mass[type[i]];
+      domain->unmap(x[i], image[i], xu);
+      auto &p = partial[molecule[i]];
+      p[0] += m;
+      p[1] += m * xu[0];
+      p[2] += m * xu[1];
+      p[3] += m * xu[2];
+    }
+    std::vector<double> mine;
+    mine.reserve(5 * partial.size());
+    for (const auto &p : partial) {
+      mine.push_back(ubuf(p.first).d);
+      for (int k = 0; k < 4; k++) mine.push_back(p.second[k]);
+    }
+    int nprocs = comm->nprocs;
+    std::vector<int> counts(nprocs), displs(nprocs);
+    int nsend = mine.size();
+    MPI_Allgather(&nsend, 1, MPI_INT, counts.data(), 1, MPI_INT, world);
+    int ntotal = 0;
+    for (int iproc = 0; iproc < nprocs; iproc++) {
+      displs[iproc] = ntotal;
+      ntotal += counts[iproc];
+    }
+    std::vector<double> all(ntotal + 1);
+    MPI_Allgatherv(mine.data(), nsend, MPI_DOUBLE, all.data(), counts.data(), displs.data(),
+                   MPI_DOUBLE, world);
+    for (int k = 0; k < ntotal; k += 5) {
+      auto &c = com[(tagint) ubuf(all[k]).i];
+      for (int n = 0; n < 4; n++) c[n] += all[k + 1 + n];
+    }
+    for (auto &c : com) {
+      c.second[1] /= c.second[0];
+      c.second[2] /= c.second[0];
+      c.second[3] /= c.second[0];
+    }
+    for (int i = 0; i < nlocal; i++)
+      if (molecule[i] <= 0) nfree++;
+  } else {
+    nfree = nlocal;
+  }
+  bigint nfree_all;
+  MPI_Allreduce(&nfree, &nfree_all, 1, MPI_LMP_BIGINT, MPI_SUM, world);
+
+  // largest distance of an atom from the center of mass of its molecule
+
+  if (check) {
+    double rmax = 0.0;
+    if (molecule) {
+      double xu[3];
+      for (int i = 0; i < nlocal; i++) {
+        if (molecule[i] <= 0) continue;
+        const auto &c = com[molecule[i]];
+        domain->unmap(x[i], image[i], xu);
+        double dx = xu[0] - c[1];
+        double dy = xu[1] - c[2];
+        double dz = xu[2] - c[3];
+        rmax = MAX(rmax, dx * dx + dy * dy + dz * dz);
+      }
+    }
+    double rmax_all;
+    MPI_Allreduce(&rmax, &rmax_all, 1, MPI_DOUBLE, MPI_MAX, world);
+    if (any_box(min_box_width() * s <= 4.0 * sqrt(rmax_all))) return -1;
+  }
+
+  double xu[3];
+  for (int i = 0; i < nlocal; i++) {
+    if (molecule && (molecule[i] > 0)) {
+      const auto &c = com[molecule[i]];
+      domain->unmap(x[i], image[i], xu);
+      x[i][0] += sm1 * (x[i][0] + c[1] - xu[0] - lo[0]);
+      x[i][1] += sm1 * (x[i][1] + c[2] - xu[1] - lo[1]);
+      x[i][2] += sm1 * (x[i][2] + c[3] - xu[2] - lo[2]);
+    } else {
+      x[i][0] += sm1 * (x[i][0] - lo[0]);
+      x[i][1] += sm1 * (x[i][1] - lo[1]);
+      x[i][2] += sm1 * (x[i][2] - lo[2]);
+    }
+  }
+
+  return nfree_all + (bigint) com.size();
 }

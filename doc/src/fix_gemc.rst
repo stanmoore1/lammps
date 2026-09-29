@@ -13,22 +13,25 @@ Syntax
 * ID, group-ID are documented in :doc:`fix <fix>` command
 * gemc = style name of this fix command
 * N = invoke this fix every N steps
-* M = average number of atom translations to attempt every N steps
-* X = average number of atom exchanges between the two boxes to attempt every N steps
+* M = average number of translations (and rotations of molecules) to attempt every N steps
+* X = average number of atom or molecule exchanges between the two boxes to attempt every N steps
 * V = average number of volume exchanges between the two boxes to attempt every N steps
 * T = temperature of the Gibbs ensemble (temperature units)
 * displace = maximum Monte Carlo translation distance (distance units)
 * maxdlogvolratio = maximum change of ln(V1/V2) in a volume exchange (unitless)
 * seed = random # seed (positive integer)
 * zero or more keywords may be appended
-* keyword = *full_energy* or *tune*
+* keyword = *full_energy* or *tune* or *mol* or *maxangle*
 
   .. parsed-literal::
 
        *full_energy* = compute the full energy of the system for every move
+       *mol* value = template-ID
+         template-ID = ID of molecule template specified in a separate :doc:`molecule <molecule>` command
+       *maxangle* value = maximum rotation angle of molecules (degrees)
        *tune* values = Nt Atrans Avol
          Nt = adjust step sizes every Nt invocations of this fix
-         Atrans = target acceptance ratio of translations (0 < Atrans < 1)
+         Atrans = target acceptance ratio of translations and rotations (0 < Atrans < 1)
          Avol = target acceptance ratio of volume exchanges (0 < Avol < 1)
 
 Examples
@@ -39,6 +42,7 @@ Examples
    fix 1 all gemc 1 100 20 2 0.9 0.3 0.05 29494
    fix mc all gemc 10 1000 200 10 120.0 1.0 0.1 4711 full_energy
    fix mc all gemc 1 100 100 2 0.9 0.1 0.1 29494 tune 20 0.4 0.4
+   fix mc all gemc 1 100 100 2 250.0 0.5 0.1 4711 mol co2mol maxangle 30
 
 Description
 """""""""""
@@ -87,9 +91,9 @@ move at the same time:
 * An *exchange* removes a randomly chosen atom of the fix group from one
   box, the donor box, and inserts it at a random position in the other
   box.  The donor box is chosen randomly with equal probability.  The
-  inserted atom keeps the atom type and group membership of the removed
-  atom and gets a velocity drawn from a Maxwell-Boltzmann distribution
-  at temperature *T*.  The move is accepted with probability
+  inserted atom keeps the atom type, charge, group membership, and
+  velocity of the removed atom, so that time integration continues
+  consistently in hybrid MD/MC simulations.  The move is accepted with probability
 
   .. math::
 
@@ -104,7 +108,7 @@ move at the same time:
   between -*maxdlogvolratio* and +*maxdlogvolratio* while keeping the
   total volume :math:`V_1+V_2` constant.  Each box is scaled
   uniformly with its lower corner kept fixed, and all atom coordinates
-  are scaled with it.  The move is accepted with probability
+  are scaled with it (for molecules, see below).  The move is accepted with probability
 
   .. math::
 
@@ -122,7 +126,67 @@ Atoms that are not in the fix group are never translated or
 exchanged, but they interact with the other atoms and are scaled by
 volume moves.  Different atom types can be used, e.g. to study the
 coexistence of a mixture; the exchange move then transfers the type
-of the randomly chosen atom.
+and charge of the randomly chosen atom.
+
+.. versionadded:: TBD
+
+**Molecules:** With the *mol* keyword, the fix moves and exchanges whole
+molecules instead of atoms.  All atoms of the fix group must then belong
+to molecules that are copies of the molecule template given by
+*template-ID*: each molecule must have the same number of atoms with the
+same atom types as the template, and consecutive atom IDs in the order
+of the template atoms.  This is the case for molecules created with the
+:doc:`create_atoms <create_atoms>` command using the same template, and
+for all molecules inserted by this fix.  The template provides the
+bond topology of inserted molecules; the atom style must allow it, and
+enough space for bonds, angles, and special neighbors must be reserved,
+e.g. with the *extra/special/per/atom* keyword of :doc:`create_box
+<create_box>` or :doc:`read_data <read_data>`.  With molecules:
+
+* Each translation move is, with equal probability, a translation of a
+  randomly chosen molecule by a random displacement inside a sphere of
+  radius *displace*, or a rotation of a randomly chosen molecule about
+  its center of mass around a random axis by a random angle between
+  -*maxangle* and +*maxangle*.  The default *maxangle* is 30 degrees.
+  These are rigid-body moves; to sample the internal degrees of
+  freedom of flexible molecules, combine the fix with time integration
+  (see below).
+
+* An exchange removes a randomly chosen molecule from the donor box and
+  inserts it with a random orientation at a random position in the
+  other box.  The inserted molecule keeps the conformation, the charges,
+  the group membership, and the velocities (rotated with the molecule)
+  of its atoms, so the move is also correct for flexible molecules.  The acceptance probability is the one given
+  above, with :math:`N` the number of molecules.
+
+* A volume exchange moves the center of mass of each molecule with the
+  box, while the shape of the molecules is not changed.  :math:`N` in
+  the acceptance probability is the number of molecules plus the number
+  of atoms that do not belong to a molecule.  Since bonded interactions
+  use the closest periodic image of bond partners, volume exchanges
+  that would make a box narrower than twice the size of its largest
+  molecule are rejected.  This applies to all systems with molecule IDs,
+  also without the *mol* keyword.
+
+Moves of molecules always use the total energy of the system, see
+below, including the bonded interactions.
+
+.. versionadded:: TBD
+
+**Charges:** Charged atoms and molecules, and long-range solvers set
+with :doc:`kspace_style <kspace_style>`, are supported.  With a
+long-range solver, the total energy is computed for all moves.  An
+exchange moves the charge of an atom or of the atoms of a molecule from
+one box to the other box.  If the exchanged atoms or molecules carry a
+net charge, the boxes are not charge neutral, and the fix prints a
+warning.  For physically meaningful results, exchange only neutral
+molecules, or neutral atoms.
+
+.. versionadded:: TBD
+
+**Triclinic boxes:** The boxes may be triclinic.  A volume exchange
+scales the box lengths and tilt factors by the same factor, so the box
+shape does not change.
 
 Choosing the parameters: *displace* is usually chosen so that roughly
 30% to 50% of the translations in the liquid box are accepted, and
@@ -135,18 +199,20 @@ counts are available as output of this fix, see below.
 
 .. versionadded:: TBD
 
-The *tune* keyword adjusts *displace* and *maxdlogvolratio* during the
-run.  Every *Nt* invocations of the fix, the acceptance ratio of the
-translations and volume exchanges attempted since the last adjustment
-is compared to the targets *Atrans* and *Avol*, and the step size is
-multiplied by the ratio of the measured to the target acceptance
-ratio, limited to the range 0.5 to 1.5.  The maximum displacement is
+The *tune* keyword adjusts *displace*, *maxdlogvolratio*, and, for
+molecules, *maxangle* during the run.  Every *Nt* invocations of the
+fix, the acceptance ratio of the translations, rotations, and volume
+exchanges attempted since the last adjustment is compared to the
+targets *Atrans* and *Avol*, and the step size is multiplied by the
+ratio of the measured to the target acceptance ratio, limited to the
+range 0.5 to 1.5.  The maximum displacement and rotation angle are
 adjusted separately for each box, since the vapor box accepts much
-larger displacements than the liquid box.  It is limited to half the
-shortest box edge and, when single-atom energies are used (see below),
-to the neighbor skin distance.  The maximum change of ln(V1/V2) is
-limited to 1.0.  An adjustment is only made after at least 20 moves of
-the respective kind were attempted.
+larger moves than the liquid box.  The displacement is limited to half
+the smallest box width and, when single-atom energies are used (see
+below), to the neighbor skin distance.  The maximum change of
+ln(V1/V2) is limited to 1.0, and the maximum rotation angle to 180
+degrees.  An adjustment is only made after at least 20 moves of the
+respective kind were attempted.
 
 .. note::
 
@@ -154,7 +220,7 @@ the respective kind were attempted.
    violates detailed balance, so the *tune* keyword should only be used
    during equilibration.  For the production run, re-define the fix
    without the *tune* keyword using the adjusted step sizes, which are
-   available as elements 7 and 8 of the output vector.  Since the
+   available as elements 7, 8, and 11 of the output vector.  Since the
    maximum displacement differs between the boxes, it can be passed
    through a variable that is evaluated in each partition:
 
@@ -196,9 +262,11 @@ supports the *single()* function, is not a many-body potential, does
 not use :doc:`pair_modify tail yes <pair_modify>`, and when no fix
 contributes to the potential energy and *displace* is not larger than
 the neighbor skin distance set by the :doc:`neighbor <neighbor>`
-command.  If any of these conditions is not met, a warning is printed
-and the total energy is computed for every move.  The same is done for
-a move in a box whose edge length is smaller than the pair cutoff.
+command, and when no molecules are exchanged (*mol* keyword), the
+exchanged atoms are not charged, and no long-range solver is used.  If any of these conditions is not met, a
+warning is printed and the total energy is computed for every move.  The
+same is done for a move in a box whose width is smaller than the pair
+cutoff.
 Volume moves always compute the total energy.  The *full_energy*
 keyword requests that the total energy is computed for all moves.
 
@@ -247,7 +315,7 @@ fix.
 
 .. versionchanged:: TBD
 
-This fix computes a global vector of length 8, which can be accessed by
+This fix computes a global vector of length 11, which can be accessed by
 various :doc:`output commands <Howto_output>`, e.g. as *f_ID[1]* in
 the :doc:`thermo_style <thermo_style>` command.  The vector values are
 the following cumulative counts and current settings for the box of the
@@ -261,6 +329,11 @@ partition where they are accessed:
   #. volume change successes
   #. current maximum translation distance *displace* of this box
   #. current maximum change of ln(V1/V2) *maxdlogvolratio*
+  #. rotation attempts (molecules only)
+  #. rotation successes (molecules only)
+  #. current maximum rotation angle *maxangle* of this box (degrees)
+
+The translation counts include only translations, not rotations.
 
 The vector values calculated by this fix are "intensive".
 
@@ -275,12 +348,23 @@ This fix is part of the MC package.  It is only enabled if LAMMPS was
 built with that package.  See the :doc:`Build package <Build_package>`
 doc page for more info.
 
-This fix requires exactly two partitions, a 3d simulation with an
-orthogonal box that is periodic in all three dimensions, and atom IDs.
+This fix requires exactly two partitions, a 3d simulation with a box
+that is periodic in all three dimensions, and atom IDs.  Atom styles with per-atom masses are not supported.
 
-This fix currently supports only individual atoms.  Molecules, charged
-atoms, and long-range solvers (:doc:`kspace_style <kspace_style>`)
-are not supported.
+With the *mol* keyword, only molecules of a single kind (one molecule
+template) can be moved and exchanged.  Atom style *template* is not
+supported.  Constraints with :doc:`fix rigid <fix_rigid>`, :doc:`fix
+shake <fix_shake>`, or :doc:`fix rattle <fix_shake>` are not supported;
+molecules stay rigid in pure MC simulations, since all their moves are
+rigid-body moves.
+
+Inserted atoms and molecules get new atom and molecule IDs, and the IDs
+of removed ones are not reused, so the largest ID keeps growing during a
+long simulation.  This increases the memory used by the atom map, and
+the IDs may eventually exceed the maximum allowed value.  Use
+:doc:`atom_modify map hash <atom_modify>` to limit the memory use.
+When atoms (not molecules) are exchanged, the :doc:`reset_atoms id
+<reset_atoms>` command can be used between runs to compress the IDs.
 
 Do not set :doc:`neigh_modify once yes <neigh_modify>` or else this fix
 will never be called.  Reneighboring is **required**.
@@ -301,7 +385,8 @@ Defaults
 
 By default, single-atom energies are used when possible, i.e. the
 *full_energy* keyword is not set, and the step sizes are not adjusted,
-i.e. the *tune* keyword is not set.
+i.e. the *tune* keyword is not set.  Atoms are exchanged (no *mol*
+keyword), and maxangle = 30 degrees.
 
 ----------
 

@@ -231,13 +231,66 @@ needed much less often.  Additional tips:
 * Give the liquid box more MPI processes than the vapor box.  Very small
   systems (a few hundred atoms) run fastest on one process per box.
 
+Molecular fluids
+----------------
+
+With the *mol* keyword of :doc:`fix gemc <fix_gemc>`, whole molecules
+are moved and exchanged.  The example ``examples/mc/in.gemc.co2``
+computes the vapor-liquid coexistence of carbon dioxide with the TraPPE
+model :ref:`(Potoff) <Potoff1>`: rigid linear molecules with partial
+charges, computed with a long-range solver.  The molecules are created
+from a molecule template, which is also given to the fix:
+
+.. code-block:: LAMMPS
+
+   molecule        co2mol CO2.txt
+   create_atoms    0 random ${N} 7771 NULL mol co2mol 464563 overlap 3.0 maxtry 1000
+   ...
+   fix             mc all gemc 1 50 100 2 ${T} 0.5 0.1 7771 &
+                   mol co2mol maxangle 30 tune 20 0.4 0.4
+
+The translation moves are now translations and rotations of whole
+molecules, and volume exchanges move the molecule centers, so the
+molecules stay rigid in a pure MC simulation even though the bond and
+angle force constants are zero.  Flexible molecules can be simulated
+by combining the fix with time integration, which samples the internal
+degrees of freedom; an exchanged molecule keeps its conformation and
+velocities.  Since every move of a molecule requires the total energy
+of the box, molecular simulations are much more expensive than atomic
+ones.  Give the liquid box most of the processors.
+
+The *tune* keyword adjusts the maximum displacement, rotation angle,
+and volume change during the equilibration run; the example then
+re-defines the fix with the adjusted values for the production run.
+
+The following table compares the result of a run with 256 molecules
+(3000 equilibration and 12000 production cycles) at 250 K to the
+experimental saturated densities :ref:`(NIST) <NIST1>`, which the TraPPE
+model reproduces closely:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 20
+
+   * -
+     - vapor (g/cm\ :sup:`3`)
+     - liquid (g/cm\ :sup:`3`)
+   * - GEMC, TraPPE
+     - CO2RESULTV
+     - CO2RESULTL
+   * - Experiment
+     - 0.0466
+     - 1.046
+
 Restrictions
 ------------
 
-Fix gemc currently supports single atoms (no molecules), orthogonal
-periodic boxes in 3d, and interactions without charges or long-range
-solvers.  Atoms of different types can be exchanged, so the
-coexistence of simple mixtures can be computed as well.
+Fix gemc supports single atoms and, with the *mol* keyword, molecules
+of a single kind.  Atoms of different types can be exchanged, so the
+coexistence of simple mixtures of atoms can be computed as well.
+Orthogonal and triclinic periodic boxes in 3d, charges, and long-range
+solvers are supported.  Constraints (fix rigid, fix shake) are not
+supported.
 
 ----------
 
@@ -249,6 +302,16 @@ coexistence of simple mixtures can be computed as well.
 
 **(Frenkel)** Frenkel and Smit, Understanding Molecular Simulation,
 3rd edition, Academic Press, London, 2023.
+
+.. _Potoff1:
+
+**(Potoff)** Potoff and Siepmann, AIChE J, 47, 1676-1682 (2001).
+
+.. _NIST1:
+
+**(NIST)** Lemmon, McLinden, and Friend, "Thermophysical Properties of
+Fluid Systems" in NIST Chemistry WebBook, NIST Standard Reference
+Database Number 69, https://webbook.nist.gov
 
 .. _Thol1:
 
