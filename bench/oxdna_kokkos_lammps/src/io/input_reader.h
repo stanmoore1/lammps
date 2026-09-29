@@ -24,8 +24,14 @@
 //   timing             0|1  (Kokkos-specific: per-kernel timing breakdown)
 //   lammps_overhead    0|1  (model LAMMPS framework overheads, see README)
 //   fuse_hbond_xstk    0|1  (bench-only fused hbond+xstk kernel)
-//   lammps_coaxstk_terminal 0|1 (oxDNA2/oxDNA3: LAMMPS-only terminal-nucleotide
+//   lammps_coaxstk_terminal 0|1 (oxDNA1/2/3: LAMMPS-only terminal-nucleotide
 //                      coaxial stacking + blunt-end theta4 lobe; changes energies)
+//   lammps_tables, lammps_ghosts  0|1 (default: = lammps_overhead)
+//   lammps_cutoff      0|1  (LAMMPS neighbor-list radius; can change energies)
+//   comm_cutoff        LAMMPS comm_modify cutoff (ghost cutoff; 0 = list radius)
+//   neigh_every, neigh_check   LAMMPS neigh_modify every / check (ghost mode)
+//   lammps_integrator  0|1  (fix nve/asphere/kk, ghost mode; changes the dynamics)
+//   lammps_mass, lammps_shape  rmass and ellipsoid radii for lammps_integrator
 
 #include "../simulation.h"
 #include <fstream>
@@ -232,4 +238,14 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
     if (has("lammps_overhead")) { std::string v = str("lammps_overhead"); cfg.lammps_overhead = (v=="1"||v=="yes"||v=="true"||v=="on"); }
     if (has("fuse_hbond_xstk")) { std::string v = str("fuse_hbond_xstk"); cfg.fuse_hbxstk = (v=="1"||v=="yes"||v=="true"||v=="on"); }
     if (has("lammps_coaxstk_terminal")) { std::string v = inp_detail::lower(str("lammps_coaxstk_terminal")); cfg.coaxstk_terminal = (v=="1"||v=="yes"||v=="true"||v=="on"); }
+    // LAMMPS-fidelity switches (README "Fidelity to LAMMPS KOKKOS")
+    if (has("lammps_tables"))     cfg.lammps_tables = boolean("lammps_tables") ? 1 : 0;
+    if (has("lammps_ghosts"))     cfg.lammps_ghosts = boolean("lammps_ghosts") ? 1 : 0;
+    if (has("lammps_cutoff"))     cfg.lammps_cutoff = boolean("lammps_cutoff");
+    if (has("comm_cutoff"))       cfg.comm_cutoff = num("comm_cutoff");
+    if (has("lammps_integrator")) cfg.lammps_integrator = boolean("lammps_integrator");
+    if (has("lammps_mass"))       cfg.lammps_mass = num("lammps_mass");
+    if (has("lammps_shape"))      cfg.lammps_shape = num("lammps_shape");
+    if (has("neigh_every"))       cfg.neigh_every = static_cast<int>(num("neigh_every"));
+    if (has("neigh_check"))       cfg.neigh_check = boolean("neigh_check");
 }

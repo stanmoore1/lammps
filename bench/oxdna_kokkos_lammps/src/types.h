@@ -90,12 +90,20 @@ using OxdnaRangePolicy = Kokkos::RangePolicy<>;
 // Box: periodic boundary conditions (orthogonal)
 struct SimBox {
     c_number Lx, Ly, Lz;
+    // Minimum-image convention for pair separations. The lean path keeps it
+    // on (N atoms, positions folded into the box every step). The LAMMPS
+    // ghost-atom path (lammps_ghosts) turns it off: every pair/bond then
+    // references the periodic image it interacts with (a ghost atom or the
+    // closest image of a bond partner), so separations are plain differences
+    // as in LAMMPS and wrap() is a no-op.
+    bool min_image = true;
 
     KOKKOS_INLINE_FUNCTION c_number Lx_half() const { return Lx * 0.5; }
     KOKKOS_INLINE_FUNCTION c_number Ly_half() const { return Ly * 0.5; }
     KOKKOS_INLINE_FUNCTION c_number Lz_half() const { return Lz * 0.5; }
 
     KOKKOS_INLINE_FUNCTION void wrap(c_number &dx, c_number &dy, c_number &dz) const {
+        if (!min_image) return;
         if (dx >  Lx_half()) dx -= Lx;
         if (dx < -Lx_half()) dx += Lx;
         if (dy >  Ly_half()) dy -= Ly;

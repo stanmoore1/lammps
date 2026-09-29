@@ -2,6 +2,8 @@
 
 #include "types.h"
 #include "forces/params.h"
+#include "forces/tables.h"
+#include <cstring>
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
 
@@ -54,11 +56,26 @@ struct ParticleArrays {
     Kokkos::View<c_number *> qeff;
     int qeff_mode = -1;
 
-    // LAMMPS-style bond list (neighbor->bondlist): one entry per bond, built
-    // once from the topology. Column 0 = 5' end (the atom whose n3 is set),
-    // column 1 = its 3' neighbour. Used by the lammps_overhead per-bond kernels.
-    Kokkos::View<int *[2]> bondlist;
+    // LAMMPS-style bond list (neighbor->bondlist): one entry per bond:
+    // column 0 = the atom that stores the bond (its 5' end: the atom whose n3
+    // is set), column 1 = its 3' partner, column 2 = bond type (1). Built once
+    // from the topology (minimum-image mode), or on every neighbor-list
+    // rebuild by NeighBond bond_all with the closest image of the partner
+    // (lammps_ghosts). Used by the lammps_overhead per-bond kernels.
+    Kokkos::View<int **, Kokkos::LayoutRight> bondlist;
     int nbonds = 0;
+
+    // atom->map_array (tag -> local index; identity without ghosts) and
+    // atom->sametag (next image of the same tag, -1 = none); the prime-neighbor
+    // precomputes resolve the 3'/5' flank tags through the map as LAMMPS does
+    Kokkos::View<int *> map_array, sametag;
+
+    // lammps_tables: per-type coefficient tables (oxDNA1/2 kernels), built by
+    // ensure_tables() from the DNAParams they were last filled with
+    bool use_tables = false;
+    OxdnaTables tab;
+    DNAParams tab_key{};
+    bool tab_key_valid = false;
 
     // LAMMPS fix OXDNA/PRIME_NEIGHS bond table (d_prime_neighs_bond, t_int_1d_4,
     // LayoutLeft on GPU): per bond (a, b, a3p, b5p) with a = 3' end, b = 5' end,
@@ -88,11 +105,44 @@ struct ParticleArrays {
     Kokkos::View<int>                  overstretch_flag;
     Kokkos::View<int>::host_mirror_type overstretch_flag_host;
 
+    // LAMMPS ghost-atom mode (lammps_ghosts): per-atom data of the periodic
+    // images within the ghost cutoff live after the N local atoms, as in
+    // LAMMPS (indices N .. N+nghost-1). The arrays that ghosts need (x, the
+    // bonus quaternion, the LRF frames, f/torque, type, id3p/id5p, qeff, tag,
+    // ...) are sized nmax >= N + nghost; velocities and angular momenta stay
+    // local. nghost = 0 and nmax = N in the lean / minimum-image mode.
+    int nghost = 0;
+    int nmax   = 0;
+
+    // LAMMPS atom->tag (here: the index of the owning local atom, tag - 1):
+    // tag(i) = i for local atoms, tag(ghost) = its owner.
+    Kokkos::View<int *> tag;
+    // atom->ellipsoid: index of the atom's bonus entry (shape, quat). The
+    // quaternions are the bonus data (orientations), so ellipsoid(i) = i; the
+    // LAMMPS-mode kernels (LRF, comm, integrator) read it as LAMMPS does.
+    Kokkos::View<int *> ellipsoid;
+    // bonus shape (constant; carried by the border communication only)
+    Vec4 shape;
+    // atom->mask / atom->molecule (border communication traffic only)
+    Kokkos::View<int *> mask, molecule;
+    // image flags of the local atoms (updated by the rebuild-step pbc())
+    Kokkos::View<int *[3], Kokkos::LayoutRight> image;
+    // atom->num_bond / bond_atom (newton_bond on: each bond stored once, on
+    // its 5' atom, partner = tag of the 3' atom). NeighBond bond_all builds
+    // the bond list from these on every neighbor-list rebuild.
+    Kokkos::View<int *> num_bond;
+    Kokkos::View<int **, Kokkos::LayoutRight> bond_atom;
+    // rmass (LAMMPS ellipsoid atoms carry a per-atom mass; border traffic
+    // and the optional nve/asphere integrator)
+    Kokkos::View<c_number *> rmass;
+
     // Number of particles
     int N = 0;
 
     void allocate(int n) {
         N = n;
+        nmax = n;
+        nghost = 0;
         poss        = Vec4("poss",        n);
         vels        = Vec4("vels",        n);
         Ls          = Vec4("Ls",          n);
@@ -111,7 +161,51 @@ struct ParticleArrays {
         Kokkos::deep_copy(tetramer_tbl, c_number(1));
         overstretch_flag      = Kokkos::View<int>("overstretch_flag");
         overstretch_flag_host = Kokkos::create_mirror_view(overstretch_flag);
+        tag         = Kokkos::View<int *>("tag", n);
+        ellipsoid   = Kokkos::View<int *>("ellipsoid", n);
+        shape       = Vec4("shape", n);
+        mask        = Kokkos::View<int *>("mask", n);
+        molecule    = Kokkos::View<int *>("molecule", n);
+        image       = Kokkos::View<int *[3], Kokkos::LayoutRight>("image", n);
+        num_bond    = Kokkos::View<int *>("num_bond", n);
+        bond_atom   = Kokkos::View<int **, Kokkos::LayoutRight>("bond_atom", n, 1);
+        rmass       = Kokkos::View<c_number *>("rmass", n);
+        map_array   = Kokkos::View<int *>("atom:map_array", n);
+        sametag     = Kokkos::View<int *>("atom:sametag", n);
+        auto tg = tag, el = ellipsoid, mk = mask; auto sh = shape; auto rm = rmass;
+        auto mp = map_array, stg = sametag;
+        Kokkos::parallel_for("atom_init", n, KOKKOS_LAMBDA(int i) {
+            tg(i) = i; el(i) = i; mk(i) = 1; mp(i) = i; stg(i) = -1;
+            sh(i,0) = sh(i,1) = sh(i,2) = c_number(1); sh(i,3) = 0;
+            rm(i) = c_number(1);
+        });
     }
+
+    // Set the LAMMPS topology arrays (num_bond / bond_atom) from bonds():
+    // each bond is stored on its 5' atom (the one whose n3 is set).
+    void init_topology_arrays() {
+        auto b = bonds; auto nb = num_bond; auto ba = bond_atom;
+        Kokkos::parallel_for("atom_init_bonds", N, KOKKOS_LAMBDA(int i) {
+            nb(i) = (b(i).n3 >= 0) ? 1 : 0;
+            ba(i, 0) = b(i).n3;
+        });
+    }
+
+    // Grow the per-atom arrays that hold ghost atoms to n entries, keeping the
+    // local data (LAMMPS AtomVec::grow).
+    void grow(int n) {
+        if (n <= nmax) return;
+        Kokkos::resize(poss, n);         Kokkos::resize(orientations, n);
+        Kokkos::resize(nx, n);           Kokkos::resize(ny, n);          Kokkos::resize(nz, n);
+        Kokkos::resize(forces, n);       Kokkos::resize(torques, n);
+        Kokkos::resize(bonds, n);        Kokkos::resize(btype, n);       Kokkos::resize(ptype, n);
+        Kokkos::resize(qeff, n);         Kokkos::resize(tag, n);         Kokkos::resize(ellipsoid, n);
+        Kokkos::resize(shape, n);        Kokkos::resize(mask, n);        Kokkos::resize(molecule, n);
+        Kokkos::resize(rmass, n);        Kokkos::resize(sametag, n);
+        nmax = n;
+    }
+
+    int nall() const { return N + nghost; }
 
     void zero_forces() {
         Kokkos::deep_copy(forces,  c_acc(0));
@@ -125,13 +219,21 @@ struct ParticleArrays {
         int nb = 0;
         for (int i = 0; i < N; i++) if (h_bonds(i).n3 >= 0) nb++;
         nbonds     = nb;
-        bondlist   = Kokkos::View<int *[2]>("bondlist", nb);
+        bondlist   = Kokkos::View<int **, Kokkos::LayoutRight>("bondlist", nb, 3);
         prime_bond = Kokkos::View<int *[4], Kokkos::LayoutLeft>("prime_bond", nb);
         auto h_bl  = Kokkos::create_mirror_view(bondlist);
         nb = 0;
         for (int i = 0; i < N; i++)
-            if (h_bonds(i).n3 >= 0) { h_bl(nb,0) = i; h_bl(nb,1) = h_bonds(i).n3; nb++; }
+            if (h_bonds(i).n3 >= 0) { h_bl(nb,0) = i; h_bl(nb,1) = h_bonds(i).n3; h_bl(nb,2) = 1; nb++; }
         Kokkos::deep_copy(bondlist, h_bl);
+    }
+
+    // (Re)build the lammps_tables coefficient tables if the parameters changed.
+    void ensure_tables(const DNAParams &par) {
+        if (tab_key_valid && tab.built && std::memcmp(&tab_key, &par, sizeof(DNAParams)) == 0) return;
+        build_oxdna_tables(tab, par);
+        std::memcpy(&tab_key, &par, sizeof(DNAParams));
+        tab_key_valid = true;
     }
 
     // Fill qeff for the requested half-charged-ends convention (device kernel;
@@ -140,7 +242,7 @@ struct ParticleArrays {
         const int mode = half_ends ? 1 : 0;
         if (qeff_mode == mode) return;
         auto q = qeff; auto b = bonds;
-        Kokkos::parallel_for("oxdna_qeff", N, KOKKOS_LAMBDA(int i) {
+        Kokkos::parallel_for("oxdna_qeff", N, KOKKOS_LAMBDA(int i) {   // local atoms; ghosts get it by border comm
             const bool end = (b(i).n3 < 0 || b(i).n5 < 0);
             q(i) = (half_ends && end) ? c_number(0.5) : c_number(1);
         });

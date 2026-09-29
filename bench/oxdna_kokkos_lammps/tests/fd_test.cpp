@@ -26,6 +26,7 @@
 #include "../src/forces/dna3_kernels.h"
 #include "../src/integrator.h"
 #include "../src/thermostat.h"
+#include "../src/lammps_framework.h"
 #include <cstdio>
 #include <cmath>
 #include <cstdint>
@@ -42,7 +43,35 @@ struct Sys {
     NeighborList nl;
     SimBox box;
     int N;
+    // LAMMPS ghost-atom path (lammps_ghosts): the configuration is folded into
+    // [0, L) so that strands cross the periodic boundaries, the periodic
+    // images are ghost atoms, and every evaluation forward-communicates the
+    // (displaced) local positions / quaternions and reverse-communicates the
+    // ghost forces / torques
+    bool ghosts = false;
+    LammpsFramework lmp;
 };
+
+// fold the host configuration into [0, L) (strands then cross the boundaries)
+static void fold_host(ParticleArraysHost &h, int N, const SimBox &box) {
+    const double L[3] = {(double)box.Lx, (double)box.Ly, (double)box.Lz};
+    for (int i = 0; i < N; i++)
+        for (int d = 0; d < 3; d++) {
+            double x = (double)h.poss(i, d);
+            x -= L[d] * std::floor(x / L[d]);
+            h.poss(i, d) = static_cast<c_number>(x);
+        }
+}
+
+static void enable_ghosts(Sys &s, double nl_cut, double skin, bool half_ends) {
+    s.ghosts = true;
+    s.dev.ensure_qeff(half_ends);
+    s.lmp.setup(s.dev, s.nl, s.box, nl_cut + 2 * skin, 2 * skin, 0);
+    s.lmp.rebuild(s.dev, s.nl);
+    s.nl.build_screen(s.dev, s.box);
+}
+static void ghost_pre(Sys &s)  { if (s.ghosts) s.lmp.forward(s.dev); }
+static void ghost_post(Sys &s) { if (s.ghosts) { s.lmp.reverse(s.dev); Kokkos::fence(); } }
 
 static int    g_fail = 0;
 static void check(const char* what, double err, double tol) {
@@ -55,19 +84,23 @@ static bool g_overhead = false;
 static const bool DOUBLE = (sizeof(c_number) == 8);
 
 static void load(Sys &s, int model, const char *top = "tests/8bp_duplex/test.top",
-                 const char *conf = "tests/8bp_duplex/test.conf", bool terminal = false) {
+                 const char *conf = "tests/8bp_duplex/test.conf", bool terminal = false,
+                 bool ghosts = false) {
     s.model = model;
     read_topology(top, s.host, s.N);
     long long step;
     read_config(conf, s.host, s.box, step);
+    if (ghosts) fold_host(s.host, s.N, s.box);
     s.dev.allocate(s.N);
+    s.dev.use_tables = true;             // lammps_tables (used by the overhead kernels)
     copy_to_device(s.host, s.dev);
     s.par = (model == 2) ? make_oxdna2_params(0.1, 0.5) : make_oxdna1_params(0.1);
     s.par.cxst_terminal_only = terminal;
     s.par.cxst_t4_blunt      = terminal;
     double nl_cut = std::max(2.5, std::sqrt((double)s.par.cutsq_nb));
     s.nl.init(nl_cut, 1.0, s.N, s.box);
-    s.nl.build(s.dev, s.box);
+    if (ghosts) enable_ghosts(s, nl_cut, 1.0, s.par.dh_half_ends);
+    else        s.nl.build(s.dev, s.box);
 }
 
 // Deterministic perturbation (positions by up to +-dx, orientations by
@@ -95,13 +128,15 @@ static void perturb(ParticleArraysHost &h, int N, double dx, double dang, uint64
 
 // oxDNA3 system: the relaxed duplex (test_dna3.conf), optionally with the
 // nicked topology and the perturbation of bench/oxdna_kokkos's fd_test.
-static void load3(Sys &s, bool nicked = false, bool consistent_gamma = false, bool terminal = false) {
+static void load3(Sys &s, bool nicked = false, bool consistent_gamma = false, bool terminal = false,
+                  bool ghosts = false) {
     s.model = 3;
     const char *top  = nicked ? "tests/8bp_duplex/test_dna3_nicked.top" : "tests/8bp_duplex/test.top";
     read_topology(top, s.host, s.N);
     long long step;
     read_config("tests/8bp_duplex/test_dna3.conf", s.host, s.box, step);
     if (nicked) perturb(s.host, s.N, 0.03, 0.15, 2024);
+    if (ghosts) fold_host(s.host, s.N, s.box);
     s.dev.allocate(s.N);
     copy_to_device(s.host, s.dev);
     SimConfig cfg; cfg.T = 0.1; cfg.salt = 0.5;
@@ -112,20 +147,25 @@ static void load3(Sys &s, bool nicked = false, bool consistent_gamma = false, bo
     s.nl.init(nl_cut, skin, s.N, s.box);
     const double scr = std::sqrt((double)s.m3.p.screen_cutsq) + skin;   // as Simulation::init
     s.nl.screen_cutsq = static_cast<c_number>(scr * scr);
-    s.nl.build(s.dev, s.box);
+    if (ghosts) enable_ghosts(s, nl_cut, skin, s.m3.dh.dh_half_ends);
+    else        s.nl.build(s.dev, s.box);
 }
 
 static c_number energy(Sys &s, Term t) {
+    ghost_pre(s);
     if (s.model == 3) {
         const int mask = (t == NONBONDED) ? (dna3k::EXCV | dna3k::HBOND | dna3k::XSTK | dna3k::COAXSTK | dna3k::DH)
                        : (t == BONDED)    ? (dna3k::STK | dna3k::FENE) : dna3k::ALL;
-        return compute_forces_dna3(s.dev, s.nl, s.m3, s.box, g_overhead, mask);
+        const c_number e = compute_forces_dna3(s.dev, s.nl, s.m3, s.box, g_overhead, mask);
+        ghost_post(s);
+        return e;
     }
     s.dev.zero_forces();
     c_number e = 0;
     if (t==NONBONDED|| t==ALL) e += compute_nonbonded_forces(s.dev, s.nl, s.par, s.box, true, g_overhead);
     if (t==BONDED   || t==ALL) e += compute_bonded_forces(s.dev, s.par, s.box, true, g_overhead);
     Kokkos::fence();
+    ghost_post(s);
     return e;
 }
 
@@ -198,10 +238,20 @@ static void fd_dna3_all_terms(Sys &s, bool require_nonzero) {
         fd_generic(s, E, name, TOL3);
     };
     auto kern = [](int mask) {
-        return [mask](Sys &ss) { return (double)compute_forces_dna3(ss.dev, ss.nl, ss.m3, ss.box, g_overhead, mask); };
+        return [mask](Sys &ss) {
+            ghost_pre(ss);
+            const double e = (double)compute_forces_dna3(ss.dev, ss.nl, ss.m3, ss.box, g_overhead, mask);
+            ghost_post(ss);
+            return e;
+        };
     };
     auto excv_part = [](bool bonded) {
-        return [bonded](Sys &ss) { return (double)compute_excv_part_dna3(ss.dev, ss.nl, ss.m3, ss.box, g_overhead, bonded); };
+        return [bonded](Sys &ss) {
+            ghost_pre(ss);
+            const double e = (double)compute_excv_part_dna3(ss.dev, ss.nl, ss.m3, ss.box, g_overhead, bonded);
+            ghost_post(ss);
+            return e;
+        };
     };
     run(kern(FENE),            "fene");
     run(excv_part(true),       "excv (bonded)");
@@ -311,16 +361,23 @@ int main(int argc, char**argv){
             { Sys s; load(s, model);
               test_thermostat(s, 0.1, 12000); }
         }
-        struct NickCase { int model; bool terminal; bool overhead; const char *label; };
-        const NickCase nick[4] = {
-            {1, false, false, "oxDNA1, nicked duplex"},
-            {2, false, false, "oxDNA2, nicked duplex"},
-            {2, true,  false, "oxDNA2, nicked, LAMMPS terminal coaxstk"},
-            {2, true,  true,  "oxDNA2, nicked, terminal coaxstk, lammps_overhead"}};
+        struct NickCase { int model; bool terminal; bool overhead; bool ghosts; const char *label; };
+        const NickCase nick[9] = {
+            {1, false, false, false, "oxDNA1, nicked duplex"},
+            {2, false, false, false, "oxDNA2, nicked duplex"},
+            {2, true,  false, false, "oxDNA2, nicked, LAMMPS terminal coaxstk"},
+            {2, true,  true,  false, "oxDNA2, nicked, terminal coaxstk, lammps_overhead"},
+            {1, true,  false, false, "oxDNA1, nicked, LAMMPS terminal coaxstk"},
+            {1, true,  true,  false, "oxDNA1, nicked, terminal coaxstk, lammps_overhead"},
+            {1, false, true,  true,  "oxDNA1, nicked, across the box, lammps_overhead + ghosts"},
+            {2, false, true,  true,  "oxDNA2, nicked, across the box, lammps_overhead + ghosts"},
+            {2, true,  true,  true,  "oxDNA2, nicked, across the box, terminal, overhead + ghosts"}};
         for (const NickCase &c : nick) {
             std::printf("================ %s ================\n", c.label);
             g_overhead = c.overhead;
-            Sys s; load(s, c.model, "tests/8bp_nicked/test.top", "tests/8bp_nicked/test.conf", c.terminal);
+            Sys s; load(s, c.model, "tests/8bp_nicked/test.top", "tests/8bp_nicked/test.conf", c.terminal,
+                        c.ghosts);
+            if (c.ghosts) std::printf("  ghost atoms: %d\n", s.dev.nghost);
             std::printf("  E_nonbonded = %.10f\n", (double)energy(s, NONBONDED));
             for (int t=0;t<3;t++) fd_term(s,(Term)t,names[t]);
         }
@@ -360,6 +417,12 @@ int main(int argc, char**argv){
               fd_generic(s, E, "coaxstk (blunt lobe)", TOL3); }
             std::printf("-- stacking with active cos(phi1/phi2) modulation\n");
             fd_dna3_stacking_phi();
+            if (g_overhead) {
+                std::printf("-- nicked + perturbed duplex across the box, lammps_overhead + ghosts\n");
+                Sys s; load3(s, true, false, false, true);
+                std::printf("  ghost atoms: %d\n", s.dev.nghost);
+                fd_dna3_all_terms(s, true);
+            }
         }
         g_overhead = false;
         {

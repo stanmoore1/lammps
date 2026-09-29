@@ -1,7 +1,7 @@
 #pragma once
 
 // LAMMPS-faithful oxDNA3 kernels (tracks the LAMMPS KOKKOS oxDNA3 styles on
-// LAMMPS branch origin/oxdna3KK, ec131639), with the physics of the
+// LAMMPS branch origin/oxdna3KK-kk-fixes, 392462c401), with the physics of the
 // CUDA-faithful sibling bench/oxdna_kokkos (upstream oxDNA DNA3_nomesh):
 // every kernel calls the dna3:: physics functions of dna3_forces.h, so the
 // energies, forces and torques equal the sibling's to floating-point round-off.
@@ -10,10 +10,11 @@
 // dna_forces.h / bonded.h.
 //
 // Per MD step (GPU, HALFTHREAD, newton on), LAMMPS order:
-//   pre_force : LRF (compute_lrf) | [prime_neighs_bond, rebuild steps]
-//   Pair      : excv -> [stk's prime_neighs_bond] stk -> hbond ->
-//               [prime_neighs_oxdna3_xstk] xstk -> coaxstk -> dh
-//   Bond      : fene (+ overstretch flag host copy on energy steps)
+//   pre_force : LRF (compute_lrf)
+//   Pair      : [prime_neighs_pair] excv -> [stk's prime_neighs_bond] stk ->
+//               hbond -> [prime_neighs_oxdna3_xstk] xstk -> coaxstk -> dh
+//   Bond      : [fene's prime_neighs_bond] fene (+ overstretch flag host copy
+//               on energy steps)
 // Bracketed precomputes only run in lammps_overhead mode on neighbor-rebuild
 // steps. Kernels:
 //   * excv (oxdna3/excv): one thread per atom a over the half list incl. the
@@ -124,6 +125,8 @@ struct Excv3Functor {
     Vec4cr poss, nx, ny;
     RandomRead<LR_bonds> bonds;
     RandomRead<uint8_t> ptype;
+    RandomRead<int> tag;
+    Kokkos::View<const int *>  ilist;
     Kokkos::View<const int *>  num_neigh;
     Kokkos::View<const int **> neigh_matrix;
     Kokkos::View<const int ***> prime_pair;
@@ -164,11 +167,12 @@ struct Excv3Functor {
         }
     }
 
-    KOKKOS_INLINE_FUNCTION void operator()(int ia) const { c_acc ev = 0; (*this)(ia, ev); }
+    KOKKOS_INLINE_FUNCTION void operator()(int ii) const { c_acc ev = 0; (*this)(ii, ev); }
 
     KOKKOS_INLINE_FUNCTION
-    void operator()(int ia, c_acc &ev) const {
+    void operator()(int ii, c_acc &ev) const {
         using namespace dna3k;
+        const int ia = USE_PRIME ? ilist(ii) : ii;
         const int m = num_neigh(ia);
         const v3 pa = ld3(poss, ia);
         const int ta = ptype(ia);
@@ -194,11 +198,14 @@ struct Excv3Functor {
             // bond (b.n3 == a), bond 2 = a is (a.n3 == b)
             const LR_bonds bb = bonds(ib);
             int bond = 0, f0 = -1, f3 = -1;
-            if (bb.n3 == ia && ba.n5 == ib) {
+            // lammps_overhead: LAMMPS' tag test tag(a) == id3p(b) && tag(b) == id5p(a)
+            const int tag_a = USE_PRIME ? tag(ia) : ia;
+            const int tag_b = USE_PRIME ? tag(ib) : ib;
+            if (bb.n3 == tag_a && ba.n5 == tag_b) {
                 bond = 1;
                 if (USE_PRIME) { f0 = prime_pair(ia, k, 0); f3 = prime_pair(ia, k, 1); }
                 else           { f0 = ba.n3;                f3 = bb.n5; }
-            } else if (bb.n5 == ia && ba.n3 == ib) {
+            } else if (bb.n5 == tag_a && ba.n3 == tag_b) {
                 bond = 2;
                 if (USE_PRIME) { f0 = prime_pair(ia, k, 2); f3 = prime_pair(ia, k, 3); }
                 else           { f0 = bb.n3;                f3 = ba.n5; }
@@ -279,7 +286,7 @@ struct Hbond3Functor {
             ta, ld3(nx, ia), ld3(ny, ia), ld3(nz, ia), F, T, none, none);
         if (e_p == 0) return;
         ev += e_p;
-        scatter_pq(sf.access(), st.access(), ib, ia, r, F, T);
+        scatter_pq(sf.template access<OxScatterAtomic>(), st.template access<OxScatterAtomic>(), ib, ia, r, F, T);
     }
 };
 
@@ -331,8 +338,8 @@ struct Xstk3Functor {
             ta, ld3(nx, ia), ld3(ny, ia), ld3(nz, ia), F, T, p_neighs, q_neighs);
         if (e_p == 0) return;
         ev += e_p;
-        auto af = sf.access();
-        auto at = st.access();
+        auto af = sf.template access<OxScatterAtomic>();
+        auto at = st.template access<OxScatterAtomic>();
         if (!SPLIT) { scatter_pq(af, at, ib, ia, r, F, T); return; }
 
         // round 1: forces and the site (r x F) torques
@@ -390,7 +397,7 @@ struct Coaxstk3Functor {
             ta, ld3(nx, ia), ld3(ny, ia), ld3(nz, ia), F, T, p_neighs, q_neighs);
         if (e_p == 0) return;
         ev += e_p;
-        scatter_pq(sf.access(), st.access(), ib, ia, r, F, T);
+        scatter_pq(sf.template access<OxScatterAtomic>(), st.template access<OxScatterAtomic>(), ib, ia, r, F, T);
     }
 };
 
@@ -502,15 +509,16 @@ inline void build_prime_xstk(const ParticleArrays &p, const NeighborList &nl) {
         nl.prime_xstk = Kokkos::View<int *[4], Kokkos::LayoutLeft>("prime_neighs_oxdna3_xstk", np);
     if (np <= 0) return;
     auto tab = nl.prime_xstk; auto sp = nl.screened_pair; auto bonds = p.bonds;
+    Kokkos::View<const int *, Kokkos::MemoryTraits<Kokkos::RandomAccess>> map = p.map_array;
     Kokkos::parallel_for("oxdna3_prime_neighs_xstk", Kokkos::RangePolicy<>(0, np), KOKKOS_LAMBDA(int e) {
         int a, braw;
         unpack_pair(sp(e), a, braw);
         const int b = braw & OX_NEIGHMASK;
         const LR_bonds ba = bonds(a), bb = bonds(b);
-        tab(e, 0) = ba.n3;
-        tab(e, 1) = ba.n5;
-        tab(e, 2) = bb.n3;
-        tab(e, 3) = bb.n5;
+        tab(e, 0) = map_tag(map, ba.n3);
+        tab(e, 1) = map_tag(map, ba.n5);
+        tab(e, 2) = map_tag(map, bb.n3);
+        tab(e, 3) = map_tag(map, bb.n5);
     });
 }
 
@@ -523,9 +531,14 @@ inline c_acc run_excv3(ParticleArrays &p, const NeighborList &nl, const DNA3Para
                        const SimBox &box, bool want_energy, bool lammps_overhead,
                        bool neigh_rebuilt) {
     if (lammps_overhead && (neigh_rebuilt || nl.prime_pair.extent(0) == 0)) build_prime_pair(p, nl);
+    if (lammps_overhead && !nl_has_ilist(p, nl)) {
+        nl.d_ilist = Kokkos::View<int *>("neighlist:ilist", nl.d_num_neigh.extent(0));
+        auto il = nl.d_ilist;
+        Kokkos::parallel_for("neighlist_ilist_init", il.extent_int(0), KOKKOS_LAMBDA(int i) { il(i) = i; });
+    }
     auto setup = [&](auto &f) {
         f.poss = p.poss; f.nx = p.nx; f.ny = p.ny;
-        f.bonds = p.bonds; f.ptype = p.ptype;
+        f.bonds = p.bonds; f.ptype = p.ptype; f.tag = p.tag; f.ilist = nl.d_ilist;
         f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix;
         if (lammps_overhead) f.prime_pair = nl.prime_pair;
         f.par = par; f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques); f.box = box;
@@ -624,18 +637,10 @@ inline c_acc compute_pair_forces_step_dna3(ParticleArrays &p, const NeighborList
                                            const DNA3Model &m, const SimBox &box,
                                            bool want_energy, bool lammps_overhead,
                                            bool neigh_rebuilt, c_acc *eterm = nullptr,
-                                           int kmask = dna3k::PAIR) {
+                                           int kmask = dna3k::PAIR, bool run_lrf = true) {
     using namespace dna3k;
-    compute_lrf(p);                                                       // fix OXDNA/LRF
-    if (lammps_overhead) {
-        ensure_bondlist(p);
-        if (neigh_rebuilt) {
-            // neigh_bond build_topology_kk: device->host copy of the bond list
-            auto h_bl = Kokkos::create_mirror_view(p.bondlist);
-            Kokkos::deep_copy(h_bl, p.bondlist);
-            bond_precompute(p, "oxdna_prime_neighs_bond");                // fix pre_force
-        }
-    }
+    if (run_lrf) compute_lrf(p, lammps_overhead);                         // fix OXDNA/LRF
+    if (lammps_overhead) ensure_bondlist(p);
     c_acc et[6] = {0, 0, 0, 0, 0, 0};
     if (kmask & EXCV)
         et[0] = run_excv3(p, nl, m.p, box, want_energy, lammps_overhead, neigh_rebuilt);
@@ -650,7 +655,7 @@ inline c_acc compute_pair_forces_step_dna3(ParticleArrays &p, const NeighborList
     if (kmask & COAXSTK)
         et[4] = run_coaxstk3(p, nl, m.p, box, want_energy);
     if (kmask & DH)
-        et[5] = run_dh(p, nl, m.dh, box, want_energy);
+        et[5] = run_dh(p, nl, m.dh, box, want_energy, lammps_overhead);
     c_acc e = 0;
     for (int t = 0; t < 6; t++) {
         e += et[t];
@@ -661,8 +666,12 @@ inline c_acc compute_pair_forces_step_dna3(ParticleArrays &p, const NeighborList
 
 inline c_acc compute_bond_forces_step_dna3(ParticleArrays &p, const DNA3Model &m,
                                            const SimBox &box, bool want_energy,
-                                           bool lammps_overhead, c_acc *eterm = nullptr) {
-    if (lammps_overhead) ensure_bondlist(p);
+                                           bool lammps_overhead, c_acc *eterm = nullptr,
+                                           bool neigh_rebuilt = false) {
+    if (lammps_overhead) {
+        ensure_bondlist(p);
+        if (neigh_rebuilt) bond_precompute(p, "oxdna_fene_prime_neighs_bond");   // fene's own copy
+    }
     const c_acc e = run_fene3(p, m.p, box, want_energy, lammps_overhead);
     if (eterm) eterm[6] = e;
     return e;
@@ -676,7 +685,7 @@ inline c_number compute_forces_dna3(ParticleArrays &p, const NeighborList &nl,
                                     c_acc *eterm = nullptr) {
     p.zero_forces();
     c_acc e = compute_pair_forces_step_dna3(p, nl, m, box, true, lammps_overhead, true, eterm, kmask);
-    if (kmask & dna3k::FENE) e += compute_bond_forces_step_dna3(p, m, box, true, lammps_overhead, eterm);
+    if (kmask & dna3k::FENE) e += compute_bond_forces_step_dna3(p, m, box, true, lammps_overhead, eterm, true);
     Kokkos::fence();
     return static_cast<c_number>(e);
 }
@@ -686,7 +695,7 @@ inline c_number compute_excv_part_dna3(ParticleArrays &p, const NeighborList &nl
                                        const DNA3Model &m, const SimBox &box,
                                        bool lammps_overhead, bool bonded) {
     p.zero_forces();
-    compute_lrf(p);
+    compute_lrf(p, lammps_overhead);
     c_acc e = bonded ? run_excv3<dna3k::EXCV_BONDED>(p, nl, m.p, box, true, lammps_overhead, true)
                      : run_excv3<dna3k::EXCV_NB>(p, nl, m.p, box, true, lammps_overhead, true);
     Kokkos::fence();

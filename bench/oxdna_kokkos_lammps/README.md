@@ -17,7 +17,13 @@ kernel structure of the LAMMPS `oxdna3/*` KOKKOS styles). See
 ## How this differs from `bench/oxdna_kokkos` (CUDA-faithful)
 
 The kernel structure tracks the LAMMPS KOKKOS oxDNA styles on LAMMPS branch
-**`oxdna3KK` (ec131639, 2026-09-25)**.
+**`oxdna3KK-kk-fixes` (392462c401, 2026-09-29)**. With `lammps_overhead = 1`
+the bench also reproduces the framework around the kernels (per-type
+coefficient tables, ghost atoms and the per-step communication, the binned
+half/newton neighbor build, the rebuild decision, the Verlet sequence); see
+[Fidelity to LAMMPS KOKKOS](#fidelity-to-lammps-kokkos) for the complete list,
+what is not mirrored and why, and a kernel-by-kernel comparison against a
+real LAMMPS run.
 
 The table below describes the oxDNA1/2 kernels; the oxDNA3 kernels follow the
 same pattern (see [oxDNA3 kernel structure](#oxdna3-kernel-structure-mirrors-lammps-oxdna3)).
@@ -28,7 +34,7 @@ same pattern (see [oxDNA3 kernel structure](#oxdna3-kernel-structure-mirrors-lam
 | Nonbonded operator | one *fused* edge kernel computing excv + hbond + xstk + coaxstk + dh per pair | **one kernel per LAMMPS pair style**: `excv`, `hbond`, `xstk`, `coaxstk`, `dh` |
 | Neighbor list | flat edge list (one thread per pair), bonded pairs excluded | half list per atom (`d_num_neigh`/`d_neigh_matrix`, HALFTHREAD) that **keeps bonded 1-2 pairs** with the LAMMPS special bit set (LAMMPS uses `special_flag = 2` for oxDNA). Every kernel decodes it (`ox_sbmask`/`OX_NEIGHMASK`) and applies `special_lj = 0` |
 | excv | nonbonded pairs only; bonded excluded volume in the bonded kernel | per atom over the half list, **including bonded pairs**. Backbone-backbone is multiplied by `special_lj` (0 for bonded), and the other three site pairs *are* the bonded excluded volume, as in LAMMPS. Term order bkbk, bk-bs, bs-bk, bs-bs. Before bs-bs the NEW per-pair tetramer topology test runs (`bonds(b).n3 == a`, ...). Atom a accumulates in registers and is flushed once; atom b gets atomics per active term |
-| hbond / xstk / oxDNA2 coaxstk | inside the fused edge kernel | one thread per **screened pair** (`fix OXDNA/NPAIR`): packed `uint64` `(a << 32) \| b_raw` entries (special bits kept; those pairs exit early) whose COM distance is within `max(cut_hc) + 0.8` **+ the skin margin**, rebuilt only when the neighbor list rebuilds |
+| hbond / xstk / oxDNA2 coaxstk | inside the fused edge kernel | one thread per **screened pair** (`fix OXDNA/NPAIR`): packed `uint64` `(a << 32) \| b_raw` entries (special bits kept; those pairs exit early) whose COM distance is within `max(cut_hc) + 2 * 0.43` (`max_site_offset()`) **+ the full LAMMPS skin** (`2 * verlet_skin`), rebuilt only when the neighbor list rebuilds; all updates through `ScatterAtomic` access |
 | oxDNA1 coaxstk | inside the fused edge kernel | per atom over the half list (LAMMPS `pair oxdna/coaxstk` does not use the screen) |
 | dh | inside the fused edge kernel | per atom over the half list. Special pairs are skipped first, then `rsq` is tested against the cutoff, then `rinv = rsqrt(rsq)`. A per-atom `qeff` (0.5 at strand ends with half-charged ends) is hoisted for a and loaded for b after the cutoff. Atom a is accumulated in registers |
 | Bonded | one fused per-particle gather kernel (FENE + bonded excv + stacking) | two styles: `stk` (`pair oxdna/stk`) and **FENE only** (`bond oxdna/fene`); the bonded excluded volume is in excv |
@@ -40,6 +46,11 @@ bond style):
 
     Pair:  LRF -> excv -> stk -> hbond -> xstk -> coaxstk -> dh
     Bond:  fene
+
+(`lammps_overhead`: `[prime_neighs_pair] excv`, `[stk's prime_neighs_bond] stk`,
+`[fene's prime_neighs_bond] fene` on rebuild steps; with `lammps_ghosts` the LRF
+and the screen rebuild run as `pre_force` between the force clear and the pair
+styles, see the full per-step sequence below.)
 
 The screened pair list is rebuilt only on neighbor-list rebuild steps. Energy
 reductions (`parallel_reduce`) only run on output steps, as LAMMPS only reduces
@@ -65,8 +76,11 @@ the standalone oxDNA2 (and oxDNA3) coaxial stacking in two ways:
 - theta4 gets a second, mirrored lobe.
 
 `lammps_coaxstk_terminal = 1` enables both, for oxDNA2 and for oxDNA3 (LAMMPS
-`oxdna3/coaxstk` inherits the oxDNA2 kernel). The default (0) keeps standalone
-physics.
+`oxdna3/coaxstk` inherits the oxDNA2 kernel) and, since `oxdna3KK-kk-fixes`, for
+oxDNA1 (`pair oxdna/coaxstk/kk`: the terminal test of atom a returns before any
+load of its frame, that of b skips the neighbour, and theta4 gets the same
+mirrored lobe; `pair_oxdna_coaxstk_kokkos.cpp:254, 300, 364`). The default (0)
+keeps standalone physics.
 
 On intact duplexes coaxial stacking is zero, so the option does not change
 energies; on the nicked duplex it gives the same energy (the nick ends are
@@ -120,7 +134,11 @@ All model constants are taken directly from the standalone oxDNA `src/model.h`
 | `src/simulation.h` | MD driver: I/O, force evaluation, time loop |
 | `src/integrator.h` | Velocity-Verlet + quaternion (lab-frame) orientation update |
 | `src/thermostat.h` | Brownian ("John") thermostat (optional, NVT) |
-| `src/neighbor_list.h` | Cell list + flat Verlet edge list (one thread per pair) |
+| `src/neighbor_list.h` | Lean cell-list neighbor matrix (minimum image) + the `fix OXDNA/NPAIR` screened pair list |
+| `src/lammps_comm.h` | `lammps_ghosts`: single-rank LAMMPS `CommKokkos` (pbc, exchange, borders, map, fused forward / reverse self communication) |
+| `src/lammps_neigh.h` | `lammps_ghosts`: LAMMPS `NBinKokkos` / half stencil / `NPairKokkos` half/bin/newton build, `check_distance`, `NeighBond` `bond_all` |
+| `src/lammps_framework.h` | `lammps_ghosts`: the `VerletKokkos` pieces around the force kernels (rebuild, forward / reverse comm, force clear, virial, decide) |
+| `src/forces/tables.h` | `lammps_tables`: per-type (5x5) and tetramer (5^4) coefficient tables of the oxDNA1/2 kernels |
 | `src/particles.h`, `src/types.h` | SoA particle storage, quaternion / box types |
 | `src/forces/params.h` | Force-field parameters (`make_oxdna1_params`, `make_oxdna2_params`) |
 | `src/forces/mf_oxdna.h` | Modulation functions F1–F6 and derivatives |
@@ -226,7 +244,14 @@ unrecognized keys (`backend`, `CUDA_list`, `trajectory_file`, `ensemble`,
 | `timing`             | 0 | `1` → per-kernel timing breakdown (adds fences; `0` for production) |
 | `lammps_overhead`    | 0 | `1` -> add the LAMMPS framework costs (see [below](#lammps_overhead-toggle-isolating-the-framework-cost)) |
 | `fuse_hbond_xstk`    | 0 | `1` -> bench-only fused hbond+xstk screened-pair kernel (no LAMMPS equivalent) |
-| `lammps_coaxstk_terminal` | 0 | `1` -> oxDNA2/oxDNA3 LAMMPS-only terminal-nucleotide coaxial stacking + blunt-end theta4 lobe |
+| `lammps_coaxstk_terminal` | 0 | `1` -> oxDNA1/2/3 LAMMPS-only terminal-nucleotide coaxial stacking + blunt-end theta4 lobe (changes energies) |
+| `lammps_tables` | = `lammps_overhead` | `1` -> oxDNA1/2 kernels read their coefficients from per-type device tables (LAMMPS layout; same values) |
+| `lammps_ghosts` | = `lammps_overhead` | `1` -> ghost atoms + per-step communication + LAMMPS neighbor build + Verlet sequence (needs `lammps_overhead = 1`; same physics) |
+| `lammps_cutoff` | 0 | `1` -> neighbor-list radius = LAMMPS `cutforce` (largest site cutoff) `+ 2 * verlet_skin` instead of the COM range; matches LAMMPS' pair count but can miss interactions between rebuilds (changes physics) |
+| `comm_cutoff` | 0 | ghost cutoff (LAMMPS `comm_modify cutoff`); 0 = the list radius (LAMMPS default) |
+| `neigh_every`, `neigh_check` | 1, 1 | `lammps_ghosts`: LAMMPS `neigh_modify every N check yes/no` (`delay 0`) |
+| `lammps_integrator` | 0 | `1` -> `fix nve/asphere/kk` (Richardson quaternion update, bonus data; `lammps_ghosts` only; changes the dynamics) |
+| `lammps_mass`, `lammps_shape` | 1, 1.5811 | rmass and ellipsoid radii for `lammps_integrator` (defaults give unit mass and unit inertia, the bench convention) |
 
 Paths are resolved relative to the working directory (run from the case
 directory, as with the reference oxDNA). oxDNA value expressions are supported:
@@ -291,12 +316,13 @@ Modify (integ+thermo)  |     0.4826 |   3.36 |    482.639
 |---|---|
 | `Pair` | `Pair`: `OXDNA/LRF` pre_force + `oxdna*/excv`, `oxdna*/stk`, `oxdna*/hbond`, `oxdna*/xstk`, `oxdna*/coaxstk`, `oxdna2/dh` |
 | `Bond` | `Bond` (`oxdna*/fene`) |
-| `Neigh` | `Neigh` (incl. the `OXDNA/NPAIR` screen rebuild) |
-| `Modify (integ+thermo)` | `Modify` (`nve/asphere` + thermostat) |
+| `Neigh` | `Neigh` (incl. the `OXDNA/NPAIR` screen rebuild; with `lammps_ghosts` the decide check, bins, list and bond topology) |
+| `Comm` (`lammps_ghosts` only) | `Comm` (pbc, exchange, borders, forward and reverse communication) |
+| `Modify (integ+thermo)` | `Modify` (`nve/asphere` + thermostat; with `lammps_ghosts` also the LRF and the NPAIR screen, which LAMMPS runs in `pre_force`) |
 | `Output` | `Output` |
 
-(LAMMPS runs the LRF fix in `pre_force`, which it times under `Modify`; here it
-is part of `Pair`.)
+(Without ghosts the LRF pass is timed under `Pair`; LAMMPS runs it in
+`pre_force`, which it times under `Modify`, as the ghost mode does.)
 
 `timesteps/s` is the most directly comparable metric to LAMMPS' `Performance:`
 line. On CPU backends `Kokkos::fence()` is a no-op, so the section times are
@@ -321,23 +347,69 @@ Build with `-DOXDNA_BUILD_TESTS=ON` and run from this directory.
   and optionally dumps per-particle force/torque (lab frame, 17 significant
   digits), for direct comparison against the standalone oxDNA and
   `bench/oxdna_kokkos`. `--only=<term>` (oxDNA3: `fene bexc stck nexc hb crst
-  cxst dh excv`) restricts the dump to one term.
+  cxst dh excv`) restricts the dump to one term. `--tables=0|1`
+  (`lammps_tables`, default = overhead), `--ghosts` (the `lammps_ghosts` path:
+  ghosts, binned list, bond topology, reverse communication before the dump;
+  needs `--overhead`), `--comm-cutoff=<x>`, `--shift=<dx,dy,dz>` (translate and
+  fold into [0, L) so that strands cross the periodic boundaries);
+  `--terminal` now works for all models.
 
 `fd_test` also FD-checks a nicked 8bp duplex (`tests/8bp_nicked`, coaxial
-stacking across the nick) for oxDNA1, oxDNA2, oxDNA2 with the LAMMPS terminal
-coaxial stacking, and the latter in `lammps_overhead` mode. The tight FD
+stacking across the nick) for oxDNA1, oxDNA2, oxDNA1 / oxDNA2 with the LAMMPS
+terminal coaxial stacking, lean and `lammps_overhead` (with tables), and the
+**ghost-atom path**: the nicked duplex folded into [0, L) so that it crosses
+the periodic boundaries (oxDNA1, oxDNA2, oxDNA2 terminal; oxDNA3 nicked +
+perturbed, every kernel separately), each FD evaluation forward-communicating
+the displaced positions / quaternions and reverse-communicating the ghost
+forces / torques (FD errors ~7e-9 / ~2e-9, as without ghosts). The tight FD
 tolerances need a double-precision build (single precision uses h = 2e-3 and
 passes with the loose tolerances). The FD reference forces are now taken with
 `create_mirror` (a `create_mirror_view` aliased the device force views on host
 backends, so the displaced evaluations overwrote the reference); with this fix
 the oxDNA1/2 FD errors are ~7e-9 (force) / ~2e-9 (torque) instead of ~1e-4.
 
-Synced to LAMMPS `oxdna3KK` (this revision), with `xcheck` checked against
-the previous (`oxdna-framework-overhead`) structure. On the 8bp duplex
-(oxDNA1), N8 and N512 (oxDNA2), total energy and every per-particle
-force/torque component agree to all 10 printed digits, in both lean and
-`lammps_overhead` mode. MD energy output is identical to print precision
-until floating-point reordering chaos sets in (N8: after ~7000 steps).
+**This revision (kk-fixes sync, tables, ghosts) against the previous one
+(`oxdna3KK` sync), double precision, Serial.** `xcheck` on the 8bp duplex and
+the nicked duplex (oxDNA1, oxDNA2), N8 and N512 (oxDNA2), the oxDNA3 8bp,
+nicked + perturbed, N8 and N64 cases:
+- lean and `lammps_overhead` without ghosts (tables on): total energy and every
+  17-digit force / torque component **bitwise identical**, except N512 lean /
+  overhead, where the previous revision was wrong (see below);
+- `lammps_overhead` with ghosts: |dE|/|E| <= 1.5e-14, max|dF|/max|F| <=
+  5e-14, max|dT|/max|T| <= 5e-14 (the largest on the perturbed oxDNA3 duplex,
+  energies up to 7.8e3; 1e-15 elsewhere): summation order only (neighbor order
+  of the binned build, ghost forces added by the reverse communication);
+- configurations shifted across the periodic boundaries (`--shift`: nicked
+  duplexes, N8, N512, N64; 36-1384 ghost atoms), lean vs ghosts: |dE|/|E| <=
+  6.6e-16, dF <= 2.6e-15, dT <= 1.6e-15.
+
+MD (`tests/*/input`, `input_dna3`; Brownian thermostat, energy every 100
+steps): lean and `lammps_overhead = 1, lammps_ghosts = 0` are identical to the
+previous revision to print precision over the whole runs (8bp 5000, N8 / N64
+10000, N512 3000 steps). With ghosts the output is identical up to step 5900
+(N8 oxDNA2), 4200 (N8 oxDNA3), 2400 (N64 oxDNA3) and over the whole run (8bp
+oxDNA1, N512 3000 steps), then diverges by floating-point reordering chaos:
+the summation order differs (binned list, reverse communication) and the
+positions are folded only on rebuild steps (LAMMPS `domain->pbc()`), so a
+crossing atom's coordinate is rounded differently than with the per-step fold.
+
+Single / mixed precision builds compile, pass `fd_test` (257 checks, loose
+tolerances) and run MD in ghost mode; `xcheck --overhead --ghosts` against
+double: |dE|/|E| <= 1.1e-5 (N512 single; <= 3.5e-7 on N8 / N64), forces /
+torques <= 3.4e-4 / 2.8e-4 (N512), 6.4e-5 / 2.9e-5 (oxDNA3 N8), as before.
+
+**Bug fixed in this revision (lean cell list, also in the previous revision).**
+The lean cell list had a fixed `max_per_cell = max(20, 4N/Ncells + 8)` and
+silently dropped the particles of a fuller cell; `tests/N512` has 28 particles
+in one cell (xcheck, `verlet_skin = 1`), so interactions were missing (total
+energy -11091.655 instead of -11093.841, i.e. -1.353962 instead of the N8
+value -1.354229 per nucleotide of the tiled system). The build now detects the
+overflow and re-bins with enough room; N512 now equals the ghost-atom result
+and the per-nucleotide energy of N8. (The MD inputs, with `verlet_skin =
+0.5`, did not overflow.) The same code is in `bench/oxdna_kokkos`, which this
+revision does not touch. Also fixed: `NeighborList::needs_rebuild` (used by
+`fd_test`'s MD) tested a `Max` reduction result against 0, which is `INT_MIN`
+when nothing moved, so it rebuilt on every step (harmless, now correct).
 
 Cross-checked against the compiled standalone oxDNA on an 8bp duplex
 (average-sequence, T = 0.1; oxDNA2 at salt = 0.5):
@@ -361,54 +433,199 @@ benches with the Serial backend and runs their `fd_test` on every change under
 ## `lammps_overhead` toggle (isolating the framework cost)
 
 The lean standalone above is *faster* than in-tree LAMMPS-KOKKOS because it omits
-several real LAMMPS framework costs. Setting `lammps_overhead = 1` in the input
-adds them back (physics/energy output is unchanged -- verified identical on/off):
+the LAMMPS framework costs. `lammps_overhead = 1` adds them back; with the
+defaults of its sub-switches this is the **most faithful mode** (the physics /
+energy output is unchanged, see [Validation](#validation)):
 
-- **Faithful per-bond bonded kernels**: stk/fene switch from the lean
-  per-particle gather to LAMMPS's per-**bond** atomic scatter.
-  - The lean gather has no atomics and computes each bond twice; the LAMMPS
-    scatter computes each bond once and scatters it to both endpoints.
-  - Each kernel reads its atoms and 3'/5' context only from the
-    `fix OXDNA/PRIME_NEIGHS` bond table (`prime_bond`: a, b, a3p, b5p).
-  - It then does the 4D ("tetramer") coefficient indexing: 4 type reads and
-    uniform table lookups per bond.
-  - stk returns before any atomics for a non-stacking bond.
-  - fene raises the device overstretch flag.
-- **Rebuild-step precomputes** (`neighbor->lastcall` gated, as in LAMMPS):
-  - the `prime_neighs_bond` per-bond kernel launched **twice**: by the fix's
-    `pre_force` and again by `pair oxdna/stk`, which keeps its own counter;
-  - the new excv `prime_neighs_pair` kernel, which writes an
-    (N, max_neigh, 4) table;
-  - the device-to-host copy of the rebuilt bond list done by
-    `neigh_bond build_topology_kk`.
-- **excv tetramer branch**: bonded base-base pairs read the prime-pair table,
-  two base types and a 4D (5^4) table entry.
-- **FENE overstretch flag host copy** on energy steps only (LAMMPS: `eflag ||
-  vflag`), with the device reset when raised.
+- **Faithful per-bond bonded kernels**: stk / fene switch from the lean
+  per-particle gather to LAMMPS' per-**bond** atomic scatter. Each kernel reads
+  its atoms and 3'/5' context only from its own copy of the
+  `fix OXDNA/PRIME_NEIGHS` bond table (`prime_bond`: a, b, a3p, b5p), then the
+  4 type reads and the tetramer coefficients; stk returns before any atomics
+  for a non-stacking bond, fene raises the device overstretch flag.
+- **Rebuild-step precomputes** (`neighbor->ncalls` gated, as in LAMMPS
+  kk-fixes): `prime_neighs_pair` before excv (an `(nrows, maxneigh, 4)` table,
+  nrows = rows of the neighbor list), `prime_neighs_bond` before stk **and**
+  again before fene (each style keeps its own copy; the fix itself has no
+  `pre_force` any more), `prime_neighs_oxdna3_xstk` before oxdna3/xstk. All
+  resolve the 3'/5' partners as LAMMPS does: direction test
+  `tag(b) != id5p(a)`, flank tags through the atom map.
+- **excv**: LAMMPS' tag-based topology test (`tag(a) == id3p(b) && tag(b) ==
+  id5p(a)`), `d_ilist` indirection, tetramer branch for bonded base-base pairs.
+- **FENE overstretch flag host copy** on energy steps only, device reset when raised.
+- `lammps_tables` (default on): per-type coefficient tables (below).
+- `lammps_ghosts` (default on): ghost atoms, communication, LAMMPS neighbor
+  build and the VerletKokkos step sequence (below).
 
-Always on (in both modes, because LAMMPS does it the same way):
-- each kernel makes its own ScatterView (non-duplicated = atomics);
-- the per-pair topology reads in excv;
-- special pairs in every list, skipped via `special_lj`;
-- `qeff` in dh.
+Always on (both modes, because LAMMPS does it the same way): one ScatterView per
+kernel (non-duplicated = atomics; the screened-pair kernels use `ScatterAtomic`
+access on every backend), special pairs in every list skipped via
+`special_lj`, `qeff` in dh.
 
-What it deliberately does NOT model is **ghost atoms + per-step communication**:
-the standalone uses minimum-image PBC (`box.wrap`) and processes exactly N atoms,
-whereas LAMMPS replicates the boundary shell as ghosts, forward-communicates
-positions every step, and runs the LRF fix / neighbour list / pair styles over
-`nlocal+nghost`. So:
+## Fidelity to LAMMPS KOKKOS
 
-    (LAMMPS time) - (standalone with lammps_overhead=1) ~= ghost/comm cost,
+Reference: LAMMPS `origin/oxdna3KK-kk-fixes` (392462c401), `-k on -sf kk -pk
+kokkos neigh half newton on` with the GPU code paths (`comm device`, the
+screened-pair kernels; on a CPU build: `comm device sort device atom/map
+device` and the verification-only `OXDNA_FORCE_GPU=1` patch). Unit mapping:
+**LAMMPS skin = 2 x `verlet_skin`** (list radius = cutoff + skin, rebuild when
+an atom moved more than skin/2 = `verlet_skin`, exactly the bench's criterion).
 
-isolating the fundamental (domain-decomposition) floor from the optimizable
-per-step overheads (bond precompute, per-style setup, flag copies).
+### Per-step sequence with `lammps_overhead = 1` (ghosts on)
 
-Also not modelled:
-- LAMMPS' `nve/asphere` Richardson integrator: the bench integrates the lab-frame
-  angular momentum exactly with unit inertia;
-- LAMMPS' FENE overstretch extension: the bench keeps the standalone clamp;
-- the fp32 `sqrtf`/`expf` calls that many LAMMPS oxDNA kernels make even in a
-  double build (fene, hbond, xstk, coaxstk, stk, `F1_KK`/`F3_KK`, dh).
+    [initial_integrate]                      (unless fused into the previous step)
+    neighbor->decide()                       every N; check: REDUCE check_distance (x - xhold > skin/2)
+    rebuild:  DomainPBC | map clear | exchange (3 x BuildExchangeList) |
+              borders (6 x BuildBorderList, Pack/Unpack Border + Bonus) | copy_swap_info |
+              map_set (2) | [xhold] | bins (MemsetZero, BinAtoms) | half/bin/newton build |
+              NeighBond bond_all (+ bond list to host)
+    else:     forward comm: PackCommSelfFused (x) + PackCommSelfFusedBonus (quat)
+    force clear (f, torque over nlocal + nghost)
+    pre_force: fix OXDNA/LRF (nlocal + nghost, via the bonus index)
+               [fix OXDNA/NPAIR screen: count, scan, count to host, fill]
+    Pair:  [prime_pair] excv, [prime_bond] stk, hbond, [prime_xstk (oxDNA3)] xstk, coaxstk, dh
+           [energy steps: REDUCE variants + PairVirialFDotRCompute]
+    Bond:  [prime_bond] fene [energy steps: overstretch flag to host]
+    reverse comm: PackReverseSelfFused (f + torque, atomics)
+    final_integrate, fused with the next initial_integrate (one kernel) unless
+    this is an output / thermostat / last step
+
+### Aspect by aspect
+
+| Aspect | Status | Notes (LAMMPS evidence: `src/KOKKOS/` of 392462c401) |
+|---|---|---|
+| Kernel per style, LAMMPS order, launch policies | mirrored | `OxdnaRangePolicy` on excv / dh only |
+| Screened pair list (`fix OXDNA/NPAIR`) | mirrored | kk-fixes cutoff: max registered site cutoff (hbond, xstk incl. **oxdna3/xstk**, coaxstk) + 2 x `max_site_offset()` (0.43) + the **full** skin (`fix_oxdna_npair_kokkos.cpp:145,176`, `fix_oxdna_npair_kokkos.h:57`, `pair_oxdna3_xstk_kokkos.cpp:1092`); built in `pre_force` after the LRF (ghost mode); rebuilt when `neighbor->ncalls` changes (`:108`); packed list sized by the count + 20% (`:254`). Never shorter than the bench's exact range + 2 x `verlet_skin`, so no pair is dropped |
+| `ScatterAtomic` in the pairwise kernels | mirrored | `pair_oxdna_hbond_kokkos.cpp:1126`, `pair_oxdna_xstk_kokkos.cpp:1113`, `pair_oxdna2_coaxstk_kokkos.cpp:983`, oxdna3/xstk; also the oxDNA3 hbond / xstk / coaxstk kernels |
+| Bond prime tables: stk and fene each their own copy per rebuild, no fix `pre_force` | mirrored | `pair_oxdna_stk_kokkos.cpp:102`, `bond_oxdna_fene_kokkos.cpp:143`, `fix_oxdna_prime_neighs_kokkos.cpp:73` |
+| `prime_neighs_pair` rows = neighbor-list rows | mirrored | `fix_oxdna_prime_neighs_kokkos.cpp:137` |
+| oxDNA1 coaxstk terminal filter + blunt lobe | mirrored, under `lammps_coaxstk_terminal` | `pair_oxdna_coaxstk_kokkos.cpp:254,300,364` (physics option, off by default) |
+| Per-type coefficient tables | mirrored (`lammps_tables`) | oxDNA1/2: 2D 5x5 tables for excv (3 site pairs), hbond (incl. `epsilon_hb` = 0 gate), xstk, coaxstk, stk (eps, a, b_lo/hi, theta4_0, theta5/6, phi1/2), dh; 4D 5^4 tables for stk (cutoffs, shift, theta4), fene (Delta, r0; k per bond type), bonded base-base excv. One struct per entry (LAMMPS: one View per coefficient); uniform values = same physics. oxDNA3 reads the upstream sequence-dependent 4D tables per pair already |
+| Ghost atoms, borders, map | mirrored (`lammps_ghosts`) | `comm_kokkos.cpp` `borders_device` (TeamPolicy + `team_scan` build list, pack/unpack border + ellipsoid bonus, border data x, tag, type, mask, molecule, id3p, id5p, qeff, rmass, ellipsoid flag + shape, quat), `copy_swap_info` (`:1545`), `map_set_device`; ghost cutoff `comm_cutoff` (LAMMPS `comm_modify cutoff`) |
+| Per-step forward / reverse communication | mirrored | fused self comm (`atom_vec_kokkos.cpp` `PackCommSelfFused`, `PackReverseSelfFused` with atomics `:1523`, `atom_vec_ellipsoid_kokkos.cpp` `PackCommSelfFusedBonus`; `comm_kokkos.cpp:315`) |
+| pbc / exchange on rebuild steps | mirrored | `DomainPBCFunctor`, 3 x `BuildExchangeListFunctor` (nothing leaves on one rank; kk-fixes skips the bonus host work when no bonus data leaves) |
+| No minimum image with ghosts | mirrored | positions unwrapped between rebuilds; pairs / bonds reference the interacting image (`SimBox::min_image = false`) |
+| Kernels over the LAMMPS ranges | mirrored | LRF over nlocal + nghost (`fix_oxdna_lrf_kokkos.cpp:139`), force clear over nall (`verlet_kokkos.cpp:639`), pair styles over the list (nlocal, `d_ilist`), stk / fene over the bond list |
+| Binned half/bin/newton list | mirrored (flat variant) | `NBinKokkos` (binsize = cutneighmax/2, ghost extent, overflow -> regrow), `NStencilBin<half,3d>`, `build_Item` own-bin / ghost-coordinate rule, `special_flag = 2`, `rsq <= cutneighsq(itype,jtype)` table read, maxneighs x 1.2 regrow, scalars to / from the device. **Not mirrored:** the GPU shared-memory variant `build_ItemGPU` (TeamPolicy, 2 bins per team); it cannot be exercised on the Serial backend (team size 1) |
+| Bond topology per rebuild | mirrored | `NeighBond::bond_all` with `closest_image()` over the `sametag` chain, `k_bondlist.sync_host()` (`neigh_bond_kokkos.cpp:250`) |
+| Rebuild decision | mirrored | `neigh_every` / `neigh_check`; `TagNeighborCheckDistance` REDUCE over nlocal (`neighbor_kokkos.cpp:244`), `TagNeighborXhold` on builds with check |
+| Neighbor list radius | not by default | LAMMPS: cutforce (largest **site** cutoff, e.g. the dh cut 2.30) + skin; it relies on the skin to cover the site offsets and can miss interactions between rebuilds. Default: the COM range + 2 x `verlet_skin` (exact). `lammps_cutoff = 1` uses LAMMPS' radius (same pair count as LAMMPS; physics can differ) |
+| Verlet fuse_integrate / force clear | mirrored | final + initial integrate in one kernel except before output / thermostat / last steps (`verlet_kokkos.cpp:785`); two `Zero` kernels per step |
+| Energy / virial steps | mirrored | per-kernel REDUCE, `PairVirialFDotRCompute` REDUCE over nall (virial not printed), FENE flag to host |
+| `fix nve/asphere/kk` | optional (`lammps_integrator`) | Richardson iteration through `bonus(ellipsoid(i))`, inertia 0.2 m (s1^2 + s2^2) (`fix_nve_asphere_kokkos.cpp:22`); changes the dynamics, off by default; with `lammps_mass = 1`, `lammps_shape = sqrt(2.5)` the inertia is 1 as in the bench |
+| Atom sorting | not mirrored | the reference inputs use `atom_modify sort 0` (LAMMPS default: every 1000 steps) |
+| Thermo output | differs | the bench prints K (a `kinetic_energy` REDUCE) on output steps; the LAMMPS reference thermo prints pe only (host sums of the style energies) |
+| `bond_style hybrid` | not mirrored | the xcheck inputs use it (2 lambda kernels + 2 scalar copies per rebuild); the LAMMPS examples use plain `bond_style oxdna2/fene` |
+| Brownian thermostat | bench only | standalone oxDNA physics, no LAMMPS equivalent (applied between final and next initial integrate; those steps are not fused) |
+
+### kk-fixes diff (`git diff origin/oxdna3KK origin/oxdna3KK-kk-fixes -- src/KOKKOS src/CG-DNA`)
+
+| Change | Status |
+|---|---|
+| NPAIR screen: full skin, `request_screen_cutoff(cut_site)` + 2 x `max_site_offset()`, oxdna3/xstk registers, `ncalls` trigger, packed list sized by count | mirrored |
+| `prime_neighs_bond` owned by stk and fene (own copies), fix without `pre_force`; `ncalls` triggers in excv / stk / xstk3 / fene | mirrored |
+| `prime_neighs_pair` table rows = `d_neighbors.extent(0)` | mirrored |
+| `ScatterAtomic` in hbond / xstk / oxDNA2 coaxstk / oxDNA3 xstk pair kernels (and `ev_tally_xyz<...,PAIRWISE>`) | mirrored (per-atom tallies: n/a) |
+| oxDNA1 `coaxstk`: terminal filter + theta4 blunt lobe | mirrored under `lammps_coaxstk_terminal` |
+| oxdna3/xstk: theta from `atan2(|cross|, cos)`, no early exit at sin(theta) = 0; hbond / coaxstk: no early exit at sin = 0 | not mirrored: physics (the bench uses the standalone oxDNA angle functions) |
+| `sqrtf` / `expf` -> `Kokkos::sqrt` / `exp` (fene, hbond, xstk, coaxstk, stk, `F1_KK`, `F3_KK`, dh) | n/a: the bench always used the `c_number` functions; precision handling as before (`c_number` / `c_acc`) |
+| FENE overcompressed energy formula, restart / coeff read, `ntypes == 4` check for oxDNA3 | n/a (FENE overstretch physics: bench keeps the standalone clamp; input handling) |
+| `CommKokkos` reverse fused self comm: atomics, skipped with legacy forward comm | mirrored (atomics) |
+| exchange: no bonus host work when no bonus atom leaves | mirrored (nothing leaves) |
+| `nve/asphere/kk`: no `ELLIPSOID_MASK` modified (fewer DualView syncs), style lookup in `init()` | n/a (no DualViews); integrator optional |
+| per-atom energy / virial ScatterViews, `/kk/host` errors, fix deletion / reuse, idc (unique base pairing) refresh, LRF respa error, hybrid atom / bond style fixes, Install.sh, bonus comm offsets, comm_style tiled | n/a (not used by the benchmark) |
+
+### Kernel sequence vs. a real LAMMPS run
+
+N8 (128 nt, box 40, 75 ghost atoms), 300 steps of NVE, `dt = 0.003`, T = 0.1,
+salt 0.5, rebuild every 10 steps (`neigh_modify every 10 delay 0 check no` /
+`neigh_every = 10`, `neigh_check = 0`), skin 1.0 (`verlet_skin = 0.5`), `comm_modify
+cutoff 5.8` (`comm_cutoff = 5.8`), `lammps_cutoff = 1` (both lists: 960 pairs),
+energy every 100 steps; LAMMPS with plain `bond_style oxdna2/fene` /
+`oxdna3/fene`, both logged with the Kokkos Tools kernel / deep-copy logger. On
+the Serial backend a DualView sync is no copy, so neither code logs the
+host <-> device copies that a GPU run adds for DualViews (the bench skips the
+same copies through `dual_sync()`); the explicit `deep_copy`s are logged on
+both sides.
+
+| LAMMPS kernel / copy | bench label | regular | rebuild | notes |
+|---|---|:-:|:-:|---|
+| `FixNVEAsphereKokkosFusedIntegrateFunctor` | `fused_integrate` | 1 | 1 | `Initial` / `Final` / `initial_integrate` / `second_step` around output steps |
+| `TagNeighborCheckDistance` (with `check yes`) | `TagNeighborCheckDistance` | 1 | 1 | |
+| `AtomVecKokkos_PackCommSelfFused` + `...EllipsoidKokkos_PackCommSelfFusedBonus` | same | 2 | - | |
+| `DomainPBCFunctor` | same | - | 1 | |
+| copy + `ViewFill` of `atom:map_array` | same | - | 2 | map clear |
+| 3 x (copy `k_count`, `BuildExchangeListFunctor`, copy + `ViewFill` copylist_bonus) | same | - | 12 | |
+| 6 x (`BuildBorderListFunctor`, `PackBorder`, `PackBorderBonus`, `UnpackBorder`, `UnpackBorderBonus`) | same | - | 30 | |
+| 2 x `map_set_device` + 2 error-flag copies | `map_set_device (ghosts / local)` | - | 4 | |
+| resize copy, `MemsetZeroFunctor`, `NPairKokkosBinAtomsFunctor`, resize copy | same | - | 4 | |
+| scalars copy, `NPairKokkosBuildFunctor`, scalars copy | same (half/newton, flat) | - | 3 | |
+| scalars copy, REDUCE `TagNeighBondBondAll`, scalars copy | same | - | 3 | |
+| 2 x `Zero` | `VerletKokkos::force_clear (f / torque)` | 2 | 2 | |
+| `TagFixOxdnaLRFComputeQuatToXYZ` | `oxdna_lrf` | 1 | 1 | |
+| `TagFixOxdnaNpairNeighScreen`, SCAN, count copy, `TagFixOxdnaNpairFill` | `count_screened`, `scan_screened`, copy, `fill_screened` | - | 4 | |
+| `...PrecomputePrimeNeighsPair` | `oxdna_prime_neighs_pair` | - | 1 | |
+| `PairOxdna(3)ExcvKokkos` | `oxdna(3)_excv` | 1 | 1 | |
+| `...PrecomputePrimeNeighsBond` (stk) | `oxdna_stk_prime_neighs_bond` | - | 1 | |
+| `PairOxdnaStkKokkos` | `oxdna(3)_stk` | 1 | 1 | |
+| `PairOxdnaHbondKokkos` (GPUPair) | `oxdna(3)_hbond` | 1 | 1 | |
+| `...PrecomputePrimeNeighsOxdna3Xstk` (oxDNA3) | `oxdna3_prime_neighs_xstk` | - | 1 | |
+| `PairOxdna(3)XstkKokkos` (GPUPair / Npair) | `oxdna(3)_xstk` | 1 | 1 | |
+| `PairOxdna2CoaxstkKokkos` (GPUPair) | `oxdna2_coaxstk` / `oxdna3_coaxstk` | 1 | 1 | |
+| `PairOxdna2DhKokkos` | `oxdna2_dh` | 1 | 1 | |
+| `...PrecomputePrimeNeighsBond` (fene) | `oxdna_fene_prime_neighs_bond` | - | 1 | |
+| `BondOxdnaFENEKokkos` | `oxdna(3)_fene` | 1 | 1 | |
+| `AtomVecKokkos_PackReverseSelfFused` | same | 1 | 1 | |
+| energy steps: REDUCE variants, `PairVirialFDotRCompute`, `bond:flag` copy | same | | | |
+
+Totals per step (oxDNA2 / oxDNA3, LAMMPS = bench): regular 14 / 14 launches, no
+logged copy (15 with `check yes`); rebuild 78 / 79 events incl. 16 logged
+copies; rebuild + energy step 81 / 82 events incl. 17 copies (bench +1: its
+`kinetic_energy` REDUCE). Remaining
+mismatches, all explained: (1) the bench's output step adds a
+`kinetic_energy` REDUCE (it prints K; the reference thermo prints pe only);
+(2) names. Sequence, order and counts of every kernel and logged copy are
+otherwise identical over all 300 steps (270 regular, 27 rebuild, 3 rebuild +
+energy steps; and 297 + 3 steps with `check yes`).
+
+### Serial CPU timings (1 core, NOT a GPU measurement)
+
+Same N8 runs, 10000 steps (1000 rebuilds), `timing = 1` / LAMMPS `timer`,
+seconds:
+
+| Section | LAMMPS oxDNA2 | bench oxDNA2 (faithful) | LAMMPS oxDNA3 | bench oxDNA3 (faithful) |
+|---|---:|---:|---:|---:|
+| Pair | 2.031 | 2.483 | 2.318 | 2.890 |
+| Bond | 0.040 | 0.048 | 0.042 | 0.058 |
+| Neigh | 0.072 | 0.063 | 0.077 | 0.064 |
+| Comm | 0.077 | 0.109 | 0.085 | 0.103 |
+| Modify (integrate + LRF + screen) | 0.353 | 0.183 (0.411 with `lammps_integrator`) | 0.358 | 0.173 (0.408) |
+| Loop | 2.585 | 2.896 | 2.893 | 3.298 |
+
+Lean / `lammps_overhead` without ghosts on the same input: 2.835 / 2.727 s
+(oxDNA2), 3.258 / 3.019 s (oxDNA3). The pair kernels evaluate the standalone
+oxDNA physics (more expensive than LAMMPS' own functions on a CPU); the
+framework sections (Neigh, Comm) are of the same size as LAMMPS'. LAMMPS'
+Modify is larger because its Richardson integrator costs more than the
+bench's exact rotation.
+
+### Remaining deliberate physics differences (the bench follows standalone oxDNA)
+
+- oxDNA3 hbond / xstk angular smoothing widths (upstream `TS = sqrt(0.81225 / A)`
+  vs LAMMPS' oxDNA2 widths) and the upstream cross-stacking sign gate on
+  cos(theta7) / cos(theta8) (LAMMPS evaluates both channels unconditionally).
+- oxdna3/xstk small-angle handling (`atan2`, no early exit) and the sin = 0
+  handling of hbond / coaxstk in kk-fixes: the bench uses the standalone
+  functions.
+- Coaxial stacking terminal criterion + blunt theta4 lobe: LAMMPS-only, off by
+  default (`lammps_coaxstk_terminal`).
+- Debye-Hueckel: the bench's `dh_strength` 0.0543 (and the oxDNA3 upstream
+  convention) vs LAMMPS' `qeff_dh_pf` 0.815 in the examples; half-charged
+  strand ends on by default.
+- FENE: the standalone clamp (oxDNA1/2) / NaN (oxDNA3, as upstream) outside
+  the FENE range vs LAMMPS' capped-force extension.
+- The integrator (unless `lammps_integrator`) and the neighbor radius (unless
+  `lammps_cutoff`), see above.
 
 ## oxDNA3
 
@@ -419,7 +636,7 @@ against the standalone `DNA3_nomesh` interaction, see the sibling README): the
 parameter setup (`params_dna3.h`) and the physics functions (`dna3_forces.h`,
 namespace `dna3`) are copies of the sibling's files. Only the **kernel
 structure** differs; it mirrors the LAMMPS KOKKOS `oxdna3/*` styles on LAMMPS
-branch `oxdna3KK` (ec131639), in the same way as the oxDNA1/2 kernels above.
+branch `oxdna3KK-kk-fixes` (392462c401), in the same way as the oxDNA1/2 kernels above.
 The oxDNA1/2 code paths are untouched: the model is dispatched once per step on
 the host (`Simulation::pair_step` / `bond_step`), with no per-pair model
 branch.
@@ -451,10 +668,16 @@ with oxDNA3), `test_dna3_nicked.top` and `test_dna3_pert.conf`.
 
 Per step (GPU, HALFTHREAD, newton on), in LAMMPS order:
 
-    pre_force: LRF | [prime_neighs_bond]            ([..]: lammps_overhead, rebuild steps only)
-    Pair:      excv [prime_neighs_pair] -> [stk's prime_neighs_bond] stk -> hbond ->
+    pre_force: LRF [+ NPAIR screen]                 ([..]: lammps_overhead, rebuild steps only)
+    Pair:      [prime_neighs_pair] excv -> [stk's prime_neighs_bond] stk -> hbond ->
                [prime_neighs_oxdna3_xstk] xstk -> coaxstk -> dh
-    Bond:      fene (+ overstretch flag host copy on energy steps, lammps_overhead)
+    Bond:      [fene's prime_neighs_bond] fene (+ overstretch flag host copy on
+               energy steps, lammps_overhead)
+
+(with `lammps_ghosts` inside the full Verlet sequence of
+[Fidelity to LAMMPS KOKKOS](#fidelity-to-lammps-kokkos); the per-type tables
+of `lammps_tables` are not needed for oxDNA3, whose physics already reads the
+sequence-dependent tetramer tables per pair / bond.)
 
 For a pair `a < b` from the half list or the screened list, the physics is
 evaluated with `p = b`, `q = a` (`r = x_a - x_b`), the orientation of the
@@ -506,30 +729,19 @@ Notes on the individual kernels:
   loaded) and the mirrored theta4 lobe `f4(theta4; pi - theta4_0)`
   (`DNA3Params::cxst_t4_blunt`, added to the copied coaxial term together with
   its derivative). Default off = upstream physics.
-- **Screened-pair cutoff.** The screen range is derived from the DNA3 tables
-  (`make_oxdna3_params`): the maximum over hbond (complementary pairs only),
-  xstk (3'3' and 5'5') and coaxstk of the outer radial cutoff (over all flanks
-  that can occur, incl. `NO_TYPE`) plus the COM->site offsets of the two
-  nucleotide types involved (base sites for hbond/xstk, stacking sites for
-  coaxstk), then the existing skin margin (`+ verlet_skin`, as for oxDNA1/2).
-  With the upstream sequence-dependent tables this is **1.614** (purine-purine
-  cross stacking, 0.754 + 2 x 0.43), with `use_average_seq = 1` 1.584 (hbond).
-  **LAMMPS discrepancy:** LAMMPS' `fix OXDNA/NPAIR` screen only registers the
-  hbond (`cut_hb_hc + 0.8`) and coaxstk (`cut_cxst_hc + 0.8`) ranges;
-  `oxdna3/xstk` does not register its cutoff, and the fixed 0.8 site margin
-  (0.43 + 0.37) is too small for purine-purine cross stacking (2 x 0.43), so
-  its screen (max 1.584 before the skin margin) is shorter than the
-  cross-stacking range (1.614 with the upstream tables; about 1.631 with the
-  xstk cutoff of LAMMPS' own oxDNA3 parameters). Cross-stacking pairs in that
-  gap are only kept by LAMMPS' half-skin margin. The bench uses the correct
-  range; `xcheck` builds its oxDNA3 screen with no skin margin at all, so a too
-  short screen would show up as a difference to the sibling.
-- **Skin margin (oxDNA1/2/3, LAMMPS and bench).** The screen is only rebuilt
-  with the neighbour list, and its margin covers one atom's drift (LAMMPS: half
-  skin, rebuilding at a drift of half skin; bench: `verlet_skin`, rebuilding at
-  a drift of `verlet_skin`), while a pair distance can change by twice that
-  between rebuilds (LAMMPS' own comment calls the half-skin margin "a little
-  cheeky"). Not an issue in the tests below, noted for completeness.
+- **Screened-pair cutoff.** As for oxDNA1/2, the LAMMPS kk-fixes formula: the
+  largest site cutoff registered by hbond, xstk (kk-fixes: `oxdna3/xstk` now
+  registers too) and coaxstk, taken from the DNA3 tables over all flanks that
+  can occur (`DNA3Params::screen_site_cut`), + 2 x 0.43 + the full skin
+  (`2 * verlet_skin`), and never less than the exact range derived from the
+  tables (`screen_cutsq`: the outer radial cutoff plus the COM->site offsets of
+  the two nucleotide types, **1.614** with the upstream sequence-dependent
+  tables (purine-purine cross stacking, 0.754 + 2 x 0.43), 1.584 with
+  `use_average_seq = 1`) + `2 * verlet_skin`. The previous LAMMPS
+  discrepancies (xstk not registered, a fixed 0.8 site margin shorter than
+  2 x 0.43, a half-skin margin) are fixed in kk-fixes. `xcheck` builds its
+  oxDNA3 screen with no skin margin at all (the exact range), so a too short
+  screen would show up as a difference to the sibling.
 
 ### Known LAMMPS-vs-upstream oxDNA3 physics differences
 

@@ -85,6 +85,10 @@ struct FirstStepFunctor {
     Kokkos::View<int *>               rebuild_flag;
     c_number skin_half_sq = 0;
     bool     check_rebuild = false;
+    // Fold positions into the box every step (lean / minimum-image path).
+    // The LAMMPS ghost-atom path keeps them unwrapped between neighbor-list
+    // rebuilds and folds them in domain->pbc() on rebuild steps only.
+    bool     fold = true;
 
     KOKKOS_INLINE_FUNCTION
     void operator()(int i) const {
@@ -101,9 +105,11 @@ struct FirstStepFunctor {
         poss(i,2) += vels(i,2) * dt;
 
         // Apply periodic boundary (modular fold: handles any displacement size)
-        poss(i,0) -= box.Lx * Kokkos::floor(poss(i,0) / box.Lx + c_number(0.5));
-        poss(i,1) -= box.Ly * Kokkos::floor(poss(i,1) / box.Ly + c_number(0.5));
-        poss(i,2) -= box.Lz * Kokkos::floor(poss(i,2) / box.Lz + c_number(0.5));
+        if (fold) {
+            poss(i,0) -= box.Lx * Kokkos::floor(poss(i,0) / box.Lx + c_number(0.5));
+            poss(i,1) -= box.Ly * Kokkos::floor(poss(i,1) / box.Ly + c_number(0.5));
+            poss(i,2) -= box.Lz * Kokkos::floor(poss(i,2) / box.Lz + c_number(0.5));
+        }
 
         // Fused Verlet-list rebuild check (displacement since last build)
         if (check_rebuild) {
@@ -152,10 +158,25 @@ struct SecondStepFunctor {
     }
 };
 
+// -----------------------------------------------------------------------
+// LAMMPS VerletKokkos fuse_integrate: final_integrate() of the previous step
+// and initial_integrate() of this one in ONE kernel over the local atoms
+// (FixNVEAsphereKokkosFusedIntegrateFunctor), used when the previous step
+// had no output and no thermostat refresh (fuse_check). Same per-atom
+// operations in the same order as second_step() + first_step(), so the
+// result is bitwise identical; no per-step position fold (ghost mode).
+// -----------------------------------------------------------------------
+struct FusedStepFunctor {
+    SecondStepFunctor second;
+    FirstStepFunctor  first;
+    KOKKOS_INLINE_FUNCTION void operator()(int i) const { second(i); first(i); }
+};
+
 inline void first_step(ParticleArrays &p, c_number dt, const SimBox &box,
                        Vec4c list_poss = {},
                        Kokkos::View<int *> rebuild_flag = {},
-                       c_number skin_half_sq = 0) {
+                       c_number skin_half_sq = 0, bool fold = true,
+                       const char *label = "first_step") {
     FirstStepFunctor f;
     f.poss         = p.poss;
     f.vels         = p.vels;
@@ -171,7 +192,19 @@ inline void first_step(ParticleArrays &p, c_number dt, const SimBox &box,
     f.rebuild_flag  = rebuild_flag;
     f.skin_half_sq  = skin_half_sq;
     f.check_rebuild = (list_poss.data() != nullptr && rebuild_flag.data() != nullptr);
-    Kokkos::parallel_for("first_step", Kokkos::RangePolicy<>(0, p.N), f);
+    f.fold = fold;
+    Kokkos::parallel_for(label, Kokkos::RangePolicy<>(0, p.N), f);
+}
+
+inline void fused_step(ParticleArrays &p, c_number dt, const SimBox &box) {
+    FusedStepFunctor f;
+    f.second.vels = p.vels; f.second.Ls = p.Ls; f.second.forces = p.forces;
+    f.second.torques = p.torques; f.second.dt = dt;
+    f.first.poss = p.poss; f.first.vels = p.vels; f.first.Ls = p.Ls;
+    f.first.forces = p.forces; f.first.torques = p.torques;
+    f.first.orientations = p.orientations; f.first.dt = dt; f.first.box = box;
+    f.first.check_rebuild = false; f.first.fold = false;
+    Kokkos::parallel_for("fused_integrate", Kokkos::RangePolicy<>(0, p.N), f);
 }
 
 inline void second_step(ParticleArrays &p, c_number dt) {
@@ -198,4 +231,124 @@ inline c_number kinetic_energy(const ParticleArrays &p) {
                + 0.5 * (lx*lx + ly*ly + lz*lz);
         }, ekin);
     return ekin;
+}
+
+// =======================================================================
+// Optional LAMMPS fix nve/asphere/kk integrator (lammps_integrator = 1,
+// ghost-atom path only). Mirrors FixNVEAsphereKokkos (kk-fixes):
+//   initial:  v += dtf/m f; x += dtv v; angm = angmom + dtf torque;
+//             principal moments from the bonus shape and rmass
+//             (0.2 m (s1^2 + s2^2), ...); omega from angm and q
+//             (mq_to_omega); Richardson iteration of the quaternion
+//             (MathExtraKokkos::richardson) through bonus(ellipsoid(i));
+//             angmom = angm
+//   final:    v += dtf/m f; angmom += dtf torque
+//   fused:    final of the previous step + initial of this one (one kernel,
+//             v += 2 dtf/m f as LAMMPS)
+// This changes the dynamics slightly (Richardson instead of the exact
+// rotation of the bench integrator, mass / inertia from lammps_mass /
+// lammps_shape), so it is off by default. With the defaults (mass 1, shape
+// radii sqrt(2.5): inertia 1) the bench's unit mass / unit isotropic inertia
+// convention (kinetic energy, thermostat) still holds.
+// =======================================================================
+namespace mek {
+KOKKOS_INLINE_FUNCTION void quat_to_mat(const c_number *q, c_number m[3][3]) {
+    const c_number w2 = q[0]*q[0], i2 = q[1]*q[1], j2 = q[2]*q[2], k2 = q[3]*q[3];
+    const c_number twoij = c_number(2)*q[1]*q[2], twoik = c_number(2)*q[1]*q[3];
+    const c_number twojk = c_number(2)*q[2]*q[3], twoiw = c_number(2)*q[1]*q[0];
+    const c_number twojw = c_number(2)*q[2]*q[0], twokw = c_number(2)*q[3]*q[0];
+    m[0][0] = w2+i2-j2-k2; m[0][1] = twoij-twokw; m[0][2] = twojw+twoik;
+    m[1][0] = twoij+twokw; m[1][1] = w2-i2+j2-k2; m[1][2] = twojk-twoiw;
+    m[2][0] = twoik-twojw; m[2][1] = twojk+twoiw; m[2][2] = w2-i2-j2+k2;
+}
+KOKKOS_INLINE_FUNCTION void mq_to_omega(const c_number *m, const c_number *q, const c_number *mom, c_number *w) {
+    c_number rot[3][3], wb[3];
+    quat_to_mat(q, rot);
+    wb[0] = Kokkos::fma(rot[1][0], m[1], Kokkos::fma(rot[0][0], m[0], rot[2][0]*m[2]));
+    wb[1] = Kokkos::fma(rot[1][1], m[1], Kokkos::fma(rot[0][1], m[0], rot[2][1]*m[2]));
+    wb[2] = Kokkos::fma(rot[1][2], m[1], Kokkos::fma(rot[0][2], m[0], rot[2][2]*m[2]));
+    for (int d = 0; d < 3; d++) wb[d] = (mom[d] == c_number(0)) ? c_number(0) : wb[d] / mom[d];
+    w[0] = Kokkos::fma(rot[0][1], wb[1], Kokkos::fma(rot[0][0], wb[0], rot[0][2]*wb[2]));
+    w[1] = Kokkos::fma(rot[1][1], wb[1], Kokkos::fma(rot[1][0], wb[0], rot[1][2]*wb[2]));
+    w[2] = Kokkos::fma(rot[2][1], wb[1], Kokkos::fma(rot[2][0], wb[0], rot[2][2]*wb[2]));
+}
+KOKKOS_INLINE_FUNCTION void vecquat(const c_number *a, const c_number *b, c_number *c) {
+    c[0] = -Kokkos::fma(a[0], b[1], Kokkos::fma(a[1], b[2], a[2] * b[3]));
+    c[1] = Kokkos::fma(b[0], a[0], Kokkos::fma(a[1], b[3], -a[2] * b[2]));
+    c[2] = Kokkos::fma(b[0], a[1], Kokkos::fma(a[2], b[1], -a[0] * b[3]));
+    c[3] = Kokkos::fma(b[0], a[2], Kokkos::fma(a[0], b[2], -a[1] * b[1]));
+}
+KOKKOS_INLINE_FUNCTION void qnormalize(c_number *q) {
+    c_number sum = q[3] * q[3];
+    sum = Kokkos::fma(q[2], q[2], sum);
+    sum = Kokkos::fma(q[1], q[1], sum);
+    sum = Kokkos::fma(q[0], q[0], sum);
+    const c_number norm = Kokkos::rsqrt(sum);
+    q[0] *= norm; q[1] *= norm; q[2] *= norm; q[3] *= norm;
+}
+KOKKOS_INLINE_FUNCTION void richardson(c_number *q, const c_number *m, c_number *w, const c_number *mom, c_number dtq) {
+    c_number wq[4], qfull[4], qhalf[4];
+    vecquat(w, q, wq);
+    for (int k = 0; k < 4; k++) qfull[k] = Kokkos::fma(dtq, wq[k], q[k]);
+    qnormalize(qfull);
+    for (int k = 0; k < 4; k++) qhalf[k] = Kokkos::fma(c_number(0.5)*dtq, wq[k], q[k]);
+    qnormalize(qhalf);
+    mq_to_omega(m, qhalf, mom, w);
+    vecquat(w, qhalf, wq);
+    for (int k = 0; k < 4; k++) qhalf[k] = Kokkos::fma(c_number(0.5)*dtq, wq[k], qhalf[k]);
+    qnormalize(qhalf);
+    for (int k = 0; k < 4; k++) q[k] = Kokkos::fma(c_number(2), qhalf[k], -qfull[k]);
+    qnormalize(q);
+}
+} // namespace mek
+
+// MODE: 0 = initial_integrate, 1 = final_integrate, 2 = fused_integrate
+template <int MODE>
+struct NVEAsphereFunctor {
+    Vec4 poss, vels, Ls, quat;
+    VecA4c forces, torques;
+    Kokkos::View<const int *> ellipsoid;
+    Kokkos::View<const c_number *> rmass;
+    Vec4c shape;
+    c_number dtf, dtv;
+
+    KOKKOS_INLINE_FUNCTION void operator()(int i) const {
+        const c_number rm = rmass(i);
+        if (MODE == 1) {
+            const c_number dtfm = dtf / rm;
+            for (int d = 0; d < 3; d++) vels(i,d) += dtfm * static_cast<c_number>(forces(i,d));
+            for (int d = 0; d < 3; d++) Ls(i,d) += dtf * static_cast<c_number>(torques(i,d));
+            return;
+        }
+        const c_number dtq = c_number(0.5) * dtv;
+        const c_number dtfm = (MODE == 2 ? c_number(2) : c_number(1)) * dtf / rm;
+        for (int d = 0; d < 3; d++) vels(i,d) += dtfm * static_cast<c_number>(forces(i,d));
+        if (MODE == 2)
+            for (int d = 0; d < 3; d++) Ls(i,d) += dtf * static_cast<c_number>(torques(i,d));
+        for (int d = 0; d < 3; d++) poss(i,d) += dtv * vels(i,d);
+        c_number angm[3];
+        for (int d = 0; d < 3; d++) angm[d] = Kokkos::fma(dtf, static_cast<c_number>(torques(i,d)), Ls(i,d));
+        const int e = ellipsoid(i);
+        const c_number s0 = shape(e,0), s1 = shape(e,1), s2 = shape(e,2);
+        const c_number inertia[3] = {c_number(0.2)*rm*(s1*s1 + s2*s2), c_number(0.2)*rm*(s0*s0 + s2*s2),
+                                     c_number(0.2)*rm*(s0*s0 + s1*s1)};
+        c_number q[4] = {quat(e,0), quat(e,1), quat(e,2), quat(e,3)}, omega[3];
+        mek::mq_to_omega(angm, q, inertia, omega);
+        mek::richardson(q, angm, omega, inertia, dtq);
+        quat(e,0) = q[0]; quat(e,1) = q[1]; quat(e,2) = q[2]; quat(e,3) = q[3];
+        for (int d = 0; d < 3; d++) Ls(i,d) = angm[d];
+    }
+};
+
+template <int MODE>
+inline void nve_asphere(ParticleArrays &p, c_number dt) {
+    NVEAsphereFunctor<MODE> f;
+    f.poss = p.poss; f.vels = p.vels; f.Ls = p.Ls; f.quat = p.orientations;
+    f.forces = p.forces; f.torques = p.torques; f.ellipsoid = p.ellipsoid;
+    f.rmass = p.rmass; f.shape = p.shape;
+    f.dtv = dt; f.dtf = c_number(0.5) * dt;        // LAMMPS lj units: ftm2v = 1
+    const char *name = MODE == 0 ? "FixNVEAsphereKokkosInitialIntegrateFunctor"
+                     : MODE == 1 ? "FixNVEAsphereKokkosFinalIntegrateFunctor"
+                                 : "FixNVEAsphereKokkosFusedIntegrateFunctor";
+    Kokkos::parallel_for(name, Kokkos::RangePolicy<>(0, p.N), f);
 }

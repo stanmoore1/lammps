@@ -18,7 +18,9 @@ static void print_usage(const char *prog) {
         << "  thermostat                          brownian | john (NVT); else NVE\n"
         << "  newtonian_steps, diff_coeff, pt     Brownian thermostat parameters\n"
         << "  timing                              0 | 1 (per-kernel timing breakdown)\n"
-        << "  lammps_overhead, fuse_hbond_xstk, lammps_coaxstk_terminal   (see README)\n\n"
+        << "  lammps_overhead, fuse_hbond_xstk, lammps_coaxstk_terminal   (see README)\n"
+        << "  lammps_tables, lammps_ghosts, lammps_cutoff, comm_cutoff, neigh_every, neigh_check,\n"
+        << "  lammps_integrator, lammps_mass, lammps_shape             (LAMMPS fidelity, see README)\n\n"
         << "Other oxDNA keys (backend, CUDA_list, trajectory_file, ...) are ignored.\n"
         << "Kokkos runtime flags (--kokkos-*) are also accepted.\n";
 }

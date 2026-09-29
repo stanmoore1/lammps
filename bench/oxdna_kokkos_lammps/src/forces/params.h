@@ -7,6 +7,7 @@
 // initialization from the fundamental input parameters.
 
 #include "../types.h"
+#include <algorithm>
 #include <cmath>
 #include <Kokkos_Core.hpp>
 
@@ -165,9 +166,89 @@ struct DNAParams {
     // Global nonbonded COM-COM cutoff squared (max over all terms)
     c_number cutsq_nb;
     // Screened-pair COM-COM cutoff squared, used only by the hbond/xstk/coaxstk
-    // screen (excludes excv/dh). Matches LAMMPS fix_oxdna_npair's derived cutoff.
+    // screen (excludes excv/dh): the largest of those site-site cutoffs plus
+    // the two COM->site offsets of the model (0.4 + 0.4), i.e. the exact range.
     c_number screen_cutsq;
+    // Largest site-site cutoff of hbond / xstk / coaxstk (cut_*_hc). This is
+    // what the LAMMPS styles register with fix OXDNA/NPAIR
+    // (request_screen_cutoff(cutone)); the fix adds 2 * max_site_offset()
+    // (= 2 * 0.43, the largest site offset over all oxDNA/oxRNA models) and
+    // the full neighbor skin (see Simulation::init).
+    c_number screen_site_cut = 0;
+    // Largest site-site cutoff of all nonbonded styles: LAMMPS' cutforce
+    // (neighbor list radius = cutforce + skin, lammps_cutoff = 1).
+    c_number site_cut_max = 0;
 };
+
+// LAMMPS fix OXDNA/NPAIR/kk::max_site_offset(): largest distance of any
+// hydrogen-bonding or stacking site from the COM over all supported models
+// (oxDNA3 purine base site, 0.43). The screen adds twice this to the
+// registered site cutoffs.
+constexpr double LAMMPS_MAX_SITE_OFFSET = 0.43;
+
+// =====================================================================
+// LAMMPS per-type coefficient tables (lammps_tables). The LAMMPS KOKKOS
+// styles read every coefficient from device Views indexed by atom type
+// ((ntypes+1)^2 = 5x5 for pair coefficients, (ntypes+1)^4 = 625 for the
+// tetramer-dependent stacking / FENE / bonded base-base excluded-volume
+// ones; type 0 = no neighbour, types 1..4 = A, C, G, T = bench btype + 1).
+// The bench keeps one struct per table entry (LAMMPS: one View per
+// coefficient); for oxDNA1/2 (sequence-averaged) every entry holds the
+// same values as DNAParams, so the physics is unchanged. The member names
+// match DNAParams so the (templated) physics helpers take either.
+// =====================================================================
+struct HbondCoeffs {
+    F1Params hb_f1;
+    F4Params hb_t1, hb_t2, hb_t3, hb_t4, hb_t7, hb_t8;
+    c_number eps;            // d_epsilon_hb: alpha_hb (0 = not complementary)
+};
+struct XstkCoeffs {
+    F2Params xstk_f2;
+    F4Params xstk_t1, xstk_t2, xstk_t3, xstk_t4, xstk_t7, xstk_t8;
+};
+struct CxstCoeffs {
+    F2Params cxst_f2;
+    F4Params cxst_t1, cxst_t4, cxst_t5, cxst_t6;
+    F5Params cxst_cp;
+    c_number cxst_t1_SA, cxst_t1_SB;       // d_AA_cxst1 / d_BB_cxst1
+    // model constants (not tabulated in LAMMPS either), filled from DNAParams
+    int      cxst_t1_mode;
+    bool     cxst_has_cosphi, cxst_t4_blunt;
+    c_number d_cbk, d_cstk;
+};
+// pair oxdna*/stk: eps, a, b_lo/hi, theta4_0, theta5/6, phi1/2 are 2D ...
+struct StkCoeffs2 {
+    c_number eps, a, b_lo, b_hi, t4_theta_0;
+    F4Params t5, t6;
+    F5Params cp1, cp2;
+};
+// ... the radial cutoffs, shift and the rest of theta4 are 4D (tetramer)
+struct StkCoeffs4 {
+    c_number cut_0, cut_lc, cut_hc, cut_lo, cut_hi, shift;
+    c_number t4_a, t4_dtheta_ast, t4_b, t4_dtheta_c;
+};
+// assembled per bond from the two tables (names as DNAParams)
+struct StkCoeffs {
+    F1Params stk_f1;
+    F4Params stk_t4, stk_t5, stk_t6;
+    F5Params stk_cp1, stk_cp2;
+    c_number d_cstk, d_cbk;
+};
+// bond oxdna*/fene: k per bond type, Delta / r0 per (bond type, tetramer)
+struct FeneCoeffs4 { c_number Delta, r0; };
+struct FeneCoeffs {
+    FeneParams fene;
+    c_number pb1, pb2;
+};
+// pair oxdna2/dh: qeff_dh_pf, kappa, b, cut_ast, cut_c (+ cutsq_c)
+struct DhCoeffs {
+    c_number dh_prefactor, dh_minus_kappa, dh_B, dh_RHIGH, dh_RC, cutsq_c;
+};
+
+KOKKOS_INLINE_FUNCTION int lmp_tet_index(int t3p, int ta, int tb, int t5p) {
+    // bench types 0..3 (-1 = none) -> LAMMPS types 1..4 (0 = none)
+    return (((t3p + 1) * 5 + (ta + 1)) * 5 + (tb + 1)) * 5 + (t5p + 1);
+}
 
 // make_f4: build an F4 term from (a, theta0, dtheta_ast), deriving the
 // smoothing coefficient b and the outer cutoff dtheta_c from C1 continuity.
@@ -353,6 +434,11 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     screen_cut = std::max(screen_cut, static_cast<double>(p.xstk_f2.cut_hc) + 0.8);
     screen_cut = std::max(screen_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
     p.screen_cutsq = static_cast<c_number>(screen_cut * screen_cut);
+    p.screen_site_cut = std::max({p.hb_f1.cut_hc, p.xstk_f2.cut_hc, p.cxst_f2.cut_hc});
+    // LAMMPS cutforce: max init_one() over the styles (site-site cutoffs):
+    // excv (cut_bkbk_c ...), stk (cut_st_hc), hbond, xstk, coaxstk
+    p.site_cut_max = std::max({p.screen_site_cut, p.stk_f1.cut_hc, p.excv_bkbk.cut_c,
+                               p.excv_bkbs.cut_c, p.excv_bsbs.cut_c});
 
     return p;
 }
@@ -419,6 +505,7 @@ inline DNAParams make_oxdna2_params(double T = 0.1, double salt = 0.5,
     double max_cut  = std::sqrt(static_cast<double>(p.cutsq_nb));
     max_cut = std::max(max_cut, dh_cut);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
+    p.site_cut_max = std::max(p.site_cut_max, static_cast<c_number>(RC));   // cut_dh_c
 
     return p;
 }

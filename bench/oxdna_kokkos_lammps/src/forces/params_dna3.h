@@ -26,6 +26,7 @@
 
 #include "../types.h"
 #include <Kokkos_Core.hpp>
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -114,6 +115,11 @@ struct DNA3Params {
     // largest outer radial cutoff of each term plus the COM->site offsets of
     // the two nucleotide types it can act between (see make_oxdna3_params).
     c_number screen_cutsq = 0;
+    // LAMMPS-structure cutoffs (see DNAParams): the largest site cutoff of
+    // hbond / xstk / coaxstk (registered with fix OXDNA/NPAIR, kk-fixes: incl.
+    // oxdna3/xstk) and of all nonbonded styles (cutforce)
+    c_number screen_site_cut = 0;
+    c_number site_cut_max = 0;
 
     // LAMMPS-only coaxial-stacking variant (lammps_coaxstk_terminal input
     // toggle, off by default = upstream physics), as for oxDNA2: the coaxstk
@@ -643,5 +649,22 @@ inline DNA3Params make_oxdna3_params(const DNA3Options &opt) {
         }
     }
     p.screen_cutsq = static_cast<c_number>(screen * screen);
+    // site cutoffs as the LAMMPS styles register them (max over all type pairs
+    // and flanks that occur)
+    double site_hb = 0, site_cx = 0, rmax_stk = 0;
+    for (int tp = 0; tp < 4; tp++)
+    for (int tq = 0; tq < 4; tq++) {
+        if (tp + tq == 3) site_hb = std::max(site_hb, H(F1_RCHIGH + HYDR_F1, 0, tq, tp, 0));
+        for (int i = 0; i < DIM_A; i++)
+        for (int l = 0; l < DIM_A; l++) {
+            if (i == 4 || l == 4) continue;
+            site_hb  = std::max(site_hb, H(F2_RCHIGH + CRST_F2_33, i, tq, tp, l));
+            site_hb  = std::max(site_hb, H(F2_RCHIGH + CRST_F2_55, i, tq, tp, l));
+            site_cx  = std::max(site_cx, H(F2_RCHIGH + CXST_F2, i, tq, tp, l));
+            rmax_stk = std::max(rmax_stk, H(F1_RCHIGH + STCK_F1, i, tq, tp, l));
+        }
+    }
+    p.screen_site_cut = static_cast<c_number>(std::max(site_hb, site_cx));
+    p.site_cut_max = static_cast<c_number>(std::max({site_hb, site_cx, rmax_stk, rmax_back, RC}));
     return p;
 }

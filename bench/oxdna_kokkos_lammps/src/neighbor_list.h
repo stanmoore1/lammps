@@ -132,8 +132,15 @@ struct NeighborList {
         d_screened_offsets = Kokkos::View<int *>("screened_offsets", N + 1);
     }
 
-    // Full rebuild
+    // Full rebuild (lean path: cell list, minimum image, screen)
     void build(const ParticleArrays &p, const SimBox &box);
+    // fix OXDNA/NPAIR screen of the current matrix (count, scan, fill)
+    void build_screen(const ParticleArrays &p, const SimBox &box);
+
+    // LAMMPS neighbor-list mode (lammps_ghosts): rows over the local atoms
+    // are read through ilist (d_ilist(ii) = ii, the LAMMPS NeighList ilist
+    // indirection); lean mode leaves it empty.
+    mutable Kokkos::View<int *> d_ilist;
 
     // Check if rebuild needed (max displacement > skin)
     bool needs_rebuild(const ParticleArrays &p, const SimBox &box);
@@ -315,12 +322,31 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     f.max_neigh      = max_neigh;
     f.N_cells        = N_cells;
 
-    Kokkos::parallel_for("clear_cells", N_cells, KOKKOS_LAMBDA(int i) {
-        f.d_cell_count(i) = 0;
-    });
-    Kokkos::parallel_for("bin_particles", N, KOKKOS_LAMBDA(int i) {
-        f(TagBinParticles{}, i);
-    });
+    // Bin the particles. A cell with more than max_per_cell particles would
+    // silently drop the extra ones (and their interactions): detect it and
+    // re-bin with room for the largest occupancy (the N512 test case has 28
+    // particles in one cell with the default 20 slots).
+    for (;;) {
+        Kokkos::parallel_for("clear_cells", N_cells, KOKKOS_LAMBDA(int i) {
+            f.d_cell_count(i) = 0;
+        });
+        Kokkos::parallel_for("bin_particles", N, KOKKOS_LAMBDA(int i) {
+            f(TagBinParticles{}, i);
+        });
+        int maxc = 0;
+        auto cc = d_cell_count;
+        Kokkos::parallel_reduce("max_cell_count", N_cells,
+            KOKKOS_LAMBDA(int i, int &m) { if (cc(i) > m) m = cc(i); }, Kokkos::Max<int>(maxc));
+        if (maxc <= max_per_cell) break;
+        max_per_cell = maxc + 8;
+        d_cell_members = Kokkos::View<int *>("cell_members", N_cells * max_per_cell);
+        max_neigh = std::min(N - 1, 27 * max_per_cell);
+        d_neigh_matrix = Kokkos::View<int **>("neigh_matrix", N, max_neigh);
+        f.d_cell_members = d_cell_members;
+        f.d_neigh_matrix = d_neigh_matrix;
+        f.max_per_cell   = max_per_cell;
+        f.max_neigh      = max_neigh;
+    }
     Kokkos::parallel_for("build_neigh_matrix", N, KOKKOS_LAMBDA(int i) {
         f(TagBuildNeighMatrix{}, i);
     });
@@ -366,6 +392,15 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
     Kokkos::deep_copy(list_poss, p.poss);
     Kokkos::deep_copy(d_needs_rebuild, 0);
 
+    build_screen(p, box);
+}
+
+// -------------------------------------------------------------------
+// fix OXDNA/NPAIR screen of the current neighbor matrix (rows 0..N-1).
+// -------------------------------------------------------------------
+inline void NeighborList::build_screen(const ParticleArrays &p, const SimBox &box) {
+    const int N = p.N;
+
     // -------------------------------------------------------------------
     // Build the screened flat pair list (LAMMPS-faithful "fix OXDNA/NPAIR").
     // Scan the per-atom half neighbor matrix for (a,b) pairs whose
@@ -391,8 +426,11 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
         auto box_d    = box;
         const c_number screen_cutsq_l = screen_cutsq;   // derived cutoff (LAMMPS)
 
+        auto ilist = d_ilist;
+        const bool use_ilist = (d_ilist.extent_int(0) >= N && N > 0);
         // 1. count screened neighbours per atom
-        Kokkos::parallel_for("count_screened", N, KOKKOS_LAMBDA(int i) {
+        Kokkos::parallel_for("count_screened", N, KOKKOS_LAMBDA(int ii) {
+            const int i = use_ilist ? ilist(ii) : ii;
             c_number xi = poss_d(i,0), yi = poss_d(i,1), zi = poss_d(i,2);
             int m = nnum(i);
             int ns = 0;
@@ -444,10 +482,13 @@ inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
         auto sp       = screened_pair;
         auto box_d    = box;
         const c_number screen_cutsq_l = screen_cutsq;   // derived cutoff (LAMMPS)
-        Kokkos::parallel_for("fill_screened", N, KOKKOS_LAMBDA(int i) {
+        auto ilist = d_ilist;
+        const bool use_ilist = (d_ilist.extent_int(0) >= N && N > 0);
+        Kokkos::parallel_for("fill_screened", N, KOKKOS_LAMBDA(int ii) {
+            const int i = use_ilist ? ilist(ii) : ii;
             c_number xi = poss_d(i,0), yi = poss_d(i,1), zi = poss_d(i,2);
             int m = nnum(i);
-            int base = soff(i);
+            int base = soff(ii);
             int ns = 0;
             for (int k = 0; k < m; k++) {
                 const int braw = nmat(i, k);
@@ -484,5 +525,5 @@ inline bool NeighborList::needs_rebuild(const ParticleArrays &p, const SimBox &b
         },
         Kokkos::Max<int>(flag));
 
-    return (flag != 0);
+    return (flag > 0);   // (the Max reducer starts from INT_MIN)
 }

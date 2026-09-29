@@ -19,7 +19,16 @@
 //   --consistent-gamma   (model 3) dna3_consistent_gamma = 1
 //   --average-seq        (model 3) use_average_seq = 1
 //   --seq=<file>         (model 3) seq_dep_file (default: see README)
-//   --terminal           (model 3) lammps_coaxstk_terminal = 1
+//   --terminal           lammps_coaxstk_terminal = 1 (all models)
+//   --tables=0|1         lammps_tables (default: = overhead; oxDNA1/2)
+//   --ghosts             LAMMPS ghost-atom path (needs --overhead): periodic
+//                        images as ghost atoms, borders + map, binned
+//                        half/bin/newton list, bond topology with closest
+//                        images, no minimum image, reverse communication of
+//                        the ghost forces / torques before the dump
+//   --comm-cutoff=<x>    ghost cutoff (comm_modify cutoff; default: list radius)
+//   --shift=<dx,dy,dz>   translate the configuration (then fold into the box)
+//                        so that strands cross the periodic boundaries
 // The oxDNA3 screened-pair list uses the bare screen range (no skin margin),
 // so any interaction the screen would miss shows up as a difference to the
 // sibling (which uses the full neighbour list).
@@ -33,14 +42,24 @@
 #include <cmath>
 #include <string>
 
+#include "../src/lammps_framework.h"
+
 int main(int argc, char**argv){
     std::string only, seqf;
     bool consistent_gamma = false, average_seq = false, overhead = false, terminal = false;
+    bool ghosts = false;
+    int tables = -1;
+    double comm_cutoff = 0, shift[3] = {0, 0, 0};
     {
         int j = 1;
         for (int i = 1; i < argc; i++) {
             std::string a = argv[i];
             if (a.rfind("--only=", 0) == 0) only = a.substr(7);
+            else if (a.rfind("--tables=", 0) == 0) tables = std::atoi(a.substr(9).c_str());
+            else if (a == "--ghosts") ghosts = true;
+            else if (a.rfind("--comm-cutoff=", 0) == 0) comm_cutoff = std::atof(a.substr(14).c_str());
+            else if (a.rfind("--shift=", 0) == 0)
+                std::sscanf(a.substr(8).c_str(), "%lf,%lf,%lf", &shift[0], &shift[1], &shift[2]);
             else if (a.rfind("--seq=", 0) == 0) seqf = a.substr(6);
             else if (a == "--consistent-gamma") consistent_gamma = true;
             else if (a == "--average-seq") average_seq = true;
@@ -57,14 +76,36 @@ int main(int argc, char**argv){
     const char* conf = (argc>5)? argv[5] : "tests/8bp_duplex/test.conf";
     const char* ftout= (argc>6 && std::string(argv[6]) != "-")? argv[6] : nullptr;  // if set, dump per-particle force/torque
     if ((argc>7) && std::string(argv[7]) == "overhead") overhead = true;
+    if (ghosts && !overhead) { std::fprintf(stderr, "--ghosts needs --overhead\n"); return 1; }
     Kokkos::initialize(argc,argv);
     {
         ParticleArraysHost host; int N;
         read_topology(top, host, N);
         SimBox box; long long step;
         read_config(conf, host, box, step);
+        if (shift[0] != 0 || shift[1] != 0 || shift[2] != 0) {
+            const double L[3] = {(double)box.Lx, (double)box.Ly, (double)box.Lz};
+            for (int i = 0; i < N; i++)
+                for (int d = 0; d < 3; d++) {
+                    double x = (double)host.poss(i, d) + shift[d];
+                    x -= L[d] * std::floor(x / L[d]);            // fold into [0, L)
+                    host.poss(i, d) = static_cast<c_number>(x);
+                }
+        }
         ParticleArrays dev; dev.allocate(N); copy_to_device(host, dev);
+        dev.use_tables = overhead && (tables < 0 ? true : tables != 0);
         NeighborList nl;
+        LammpsFramework lmp;
+        const double skin = 1.0;   // verlet_skin of the list (LAMMPS skin 2.0)
+        // LAMMPS ghost path: ghosts, binned list with the bench's list radius,
+        // bond list; the screen is rebuilt from the new list
+        auto ghost_setup = [&](double nl_cut) {
+            lmp.setup(dev, nl, box, nl_cut + 2 * skin, 2 * skin, comm_cutoff);
+            lmp.rebuild(dev, nl);
+            nl.build_screen(dev, box);
+            nl.N_edges = LammpsNeigh::count_pairs(dev, nl);
+        };
+        auto ghost_finish = [&]() { if (ghosts) lmp.reverse(dev); };
         c_number e_nb = 0, e_bond = 0;
         if (model == 3) {
             SimConfig cfg; cfg.T = T; cfg.salt = salt;
@@ -74,9 +115,10 @@ int main(int argc, char**argv){
             DNA3Options o = dna3_options(cfg);
             DNA3Model m = make_dna3_model(o, terminal);
             double nl_cut = std::max(2.5, std::sqrt((double)m.p.cutsq_nb));
-            nl.init(nl_cut, 1.0, N, box);
+            nl.init(nl_cut, skin, N, box);
             nl.screen_cutsq = m.p.screen_cutsq;
-            nl.build(dev, box);
+            if (ghosts) { dev.ensure_qeff(m.dh.dh_half_ends); ghost_setup(nl_cut); }
+            else nl.build(dev, box);
             using namespace dna3k;
             // per-term energies (each evaluated separately)
             double et[8];
@@ -88,8 +130,10 @@ int main(int argc, char**argv){
             et[5] = compute_forces_dna3(dev, nl, m, box, overhead, XSTK);
             et[6] = compute_forces_dna3(dev, nl, m, box, overhead, COAXSTK);
             et[7] = compute_forces_dna3(dev, nl, m, box, overhead, DH);
-            std::printf("oxDNA3 parameters: %s%s\n", o.average ? "average sequence" : o.seq_file.c_str(),
-                        overhead ? "  [lammps_overhead kernels]" : "  [lean kernels]");
+            std::printf("oxDNA3 parameters: %s%s%s\n", o.average ? "average sequence" : o.seq_file.c_str(),
+                        overhead ? "  [lammps_overhead kernels]" : "  [lean kernels]",
+                        ghosts ? " [ghosts]" : "");
+            if (ghosts) std::printf("  ghost atoms: %d\n", dev.nghost);
             std::printf("  screened pairs: %d of %d (screen %.6f)\n", nl.N_screened, nl.N_edges,
                         std::sqrt((double)m.p.screen_cutsq));
             std::printf("  per-term energy / particle (standalone split order):\n  ");
@@ -120,15 +164,24 @@ int main(int argc, char**argv){
                 else { std::fprintf(stderr, "unknown term '%s'\n", only.c_str()); std::exit(1); }
                 std::printf("  force/torque dump restricted to term '%s'\n", only.c_str());
             }
+            ghost_finish();
         } else {
             DNAParams par = (model==2)? make_oxdna2_params(T,salt) : make_oxdna1_params(T);
+            par.cxst_terminal_only = terminal;
+            par.cxst_t4_blunt      = terminal;
             double nl_cut = std::max(2.5, std::sqrt((double)par.cutsq_nb));
-            nl.init(nl_cut, 1.0, N, box);
-            nl.build(dev, box);
+            nl.init(nl_cut, skin, N, box);
+            if (ghosts) {
+                if (par.dh_enabled) dev.ensure_qeff(par.dh_half_ends);
+                ghost_setup(nl_cut);
+                std::printf("  [ghosts] ghost atoms: %d, pairs: %d, screened: %d\n", dev.nghost, nl.N_edges,
+                            nl.N_screened);
+            } else nl.build(dev, box);
 
             dev.zero_forces();
             e_nb   = compute_nonbonded_forces(dev, nl, par, box, true, overhead);
             e_bond = compute_bonded_forces(dev, par, box, true, overhead);
+            ghost_finish();
             Kokkos::fence();
         }
         c_number tot = e_nb + e_bond;
