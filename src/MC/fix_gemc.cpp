@@ -41,6 +41,7 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 
 static constexpr double RESTART_VERSION = 2.0;
+static constexpr double MAXDLOGVOLRATIO = 1.0;
 
 /* ---------------------------------------------------------------------- */
 
@@ -66,7 +67,7 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   time_depend = 1;
   restart_global = 1;
   vector_flag = 1;
-  size_vector = 6;
+  size_vector = 8;
   extvector = 0;
 
   // box size changes with volume MC moves
@@ -103,11 +104,26 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   // optional keywords
 
   full_flag = 0;
+  tune_every = 0;
+  tune_trans = tune_vol = 0.4;
   int iarg = 11;
   while (iarg < narg) {
     if (strcmp(arg[iarg], "full_energy") == 0) {
       full_flag = 1;
       iarg++;
+    } else if (strcmp(arg[iarg], "tune") == 0) {
+      if (iarg + 4 > narg) utils::missing_cmd_args(FLERR, "fix gemc tune", error);
+      tune_every = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+      tune_trans = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
+      tune_vol = utils::numeric(FLERR, arg[iarg + 3], false, lmp);
+      if (tune_every <= 0)
+        error->all(FLERR, iarg + 1, "Illegal fix gemc tune N value {}: must be > 0", tune_every);
+      if ((tune_trans <= 0.0) || (tune_trans >= 1.0))
+        error->all(FLERR, iarg + 2, "Illegal fix gemc tune translation acceptance ratio {}",
+                   tune_trans);
+      if ((tune_vol <= 0.0) || (tune_vol >= 1.0))
+        error->all(FLERR, iarg + 3, "Illegal fix gemc tune volume acceptance ratio {}", tune_vol);
+      iarg += 4;
     } else {
       error->all(FLERR, iarg, "Unknown fix gemc keyword: {}", arg[iarg]);
     }
@@ -133,6 +149,8 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   nvolume_attempts = nvolume_successes = 0.0;
   nexchange_attempts = nexchange_successes = 0.0;
   for (auto &n : nlast) n = 0.0;
+  for (auto &n : tune_last) n = 0.0;
+  ntune_calls = 0;
 
   force_reneighbor = 1;
   next_reneighbor = update->ntimestep + 1;
@@ -276,7 +294,17 @@ void FixGEMC::setup(int /*vflag*/)
     for (const auto c : name) hash = (hash ^ (uint32_t) (unsigned char) c) * 16777619u;
   }
 
-  constexpr int NCHECK = 13;
+  // step size adjustments only use moves attempted during this run
+
+  tune_last[0] = ntranslation_attempts;
+  tune_last[1] = ntranslation_successes;
+  tune_last[2] = nvolume_attempts;
+  tune_last[3] = nvolume_successes;
+  ntune_calls = 0;
+
+  // the maximum displacement may differ between the boxes
+
+  constexpr int NCHECK = 15;
   int mismatch = 0;
   if (me == 0) {
     double mine[NCHECK] = {(double) nevery,
@@ -284,7 +312,9 @@ void FixGEMC::setup(int /*vflag*/)
                            (double) nexchange,
                            (double) nvolume,
                            box_temp,
-                           displace,
+                           (double) tune_every,
+                           tune_trans,
+                           tune_vol,
                            max_dlogvolratio,
                            (double) seed,
                            (double) atom->ntypes,
@@ -359,7 +389,43 @@ void FixGEMC::pre_exchange()
       attempt_atomic_translation_full();
   }
 
+  if (tune_every && (++ntune_calls % tune_every == 0)) tune_steps();
+
   print_progress();
+}
+
+/* ----------------------------------------------------------------------
+   adjust maximum displacement (separately for each box) and maximum
+   change of log(V1/V2) (identical in both boxes, since volume moves are
+   accepted jointly) towards the target acceptance ratios, based on the
+   moves attempted since the last adjustment
+------------------------------------------------------------------------- */
+
+void FixGEMC::tune_steps()
+{
+  static constexpr int MINATTEMPTS = 20;
+
+  double dtrans = ntranslation_attempts - tune_last[0];
+  if (dtrans >= MINATTEMPTS) {
+    double ratio = (ntranslation_successes - tune_last[1]) / dtrans;
+    double factor = MIN(MAX(ratio / tune_trans, 0.5), 1.5);
+    double maxdisp = 0.5 * MIN(MIN(domain->xprd, domain->yprd), domain->zprd);
+    if (local_flag) maxdisp = MIN(maxdisp, neighbor->skin);
+    displace = MIN(displace * factor, maxdisp);
+    displace = MAX(displace, 1.0e-6 * maxdisp);
+    tune_last[0] = ntranslation_attempts;
+    tune_last[1] = ntranslation_successes;
+  }
+
+  double dvol = nvolume_attempts - tune_last[2];
+  if (dvol >= MINATTEMPTS) {
+    double ratio = (nvolume_successes - tune_last[3]) / dvol;
+    double factor = MIN(MAX(ratio / tune_vol, 0.5), 1.5);
+    max_dlogvolratio = MIN(max_dlogvolratio * factor, MAXDLOGVOLRATIO);
+    max_dlogvolratio = MAX(max_dlogvolratio, 1.0e-6);
+    tune_last[2] = nvolume_attempts;
+    tune_last[3] = nvolume_successes;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -661,5 +727,7 @@ double FixGEMC::compute_vector(int n)
   if (n == 3) return nexchange_successes;
   if (n == 4) return nvolume_attempts;
   if (n == 5) return nvolume_successes;
+  if (n == 6) return displace;
+  if (n == 7) return max_dlogvolratio;
   return 0.0;
 }

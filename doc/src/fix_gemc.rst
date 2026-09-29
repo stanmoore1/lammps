@@ -21,11 +21,15 @@ Syntax
 * maxdlogvolratio = maximum change of ln(V1/V2) in a volume exchange (unitless)
 * seed = random # seed (positive integer)
 * zero or more keywords may be appended
-* keyword = *full_energy*
+* keyword = *full_energy* or *tune*
 
   .. parsed-literal::
 
        *full_energy* = compute the full energy of the system for every move
+       *tune* values = Nt Atrans Avol
+         Nt = adjust step sizes every Nt invocations of this fix
+         Atrans = target acceptance ratio of translations (0 < Atrans < 1)
+         Avol = target acceptance ratio of volume exchanges (0 < Avol < 1)
 
 Examples
 """"""""
@@ -34,6 +38,7 @@ Examples
 
    fix 1 all gemc 1 100 20 2 0.9 0.3 0.05 29494
    fix mc all gemc 10 1000 200 10 120.0 1.0 0.1 4711 full_energy
+   fix mc all gemc 1 100 100 2 0.9 0.1 0.1 29494 tune 20 0.4 0.4
 
 Description
 """""""""""
@@ -65,7 +70,8 @@ like the initial box size or number of atoms, can use
 processors, which is useful because the liquid box usually contains
 many more atoms than the vapor box, e.g. ``-partition 1 3`` on 4
 processors.  The fix command itself (and the number of atom types)
-must be the same in both partitions.
+must be the same in both partitions, except for the *displace* value,
+which may differ between the boxes.
 
 Every *N* timesteps the fix performs a total of *M* + *X* + *V* MC
 moves.  The type of each move is chosen randomly with probabilities
@@ -118,13 +124,49 @@ volume moves.  Different atom types can be used, e.g. to study the
 coexistence of a mixture; the exchange move then transfers the type
 of the randomly chosen atom.
 
-Choosing the parameters: *displace* is usually tuned so that roughly
+Choosing the parameters: *displace* is usually chosen so that roughly
 30% to 50% of the translations in the liquid box are accepted, and
 *maxdlogvolratio* so that roughly 30% to 50% of the volume exchanges
-are accepted.  The acceptance ratio of exchanges is usually low for
-dense liquids (a few percent or less), so *X* must be large enough to
+are accepted.  The *tune* keyword can adjust both automatically, see
+below.  The acceptance ratio of exchanges is usually low for dense
+liquids (a few percent or less), so *X* must be large enough to
 exchange every atom several times during the run.  The acceptance
 counts are available as output of this fix, see below.
+
+.. versionadded:: TBD
+
+The *tune* keyword adjusts *displace* and *maxdlogvolratio* during the
+run.  Every *Nt* invocations of the fix, the acceptance ratio of the
+translations and volume exchanges attempted since the last adjustment
+is compared to the targets *Atrans* and *Avol*, and the step size is
+multiplied by the ratio of the measured to the target acceptance
+ratio, limited to the range 0.5 to 1.5.  The maximum displacement is
+adjusted separately for each box, since the vapor box accepts much
+larger displacements than the liquid box.  It is limited to half the
+shortest box edge and, when single-atom energies are used (see below),
+to the neighbor skin distance.  The maximum change of ln(V1/V2) is
+limited to 1.0.  An adjustment is only made after at least 20 moves of
+the respective kind were attempted.
+
+.. note::
+
+   Changing the step sizes based on the history of the simulation
+   violates detailed balance, so the *tune* keyword should only be used
+   during equilibration.  For the production run, re-define the fix
+   without the *tune* keyword using the adjusted step sizes, which are
+   available as elements 7 and 8 of the output vector.  Since the
+   maximum displacement differs between the boxes, it can be passed
+   through a variable that is evaluated in each partition:
+
+   .. code-block:: LAMMPS
+
+      fix             mc all gemc 1 100 100 2 0.9 0.1 0.1 29494 tune 20 0.4 0.4
+      run             10000
+      variable        disp equal $(f_mc[7])
+      variable        dlv equal $(f_mc[8])
+      unfix           mc
+      fix             mc all gemc 1 100 100 2 0.9 ${disp} ${dlv} 29494
+      run             100000
 
 If the fix is used together with time integration, e.g. :doc:`fix nvt
 <fix_nh>`, a hybrid MD/MC simulation is performed.  In this case the
@@ -205,11 +247,11 @@ fix.
 
 .. versionchanged:: TBD
 
-This fix computes a global vector of length 6, which can be accessed by
+This fix computes a global vector of length 8, which can be accessed by
 various :doc:`output commands <Howto_output>`, e.g. as *f_ID[1]* in
 the :doc:`thermo_style <thermo_style>` command.  The vector values are
-the following cumulative counts for the box of the partition
-where they are accessed:
+the following cumulative counts and current settings for the box of the
+partition where they are accessed:
 
   #. translation attempts
   #. translation successes
@@ -217,6 +259,8 @@ where they are accessed:
   #. exchange successes
   #. volume change attempts
   #. volume change successes
+  #. current maximum translation distance *displace* of this box
+  #. current maximum change of ln(V1/V2) *maxdlogvolratio*
 
 The vector values calculated by this fix are "intensive".
 
@@ -256,7 +300,8 @@ Defaults
 """"""""
 
 By default, single-atom energies are used when possible, i.e. the
-*full_energy* keyword is not set.
+*full_energy* keyword is not set, and the step sizes are not adjusted,
+i.e. the *tune* keyword is not set.
 
 ----------
 

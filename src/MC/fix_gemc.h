@@ -46,6 +46,11 @@ class FixGEMC : public Fix {
   double displace;            // maximum displacement for translations
   double max_dlogvolratio;    // maximum change in log(V1/V2)
   int seed;                   // RNG seed
+  int tune_every;             // adjust step sizes every this many invocations (0 = never)
+  double tune_trans;          // target acceptance ratio of translations
+  double tune_vol;            // target acceptance ratio of volume changes
+  double tune_last[4];        // counters at the last adjustment
+  int ntune_calls;            // number of invocations since the start of the run
   int full_flag;              // 1 if user requested full energy for all moves
   int local_flag;      // 1 if single-atom energies may be used for translations and exchanges
   int ghosts_stale;    // 1 if ghost atoms may be out of date
@@ -120,6 +125,7 @@ class FixGEMC : public Fix {
   void update_gas_atoms_list();    // updates list of local group atoms
   int pick_random_gas_atom();      // picks random group atom
   void print_progress();
+  void tune_steps();    // adjust maximum displacement and volume change
 };
 
 }    // namespace LAMMPS_NS

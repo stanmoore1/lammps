@@ -97,6 +97,7 @@ class FixGCMC : public Fix {
   double **molcoords;
   double *molq;
   imageint *molimage;
+  tagint *moltags;
   imageint imagezero;
   double overlap_cutoffsq;    // square distance cutoff for overlap
   int overlap_flag;

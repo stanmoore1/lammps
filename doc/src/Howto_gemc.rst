@@ -139,6 +139,9 @@ ratio of each kind of move:
   accepted, which is normal.
 * Volume changes: adjust *maxdlogvolratio* so that 30% to 50% are
   accepted.
+* Both can be adjusted automatically during equilibration with the
+  *tune* keyword of :doc:`fix gemc <fix_gemc>`; its page shows how to
+  continue with the adjusted values in the production run.
 * Exchanges: the acceptance ratio cannot be tuned, it gets smaller for
   denser liquids.  For the LJTS fluid at :math:`T^* = 0.7` only about
   0.1% of the exchanges are accepted, while at :math:`T^* = 1.0` it is
