@@ -276,8 +276,8 @@ model reproduces closely:
      - vapor (g/cm\ :sup:`3`)
      - liquid (g/cm\ :sup:`3`)
    * - GEMC, TraPPE
-     - CO2RESULTV
-     - CO2RESULTL
+     - 0.0461(12)
+     - 1.041(7)
    * - Experiment
      - 0.0466
      - 1.046
