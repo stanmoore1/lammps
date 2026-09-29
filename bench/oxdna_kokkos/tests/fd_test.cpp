@@ -7,8 +7,12 @@
 //      and on a nicked + perturbed duplex that switches on the terms that are
 //      zero in an ideal duplex: bonded/nonbonded excluded volume, coaxial
 //      stacking),
-//   2. NVE total-energy conservation over a short trajectory,
-//   3. Andersen-thermostat temperature control (equipartition).
+//   2. NVE total-energy conservation over a short trajectory (the production
+//      MD pipeline of simulation.h: first step, list updates, per-particle
+//      force kernel with body-frame torques, second step),
+//   3. Brownian-thermostat temperature control (equipartition).
+// The force checks run through both force paths: the default per-particle
+// kernels (oxDNA use_edge = false) and the edge kernels (use_edge = true).
 //
 // Exits non-zero if any check exceeds its tolerance.
 #include <Kokkos_Core.hpp>
@@ -24,6 +28,9 @@
 #include <type_traits>
 
 enum Term { NONBONDED, BONDED, ALL };
+enum Path { PER_PARTICLE, EDGE };
+static Path g_path = PER_PARTICLE;
+static const char *path_name() { return g_path == EDGE ? "[edge]" : "[per-particle]"; }
 
 struct Sys {
     ParticleArraysHost host;
@@ -91,19 +98,48 @@ static void load(Sys &s, int model, bool nicked = false, bool consistent_gamma =
         cutsq = s.par.cutsq_nb;
     }
     double nl_cut = std::max(2.5, std::sqrt(cutsq));
-    s.nl.init(nl_cut, 1.0, s.N, s.box);
-    s.nl.build(s.dev, s.box);
+    s.nl.init(s.N, nl_cut, 1.0, s.box, s.dev.poss, true);   // matrix + edges
+    s.nl.update(s.dev, s.box);
 }
 
+// Energy and lab-frame forces/torques of the selected terms, through the
+// selected force path (g_path).
 static c_number energy(Sys &s, Term t) {
-    s.dev.zero_forces();
     c_number e = 0;
+    if (g_path == PER_PARTICLE) {
+        set_external_forces(s.dev);
+        if (s.model == 3) {
+            if (t == NONBONDED) compute_forces_per_particle_dna3<dna3::NONBONDED>(s.dev, s.nl, s.par3, s.box, false);
+            else if (t == BONDED) compute_forces_per_particle_dna3<dna3::BONDED>(s.dev, s.nl, s.par3, s.box, false);
+            else compute_forces_per_particle_dna3(s.dev, s.nl, s.par3, s.box, false);
+        } else {
+            if (t == BONDED) { s.dev.zero_forces(); e = compute_bonded_forces(s.dev, s.par); Kokkos::fence(); return e; }
+            DNAParams par = s.par;
+            compute_forces_per_particle(s.dev, s.nl, par, s.box, false);
+            if (t == NONBONDED) {   // total minus bonded
+                auto F = Kokkos::create_mirror(s.dev.forces);  Kokkos::deep_copy(F, s.dev.forces);
+                auto T = Kokkos::create_mirror(s.dev.torques); Kokkos::deep_copy(T, s.dev.torques);
+                double etot = sum_forces_w(s.dev.forces, s.N) * 0.5;
+                s.dev.zero_forces();
+                double eb = compute_bonded_forces(s.dev, s.par);
+                auto Fb = Kokkos::create_mirror(s.dev.forces);  Kokkos::deep_copy(Fb, s.dev.forces);
+                auto Tb = Kokkos::create_mirror(s.dev.torques); Kokkos::deep_copy(Tb, s.dev.torques);
+                for (int k = 0; k < s.N; k++) for (int d = 0; d < 3; d++) { F(k,d) -= Fb(k,d); T(k,d) -= Tb(k,d); }
+                Kokkos::deep_copy(s.dev.forces, F); Kokkos::deep_copy(s.dev.torques, T);
+                return etot - eb;
+            }
+        }
+        e = sum_forces_w(s.dev.forces, s.N) * 0.5;
+        Kokkos::fence();
+        return e;
+    }
+    s.dev.zero_forces();
     if (s.model == 3) {
         if (t==NONBONDED|| t==ALL) e += compute_nonbonded_forces_dna3(s.dev, s.nl, s.par3, s.box);
-        if (t==BONDED   || t==ALL) e += compute_bonded_forces_dna3(s.dev, s.par3, s.box);
+        if (t==BONDED   || t==ALL) e += compute_bonded_forces_dna3(s.dev, s.par3);
     } else {
         if (t==NONBONDED|| t==ALL) e += compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
-        if (t==BONDED   || t==ALL) e += compute_bonded_forces(s.dev, s.par, s.box);
+        if (t==BONDED   || t==ALL) e += compute_bonded_forces(s.dev, s.par);
     }
     Kokkos::fence();
     return e;
@@ -112,12 +148,19 @@ static c_number energy(Sys &s, Term t) {
 // oxDNA3 single-term energy (TERMS mask), forces/torques left in s.dev
 template <int TERMS>
 static c_number energy3(Sys &s) {
-    s.dev.zero_forces();
     c_number e = 0;
+    if (g_path == PER_PARTICLE) {
+        set_external_forces(s.dev);
+        compute_forces_per_particle_dna3<TERMS>(s.dev, s.nl, s.par3, s.box, false);
+        e = sum_forces_w(s.dev.forces, s.N) * 0.5;
+        Kokkos::fence();
+        return e;
+    }
+    s.dev.zero_forces();
     if constexpr ((TERMS & dna3::NONBONDED) != 0)
         e += compute_nonbonded_forces_dna3<TERMS & dna3::NONBONDED>(s.dev, s.nl, s.par3, s.box);
     if constexpr ((TERMS & dna3::BONDED) != 0)
-        e += compute_bonded_forces_dna3<TERMS & dna3::BONDED>(s.dev, s.par3, s.box);
+        e += compute_bonded_forces_dna3<TERMS & dna3::BONDED>(s.dev, s.par3);
     Kokkos::fence();
     return e;
 }
@@ -167,8 +210,8 @@ static void fd_generic(Sys &s, EFun E, const char* name, double tol = 5e-3) {
     }
     char buf[64];
     if (s.model == 3) std::printf("  %-22s E = %12.6f  max|F| = %.3e  max|T| = %.3e\n", name, e0, maxf, maxtq);
-    std::snprintf(buf,sizeof buf,"FD force %s", name);   check(buf, maxferr/maxf, tol);
-    std::snprintf(buf,sizeof buf,"FD torque %s", name);  check(buf, maxterr/maxtq, tol);
+    std::snprintf(buf,sizeof buf,"FD force %s %s", name, path_name());   check(buf, maxferr/maxf, tol);
+    std::snprintf(buf,sizeof buf,"FD torque %s %s", name, path_name());  check(buf, maxterr/maxtq, tol);
 }
 
 static void fd_term(Sys &s, Term t, const char* name) {
@@ -236,84 +279,143 @@ static void fd_dna3_stacking_phi() {
     std::printf("  max |F(upstream gamma) - F(consistent gamma)| = %.3e\n", dmax);
 }
 
-static void compute_all(Sys &s) {
-    s.dev.zero_forces();
-    if (s.model == 3) {
-        compute_nonbonded_forces_dna3(s.dev, s.nl, s.par3, s.box);
-        compute_bonded_forces_dna3(s.dev, s.par3, s.box);
+// ---------------------------------------------------------------------------
+// MD with the production pipeline (simulation.h / MD_CUDABackend::sim_step)
+// ---------------------------------------------------------------------------
+struct MD {
+    MDConstants md;
+    PinnedFlag lists_old{"are_lists_old"};
+    Path path = PER_PARTICLE;
+};
+
+static void md_forces(Sys &s, Path path) {
+    set_external_forces(s.dev);
+    if (path == PER_PARTICLE) {
+        if (s.model == 3) compute_forces_per_particle_dna3(s.dev, s.nl, s.par3, s.box, true);
+        else              compute_forces_per_particle(s.dev, s.nl, s.par, s.box, true);
     } else {
-        compute_nonbonded_forces(s.dev, s.nl, s.par, s.box);
-        compute_bonded_forces(s.dev, s.par, s.box);
-    }
-}
-
-// One NVE / NVT step (mirrors simulation.h).
-static void md_step(Sys &s, c_number dt, Thermostat *th, int step, int newt) {
-    first_step(s.dev, dt, s.box);
-    if (s.nl.needs_rebuild(s.dev, s.box)) s.nl.build(s.dev, s.box);
-    compute_all(s);
-    second_step(s.dev, dt);
-    if (th && newt>0 && step%newt==0) th->apply(s.dev);
-}
-
-static c_number potential(Sys &s) {
-    return energy(s, ALL);
-}
-
-static void test_conservation(Sys &s, c_number dt, int nsteps) {
-    c_number e0 = potential(s) + kinetic_energy(s.dev);
-    double maxdrift = 0;
-    for (int step=1; step<=nsteps; step++) {
-        md_step(s, dt, nullptr, step, 0);
-        if (step % 50 == 0) {
-            c_number et = potential(s) + kinetic_energy(s.dev);
-            maxdrift = std::max(maxdrift, std::fabs((double)(et - e0)));
+        if (s.model == 3) {
+            compute_nonbonded_forces_dna3(s.dev, s.nl, s.par3, s.box, false);
+            compute_bonded_forces_dna3(s.dev, s.par3, false, true);
+        } else {
+            compute_nonbonded_forces(s.dev, s.nl, s.par, s.box, false);
+            compute_bonded_forces(s.dev, s.par, false, true);
         }
     }
-    check("NVE energy drift", maxdrift / std::fabs((double)e0), 2e-3);
 }
 
-static void test_thermostat(Sys &s, c_number T, int nsteps) {
-    c_number dt = 2e-3;
+static void md_step(Sys &s, MD &m, Thermostat *th, long long step) {
+    first_step(s.dev, m.md, s.nl.list_poss, m.lists_old);
+    Kokkos::fence();
+    if (m.lists_old() != 0) { s.nl.update(s.dev, s.box); m.lists_old() = 0; }
+    md_forces(s, m.path);
+    second_step(s.dev, m.md);
+    if (th) th->thermalize(s.dev, step);
+}
+
+// kinetic energy of the integrator arrays (double copies in mixed precision)
+static double kinetic(Sys &s) {
+    double K = 0;
+    if constexpr (OXDNA_MIXED) {
+        auto v = s.dev.velsd; auto L = s.dev.Lsd;
+        Kokkos::parallel_reduce("K", s.N, KOKKOS_LAMBDA(int i, double &k) {
+            k += 0.5 * (v(i,0)*v(i,0) + v(i,1)*v(i,1) + v(i,2)*v(i,2) + L(i,0)*L(i,0) + L(i,1)*L(i,1) + L(i,2)*L(i,2));
+        }, K);
+    } else {
+        auto v = s.dev.vels; auto L = s.dev.Ls;
+        Kokkos::parallel_reduce("K", s.N, KOKKOS_LAMBDA(int i, double &k) {
+            k += 0.5 * (v(i,0)*v(i,0) + v(i,1)*v(i,1) + v(i,2)*v(i,2) + L(i,0)*L(i,0) + L(i,1)*L(i,1) + L(i,2)*L(i,2));
+        }, K);
+    }
+    return K;
+}
+
+// potential energy of the current state without disturbing the MD force arrays
+static double md_potential(Sys &s) {
+    Vec4 F("Fsave", s.N), T("Tsave", s.N);
+    Kokkos::deep_copy(F, s.dev.forces); Kokkos::deep_copy(T, s.dev.torques);
+    Path save = g_path; g_path = PER_PARTICLE;
+    double e = energy(s, ALL);
+    g_path = save;
+    Kokkos::deep_copy(s.dev.forces, F); Kokkos::deep_copy(s.dev.torques, T);
+    return e;
+}
+
+static void test_conservation(Sys &s, double dt, int nsteps, Path path) {
+    MD m; m.md.dt = (float)dt; m.md.sqr_verlet_skin = (float)(1.0 * 1.0); m.path = path;
+    m.lists_old() = 0;
+    md_forces(s, path);
+    double e0 = md_potential(s) + kinetic(s);
+    double maxdrift = 0;
+    for (int step=1; step<=nsteps; step++) {
+        md_step(s, m, nullptr, step);
+        if (step % 50 == 0) {
+            double et = md_potential(s) + kinetic(s);
+            maxdrift = std::max(maxdrift, std::fabs(et - e0));
+        }
+    }
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "NVE energy drift %s", path == EDGE ? "[edge]" : "[per-particle]");
+    check(buf, maxdrift / std::fabs(e0), 2e-3);
+}
+
+static void test_thermostat(Sys &s, double T, int nsteps) {
+    double dt = 2e-3;
+    MD m; m.md.dt = (float)dt; m.md.sqr_verlet_skin = 1.0f;
+    m.lists_old() = 0;
     // strong direct coupling (pt=0.3) so the small system equilibrates quickly;
     // this checks equipartition, not the diff_coeff -> pt mapping.
-    Thermostat th; th.init(T, 50, dt, 0.0, 0.3, 777);
-    // equilibrate, then average kinetic energy
-    for (int step=1; step<=nsteps/2; step++) md_step(s, dt, &th, step, 50);
+    Thermostat th; th.init(T, 50, dt, 0.0, 0.3, 777, s.N);
+    md_forces(s, PER_PARTICLE);
+    for (int step=1; step<=nsteps/2; step++) md_step(s, m, &th, step);
     double sum=0; int cnt=0;
     for (int step=nsteps/2+1; step<=nsteps; step++) {
-        md_step(s, dt, &th, step, 50);
-        if (step % 20 == 0) { sum += (double)kinetic_energy(s.dev); cnt++; }
+        md_step(s, m, &th, step);
+        if (step % 20 == 0) { sum += kinetic(s); cnt++; }
     }
     double meanK = sum/cnt;
-    double expect = 3.0 * s.N * (double)T;     // (6N/2) kT, 6 DOF/particle
+    double expect = 3.0 * s.N * T;     // (6N/2) kT, 6 DOF/particle
     check("thermostat <Ekin> vs 3NkT", std::fabs(meanK-expect)/expect, 0.25);
 }
 
 int main(int argc, char**argv){
     Kokkos::initialize(argc,argv);
     {
+        std::printf("precision: %s\n", oxdna_precision_name());
         const char* names[3]={"nonbonded","bonded","all"};
-        const c_number dts[4] = {0, 5e-4, 1e-4, 5e-4};  // [model]; oxDNA2 needs smaller dt
+        const double dts[4] = {0, 5e-4, 1e-4, 5e-4};  // [model]; oxDNA2 needs smaller dt
         for (int model=1; model<=3; model++) {
             std::printf("================ oxDNA%d ================\n", model);
-            if (model == 3) {
-                std::printf("-- relaxed duplex (tests/8bp_duplex/test_dna3.conf)\n");
-                { Sys s; load(s, model); fd_dna3_all_terms(s, false); }
-                std::printf("-- nicked + perturbed duplex (all 8 terms active)\n");
-                { Sys s; load(s, model, true); fd_dna3_all_terms(s, true); }
-                std::printf("-- stacking with active cos(phi1/phi2) modulation\n");
-                fd_dna3_stacking_phi();
-            } else {
-                Sys s; load(s, model);
-                for (int t=0;t<3;t++) fd_term(s,(Term)t,names[t]);
+            for (Path path : {PER_PARTICLE, EDGE}) {
+                g_path = path;
+                std::printf("-- force path %s\n", path_name());
+                if (model == 3) {
+                    if (path == PER_PARTICLE) {
+                        std::printf("-- relaxed duplex (tests/8bp_duplex/test_dna3.conf)\n");
+                        { Sys s; load(s, model); fd_dna3_all_terms(s, false); }
+                        std::printf("-- nicked + perturbed duplex (all 8 terms active)\n");
+                        { Sys s; load(s, model, true); fd_dna3_all_terms(s, true); }
+                        std::printf("-- stacking with active cos(phi1/phi2) modulation\n");
+                        fd_dna3_stacking_phi();
+                    } else {
+                        Sys s; load(s, model, true);
+                        fd_generic(s, [](Sys &ss) { return (double)energy3<dna3::ALL>(ss); }, "all (nicked)", TOL3);
+                    }
+                } else {
+                    Sys s; load(s, model);
+                    if (path == PER_PARTICLE) for (int t=0;t<3;t++) fd_term(s,(Term)t,names[t]);
+                    else fd_term(s, ALL, names[2]);
+                }
             }
-            { Sys s; load(s, model);
-              test_conservation(s, dts[model], 3000); }
+            g_path = PER_PARTICLE;
+            for (Path path : {PER_PARTICLE, EDGE}) {
+                Sys s; load(s, model);
+                test_conservation(s, dts[model], 3000, path);
+            }
             if (model == 3) {
                 std::printf("-- NVE with the consistent stacking gamma (dna3_consistent_gamma = 1)\n");
                 Sys s; load(s, model, false, true);
-                test_conservation(s, dts[model], 3000);
+                test_conservation(s, dts[model], 3000, PER_PARTICLE);
             }
             { Sys s; load(s, model);
               test_thermostat(s, 0.1, 12000); }

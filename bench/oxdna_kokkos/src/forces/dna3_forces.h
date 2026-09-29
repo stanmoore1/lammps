@@ -3,17 +3,19 @@
 // oxDNA3 force kernels (sequence-dependent, tetramer tables).
 //
 // A Kokkos port that mirrors the standalone oxDNA CUDA implementation
-// (src/CUDA/Interactions/CUDA_DNA3.cuh, upstream c2c74cc0) as closely as
-// Kokkos allows:
-//   * DNA3NonbondedFunctor  == DNA3_forces_edge_nonbonded: one thread per
-//     Verlet edge (from = the larger index p, to = the smaller index q, as the
-//     CUDA edge list), computes the force F and lab-frame torque T on p with
-//     _DNA3_particle_particle_DNA_interaction and scatters with atomics:
-//     T -> p, F -> p, -F -> q, (-T + r x F) -> q.
-//   * DNA3BondedFunctor     == DNA3_forces_edge_bonded: one thread per
-//     particle gathers its n3 bond (_DNA3_bonded_part<true>) and its n5 bond
-//     (_DNA3_bonded_part<false>) and writes only its own force/torque, no
-//     atomics. It runs after the nonbonded kernel (adds on top).
+// (src/CUDA/Interactions/CUDA_DNA3.cuh, upstream c2c74cc0):
+//   * DNA3PerParticleFunctor == DNA3_forces (DEFAULT, use_edge = false): one
+//     thread per particle; it adds its n3 bond (_DNA3_bonded_part<true>), its
+//     n5 bond (<false>) and every non-bonded neighbour of its full Verlet-matrix
+//     row (_DNA3_particle_particle_DNA_interaction, each pair evaluated from
+//     both sides), rotates the torque into the body frame and writes F, T once
+//     (no atomics). F.w holds the particle's energy (U = sum_i F_i.w / 2).
+//   * DNA3NonbondedFunctor  == DNA3_forces_edge_nonbonded (use_edge = true):
+//     one thread per Verlet edge (from = the larger index p, to = q), atomic
+//     scatter of the lab-frame F/T: T -> p, F -> p, -F -> q, (-T + r x F) -> q.
+//   * DNA3BondedFunctor     == DNA3_forces_edge_bonded (use_edge = true): one
+//     thread per particle gathers its two bonds on top of the edge result and
+//     rotates the total torque into the body frame.
 // Per pair/particle the kernels read exactly what CUDA reads: positions,
 // quaternions, the LR_bonds of both particles, the uint8 particle-type array
 // (for the particles and for their n3/n5 neighbours -> tetramer flanks, NO_TYPE
@@ -22,16 +24,15 @@
 // upstream CPU "DNA3" interaction uses interpolation meshes for f4 instead
 // ("DNA3_nomesh" is the analytic CPU variant).
 //
-// Differences from CUDA (all deliberate, none affects the physics):
-//   * torques are accumulated in the lab frame for both kernels (this code's
-//     integrator works in the lab frame), so the final body-frame transform
-//     of DNA3_forces_edge_bonded is not needed;
-//   * bonded separations use the minimum image (positions are kept wrapped);
+// Differences from CUDA (none affects the physics):
 //   * stably_normalised() returns 0 for an exactly-zero vector (CUDA: NaN);
-//   * the energy is reduced separately (CUDA packs it into .w, where the
-//     Debye-Huckel energy even enters with the wrong sign);
+//   * the edge path does not accumulate energies in .w (neither does CUDA's
+//     atomic add); the validation tools reduce the energy separately (CUDA
+//     packs it into .w, where the Debye-Huckel energy even enters with the
+//     wrong sign; here F.w has the correct sign);
 //   * the TERMS template mask allows evaluating single terms (validation
-//     tools); production uses dna3::ALL, which compiles to the CUDA code path.
+//     tools); production uses dna3::ALL, which compiles to the CUDA code path;
+//   * body_frame = false keeps lab-frame torques (validation tools only).
 
 #include "../types.h"
 #include "../particles.h"
@@ -39,19 +40,6 @@
 #include "orient.h"
 #include "params_dna3.h"
 #include <Kokkos_Core.hpp>
-
-#ifndef OXDNA_NB_MAXT
-#define OXDNA_NB_MAXT 128
-#endif
-#ifndef OXDNA_NB_MINB
-#define OXDNA_NB_MINB 6
-#endif
-#ifndef OXDNA_BOND_MAXT
-#define OXDNA_BOND_MAXT 128
-#endif
-#ifndef OXDNA_BOND_MINB
-#define OXDNA_BOND_MINB 6
-#endif
 
 namespace dna3 {
 
@@ -807,8 +795,7 @@ struct DNA3NonbondedFunctor {
     Vec4cr orientations;
     RandomRead<LR_bonds> bonds;
     RandomRead<uint8_t>  ptypes;       // oxDNA particle types (CUDA _d_particle_types)
-    Kokkos::View<const int *> edge_i;  // lower index  (CUDA edge "to")
-    Kokkos::View<const int *> edge_j;  // higher index (CUDA edge "from")
+    Kokkos::View<const EdgeBond *> edges;
 
     DNA3Params par;
 
@@ -833,9 +820,9 @@ struct DNA3NonbondedFunctor {
     KOKKOS_INLINE_FUNCTION
     void operator()(int edge, c_number &ev) const {
         using namespace dna3;
-        // CUDA edge list: from = IND > to
-        const int p = edge_j(edge);
-        const int q = edge_i(edge);
+        const EdgeBond e = edges(edge);
+        const int p = e.from;
+        const int q = e.to;
 
         v3 ppos = {poss(p, 0), poss(p, 1), poss(p, 2)};
         v3 a1, a2, a3;
@@ -871,6 +858,46 @@ struct DNA3NonbondedFunctor {
 };
 
 // ---------------------------------------------------------------------------
+// The two bonds of particle i (shared by DNA3_forces_edge_bonded and
+// DNA3_forces); r = qpos - ppos is the plain difference, as upstream.
+// ---------------------------------------------------------------------------
+template <int TERMS, class PV, class OV, class BV, class TV>
+KOKKOS_INLINE_FUNCTION
+c_number dna3_bonds_of(const DNA3Params &par, const PV &poss, const OV &orientations,
+                       const BV &bonds, const TV &ptypes, int i, const dna3::v3 &ppos,
+                       const dna3::v3 &a1, const dna3::v3 &a2, const dna3::v3 &a3,
+                       const LR_bonds &pbonds, dna3::v3 &F, dna3::v3 &T) {
+    using namespace dna3;
+    const int ptype = ptypes(i);
+    const int p_n3_type = (pbonds.n3 < 0) ? dna3sd::NO_TYPE : int(ptypes(pbonds.n3));
+    const int p_n5_type = (pbonds.n5 < 0) ? dna3sd::NO_TYPE : int(ptypes(pbonds.n5));
+    c_number e = 0;
+    if (pbonds.n3 >= 0) {
+        const int q = pbonds.n3;
+        v3 qpos = {poss(q, 0), poss(q, 1), poss(q, 2)};
+        v3 b1, b2, b3;
+        axes(orientations, q, b1, b2, b3);
+        v3 r = qpos - ppos;
+        const int qn3 = bonds(q).n3;
+        const int neigh_n3_type = (qn3 < 0) ? dna3sd::NO_TYPE : int(ptypes(qn3));
+        e += bonded_part<true, TERMS>(par, r, ptype, a1, a2, a3, p_n5_type,
+                                      int(ptypes(q)), b1, b2, b3, neigh_n3_type, F, T);
+    }
+    if (pbonds.n5 >= 0) {
+        const int q = pbonds.n5;
+        v3 qpos = {poss(q, 0), poss(q, 1), poss(q, 2)};
+        v3 b1, b2, b3;
+        axes(orientations, q, b1, b2, b3);
+        v3 r = ppos - qpos;
+        const int qn5 = bonds(q).n5;
+        const int neigh_n5_type = (qn5 < 0) ? dna3sd::NO_TYPE : int(ptypes(qn5));
+        e += bonded_part<false, TERMS>(par, r, int(ptypes(q)), b1, b2, b3, neigh_n5_type,
+                                       ptype, a1, a2, a3, p_n3_type, F, T);
+    }
+    return e;
+}
+
+// ---------------------------------------------------------------------------
 // DNA3_forces_edge_bonded: one thread per particle, gather, no atomics
 // ---------------------------------------------------------------------------
 template <int TERMS = dna3::ALL>
@@ -882,7 +909,7 @@ struct DNA3BondedFunctor {
     Vec4 forces;
     Vec4 torques;
     DNA3Params par;
-    SimBox box;
+    bool body_frame = true;
 
     KOKKOS_INLINE_FUNCTION
     void operator()(int i) const {
@@ -890,49 +917,87 @@ struct DNA3BondedFunctor {
         (*this)(i, ev_unused);
     }
 
+    // energy: each bond is counted from both of its particles -> halved here
     KOKKOS_INLINE_FUNCTION
     void operator()(int i, c_number &ev) const {
         using namespace dna3;
+        v3 F = {forces(i, 0), forces(i, 1), forces(i, 2)};
+        v3 T = {torques(i, 0), torques(i, 1), torques(i, 2)};
         const LR_bonds pbonds = bonds(i);
-        if (pbonds.n3 < 0 && pbonds.n5 < 0) return;
-
         v3 ppos = {poss(i, 0), poss(i, 1), poss(i, 2)};
         v3 a1, a2, a3;
         axes(orientations, i, a1, a2, a3);
+
+        ev += c_number(0.5) * dna3_bonds_of<TERMS>(par, poss, orientations, bonds, ptypes, i,
+                                                  ppos, a1, a2, a3, pbonds, F, T);
+
+        // "we can do this because DNA3_forces_edge_nonbonded does not change the
+        // reference frame to the torque it calculates"
+        if (body_frame) T = {dot(a1, T), dot(a2, T), dot(a3, T)};
+
+        forces(i, 0) = F.x;  forces(i, 1) = F.y;  forces(i, 2) = F.z;
+        torques(i, 0) = T.x; torques(i, 1) = T.y; torques(i, 2) = T.z;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// DNA3_forces: one thread per particle (default, use_edge = false)
+// ---------------------------------------------------------------------------
+template <int TERMS = dna3::ALL>
+struct DNA3PerParticleFunctor {
+    Vec4cr poss;
+    Vec4cr orientations;
+    RandomRead<LR_bonds> bonds;
+    RandomRead<uint8_t>  ptypes;
+    Kokkos::View<const int **, Kokkos::LayoutLeft> matrix_neighs;
+    Kokkos::View<const int *> number_neighs;
+    Vec4 forces;
+    Vec4 torques;
+    DNA3Params par;
+    SimBox box;
+    bool body_frame = true;
+
+    KOKKOS_INLINE_FUNCTION
+    dna3::NeighTypes neigh_types(const LR_bonds &b) const {
+        return {(b.n3 < 0) ? dna3sd::NO_TYPE : int(ptypes(b.n3)),
+                (b.n5 < 0) ? dna3sd::NO_TYPE : int(ptypes(b.n5))};
+    }
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i) const {
+        using namespace dna3;
+        v3 F = {forces(i, 0), forces(i, 1), forces(i, 2)};
+        v3 T = {torques(i, 0), torques(i, 1), torques(i, 2)};
+        c_number e = forces(i, 3);
+        v3 ppos = {poss(i, 0), poss(i, 1), poss(i, 2)};
+        const LR_bonds pbonds = bonds(i);
+        const NeighTypes p_neighs = neigh_types(pbonds);
+        v3 a1, a2, a3;
+        axes(orientations, i, a1, a2, a3);
+
+        e += dna3_bonds_of<TERMS & BONDED>(par, poss, orientations, bonds, ptypes, i,
+                                           ppos, a1, a2, a3, pbonds, F, T);
+
         const int ptype = ptypes(i);
-        const int p_n3_type = (pbonds.n3 < 0) ? dna3sd::NO_TYPE : int(ptypes(pbonds.n3));
-        const int p_n5_type = (pbonds.n5 < 0) ? dna3sd::NO_TYPE : int(ptypes(pbonds.n5));
-
-        v3 F = {0, 0, 0}, T = {0, 0, 0};
-
-        if (pbonds.n3 >= 0) {
-            const int q = pbonds.n3;
-            v3 qpos = {poss(q, 0), poss(q, 1), poss(q, 2)};
-            v3 b1, b2, b3;
-            axes(orientations, q, b1, b2, b3);
+        const int num_neighs = number_neighs(i);
+        for (int j = 0; j < num_neighs; j++) {
+            const int k = matrix_neighs(i, j);
+            if (k == i || k == pbonds.n3 || k == pbonds.n5) continue;
+            v3 qpos = {poss(k, 0), poss(k, 1), poss(k, 2)};
             v3 r = qpos - ppos;
             box.wrap(r.x, r.y, r.z);
-            const int qn3 = bonds(q).n3;
-            const int neigh_n3_type = (qn3 < 0) ? dna3sd::NO_TYPE : int(ptypes(qn3));
-            // energy counted once per bond, on the n5 (this) side
-            ev += bonded_part<true, TERMS>(par, r, ptype, a1, a2, a3, p_n5_type,
-                                           int(ptypes(q)), b1, b2, b3, neigh_n3_type, F, T);
-        }
-        if (pbonds.n5 >= 0) {
-            const int q = pbonds.n5;
-            v3 qpos = {poss(q, 0), poss(q, 1), poss(q, 2)};
             v3 b1, b2, b3;
-            axes(orientations, q, b1, b2, b3);
-            v3 r = ppos - qpos;
-            box.wrap(r.x, r.y, r.z);
-            const int qn5 = bonds(q).n5;
-            const int neigh_n5_type = (qn5 < 0) ? dna3sd::NO_TYPE : int(ptypes(qn5));
-            bonded_part<false, TERMS>(par, r, int(ptypes(q)), b1, b2, b3, neigh_n5_type,
-                                      ptype, a1, a2, a3, p_n3_type, F, T);
+            axes(orientations, k, b1, b2, b3);
+            const NeighTypes q_neighs = neigh_types(bonds(k));
+            e += particle_particle_interaction<TERMS & NONBONDED>(par, r, ptype, a1, a2, a3,
+                                                                  int(ptypes(k)), b1, b2, b3,
+                                                                  F, T, p_neighs, q_neighs);
         }
 
-        forces(i, 0) += F.x;  forces(i, 1) += F.y;  forces(i, 2) += F.z;
-        torques(i, 0) += T.x; torques(i, 1) += T.y; torques(i, 2) += T.z;
+        if (body_frame) T = {dot(a1, T), dot(a2, T), dot(a3, T)};
+
+        forces(i, 0) = F.x;  forces(i, 1) = F.y;  forces(i, 2) = F.z; forces(i, 3) = e;
+        torques(i, 0) = T.x; torques(i, 1) = T.y; torques(i, 2) = T.z;
     }
 };
 
@@ -950,15 +1015,14 @@ inline c_number compute_nonbonded_forces_dna3(ParticleArrays &p, const NeighborL
 
     DNA3NonbondedFunctor<TERMS> fun;
     fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
-    fun.ptypes = p.ptype; fun.edge_i = nl.edge_i; fun.edge_j = nl.edge_j;
+    fun.ptypes = p.ptype; fun.edges = nl.d_edge_list;
     fun.par = par; fun.sf = sf; fun.st = st; fun.box = box;
 
-    using NBPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_NB_MAXT, OXDNA_NB_MINB>>;
     c_number etot = 0;
     if (want_energy)
-        Kokkos::parallel_reduce("dna3_forces_edge_nonbonded", NBPolicy(0, nl.N_edges), fun, etot);
+        Kokkos::parallel_reduce("dna3_forces_edge_nonbonded", OxForcePolicy(0, nl.N_edges), fun, etot);
     else
-        Kokkos::parallel_for("dna3_forces_edge_nonbonded", NBPolicy(0, nl.N_edges), fun);
+        Kokkos::parallel_for("dna3_forces_edge_nonbonded", OxForcePolicy(0, nl.N_edges), fun);
 
     Kokkos::Experimental::contribute(p.forces, sf);
     Kokkos::Experimental::contribute(p.torques, st);
@@ -967,16 +1031,27 @@ inline c_number compute_nonbonded_forces_dna3(ParticleArrays &p, const NeighborL
 
 template <int TERMS = dna3::ALL>
 inline c_number compute_bonded_forces_dna3(ParticleArrays &p, const DNA3Params &par,
-                                           const SimBox &box, bool want_energy = true) {
+                                           bool want_energy = true, bool body_frame = false) {
     DNA3BondedFunctor<TERMS> fun;
     fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
     fun.ptypes = p.ptype; fun.forces = p.forces; fun.torques = p.torques;
-    fun.par = par; fun.box = box;
-    using BondPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_BOND_MAXT, OXDNA_BOND_MINB>>;
+    fun.par = par; fun.body_frame = body_frame;
     c_number etot = 0;
     if (want_energy)
-        Kokkos::parallel_reduce("dna3_forces_edge_bonded", BondPolicy(0, p.N), fun, etot);
+        Kokkos::parallel_reduce("dna3_forces_edge_bonded", OxBondPolicy(0, p.N), fun, etot);
     else
-        Kokkos::parallel_for("dna3_forces_edge_bonded", BondPolicy(0, p.N), fun);
+        Kokkos::parallel_for("dna3_forces_edge_bonded", OxBondPolicy(0, p.N), fun);
     return etot;
+}
+
+template <int TERMS = dna3::ALL>
+inline void compute_forces_per_particle_dna3(ParticleArrays &p, const NeighborList &nl,
+                                             const DNA3Params &par, const SimBox &box,
+                                             bool body_frame = true) {
+    DNA3PerParticleFunctor<TERMS> fun;
+    fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
+    fun.ptypes = p.ptype; fun.matrix_neighs = nl.d_matrix_neighs;
+    fun.number_neighs = nl.d_number_neighs; fun.forces = p.forces; fun.torques = p.torques;
+    fun.par = par; fun.box = box; fun.body_frame = body_frame;
+    Kokkos::parallel_for("DNA3_forces", OxForcePolicy(0, p.N), fun);
 }

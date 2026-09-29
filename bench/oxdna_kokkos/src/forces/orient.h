@@ -1,9 +1,9 @@
 #pragma once
 
-// Quaternion → orientation basis vectors.
-// Computes the 3×3 rotation matrix rows (nx, ny, nz) from a unit quaternion
+// Quaternion -> orientation basis vectors.
+// Computes the 3x3 rotation matrix rows (nx, ny, nz) from a unit quaternion
 // (q0=w, q1=x, q2=y, q3=z).  Uses fused-multiply-add for numerical stability
-// on FP32 — same formula as fix_oxdna_lrf_kokkos.cpp:171-188.
+// on FP32 -- same formula as fix_oxdna_lrf_kokkos.cpp:171-188.
 
 #include "../types.h"
 #include <Kokkos_Core.hpp>

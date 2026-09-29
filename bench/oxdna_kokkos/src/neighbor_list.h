@@ -1,337 +1,325 @@
 #pragma once
 
-// Cell-list + flat edge list neighbor list for GPU-parallel oxDNA.
-// Strategy (mirrors CUDASimpleVerletList.cu from standalone oxDNA):
-//   1. bin_particles: assign particles to 3D cells
-//   2. build_neighbor_matrix: for each particle, check 27-cell neighbourhood,
-//      keep pairs (i<j) within cutoff that are NOT bonded (n3/n5 exclusion)
-//   3. compress_to_edge_list: Kokkos::parallel_scan builds a flat pair list
-//      (one entry per unique pair), eliminating duplicates.
+// Verlet list, a port of the oxDNA default CUDA list (CUDA_list = verlet,
+// src/CUDA/Lists/CUDASimpleVerletList.cu + CUDA_simple_verlet.cuh):
 //
-// Result: edge_i[k] and edge_j[k] for k=0..N_edges-1, where each pair
-// is stored once with i<j. Main force kernel iterates 0..N_edges with
-// one Kokkos thread per pair — no inner neighbor loop, perfect load balance.
+//   init (once):
+//     cells per side = floor(L / rverlet) (at least 3), capped by
+//       cells_auto_optimisation (default true) at ceil((2N/V)^(1/3) L);
+//     max_N_per_cell = round(max_density_multiplier (3) * the largest cell
+//       occupancy of the initial configuration) (count kernel + device max,
+//       one host read), clamped to [5, N+1];
+//     max_neigh = min(4/3 pi max_N_per_cell, N - 1); the neighbour matrix is
+//       stored column-major, matrix[j * N + i] (Kokkos LayoutLeft).
+//   update (whenever the first-step kernel flagged are_lists_old):
+//     1. memset of the cell counters;
+//     2. simple_fill_cells: one thread per particle, atomic slot in its cell,
+//        sets a host-pinned overflow flag if a cell is full;
+//     3. device synchronisation and host check of the overflow flag (upstream
+//        throws; here the cells are grown and step 2 repeated, see below);
+//     4. simple_update_neigh_list: one thread per particle, visits its cell and
+//        the 26 neighbouring cells (upstream visiting order), keeps the
+//        non-bonded particles with |r_ij|^2 < rverlet^2 (minimum image) --
+//        a FULL list (both i->j and j->i), writes list_poss[i] = r_i and the
+//        neighbour count.
+//     With use_edge = true step 4 is edge_update_neigh_list (also counts the
+//     neighbours m < i), followed by a host write of offsets[N] = 0, a device
+//     exclusive scan of the counts, a host read of N_edges = offsets[N] and
+//     compress_matrix_neighs, which writes the edges (from = i, to = m < i).
+//   rverlet = rcut + 2 * verlet_skin (float constant verlet_sqr_rverlet), where
+//   rcut is the interaction cutoff of the upstream interaction class.
+//
+// Beyond upstream: on a cell overflow (upstream throws) the cells are grown
+// (max_N_per_cell doubled) and re-filled, and a neighbour-matrix overflow
+// (more than max_neigh neighbours; upstream writes out of bounds) sets the
+// flag too and grows the matrix; both print a warning. A particle is never
+// dropped silently (the previous version of this code did that).
 
 #include "types.h"
 #include "particles.h"
 #include <Kokkos_Core.hpp>
+#include <cmath>
+#include <cstdio>
+#include <stdexcept>
+#include <string>
+
+// CUDA edge_bond
+struct EdgeBond {
+    int from, to;
+};
 
 struct NeighborList {
-    // Flat edge list: one entry per unique pair (i,j) with i<j
-    Kokkos::View<int *> edge_i;
-    Kokkos::View<int *> edge_j;
-    int N_edges = 0;
-    int edge_capacity = 0;   // allocated length of edge_i/edge_j (grow-only)
+    // settings
+    double rcut = 0, verlet_skin = 0;
+    float  sqr_rverlet = 0;          // verlet_sqr_rverlet (__constant__ float)
+    bool   use_edge = false;
+    bool   auto_optimisation = true; // cells_auto_optimisation
+    double max_density_multiplier = 3;
+    int    N = 0;
 
-    // Verlet skin: list rebuilt when any particle moves > skin from list pos
-    c_number skin;
-    c_number cutoff;
-    c_number cutsq;     // (cutoff)^2
+    // cells
+    int N_cells_side[3] = {0, 0, 0};
+    int N_cells = 0, max_N_per_cell = 0;
+    Kokkos::View<int *> d_counters_cells;
+    Kokkos::View<int *> d_cells;
 
-    // Reference positions at last build
-    Vec4 list_poss;
-    // Flag: needs rebuild?
-    Kokkos::View<int *> d_needs_rebuild;
-
-    // Internal: dense neighbor matrix and per-particle counts
-    Kokkos::View<int *>    d_num_neigh;      // number of neighbours per particle
-    Kokkos::View<int *>    d_neigh_offsets;  // prefix-sum offsets
-    Kokkos::View<int **>   d_neigh_matrix;   // [N][max_neigh]
+    // neighbour matrix (column-major as upstream: element (i, j) at j * N + i)
     int max_neigh = 0;
+    Kokkos::View<int **, Kokkos::LayoutLeft> d_matrix_neighs;
+    Kokkos::View<int *> d_number_neighs;
 
-    // Cell list
-    Kokkos::View<int *>    d_cell_count;     // particles per cell
-    Kokkos::View<int *>    d_cell_offset;    // prefix-sum for cell start
-    Kokkos::View<int *>    d_cell_members;   // flat list of particle ids per cell
-    int N_cells = 0;
-    int max_per_cell = 0;
-    int Ncx = 0, Ncy = 0, Ncz = 0;         // cells per dimension
+    // edge list (use_edge)
+    Kokkos::View<EdgeBond *> d_edge_list;
+    Kokkos::View<int *> d_number_neighs_no_doubles;
+    int N_edges = 0;
 
-    void init(c_number cut, c_number skin_in, int N, const SimBox &box) {
-        cutoff = cut;
-        skin   = skin_in;
-        // Verlet convention matching the standalone oxDNA: list radius is
-        // rverlet = rcut + 2*skin, and a rebuild is triggered when a particle
-        // moves more than skin (not skin/2). Same verlet_skin -> same list size
-        // and rebuild frequency as the reference.
-        c_number rverlet = cut + 2 * skin;
-        cutsq  = rverlet * rverlet;
+    // positions at the last update (_d_list_poss, written by the update kernel)
+    Vec4 list_poss;
 
-        list_poss      = Vec4("list_poss", N);
-        d_needs_rebuild= Kokkos::View<int *>("needs_rebuild", 1);
-        d_num_neigh    = Kokkos::View<int *>("num_neigh", N);
-        d_neigh_offsets= Kokkos::View<int *>("neigh_offsets", N + 1);
+    // host-pinned overflow flag (_d_cell_overflow)
+    PinnedFlag cell_overflow;
 
-        // cell edge >= rverlet so the 27-cell (+-1) search covers the list radius
-        c_number cell_size = rverlet;
-        Ncx = std::max(1, static_cast<int>(box.Lx / cell_size));
-        Ncy = std::max(1, static_cast<int>(box.Ly / cell_size));
-        Ncz = std::max(1, static_cast<int>(box.Lz / cell_size));
-        N_cells = Ncx * Ncy * Ncz;
+    int N_updates = 0;
 
-        // Conservative upper bound: 20 particles per cell
-        max_per_cell = std::max(20, 4 * N / N_cells + 8);
-        d_cell_count  = Kokkos::View<int *>("cell_count",   N_cells);
-        d_cell_offset = Kokkos::View<int *>("cell_offset",  N_cells + 1);
-        d_cell_members= Kokkos::View<int *>("cell_members", N_cells * max_per_cell);
-
-        // Conservative upper bound for max neighbours per particle:
-        // ~26 cells * max_per_cell
-        max_neigh = std::min(N - 1, 27 * max_per_cell);
-        d_neigh_matrix = Kokkos::View<int **>("neigh_matrix", N, max_neigh);
-
-        edge_i = Kokkos::View<int *>("edge_i", 0);
-        edge_j = Kokkos::View<int *>("edge_j", 0);
+    void compute_N_cells_side(const SimBox &box, double min_cell_size) {
+        const double sides[3] = {box.Lx, box.Ly, box.Lz};
+        const double V = sides[0] * sides[1] * sides[2];
+        const double max_factor = std::pow(2. * N / V, 1. / 3.);
+        for (int i = 0; i < 3; i++) {
+            N_cells_side[i] = (int)(std::floor(sides[i] / min_cell_size) + 0.1);
+            if (N_cells_side[i] < 3) N_cells_side[i] = 3;
+            if (auto_optimisation && N_cells_side[i] > std::ceil(max_factor * sides[i]))
+                N_cells_side[i] = (int)std::ceil(max_factor * sides[i]);
+        }
     }
 
-    // Full rebuild
-    void build(const ParticleArrays &p, const SimBox &box);
+    // _largest_N_in_cells: count kernel + device max (thrust::max_element)
+    int largest_N_in_cells(const Vec4 &poss, const SimBox &box) const {
+        Kokkos::View<int *> counters("counters_cells_tmp", N_cells);
+        const int nx = N_cells_side[0], ny = N_cells_side[1], nz = N_cells_side[2];
+        Kokkos::parallel_for("count_N_in_cells", Kokkos::RangePolicy<Kokkos::LaunchBounds<64, 0>>(0, N),
+            KOKKOS_LAMBDA(int i) {
+                const int cx = box.cell_coord(poss(i, 0), box.Lx, nx);
+                const int cy = box.cell_coord(poss(i, 1), box.Ly, ny);
+                const int cz = box.cell_coord(poss(i, 2), box.Lz, nz);
+                Kokkos::atomic_inc(&counters((cz * ny + cy) * nx + cx));
+            });
+        int max_N = 0;
+        Kokkos::parallel_reduce("max_N_in_cells", N_cells,
+            KOKKOS_LAMBDA(int c, int &m) { if (counters(c) > m) m = counters(c); },
+            Kokkos::Max<int>(max_N));
+        return max_N;
+    }
 
-    // Check if rebuild needed (max displacement > skin)
-    bool needs_rebuild(const ParticleArrays &p, const SimBox &box);
+    void init(int N_in, double rcut_in, double skin, const SimBox &box, const Vec4 &poss,
+              bool use_edge_in) {
+        N = N_in;
+        rcut = rcut_in;
+        verlet_skin = skin;
+        use_edge = use_edge_in;
+        const c_number rverlet = static_cast<c_number>(rcut + 2 * verlet_skin);
+        const c_number sqr_rv = rverlet * rverlet;
+        sqr_rverlet = static_cast<float>(sqr_rv);
 
-    // skin^2 — rebuild displacement threshold (oxDNA convention: move > skin),
-    // used by the fused first-step displacement check.
-    c_number rebuild_disp_sq() const { return skin * skin; }
+        // _init_cells
+        compute_N_cells_side(box, std::sqrt(static_cast<double>(sqr_rv)));
+        N_cells = N_cells_side[0] * N_cells_side[1] * N_cells_side[2];
+        max_N_per_cell = (int)std::round(max_density_multiplier * largest_N_in_cells(poss, box));
+        if (max_N_per_cell > N) max_N_per_cell = N + 1;
+        if (max_N_per_cell < 5) max_N_per_cell = 5;
+        d_counters_cells = Kokkos::View<int *>("counters_cells", N_cells);
+        d_cells = Kokkos::View<int *>("cells", static_cast<size_t>(N_cells) * max_N_per_cell);
 
-    // Read the device rebuild flag (set inside the fused first-step kernel).
-    // One int host-copy instead of a full-N reduction.
-    bool flag_is_set() const {
-        auto h = Kokkos::create_mirror_view(d_needs_rebuild);
-        Kokkos::deep_copy(h, d_needs_rebuild);
-        return h(0) != 0;
+        max_neigh = std::min((int)(4 * M_PI * max_N_per_cell / 3.), N - 1);
+        if (max_neigh < 1) max_neigh = 1;
+        d_number_neighs = Kokkos::View<int *>("number_neighs", N);
+        d_matrix_neighs = Kokkos::View<int **, Kokkos::LayoutLeft>("matrix_neighs", N, max_neigh);
+        cell_overflow = PinnedFlag("cell_overflow");
+        cell_overflow() = 0;
+        if (use_edge) {
+            d_edge_list = Kokkos::View<EdgeBond *>("edge_list", static_cast<size_t>(N) * max_neigh);
+            d_number_neighs_no_doubles = Kokkos::View<int *>("number_neighs_no_doubles", N + 1);
+        }
+        list_poss = Vec4("list_poss", N);
+    }
+
+    void update(const ParticleArrays &p, const SimBox &box);
+};
+
+// -----------------------------------------------------------------------
+// Kernels
+// -----------------------------------------------------------------------
+struct FillCellsFunctor {
+    Vec4c poss;
+    Kokkos::View<int *> cells, counters_cells;
+    PinnedFlag cell_overflow;
+    SimBox box;
+    int nx, ny, nz, max_N_per_cell;
+
+    KOKKOS_INLINE_FUNCTION void operator()(int i) const {
+        const int cx = box.cell_coord(poss(i, 0), box.Lx, nx);
+        const int cy = box.cell_coord(poss(i, 1), box.Ly, ny);
+        const int cz = box.cell_coord(poss(i, 2), box.Lz, nz);
+        const int index = (cz * ny + cy) * nx + cx;
+        const int slot = Kokkos::atomic_fetch_add(&counters_cells(index), 1);
+        if (slot < max_N_per_cell) cells(index * max_N_per_cell + slot) = i;
+        if (slot + 1 >= max_N_per_cell) cell_overflow() = 1;
+    }
+};
+
+template <bool EDGE>
+struct UpdateNeighListFunctor {
+    Vec4c poss;
+    Vec4 list_poss;
+    RandomRead<int> counters_cells;   // tex1Dfetch upstream
+    Kokkos::View<const int *> cells;
+    Kokkos::View<int **, Kokkos::LayoutLeft> matrix_neighs;
+    Kokkos::View<int *> number_neighs, number_neighs_no_doubles;
+    Kokkos::View<const LR_bonds *> bonds;
+    PinnedFlag overflow;
+    SimBox box;
+    float sqr_rverlet;
+    int nx, ny, nz, max_N_per_cell, max_neigh;
+
+    KOKKOS_INLINE_FUNCTION int neigh_cell(int x, int y, int z, int ox, int oy, int oz) const {
+        x = (x + nx + ox) % nx;
+        y = (y + ny + oy) % ny;
+        z = (z + nz + oz) % nz;
+        return (z * ny + y) * nx + x;
+    }
+
+    KOKKOS_INLINE_FUNCTION void visit(int i, int cell_ind, c_number rx, c_number ry, c_number rz,
+                                      const LR_bonds &b, int &N_n, int &N_nd) const {
+        const int size = counters_cells(cell_ind);
+        for (int k = 0; k < size; k++) {
+            const int m = cells(cell_ind * max_N_per_cell + k);
+            // no bonded neighbours in our list!
+            if (m == i || b.n3 == m || b.n5 == m) continue;
+            c_number dx = poss(m, 0) - rx, dy = poss(m, 1) - ry, dz = poss(m, 2) - rz;
+            box.wrap(dx, dy, dz);
+            if (dx * dx + dy * dy + dz * dz < c_number(sqr_rverlet)) {
+                if (N_n < max_neigh) matrix_neighs(i, N_n) = m;
+                else overflow() = 1;
+                N_n++;
+                if (EDGE && i > m) N_nd++;
+            }
+        }
+    }
+
+    KOKKOS_INLINE_FUNCTION void operator()(int i) const {
+        const c_number rx = poss(i, 0), ry = poss(i, 1), rz = poss(i, 2), rw = poss(i, 3);
+        const LR_bonds b = bonds(i);
+        int N_n = 0, N_nd = 0;
+        const int x = box.cell_coord(rx, box.Lx, nx);
+        const int y = box.cell_coord(ry, box.Ly, ny);
+        const int z = box.cell_coord(rz, box.Lz, nz);
+        // this cell, then the 26 neighbours grouped into 13 pairs of opposite cells
+        constexpr int off[26][3] = {
+            {-1, -1, -1}, {+1, +1, +1}, {-1, -1, +1}, {+1, +1, -1}, {-1, +1, +1}, {+1, -1, -1},
+            {+1, -1, +1}, {-1, +1, -1}, {-1, -1, 0}, {+1, +1, 0}, {-1, +1, 0}, {+1, -1, 0},
+            {-1, 0, -1}, {+1, 0, +1}, {-1, 0, +1}, {+1, 0, -1}, {0, -1, -1}, {0, +1, +1},
+            {0, -1, +1}, {0, +1, -1}, {-1, 0, 0}, {+1, 0, 0}, {0, -1, 0}, {0, +1, 0},
+            {0, 0, -1}, {0, 0, +1}};
+        visit(i, (z * ny + y) * nx + x, rx, ry, rz, b, N_n, N_nd);
+        for (int c = 0; c < 26; c++)
+            visit(i, neigh_cell(x, y, z, off[c][0], off[c][1], off[c][2]), rx, ry, rz, b, N_n, N_nd);
+
+        list_poss(i, 0) = rx; list_poss(i, 1) = ry; list_poss(i, 2) = rz; list_poss(i, 3) = rw;
+        number_neighs(i) = (N_n < max_neigh) ? N_n : max_neigh;
+        if (EDGE) number_neighs_no_doubles(i) = N_nd;
     }
 };
 
 // -----------------------------------------------------------------------
-// Kernel tags
+// CUDASimpleVerletList::update
 // -----------------------------------------------------------------------
-struct TagClearCells {};
-struct TagBinParticles {};
-struct TagCellPrefixSum {};
-struct TagBuildNeighMatrix {};
-struct TagCountNeighNoDuplicates {};
-struct TagCompressEdges {};
-struct TagCheckDisplacement {};
+inline void NeighborList::update(const ParticleArrays &p, const SimBox &box) {
+    // _init_cells(poss): host arithmetic only while the box does not change
+    compute_N_cells_side(box, std::sqrt(static_cast<double>(static_cast<c_number>(sqr_rverlet))));
+    if (N_cells_side[0] * N_cells_side[1] * N_cells_side[2] != N_cells)
+        throw std::runtime_error("NeighborList: the number of cells changed (box changes are not supported)");
 
-// -----------------------------------------------------------------------
-// Functor owning all views (passed by value to Kokkos::parallel_* )
-// -----------------------------------------------------------------------
-struct NeighListFunctor {
-    Vec4 poss;
-    Kokkos::View<LR_bonds *>    bonds;
-    Kokkos::View<int *>         d_cell_count;
-    Kokkos::View<int *>         d_cell_offset;
-    Kokkos::View<int *>         d_cell_members;
-    Kokkos::View<int *>         d_num_neigh;
-    Kokkos::View<int **>        d_neigh_matrix;
-    Kokkos::View<int *>         d_neigh_offsets;
-    Kokkos::View<int *>         edge_i;
-    Kokkos::View<int *>         edge_j;
-    Vec4 list_poss;
-    Kokkos::View<int *>         d_needs_rebuild;
-    SimBox box;
-    c_number cutsq;
-    c_number skin_half_sq;
-    int N, Ncx, Ncy, Ncz, max_per_cell, max_neigh, N_cells;
+    for (;;) {
+        Kokkos::deep_copy(d_counters_cells, 0);
 
-    KOKKOS_INLINE_FUNCTION
-    int cell_index(c_number x, c_number y, c_number z) const {
-        auto ci = [](c_number v, c_number L, int Nc) {
-            int c = static_cast<int>((v / L + 0.5) * Nc);
-            if (c < 0)  c += Nc;
-            if (c >= Nc) c -= Nc;
-            return c;
-        };
-        return ci(x, box.Lx, Ncx) * Ncy * Ncz
-             + ci(y, box.Ly, Ncy) * Ncz
-             + ci(z, box.Lz, Ncz);
+        FillCellsFunctor fill{p.poss, d_cells, d_counters_cells, cell_overflow, box,
+                              N_cells_side[0], N_cells_side[1], N_cells_side[2], max_N_per_cell};
+        Kokkos::parallel_for("simple_fill_cells", OxPolicy(0, N), fill);
+
+        Kokkos::fence();   // cudaDeviceSynchronize() before reading the pinned flag
+        if (cell_overflow() == 0) break;
+        // Upstream throws here ("A cell contains more than _max_n_per_cell
+        // particles"); this code grows the cells and re-bins instead (never
+        // silently drops a particle; costs nothing unless a cell overflows).
+        cell_overflow() = 0;
+        if (max_N_per_cell > N)
+            throw std::runtime_error("NeighborList: cell overflow with max_N_per_cell > N");
+        max_N_per_cell = std::min(2 * max_N_per_cell, N + 1);
+        std::fprintf(stderr, "Warning: a Verlet-list cell overflowed (upstream aborts here); "
+                     "growing max_N_per_cell to %d and re-binning\n", max_N_per_cell);
+        d_cells = Kokkos::View<int *>("cells", static_cast<size_t>(N_cells) * max_N_per_cell);
     }
 
-    // 1. Clear cell counts
-    KOKKOS_INLINE_FUNCTION
-    void operator()(TagClearCells, int i) const {
-        d_cell_count(i) = 0;
+    auto setup = [&](auto &f) {
+        f.poss = p.poss; f.list_poss = list_poss; f.counters_cells = d_counters_cells;
+        f.cells = d_cells; f.matrix_neighs = d_matrix_neighs; f.number_neighs = d_number_neighs;
+        f.number_neighs_no_doubles = d_number_neighs_no_doubles; f.bonds = p.bonds;
+        f.overflow = cell_overflow; f.box = box; f.sqr_rverlet = sqr_rverlet;
+        f.nx = N_cells_side[0]; f.ny = N_cells_side[1]; f.nz = N_cells_side[2];
+        f.max_N_per_cell = max_N_per_cell; f.max_neigh = max_neigh;
+    };
+
+    for (;;) {
+        if (use_edge) {
+            UpdateNeighListFunctor<true> f;
+            setup(f);
+            Kokkos::parallel_for("edge_update_neigh_list", OxPolicy(0, N), f);
+        } else {
+            UpdateNeighListFunctor<false> f;
+            setup(f);
+            Kokkos::parallel_for("simple_update_neigh_list", OxPolicy(0, N), f);
+        }
+        Kokkos::fence();
+        if (cell_overflow() == 0) break;
+        // Neighbour-matrix overflow (upstream writes out of bounds): grow, redo.
+        cell_overflow() = 0;
+        if (max_neigh >= N - 1)
+            throw std::runtime_error("NeighborList: neighbour-matrix overflow with max_neigh = N - 1");
+        max_neigh = std::min(2 * max_neigh, N - 1);
+        std::fprintf(stderr, "Warning: Verlet neighbour matrix overflowed; growing max_neigh to %d\n", max_neigh);
+        d_matrix_neighs = Kokkos::View<int **, Kokkos::LayoutLeft>("matrix_neighs", N, max_neigh);
+        if (use_edge) d_edge_list = Kokkos::View<EdgeBond *>("edge_list", static_cast<size_t>(N) * max_neigh);
     }
 
-    // 2. Bin each particle into a cell (atomic increment)
-    KOKKOS_INLINE_FUNCTION
-    void operator()(TagBinParticles, int i) const {
-        int cid = cell_index(poss(i,0), poss(i,1), poss(i,2));
-        int slot = Kokkos::atomic_fetch_add(&d_cell_count(cid), 1);
-        if (slot < max_per_cell)
-            d_cell_members(cid * max_per_cell + slot) = i;
-    }
+    if (use_edge) {
+        // d_number_neighs_no_doubles_w[_N] = 0 (host write), exclusive scan,
+        // N_edges = d_number_neighs_no_doubles_w[_N] (host read)
+        auto last = Kokkos::subview(d_number_neighs_no_doubles, N);
+        Kokkos::deep_copy(last, 0);
+        auto nnd = d_number_neighs_no_doubles;
+        Kokkos::parallel_scan("exclusive_scan_no_doubles", N + 1,
+            KOKKOS_LAMBDA(int i, int &upd, bool final) {
+                const int v = nnd(i);
+                if (final) nnd(i) = upd;
+                upd += v;
+            });
+        int h_last = 0;
+        Kokkos::deep_copy(h_last, last);
+        N_edges = h_last;
 
-    // 3. Build dense neighbour matrix
-    KOKKOS_INLINE_FUNCTION
-    void operator()(TagBuildNeighMatrix, int i) const {
-        c_number xi = poss(i,0), yi = poss(i,1), zi = poss(i,2);
-        int n3i = bonds(i).n3, n5i = bonds(i).n5;
-
-        auto ci = [](c_number v, c_number L, int Nc) {
-            int c = static_cast<int>((v / L + 0.5) * Nc);
-            if (c < 0)  c += Nc;
-            if (c >= Nc) c -= Nc;
-            return c;
-        };
-        int cx0 = ci(xi, box.Lx, Ncx);
-        int cy0 = ci(yi, box.Ly, Ncy);
-        int cz0 = ci(zi, box.Lz, Ncz);
-
-        int count = 0;
-        for (int dcx = -1; dcx <= 1; dcx++) {
-        for (int dcy = -1; dcy <= 1; dcy++) {
-        for (int dcz = -1; dcz <= 1; dcz++) {
-            int cx = (cx0 + dcx + Ncx) % Ncx;
-            int cy = (cy0 + dcy + Ncy) % Ncy;
-            int cz = (cz0 + dcz + Ncz) % Ncz;
-            int cid = cx * Ncy * Ncz + cy * Ncz + cz;
-            int ncell = d_cell_count(cid);
-            if (ncell > max_per_cell) ncell = max_per_cell;
-            for (int k = 0; k < ncell; k++) {
-                int j = d_cell_members(cid * max_per_cell + k);
-                if (j <= i) continue;       // store pair once (i < j)
-                if (j == n3i || j == n5i) continue; // skip bonded
-                c_number dx = poss(j,0) - xi;
-                c_number dy = poss(j,1) - yi;
-                c_number dz = poss(j,2) - zi;
-                box.wrap(dx, dy, dz);
-                if (dx*dx + dy*dy + dz*dz < cutsq && count < max_neigh) {
-                    d_neigh_matrix(i, count++) = j;
+        auto matrix = d_matrix_neighs;
+        auto nn = d_number_neighs;
+        auto edges = d_edge_list;
+        Kokkos::parallel_for("compress_matrix_neighs", OxPolicy(0, N), KOKKOS_LAMBDA(int i) {
+            int ctr = 0;
+            const int off = nnd(i);
+            for (int k = 0; k < nn(i); k++) {
+                const int m = matrix(i, k);
+                if (i > m) {
+                    edges(off + ctr) = EdgeBond{i, m};
+                    ctr++;
                 }
             }
-        }}}
-        d_num_neigh(i) = count;
-    }
-
-    // 4. Compress to flat edge list via parallel_scan
-    KOKKOS_INLINE_FUNCTION
-    void operator()(TagCompressEdges, int i, int &update, bool final) const {
-        if (i < N) {
-            if (final) d_neigh_offsets(i) = update;
-            update += d_num_neigh(i);
-        } else if (final) {
-            d_neigh_offsets(N) = update;
-        }
-    }
-
-    // 5. Fill edge arrays after scan
-    KOKKOS_INLINE_FUNCTION
-    void fill_edges(int i) const {
-        int base = d_neigh_offsets(i);
-        int cnt  = d_num_neigh(i);
-        for (int k = 0; k < cnt; k++) {
-            edge_i(base + k) = i;
-            edge_j(base + k) = d_neigh_matrix(i, k);
-        }
-    }
-
-    // 6. Check displacement
-    KOKKOS_INLINE_FUNCTION
-    void operator()(TagCheckDisplacement, int i, int &flag) const {
-        c_number dx = poss(i,0) - list_poss(i,0);
-        c_number dy = poss(i,1) - list_poss(i,1);
-        c_number dz = poss(i,2) - list_poss(i,2);
-        box.wrap(dx, dy, dz);
-        if (dx*dx + dy*dy + dz*dz > skin_half_sq) flag = 1;
-    }
-};
-
-// -----------------------------------------------------------------------
-// NeighborList implementation
-// -----------------------------------------------------------------------
-inline void NeighborList::build(const ParticleArrays &p, const SimBox &box) {
-    int N = p.N;
-    NeighListFunctor f;
-    f.poss           = p.poss;
-    f.bonds          = p.bonds;
-    f.d_cell_count   = d_cell_count;
-    f.d_cell_offset  = d_cell_offset;
-    f.d_cell_members = d_cell_members;
-    f.d_num_neigh    = d_num_neigh;
-    f.d_neigh_matrix = d_neigh_matrix;
-    f.d_neigh_offsets= d_neigh_offsets;
-    f.list_poss      = list_poss;
-    f.d_needs_rebuild= d_needs_rebuild;
-    f.box            = box;
-    f.cutsq          = cutsq;
-    f.skin_half_sq   = skin * skin;
-    f.N              = N;
-    f.Ncx = Ncx; f.Ncy = Ncy; f.Ncz = Ncz;
-    f.max_per_cell   = max_per_cell;
-    f.max_neigh      = max_neigh;
-    f.N_cells        = N_cells;
-
-    Kokkos::parallel_for("clear_cells", N_cells, KOKKOS_LAMBDA(int i) {
-        f.d_cell_count(i) = 0;
-    });
-    Kokkos::parallel_for("bin_particles", N, KOKKOS_LAMBDA(int i) {
-        f(TagBinParticles{}, i);
-    });
-    Kokkos::parallel_for("build_neigh_matrix", N, KOKKOS_LAMBDA(int i) {
-        f(TagBuildNeighMatrix{}, i);
-    });
-
-    // prefix sum to get total edge count
-    int total_edges = 0;
-    Kokkos::parallel_scan("compress_edges",
-        Kokkos::RangePolicy<>(0, N + 1),
-        KOKKOS_LAMBDA(int i, int &update, bool final) {
-            if (i < N) {
-                if (final) f.d_neigh_offsets(i) = update;
-                update += f.d_num_neigh(i);
-            } else if (final) {
-                f.d_neigh_offsets(N) = update;
-            }
         });
-
-    // Read total from host
-    {
-        auto h_off = Kokkos::create_mirror_view(d_neigh_offsets);
-        Kokkos::deep_copy(h_off, d_neigh_offsets);
-        total_edges = h_off(N);
     }
-    N_edges = total_edges;
-
-    // Grow-only edge arrays: reallocate only when the count exceeds capacity,
-    // avoiding a device malloc/free on every rebuild (the count is steady once
-    // equilibrated). The force kernel iterates only [0, N_edges).
-    if (total_edges > edge_capacity) {
-        edge_capacity = total_edges + total_edges / 5 + 64;  // ~20% headroom
-        edge_i = Kokkos::View<int *>("edge_i", edge_capacity);
-        edge_j = Kokkos::View<int *>("edge_j", edge_capacity);
-    }
-    f.edge_i = edge_i;
-    f.edge_j = edge_j;
-
-    // Fill edge arrays
-    Kokkos::parallel_for("fill_edges", N, KOKKOS_LAMBDA(int i) {
-        f.fill_edges(i);
-    });
-
-    // Save reference positions for displacement check
-    Kokkos::deep_copy(list_poss, p.poss);
-    Kokkos::deep_copy(d_needs_rebuild, 0);
-}
-
-inline bool NeighborList::needs_rebuild(const ParticleArrays &p, const SimBox &box) {
-    int N = p.N;
-    c_number skin_half_sq = skin * skin;
-    auto poss_d    = p.poss;
-    auto lp        = list_poss;
-    auto box_d     = box;
-
-    int flag = 0;
-    Kokkos::parallel_reduce("check_disp", N,
-        KOKKOS_LAMBDA(int i, int &flag_l) {
-            c_number dx = poss_d(i,0) - lp(i,0);
-            c_number dy = poss_d(i,1) - lp(i,1);
-            c_number dz = poss_d(i,2) - lp(i,2);
-            box_d.wrap(dx, dy, dz);
-            if (dx*dx + dy*dy + dz*dz > skin_half_sq) flag_l = 1;
-        },
-        Kokkos::Max<int>(flag));
-
-    return (flag != 0);
 }

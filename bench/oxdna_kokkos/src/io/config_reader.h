@@ -8,6 +8,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
+#include <algorithm>
 
 // Read an oxDNA configuration file (.conf / .dat).
 //
@@ -19,11 +21,12 @@
 //   <x> <y> <z>  <a1x> <a1y> <a1z>  <a3x> <a3y> <a3z>
 //   <vx> <vy> <vz>  <Lx> <Ly> <Lz>
 //
-// a1 is the "xhat" (nx) vector, a3 is the "zhat" (nz) vector of the body frame.
-// a2 = a3 × a1 gives the yhat vector.
-// We convert the 3×3 rotation matrix (a1, a2, a3) to a unit quaternion.
+// a1 is the "xhat" (nx) vector, a3 is the "zhat" (nz) vector of the body frame;
+// they are orthonormalised as upstream and a2 = a3 x a1. The angular momentum
+// L is the BODY-frame angular momentum (as written and read by oxDNA).
+// We convert the 3x3 rotation matrix (a1, a2, a3) to a unit quaternion.
 
-// Convert a 3×3 rotation matrix (stored as rows a1, a2, a3) to a unit quaternion
+// Convert a 3x3 rotation matrix (stored as rows a1, a2, a3) to a unit quaternion
 // following the Shepperd method. The quaternion is (q0, q1, q2, q3) = (w, x, y, z).
 inline void rot_to_quat(const double a1[3], const double a2[3], const double a3[3],
                         c_number &q0, c_number &q1, c_number &q2, c_number &q3) {
@@ -70,8 +73,29 @@ inline void rot_to_quat(const double a1[3], const double a2[3], const double a3[
     q3 = static_cast<c_number>(z / norm);
 }
 
+// Shift every strand so that its centre of mass lies inside [0, L)
+// (SimBackend::fix_diffusion / read_next_configuration).
+inline void shift_strands_into_box(ParticleArraysHost &host, const SimBox &box) {
+    const int NS = std::max(host.N_strands, 1);
+    std::vector<double> com(3 * NS, 0.0);
+    std::vector<int> n(NS, 0);
+    for (int i = 0; i < host.N; i++) {
+        const int s = host.strand(i);
+        for (int d = 0; d < 3; d++) com[3 * s + d] += (double)host.poss(i, d);
+        n[s]++;
+    }
+    const double L[3] = {(double)box.Lx, (double)box.Ly, (double)box.Lz};
+    for (int i = 0; i < host.N; i++) {
+        const int s = host.strand(i);
+        for (int d = 0; d < 3; d++) {
+            const double c = com[3 * s + d] / n[s];
+            host.poss(i, d) = static_cast<c_number>((double)host.poss(i, d) - L[d] * std::floor(c / L[d]));
+        }
+    }
+}
+
 inline void read_config(const std::string &filename, ParticleArraysHost &host,
-                        SimBox &box, long long &step) {
+                        SimBox &box, long long &step, bool fix_diffusion = true) {
     std::ifstream f(filename);
     if (!f) throw std::runtime_error("Cannot open config file: " + filename);
 
@@ -106,17 +130,16 @@ inline void read_config(const std::string &filename, ParticleArraysHost &host,
             throw std::runtime_error("Malformed config line (need >= 9 columns)");
         ls >> vx >> vy >> vz >> Lx >> Ly >> Lz;  // optional; stay 0 if absent
 
-        // Pack index and btype into .w: lower 22 bits = index, upper bits = btype
-        int btype_i = host.btype(i);
-        unsigned int packed = ((unsigned int)(btype_i) << 22)
-                            | (0x003FFFFFu & (unsigned int)(i));
-        float w_f;
-        std::memcpy(&w_f, &packed, sizeof(float));
-
+        // .w carries the base type, so that the oxDNA1/2 kernels get it with
+        // the position load, as upstream (get_particle_type(poss.w)). Upstream
+        // bit-packs btype << 22 | index into the float; here the type is
+        // stored as a plain number (the packed pattern is a denormal float,
+        // which flush-to-zero / fast math would destroy), the index is not
+        // needed (no host-side reordering of output).
         host.poss(i, 0) = static_cast<c_number>(x);
         host.poss(i, 1) = static_cast<c_number>(y);
         host.poss(i, 2) = static_cast<c_number>(z);
-        host.poss(i, 3) = static_cast<c_number>(w_f);
+        host.poss(i, 3) = static_cast<c_number>(host.btype(i));
 
         host.vels(i, 0) = static_cast<c_number>(vx);
         host.vels(i, 1) = static_cast<c_number>(vy);
@@ -128,15 +151,21 @@ inline void read_config(const std::string &filename, ParticleArraysHost &host,
         host.Ls(i, 2) = static_cast<c_number>(Lz);
         host.Ls(i, 3) = 0;
 
-        // Compute a2 = a3 × a1
-        double a2[3];
-        a2[0] = a3y * a1z - a3z * a1y;
-        a2[1] = a3z * a1x - a3x * a1z;
-        a2[2] = a3x * a1y - a3y * a1x;
-
+        // SimBackend::read_next_configuration: normalise v1 and v3, remove the
+        // v3 component of v1, normalise, v2 = v3 x v1
         double a1[3] = {a1x, a1y, a1z};
-        double a2d[3] = {a2[0], a2[1], a2[2]};
         double a3[3] = {a3x, a3y, a3z};
+        auto normalize = [](double v[3]) {
+            const double n = std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+            v[0] /= n; v[1] /= n; v[2] /= n;
+        };
+        normalize(a1);
+        normalize(a3);
+        const double a13 = a1[0]*a3[0] + a1[1]*a3[1] + a1[2]*a3[2];
+        for (int d = 0; d < 3; d++) a1[d] -= a3[d] * a13;
+        normalize(a1);
+        double a2d[3] = {a3[1]*a1[2] - a3[2]*a1[1], a3[2]*a1[0] - a3[0]*a1[2], a3[0]*a1[1] - a3[1]*a1[0]};
+        normalize(a2d);
 
         c_number q0, q1, q2, q3;
         rot_to_quat(a1, a2d, a3, q0, q1, q2, q3);
@@ -150,22 +179,9 @@ inline void read_config(const std::string &filename, ParticleArraysHost &host,
 
     if (!f && !f.eof()) throw std::runtime_error("Config file truncated or malformed");
 
-    // The cell list bins positions in [-L/2, 3L/2) (oxDNA confs are in [0, L),
-    // the integrator keeps them in [-L/2, L/2)). Unwrapped configurations (e.g.
-    // standalone-oxDNA trajectory frames, whose strands may stick out of the
-    // box) are folded into [-L/2, L/2) as the integrator does; configurations
-    // already in range are left untouched.
-    const double L[3] = {(double)box.Lx, (double)box.Ly, (double)box.Lz};
-    bool out_of_range = false;
-    for (int i = 0; i < N && !out_of_range; i++)
-        for (int d = 0; d < 3; d++) {
-            double x = (double)host.poss(i, d);
-            if (x < -0.5 * L[d] || x >= 1.5 * L[d]) { out_of_range = true; break; }
-        }
-    if (out_of_range)
-        for (int i = 0; i < N; i++)
-            for (int d = 0; d < 3; d++) {
-                double x = (double)host.poss(i, d);
-                host.poss(i, d) = static_cast<c_number>(x - L[d] * std::floor(x / L[d] + 0.5));
-            }
+    // fix_diffusion (default true upstream): shift every strand by whole box
+    // vectors so that its centre of mass lies in [0, L) (OrthogonalBox::
+    // shift_particle with the strand COM, computed in double). Positions are
+    // otherwise kept as read (not folded), as upstream.
+    if (fix_diffusion) shift_strands_into_box(host, box);
 }

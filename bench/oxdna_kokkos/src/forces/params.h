@@ -157,6 +157,10 @@ struct DNAParams {
 
     // Global nonbonded COM-COM cutoff squared (max over all terms)
     c_number cutsq_nb;
+    // Interaction cutoff of the upstream interaction class (DNAInteraction::init,
+    // DNA2Interaction::init: max of backbone excluded volume, H-bonding and
+    // Debye-Huckel ranges); the Verlet list uses rverlet = rcut + 2 skin.
+    double   rcut = 0;
 };
 
 // make_f4: build an F4 term from (a, theta0, dtheta_ast), deriving the
@@ -189,7 +193,7 @@ inline F5Params make_f5(double a, double x_ast) {
 
 // Initialize all parameters for oxDNA1 (standalone model.h, average-sequence).
 //   T        : reduced temperature (sets stacking strength)
-//   hb_multi : extra additive H-bond strength (default 0 → HYDR_EPS_OXDNA)
+//   hb_multi : extra additive H-bond strength (default 0 -> HYDR_EPS_OXDNA)
 inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     DNAParams p;
     constexpr double PI  = 3.141592653589793;
@@ -333,6 +337,10 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     max_cut = std::max(max_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
 
+    // DNAInteraction::init (no grooving): model.h float constants
+    p.rcut = std::max(2 * std::fabs((double)-0.4f) + (double)0.711879214356f,   // 2|POS_BACK| + EXCL_RC1
+                      2 * std::fabs((double)0.4f) + (double)0.783775f);         // 2|POS_BASE| + HYDR_RCHIGH
+
     return p;
 }
 
@@ -398,6 +406,15 @@ inline DNAParams make_oxdna2_params(double T = 0.1, double salt = 0.5,
     double max_cut  = std::sqrt(static_cast<double>(p.cutsq_nb));
     max_cut = std::max(max_cut, dh_cut);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
+
+    // DNAInteraction::init with grooving + DNA2Interaction::init (debyecut)
+    {
+        const double pmm = std::sqrt((double)-0.3400f * (double)-0.3400f + (double)0.3408f * (double)0.3408f);
+        double rc = std::max(2 * pmm + (double)0.711879214356f,              // grooved backbone excl. volume
+                             2 * std::fabs((double)0.4f) + (double)0.783775f); // H-bonding
+        rc = std::max(rc, 2.0 * pmm + RC);                                   // Debye-Huckel
+        p.rcut = rc;
+    }
 
     return p;
 }

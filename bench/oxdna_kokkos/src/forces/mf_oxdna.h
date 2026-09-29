@@ -1,6 +1,6 @@
 #pragma once
 
-// Modulation functions F1–F6 for the oxDNA force field.
+// Modulation functions F1-F6 for the oxDNA force field.
 // Ported directly from LAMMPS src/KOKKOS/mf_oxdna_kokkos.h with
 // KK_FLOAT replaced by c_number and Kokkos:: math calls retained.
 
@@ -101,7 +101,7 @@ static c_number F4(c_number theta, c_number a, c_number theta_0,
 }
 
 // DF4: derivative of F4. The sin(theta) factor from d(cos theta)/d theta is
-// handled externally — caller must multiply by sin(theta) / r as needed.
+// handled externally -- caller must multiply by sin(theta) / r as needed.
 KOKKOS_INLINE_FUNCTION
 static c_number DF4(c_number theta, c_number a, c_number theta_0,
                     c_number dtheta_ast, c_number b, c_number dtheta_c) {

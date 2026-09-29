@@ -108,6 +108,9 @@ struct DNA3Params {
 
     // Nonbonded COM-COM cutoff^2 used for the neighbour list (max over all terms)
     c_number cutsq_nb;
+    // Interaction cutoff of DNA3Interaction::init (the Verlet list uses
+    // rverlet = rcut + 2 skin)
+    double   rcut = 0;
 
     KOKKOS_INLINE_FUNCTION
     c_number operator()(int table, int i, int j, int k, int l) const {
@@ -605,5 +608,26 @@ inline DNA3Params make_oxdna3_params(const DNA3Options &opt) {
     max_cut = std::max(max_cut, 2 * 0.37 + rmax_stack);
     max_cut = std::max(max_cut, 2 * back_off + RC);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
+
+    // DNA3Interaction::init: rcut = max over the tables of the backbone
+    // excluded-volume and H-bonding ranges, with |POS_MM_BACK1| (0.34) as the
+    // site offset in both (upstream quirk, see README), then the Debye-Huckel
+    // range. Dummy-base (index 4) entries are skipped (not supported here).
+    {
+        double rb = 0, rh = 0;
+        for (int i = 0; i < DIM_A; i++)
+        for (int j = 0; j < 4; j++)
+        for (int k = 0; k < 4; k++)
+        for (int l = 0; l < DIM_A; l++) {
+            if (i == 4 || l == 4) continue;
+            rb = std::max(rb, H(EXCL_RC + 0, i, j, k, l));
+            rh = std::max(rh, H(F1_RCHIGH + HYDR_F1, i, j, k, l));
+        }
+        const double pb = std::fabs((double)-0.3400f);
+        double rc = std::max(2 * pb + rb, 2 * pb + rh);
+        const double pmm = std::sqrt((double)-0.3400f * (double)-0.3400f + (double)0.3408f * (double)0.3408f);
+        rc = std::max(rc, 2.0 * pmm + RC);
+        p.rcut = rc;
+    }
     return p;
 }

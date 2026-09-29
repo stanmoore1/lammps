@@ -52,6 +52,25 @@ jobs:
         working-directory: bench/oxdna_kokkos
         run: ./build/fd_test
 
+      # backend_precision = mixed (the upstream CUDA default): float force
+      # kernels, double integrator
+      - name: Configure (mixed precision)
+        working-directory: bench/oxdna_kokkos
+        run: |
+          cmake -B build-mixed -G Ninja \
+            -DKokkos_ENABLE_SERIAL=ON \
+            -DOXDNA_BUILD_TESTS=ON \
+            -DOXDNA_MIXED_PRECISION=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (mixed precision)
+        working-directory: bench/oxdna_kokkos
+        run: cmake --build build-mixed -j
+
+      - name: Run validation suite (mixed precision)
+        working-directory: bench/oxdna_kokkos
+        run: ./build-mixed/fd_test
+
       # The LAMMPS-faithful bench uses the oxDNA3 parameter file of
       # bench/oxdna_kokkos/params (no copy of its own).
       - name: Configure (LAMMPS-faithful bench)

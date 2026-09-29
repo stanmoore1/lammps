@@ -62,6 +62,7 @@ inline void read_topology(const std::string &filename, ParticleArraysHost &host,
     if (N <= 0) throw std::runtime_error("Invalid particle count in topology");
 
     host.allocate(N);
+    host.N_strands = N_strands;
 
     if (!new_format) {
         int i = 0;
@@ -78,6 +79,9 @@ inline void read_topology(const std::string &filename, ParticleArraysHost &host,
                 throw std::runtime_error("Custom (integer) base types are not supported: " + base);
             host.btype(i)    = base_letter_to_type(base[0]);
             host.ptype(i)    = btype_to_ptype(host.btype(i));
+            host.strand(i)   = strand_id - 1;   // 1-based in the file (as upstream)
+            if (host.strand(i) < 0 || host.strand(i) >= N_strands)
+                throw std::runtime_error("Topology: strand id out of range (line " + std::to_string(i + 2) + ")");
             host.bonds(i).n3 = n3;
             host.bonds(i).n5 = n5;
             i++;
@@ -113,6 +117,7 @@ inline void read_topology(const std::string &filename, ParticleArraysHost &host,
             const int p = idx + i;
             host.btype(p)    = base_letter_to_type(seq[i]);
             host.ptype(p)    = btype_to_ptype(host.btype(p));
+            host.strand(p)   = ns;
             host.bonds(p).n5 = (i > 0) ? p - 1 : -1;
             host.bonds(p).n3 = (i < n_in - 1) ? p + 1 : -1;
         }

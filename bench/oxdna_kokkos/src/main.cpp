@@ -17,8 +17,15 @@ static void print_usage(const char *prog) {
         << "  dt, steps, verlet_skin, print_energy_every, seed\n"
         << "  thermostat                          brownian | john (NVT); else NVE\n"
         << "  newtonian_steps, diff_coeff, pt     Brownian thermostat parameters\n"
-        << "  timing                              0 | 1 (per-kernel timing breakdown)\n\n"
-        << "Other oxDNA keys (backend, CUDA_list, trajectory_file, ...) are ignored.\n"
+        << "  refresh_vel, restart_step_counter, reset_initial_com_momentum, fix_diffusion(_every)\n"
+        << "  use_edge                            0 (default, per-particle kernels) | 1 (edge kernels)\n"
+        << "  CUDA_sort_every                     Hilbert sort every n list updates (default 0 = off)\n"
+        << "  CUDA_print_energy                   device energy sum every step (default 0)\n"
+        << "  max_density_multiplier, cells_auto_optimisation   Verlet-list cells\n"
+        << "  timing                              0 | 1 (print the per-section timing breakdown)\n"
+        << "  timer_sync                          1 (default: sync after every section, as oxDNA) | 0\n\n"
+        << "Precision (backend_precision) and threads_per_block are compile-time options.\n"
+        << "Other oxDNA keys (backend, trajectory_file, ...) are ignored.\n"
         << "Kokkos runtime flags (--kokkos-*) are also accepted.\n";
 }
 

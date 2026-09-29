@@ -14,6 +14,11 @@
 //   --consistent-gamma   (model 3) exact stacking-dihedral gradient
 //                        (dna3_consistent_gamma = 1, see README)
 //   --average-seq        (model 3) use_average_seq = 1
+//   --edge               dump the forces/torques of the edge kernels (oxDNA
+//                        use_edge = true) instead of the default per-particle
+//                        kernels (use_edge = false)
+// The group / per-term energies are evaluated with the edge kernels; the
+// TOTAL is printed for both paths.
 #include <Kokkos_Core.hpp>
 #include "../src/simulation.h"
 #include "../src/forces/dna_forces.h"
@@ -27,7 +32,7 @@
 int main(int argc, char**argv){
     // strip the optional --flags from the positional arguments
     std::string only;
-    bool consistent_gamma = false, average_seq = false;
+    bool consistent_gamma = false, average_seq = false, edge = false;
     {
         int j = 1;
         for (int i = 1; i < argc; i++) {
@@ -35,6 +40,7 @@ int main(int argc, char**argv){
             if (a.rfind("--only=", 0) == 0) only = a.substr(7);
             else if (a == "--consistent-gamma") consistent_gamma = true;
             else if (a == "--average-seq") average_seq = true;
+            else if (a == "--edge") edge = true;
             else argv[j++] = argv[i];
         }
         argc = j;
@@ -54,6 +60,7 @@ int main(int argc, char**argv){
         read_config(conf, host, box, step);
         ParticleArrays dev; dev.allocate(N); copy_to_device(host, dev);
         c_number e_nb = 0, e_bond = 0;
+        double e_pp = 0;
         NeighborList nl;
         if (model == 3) {
             SimConfig cfg; cfg.T = T; cfg.salt = salt;
@@ -63,17 +70,21 @@ int main(int argc, char**argv){
             DNA3Options o = dna3_options(cfg);
             DNA3Params par = make_oxdna3_params(o);
             double nl_cut = std::max(2.5, std::sqrt((double)par.cutsq_nb));
-            nl.init(nl_cut, 1.0, N, box);
-            nl.build(dev, box);
+            nl.init(N, nl_cut, 1.0, box, dev.poss, true);
+            nl.update(dev, box);
             // per-term energies (each evaluated separately, TERMS mask)
             double et[8];
+            auto ppterm = [&](auto tag) {
+                set_external_forces(dev);
+                compute_forces_per_particle_dna3<decltype(tag)::value>(dev, nl, par, box, false);
+                return sum_forces_w(dev.forces, N) * 0.5; };
             auto nbterm = [&](auto tag) {
                 dev.zero_forces();
                 double e = compute_nonbonded_forces_dna3<decltype(tag)::value>(dev, nl, par, box);
                 Kokkos::fence(); return e; };
             auto bterm = [&](auto tag) {
                 dev.zero_forces();
-                double e = compute_bonded_forces_dna3<decltype(tag)::value>(dev, par, box);
+                double e = compute_bonded_forces_dna3<decltype(tag)::value>(dev, par);
                 Kokkos::fence(); return e; };
             et[0] = bterm(std::integral_constant<int, dna3::BACKBONE>{});
             et[1] = bterm(std::integral_constant<int, dna3::BONDED_EXCLUDED_VOLUME>{});
@@ -93,10 +104,27 @@ int main(int argc, char**argv){
 
             dev.zero_forces();
             e_nb   = compute_nonbonded_forces_dna3(dev, nl, par, box);
-            e_bond = compute_bonded_forces_dna3(dev, par, box);
+            e_bond = compute_bonded_forces_dna3(dev, par);
             Kokkos::fence();
+            if (!edge) {   // default per-particle kernel (lab-frame torques)
+                set_external_forces(dev);
+                compute_forces_per_particle_dna3(dev, nl, par, box, false);
+                e_pp = sum_forces_w(dev.forces, N) * 0.5;
+            }
 
-            if (!only.empty()) {   // leave only this term's forces/torques in dev
+            if (!only.empty() && !edge) {   // per-particle kernel restricted to one term
+                using std::integral_constant;
+                if      (only == "fene") ppterm(integral_constant<int, dna3::BACKBONE>{});
+                else if (only == "bexc") ppterm(integral_constant<int, dna3::BONDED_EXCLUDED_VOLUME>{});
+                else if (only == "stck") ppterm(integral_constant<int, dna3::STACKING>{});
+                else if (only == "nexc") ppterm(integral_constant<int, dna3::NONBONDED_EXCLUDED_VOLUME>{});
+                else if (only == "hb")   ppterm(integral_constant<int, dna3::HYDROGEN_BONDING>{});
+                else if (only == "crst") ppterm(integral_constant<int, dna3::CROSS_STACKING>{});
+                else if (only == "cxst") ppterm(integral_constant<int, dna3::COAXIAL_STACKING>{});
+                else if (only == "dh")   ppterm(integral_constant<int, dna3::DEBYE_HUCKEL>{});
+                else { std::fprintf(stderr, "unknown term '%s'\n", only.c_str()); std::exit(1); }
+                std::printf("  force/torque dump restricted to term '%s'\n", only.c_str());
+            } else if (!only.empty()) {   // leave only this term's forces/torques in dev
                 if      (only == "fene") bterm(std::integral_constant<int, dna3::BACKBONE>{});
                 else if (only == "bexc") bterm(std::integral_constant<int, dna3::BONDED_EXCLUDED_VOLUME>{});
                 else if (only == "stck") bterm(std::integral_constant<int, dna3::STACKING>{});
@@ -111,19 +139,26 @@ int main(int argc, char**argv){
         } else {
             DNAParams par = (model==2)? make_oxdna2_params(T,salt) : make_oxdna1_params(T);
             double nl_cut = std::max(2.5, std::sqrt((double)par.cutsq_nb));
-            nl.init(nl_cut, 1.0, N, box);
-            nl.build(dev, box);
+            nl.init(N, nl_cut, 1.0, box, dev.poss, true);
+            nl.update(dev, box);
 
             dev.zero_forces();
             e_nb   = compute_nonbonded_forces(dev, nl, par, box);
-            e_bond = compute_bonded_forces(dev, par, box);
+            e_bond = compute_bonded_forces(dev, par);
             Kokkos::fence();
+            if (!edge) {   // default per-particle kernel (lab-frame torques)
+                set_external_forces(dev);
+                compute_forces_per_particle(dev, nl, par, box, false);
+                e_pp = sum_forces_w(dev.forces, N) * 0.5;
+            }
         }
         c_number tot = e_nb + e_bond;
         std::printf("Kokkos oxDNA%d  N=%d  T=%.4f salt=%.3f\n", model, N, T, salt);
         std::printf("  nonbonded(all)       = %12.6f  (%.6f /particle)\n", (double)e_nb,   (double)e_nb/N);
         std::printf("  bonded(FENE+excv+stk)= %12.6f  (%.6f /particle)\n", (double)e_bond, (double)e_bond/N);
         std::printf("  TOTAL                = %12.6f  (%.6f /particle)\n", (double)tot,    (double)tot/N);
+        if (!edge)
+            std::printf("  TOTAL per-particle   = %12.6f  (%.6f /particle)\n", e_pp, e_pp/N);
 
         if (ftout) {
             auto F = Kokkos::create_mirror_view(dev.forces);  Kokkos::deep_copy(F, dev.forces);
@@ -134,7 +169,8 @@ int main(int argc, char**argv){
                              (double)F(i,0),(double)F(i,1),(double)F(i,2),
                              (double)Tq(i,0),(double)Tq(i,1),(double)Tq(i,2));
             std::fclose(f);
-            std::printf("  wrote per-particle force/torque (lab frame) to %s\n", ftout);
+            std::printf("  wrote per-particle force/torque (lab frame, %s kernels) to %s\n",
+                        edge ? "edge" : "per-particle", ftout);
         }
     }
     Kokkos::finalize();

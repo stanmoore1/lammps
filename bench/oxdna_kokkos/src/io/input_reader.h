@@ -21,7 +21,14 @@
 //   dt, steps, verlet_skin, print_energy_every, seed
 //   thermostat         brownian|john (enables NVT); anything else -> NVE
 //   newtonian_steps, diff_coeff, pt
-//   timing             0|1  (Kokkos-specific: per-kernel timing breakdown)
+//   timing             0|1  (bench: print the per-section timing breakdown)
+//   timer_sync         0|1  (bench, default 1 = upstream: device sync at every
+//                             section end, like oxDNA's synchronised timers)
+//   restart_step_counter, reset_initial_com_momentum, fix_diffusion,
+//   fix_diffusion_every, max_density_multiplier, cells_auto_optimisation
+//   oxDNA CUDA backend keys: use_edge (default 0), CUDA_sort_every (default 0),
+//   CUDA_print_energy (default 0); backend_precision, threads_per_block,
+//   CUDA_list, edge_n_forces are checked against the compiled configuration.
 
 #include "../simulation.h"
 #include <fstream>
@@ -199,7 +206,7 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
     if (has("steps"))              cfg.nsteps = static_cast<long long>(num("steps"));
     if (has("verlet_skin"))        cfg.skin = num("verlet_skin");
     if (has("print_energy_every")) {
-        int f = static_cast<int>(num("print_energy_every"));
+        long long f = static_cast<long long>(num("print_energy_every"));
         if (f > 0) cfg.output_freq = f;
     }
     if (has("seed"))               cfg.seed = static_cast<uint64_t>(num("seed"));
@@ -209,20 +216,57 @@ inline void read_input(const std::string &file, SimConfig &cfg) {
     if (has("thermostat")) {
         std::string th = inp_detail::lower(str("thermostat"));
         thermo_on = (th == "brownian" || th == "john");
+        if (!thermo_on && th != "no")
+            std::fprintf(stderr, "Warning: thermostat '%s' is not supported, running NVE\n", str("thermostat").c_str());
     }
     if (has("newtonian_steps")) cfg.newtonian_steps = static_cast<int>(num("newtonian_steps"));
     if (has("diff_coeff"))      cfg.diff_coeff = num("diff_coeff");
     if (has("pt"))              cfg.pt = num("pt");
     if (!thermo_on) cfg.newtonian_steps = 0;   // NVE unless a supported thermostat is requested
+    if (thermo_on && cfg.newtonian_steps < 1)
+        throw std::runtime_error("input: 'newtonian_steps' must be > 0");
 
-    if (has("refresh_vel")) {
-        std::string v = inp_detail::lower(str("refresh_vel"));
-        cfg.refresh_vel = (v == "1" || v == "yes" || v == "true" || v == "on");
-    }
+    if (has("refresh_vel"))                cfg.refresh_vel = boolean("refresh_vel");
+    if (has("reset_initial_com_momentum")) cfg.reset_initial_com_momentum = boolean("reset_initial_com_momentum");
+    if (has("restart_step_counter"))       cfg.restart_step_counter = boolean("restart_step_counter");
+    if (has("fix_diffusion"))              cfg.fix_diffusion = boolean("fix_diffusion");
+    if (has("fix_diffusion_every"))        cfg.fix_diffusion_every = static_cast<long long>(num("fix_diffusion_every"));
+    if (cfg.fix_diffusion_every < 1) cfg.fix_diffusion_every = 1;
+    if (has("max_density_multiplier"))     cfg.max_density_multiplier = num("max_density_multiplier");
+    if (has("cells_auto_optimisation"))    cfg.cells_auto_optimisation = boolean("cells_auto_optimisation");
 
-    // Kokkos-specific extension (not a standalone-oxDNA key).
-    if (has("timing")) {
-        std::string v = inp_detail::lower(str("timing"));
-        cfg.timing = (v == "1" || v == "yes" || v == "true" || v == "on");
+    // oxDNA CUDA backend keys (MD_CUDABackend / CUDABaseBackend / lists)
+    if (has("use_edge"))          cfg.use_edge = boolean("use_edge");
+    if (has("CUDA_sort_every"))   cfg.sort_every = static_cast<int>(num("CUDA_sort_every"));
+    if (has("CUDA_print_energy")) cfg.print_energy_gpu = boolean("CUDA_print_energy");
+    if (cfg.print_energy_gpu && cfg.use_edge)
+        std::fprintf(stderr, "Warning: CUDA_print_energy needs the per-particle kernel (use_edge = false); ignored\n");
+    if (has("backend_precision")) {
+        std::string bp = inp_detail::lower(str("backend_precision"));
+        if (bp != oxdna_precision_name())
+            std::fprintf(stderr, "Warning: backend_precision = %s but this binary was built for '%s' "
+                         "(precision is a compile-time option: OXDNA_MIXED_PRECISION / OXDNA_SINGLE_PRECISION)\n",
+                         bp.c_str(), oxdna_precision_name());
     }
+    if (cfg.use_edge && sizeof(c_number) == sizeof(double))
+        std::fprintf(stderr, "Warning: upstream refuses use_edge with double precision (\"use_edge and double "
+                     "precision are not compatible\"); running it anyway\n");
+    if (has("threads_per_block")) {
+        int tpb = static_cast<int>(num("threads_per_block"));
+        if (tpb > 0 && tpb != OXDNA_THREADS_PER_BLOCK)
+            std::fprintf(stderr, "Warning: threads_per_block = %d, but the block size is a compile-time value "
+                         "here (-DOXDNA_THREADS_PER_BLOCK=%d)\n", tpb, OXDNA_THREADS_PER_BLOCK);
+    }
+    if (has("CUDA_list")) {
+        std::string l = inp_detail::lower(str("CUDA_list"));
+        if (l != "verlet")
+            std::fprintf(stderr, "Warning: CUDA_list = %s is not supported, using 'verlet' (the upstream default)\n",
+                         l.c_str());
+    }
+    if (has("edge_n_forces") && static_cast<int>(num("edge_n_forces")) != 1)
+        std::fprintf(stderr, "Warning: edge_n_forces != 1 is not supported, using 1 (the upstream default)\n");
+
+    // Bench-specific keys (not standalone-oxDNA keys).
+    if (has("timing"))     cfg.timing = boolean("timing");
+    if (has("timer_sync")) cfg.timer_sync = boolean("timer_sync");
 }

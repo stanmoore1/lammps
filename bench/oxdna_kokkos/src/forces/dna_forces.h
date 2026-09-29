@@ -1,45 +1,23 @@
 #pragma once
 
-// DNA nonbonded force computation kernel (oxDNA1).
-// One Kokkos thread per edge (pair i,j) — no inner loop, perfect load balance.
-//
-// Physics (matches the standalone DNAInteraction::pair_interaction_nonbonded):
-//   nonbonded excluded volume + hydrogen bonding + cross stacking + coaxial stacking.
-// Each angular/dihedral term is a faithful port of the standalone force/torque
-// expressions; torques are accumulated in the lab frame (the integrator uses unit
-// isotropic inertia, so lab-frame angular momentum integration is exact).
+// oxDNA1 / oxDNA2 force kernels, ports of src/CUDA/Interactions/CUDA_DNA.cuh:
+//   * DNAForcesPerParticleFunctor = dna_forces (DEFAULT, use_edge = false):
+//     one thread per particle over its full Verlet-matrix row plus its two
+//     bonds, no atomics, torque rotated into the body frame;
+//   * DNAForcesFunctor = dna_forces_edge_nonbonded (use_edge = true): one
+//     thread per edge with atomic scatter, followed by BondedFunctor
+//     (bonded.h) = dna_forces_edge_bonded.
+// Physics (matches the standalone DNAInteraction / DNA2Interaction): each
+// angular/dihedral term is a port of the standalone force/torque expressions,
+// accumulated in the lab frame.
 
 #include "../types.h"
-
-// ---------------------------------------------------------------------------
-// Launch-bounds / register-pressure tuning for the nonbonded edge kernel (GPU).
-//
-// The edge kernel is register-heavy (all nonbonded terms inlined), so without a
-// register cap the compiler may use enough registers to limit occupancy. A
-// Kokkos::LaunchBounds<MaxThreadsPerBlock, MinBlocksPerSM> emits CUDA
-// __launch_bounds__, telling the compiler to fit at least MinBlocksPerSM blocks
-// of MaxThreadsPerBlock threads per SM (i.e. cap registers to
-// regs <= 65536 / (MaxThreads * MinBlocks) on most NVIDIA SMs).
-//
-// These defaults are a starting point, NOT a tuned optimum: the sweet spot is
-// GPU- and precision-dependent (too aggressive a MinBlocks forces register
-// spills and gets slower). Sweep them on the target GPU, e.g.
-//   -DOXDNA_NB_MAXT=64  -DOXDNA_NB_MINB=16   (mirrors oxDNA's 64-thread blocks)
-//   -DOXDNA_NB_MAXT=128 -DOXDNA_NB_MINB=8
-// and compare achieved occupancy / registers-per-thread in Nsight Compute.
-// LaunchBounds is ignored on CPU backends, so this is a no-op there.
-// ---------------------------------------------------------------------------
-#ifndef OXDNA_NB_MAXT
-#define OXDNA_NB_MAXT 128
-#endif
-#ifndef OXDNA_NB_MINB
-#define OXDNA_NB_MINB 6
-#endif
 #include "../particles.h"
 #include "../neighbor_list.h"
 #include "orient.h"
 #include "mf_oxdna.h"
 #include "params.h"
+#include "bonded.h"
 #include <Kokkos_Core.hpp>
 #include <Kokkos_ScatterView.hpp>
 #include <cmath>
@@ -534,21 +512,121 @@ c_number dh_pair(const c_number ra_bk[3], const c_number rb_bk[3],
     cross3(rb_bk, force, c); delta_b[0]+=c[0]; delta_b[1]+=c[1]; delta_b[2]+=c[2];
     return energy;
 }
+// -----------------------------------------------------------------------
+// One nonbonded pair (a = p, b = q), the analogue of the CUDA
+// _particle_particle_DNA_interaction: excluded volume, H-bonding, cross
+// stacking, coaxial stacking and Debye-Huckel. Accumulates lab-frame
+// force/torque on both particles; the per-particle kernel only uses the
+// a-side (the b-side accumulations are dead code there and get eliminated).
+// dr = r_b - r_a (minimum image).
+// -----------------------------------------------------------------------
+KOKKOS_INLINE_FUNCTION
+c_number dna_nonbonded_pair(const DNAParams &par, const c_number dr[3],
+                            const c_number a1[3], const c_number a2[3], const c_number a3[3],
+                            int at, bool a_end,
+                            const c_number b1[3], const c_number b2[3], const c_number b3[3],
+                            int bt, bool b_end,
+                            c_number (&delf_a)[3], c_number (&delta_a)[3],
+                            c_number (&delf_b)[3], c_number (&delta_b)[3]) {
+    const c_number dx = dr[0], dy = dr[1], dz = dr[2];
+    c_number delr_com[3] = {dx, dy, dz};
+
+    c_number d_cbs = par.d_cbs, d_cstk = par.d_cstk;
+    c_number pb1 = par.pb1, pb2 = par.pb2;
+
+    // Backbone site (grooved for oxDNA2): pb1*a1 + pb2*a2
+    c_number ra_cbk[3] = {pb1*a1[0]+pb2*a2[0], pb1*a1[1]+pb2*a2[1], pb1*a1[2]+pb2*a2[2]};
+    c_number rb_cbk[3] = {pb1*b1[0]+pb2*b2[0], pb1*b1[1]+pb2*b2[1], pb1*b1[2]+pb2*b2[2]};
+    c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
+    c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
+
+    c_number evdwl = 0;
+
+    // ---- Nonbonded excluded volume (base-base, base-back, back-base, back-back) ----
+    {
+        c_number d[3] = {dx + rb_cbs[0] - ra_cbs[0], dy + rb_cbs[1] - ra_cbs[1], dz + rb_cbs[2] - ra_cbs[2]};
+        add_excv_contrib(ra_cbs, rb_cbs, d, par.excv_bsbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
+    }
+    {
+        c_number d[3] = {dx + rb_cbs[0] - ra_cbk[0], dy + rb_cbs[1] - ra_cbk[1], dz + rb_cbs[2] - ra_cbk[2]};
+        add_excv_contrib(ra_cbk, rb_cbs, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
+    }
+    {
+        c_number d[3] = {dx + rb_cbk[0] - ra_cbs[0], dy + rb_cbk[1] - ra_cbs[1], dz + rb_cbk[2] - ra_cbs[2]};
+        add_excv_contrib(ra_cbs, rb_cbk, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
+    }
+    {
+        c_number d[3] = {dx + rb_cbk[0] - ra_cbk[0], dy + rb_cbk[1] - ra_cbk[1], dz + rb_cbk[2] - ra_cbk[2]};
+        add_excv_contrib(ra_cbk, rb_cbk, d, par.excv_bkbk, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
+    }
+
+    // ---- Base-site separation (H-bonding + cross stacking) ----
+    {
+        c_number d[3] = {dx + rb_cbs[0] - ra_cbs[0], dy + rb_cbs[1] - ra_cbs[1], dz + rb_cbs[2] - ra_cbs[2]};
+        c_number rsq = dot3(d,d);
+        c_number r = Kokkos::sqrt(rsq);
+        if (r > 0) {
+            c_number rinv = 1 / r;
+            c_number alpha = par.alpha_hb[at][bt];
+            if (alpha != 0)
+                evdwl += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
+                                    a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+            evdwl += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
+                               a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+        }
+    }
+
+    // ---- Stacking-site separation (coaxial stacking) ----
+    {
+        c_number ra_st[3] = {d_cstk*a1[0], d_cstk*a1[1], d_cstk*a1[2]};
+        c_number rb_st[3] = {d_cstk*b1[0], d_cstk*b1[1], d_cstk*b1[2]};
+        c_number d[3] = {dx + rb_st[0] - ra_st[0], dy + rb_st[1] - ra_st[1], dz + rb_st[2] - ra_st[2]};
+        c_number rsq = dot3(d,d);
+        c_number r = Kokkos::sqrt(rsq);
+        if (r > 0) {
+            c_number rinv = 1 / r;
+            evdwl += cxst_pair(ra_st, rb_st, d, r, rinv, delr_com, par,
+                               a1, a2, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
+        }
+    }
+
+    // ---- Debye-Huckel electrostatics (oxDNA2; backbone-site separation) ----
+    if (par.dh_enabled) {
+        c_number d[3] = {dx + rb_cbk[0] - ra_cbk[0], dy + rb_cbk[1] - ra_cbk[1], dz + rb_cbk[2] - ra_cbk[2]};
+        c_number rmod = Kokkos::sqrt(dot3(d,d));
+        if (rmod > 0 && rmod < par.dh_RC) {
+            c_number cut_factor = 1;
+            if (par.dh_half_ends) {
+                if (a_end) cut_factor *= c_number(0.5);
+                if (b_end) cut_factor *= c_number(0.5);
+            }
+            evdwl += dh_pair(ra_cbk, rb_cbk, d, rmod, cut_factor, par,
+                             delf_a, delta_a, delf_b, delta_b);
+        }
+    }
+    return evdwl;
+}
+
+// _vectors_transpose_c_number4_product: lab -> body frame, T_body = (a1.T, a2.T, a3.T)
+KOKKOS_INLINE_FUNCTION
+void lab_to_body(const c_number a1[3], const c_number a2[3], const c_number a3[3], c_number (&T)[3]) {
+    const c_number t0 = a1[0]*T[0] + a1[1]*T[1] + a1[2]*T[2];
+    const c_number t1 = a2[0]*T[0] + a2[1]*T[1] + a2[2]*T[2];
+    const c_number t2 = a3[0]*T[0] + a3[1]*T[1] + a3[2]*T[2];
+    T[0] = t0; T[1] = t1; T[2] = t2;
+}
 
 // -----------------------------------------------------------------------
-// Main nonbonded force dispatch — one kernel per pair (flat edge list)
+// dna_forces_edge_nonbonded (use_edge = true): one thread per Verlet edge
+// (from = the larger index p, to = q), atomic scatter of the lab-frame
+// force/torque on both particles, skipped when zero (as upstream).
 // -----------------------------------------------------------------------
 struct DNAForcesFunctor {
-    // Gathered at random per-atom indices -> route through the read-only/texture
-    // cache (RandomAccess), like the standalone oxDNA __ldg reads.
-    Vec4cr poss;
+    // Gathered at random per-atom indices -> read-only/texture cache
+    Vec4cr poss;                        // .w = base type
     Vec4cr orientations;
-    RandomRead<int>      btype;
-    RandomRead<LR_bonds> bonds;
-    // edge_i/edge_j are read sequentially (thread `edge` -> entry `edge`), so a
-    // plain coalesced view is already optimal here.
-    Kokkos::View<const int *>         edge_i;
-    Kokkos::View<const int *>         edge_j;
+    RandomRead<int>      is_strand_end; // read only with Debye-Hueckel, as upstream
+    Kokkos::View<const EdgeBond *> edges;
 
     DNAParams par;
 
@@ -564,11 +642,7 @@ struct DNAForcesFunctor {
 
     SimBox box;
 
-    // Forces-only entry point (parallel_for): identical work, but no reduction
-    // machinery. Used on the (vast majority of) steps where the potential energy
-    // is not output, so the kernel keeps the higher occupancy of a plain
-    // parallel_for. The energy is still computed and simply discarded (it is a
-    // byproduct of the force evaluation), so trajectories are unaffected.
+    // Forces-only entry point (parallel_for); the energy is a by-product.
     KOKKOS_INLINE_FUNCTION
     void operator()(int edge) const {
         c_number ev_unused = 0;
@@ -577,118 +651,45 @@ struct DNAForcesFunctor {
 
     KOKKOS_INLINE_FUNCTION
     void operator()(int edge, c_number &ev) const {
-        const int ia = edge_i(edge);
-        const int ib = edge_j(edge);
+        const EdgeBond e = edges(edge);
+        const int ia = e.from;
+        const int ib = e.to;
 
-        c_number xai = poss(ia,0), yai = poss(ia,1), zai = poss(ia,2);
-        c_number xbi = poss(ib,0), ybi = poss(ib,1), zbi = poss(ib,2);
-
-        c_number dx = xbi - xai, dy = ybi - yai, dz = zbi - zai;
-        box.wrap(dx, dy, dz);
-        c_number delr_com[3] = {dx, dy, dz};
+        c_number dr[3] = {poss(ib,0) - poss(ia,0), poss(ib,1) - poss(ia,1), poss(ib,2) - poss(ia,2)};
+        box.wrap(dr[0], dr[1], dr[2]);
 
         c_number a1[3], a2[3], a3[3];
         c_number b1[3], b2[3], b3[3];
         get_vectors_from_quat_view(orientations, ia, a1, a2, a3);
         get_vectors_from_quat_view(orientations, ib, b1, b2, b3);
-
-        c_number d_cbs = par.d_cbs, d_cstk = par.d_cstk;
-        c_number pb1 = par.pb1, pb2 = par.pb2;
-
-        // Backbone site (grooved for oxDNA2): pb1*a1 + pb2*a2
-        c_number ra_cbk[3] = {pb1*a1[0]+pb2*a2[0], pb1*a1[1]+pb2*a2[1], pb1*a1[2]+pb2*a2[2]};
-        c_number rb_cbk[3] = {pb1*b1[0]+pb2*b2[0], pb1*b1[1]+pb2*b2[1], pb1*b1[2]+pb2*b2[2]};
-        c_number ra_cbs[3] = {d_cbs*a1[0], d_cbs*a1[1], d_cbs*a1[2]};
-        c_number rb_cbs[3] = {d_cbs*b1[0], d_cbs*b1[1], d_cbs*b1[2]};
+        const bool a_end = par.dh_enabled ? (is_strand_end(ia) != 0) : false;
+        const bool b_end = par.dh_enabled ? (is_strand_end(ib) != 0) : false;
 
         c_number delf_a[3] = {0,0,0}, delf_b[3] = {0,0,0};
         c_number delta_a[3]= {0,0,0}, delta_b[3]= {0,0,0};
-        c_number evdwl = 0;
-
-        // ---- Nonbonded excluded volume (base-base, base-back, back-base, back-back) ----
-        {
-            c_number d[3] = {dx + rb_cbs[0] - ra_cbs[0], dy + rb_cbs[1] - ra_cbs[1], dz + rb_cbs[2] - ra_cbs[2]};
-            add_excv_contrib(ra_cbs, rb_cbs, d, par.excv_bsbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
-        }
-        {
-            c_number d[3] = {dx + rb_cbs[0] - ra_cbk[0], dy + rb_cbs[1] - ra_cbk[1], dz + rb_cbs[2] - ra_cbk[2]};
-            add_excv_contrib(ra_cbk, rb_cbs, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
-        }
-        {
-            c_number d[3] = {dx + rb_cbk[0] - ra_cbs[0], dy + rb_cbk[1] - ra_cbs[1], dz + rb_cbk[2] - ra_cbs[2]};
-            add_excv_contrib(ra_cbs, rb_cbk, d, par.excv_bkbs, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
-        }
-        {
-            c_number d[3] = {dx + rb_cbk[0] - ra_cbk[0], dy + rb_cbk[1] - ra_cbk[1], dz + rb_cbk[2] - ra_cbk[2]};
-            add_excv_contrib(ra_cbk, rb_cbk, d, par.excv_bkbk, dot3(d,d), delf_a, delta_a, delf_b, delta_b, evdwl);
-        }
-
-        // ---- Base-site separation (H-bonding + cross stacking) ----
-        {
-            c_number d[3] = {dx + rb_cbs[0] - ra_cbs[0], dy + rb_cbs[1] - ra_cbs[1], dz + rb_cbs[2] - ra_cbs[2]};
-            c_number rsq = dot3(d,d);
-            c_number r = Kokkos::sqrt(rsq);
-            if (r > 0) {
-                c_number rinv = 1 / r;
-                int at = btype(ia), bt = btype(ib);
-                c_number alpha = par.alpha_hb[at][bt];
-                if (alpha != 0)
-                    evdwl += hbond_pair(ra_cbs, rb_cbs, d, r, rinv, par, alpha,
-                                        a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-                evdwl += crst_pair(ra_cbs, rb_cbs, d, r, rinv, par,
-                                   a1, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-            }
-        }
-
-        // ---- Stacking-site separation (coaxial stacking) ----
-        {
-            c_number ra_st[3] = {d_cstk*a1[0], d_cstk*a1[1], d_cstk*a1[2]};
-            c_number rb_st[3] = {d_cstk*b1[0], d_cstk*b1[1], d_cstk*b1[2]};
-            c_number d[3] = {dx + rb_st[0] - ra_st[0], dy + rb_st[1] - ra_st[1], dz + rb_st[2] - ra_st[2]};
-            c_number rsq = dot3(d,d);
-            c_number r = Kokkos::sqrt(rsq);
-            if (r > 0) {
-                c_number rinv = 1 / r;
-                evdwl += cxst_pair(ra_st, rb_st, d, r, rinv, delr_com, par,
-                                   a1, a2, a3, b1, b3, delf_a, delta_a, delf_b, delta_b);
-            }
-        }
-
-        // ---- Debye-Huckel electrostatics (oxDNA2; backbone-site separation) ----
-        if (par.dh_enabled) {
-            c_number d[3] = {dx + rb_cbk[0] - ra_cbk[0], dy + rb_cbk[1] - ra_cbk[1], dz + rb_cbk[2] - ra_cbk[2]};
-            c_number rmod = Kokkos::sqrt(dot3(d,d));
-            if (rmod > 0 && rmod < par.dh_RC) {
-                c_number cut_factor = 1;
-                if (par.dh_half_ends) {
-                    if (bonds(ia).n3 < 0 || bonds(ia).n5 < 0) cut_factor *= c_number(0.5);
-                    if (bonds(ib).n3 < 0 || bonds(ib).n5 < 0) cut_factor *= c_number(0.5);
-                }
-                evdwl += dh_pair(ra_cbk, rb_cbk, d, rmod, cut_factor, par,
+        ev += dna_nonbonded_pair(par, dr, a1, a2, a3, int(poss(ia,3)), a_end,
+                                 b1, b2, b3, int(poss(ib,3)), b_end,
                                  delf_a, delta_a, delf_b, delta_b);
-            }
+
+        auto af = sf.access();
+        auto at_v = st.access();
+        if (dot3(delta_a, delta_a) > c_number(0)) {
+            at_v(ia, 0) += delta_a[0]; at_v(ia, 1) += delta_a[1]; at_v(ia, 2) += delta_a[2];
         }
-
-        ev += evdwl;
-
-        // Skip the atomic accumulation entirely for pairs that contributed
-        // nothing (in the Verlet list but beyond every interaction cutoff) —
-        // mirrors oxDNA's `if(dF·dF > 0)` / `if(dT·dT > 0)` atomic guards.
-        c_number nz = dot3(delf_a,delf_a) + dot3(delta_a,delta_a)
-                    + dot3(delf_b,delf_b) + dot3(delta_b,delta_b);
-        if (nz > c_number(0)) {
-            auto af = sf.access();
-            auto at_v = st.access();
+        if (dot3(delf_a, delf_a) > c_number(0)) {
             af(ia, 0) += delf_a[0]; af(ia, 1) += delf_a[1]; af(ia, 2) += delf_a[2];
             af(ib, 0) += delf_b[0]; af(ib, 1) += delf_b[1]; af(ib, 2) += delf_b[2];
-            at_v(ia, 0) += delta_a[0]; at_v(ia, 1) += delta_a[1]; at_v(ia, 2) += delta_a[2];
+        }
+        if (dot3(delta_b, delta_b) > c_number(0)) {
             at_v(ib, 0) += delta_b[0]; at_v(ib, 1) += delta_b[1]; at_v(ib, 2) += delta_b[2];
         }
     }
 };
 
 // -----------------------------------------------------------------------
-// Compute all nonbonded forces for all N_edges pairs
+// Compute all nonbonded forces for all N_edges pairs (use_edge = true).
+// Torques stay in the lab frame; the bonded kernel that follows adds its
+// contribution and rotates the total torque into the body frame.
 // -----------------------------------------------------------------------
 inline c_number compute_nonbonded_forces(
     ParticleArrays &p,
@@ -699,41 +700,120 @@ inline c_number compute_nonbonded_forces(
 {
     if (nl.N_edges == 0) return 0;
 
-    using SV = Kokkos::Experimental::ScatterView<
-        c_number *[4],
-        Kokkos::LayoutRight,
-        Kokkos::DefaultExecutionSpace,
-        Kokkos::Experimental::ScatterSum,
-        Kokkos::Experimental::ScatterNonDuplicated>;
-
+    using SV = DNAForcesFunctor::ScatterF;
     SV sf(p.forces);
     SV st(p.torques);
 
     DNAForcesFunctor fun;
     fun.poss         = p.poss;
     fun.orientations = p.orientations;
-    fun.btype        = p.btype;
-    fun.bonds        = p.bonds;
-    fun.edge_i       = nl.edge_i;
-    fun.edge_j       = nl.edge_j;
+    fun.is_strand_end= p.is_strand_end;
+    fun.edges        = nl.d_edge_list;
     fun.par          = par;
     fun.sf           = sf;
     fun.st           = st;
     fun.box          = box;
 
-    using NBPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_NB_MAXT, OXDNA_NB_MINB>>;
-
     c_number etot = 0;
     if (want_energy) {
-        Kokkos::parallel_reduce("dna_forces_nonbonded",
-            NBPolicy(0, nl.N_edges), fun, etot);
+        Kokkos::parallel_reduce("dna_forces_edge_nonbonded", OxForcePolicy(0, nl.N_edges), fun, etot);
     } else {
-        Kokkos::parallel_for("dna_forces_nonbonded",
-            NBPolicy(0, nl.N_edges), fun);
+        Kokkos::parallel_for("dna_forces_edge_nonbonded", OxForcePolicy(0, nl.N_edges), fun);
     }
 
     Kokkos::Experimental::contribute(p.forces, sf);
     Kokkos::Experimental::contribute(p.torques, st);
 
     return etot;
+}
+
+// -----------------------------------------------------------------------
+// dna_forces (default, use_edge = false): ONE thread per particle, as the
+// upstream default CUDA kernel. The thread reads F and T of its particle
+// (zeroed by set_external_forces), adds its n3 and n5 bonds (FENE + bonded
+// excluded volume + stacking) and then every non-bonded neighbour of its
+// (full) Verlet-matrix row, each pair from its own side (every pair is thus
+// evaluated twice, once per particle, no atomics), rotates the torque into
+// the body frame and writes F, T once. F.w holds the particle's energy, i.e.
+// the sum of its bond and pair energies (U = sum_i F_i.w / 2).
+// body_frame = false keeps the lab-frame torque (validation tools only).
+// -----------------------------------------------------------------------
+struct DNAForcesPerParticleFunctor {
+    Vec4cr poss;                        // .w = base type
+    Vec4cr orientations;
+    RandomRead<LR_bonds> bonds;
+    Kokkos::View<const int **, Kokkos::LayoutLeft> matrix_neighs;
+    Kokkos::View<const int *> number_neighs;
+    Vec4 forces;
+    Vec4 torques;
+    DNAParams par;
+    SimBox box;
+    bool body_frame = true;
+
+    KOKKOS_INLINE_FUNCTION
+    void operator()(int i) const {
+        c_number F[3] = {forces(i,0), forces(i,1), forces(i,2)};
+        c_number T[3] = {torques(i,0), torques(i,1), torques(i,2)};
+        c_number e = forces(i,3);
+
+        const c_number pi[3] = {poss(i,0), poss(i,1), poss(i,2)};
+        const LR_bonds pb = bonds(i);
+        const bool p_end = (pb.n3 < 0 || pb.n5 < 0);
+        c_number a1[3], a2[3], a3[3];
+        get_vectors_from_quat_view(orientations, i, a1, a2, a3);
+
+        if (pb.n3 >= 0) {   // i = 5' end, n3 = 3' end
+            c_number b1[3], b2[3], b3[3];
+            get_vectors_from_quat_view(orientations, pb.n3, b1, b2, b3);
+            const c_number pj[3] = {poss(pb.n3,0), poss(pb.n3,1), poss(pb.n3,2)};
+            c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
+            e += bonded_pair(pi, a1, a2, a3, pj, b1, b2, b3, par, F5, T5, T3);
+            F[0]+=F5[0]; F[1]+=F5[1]; F[2]+=F5[2];
+            T[0]+=T5[0]; T[1]+=T5[1]; T[2]+=T5[2];
+        }
+        if (pb.n5 >= 0) {   // n5 = 5' end, i = 3' end
+            c_number b1[3], b2[3], b3[3];
+            get_vectors_from_quat_view(orientations, pb.n5, b1, b2, b3);
+            const c_number pj[3] = {poss(pb.n5,0), poss(pb.n5,1), poss(pb.n5,2)};
+            c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
+            e += bonded_pair(pj, b1, b2, b3, pi, a1, a2, a3, par, F5, T5, T3);
+            F[0]-=F5[0]; F[1]-=F5[1]; F[2]-=F5[2];
+            T[0]+=T3[0]; T[1]+=T3[1]; T[2]+=T3[2];
+        }
+
+        const int at = int(poss(i,3));
+        const int num_neighs = number_neighs(i);
+        for (int j = 0; j < num_neighs; j++) {
+            const int k = matrix_neighs(i, j);
+            if (k == i || k == pb.n3 || k == pb.n5) continue;
+            const c_number qw = poss(k,3);
+            c_number dr[3] = {poss(k,0) - pi[0], poss(k,1) - pi[1], poss(k,2) - pi[2]};
+            box.wrap(dr[0], dr[1], dr[2]);
+            c_number b1[3], b2[3], b3[3];
+            get_vectors_from_quat_view(orientations, k, b1, b2, b3);
+            const LR_bonds qb = bonds(k);
+            c_number df[3] = {0,0,0}, dt[3] = {0,0,0}, df_b[3] = {0,0,0}, dt_b[3] = {0,0,0};
+            e += dna_nonbonded_pair(par, dr, a1, a2, a3, at, p_end,
+                                    b1, b2, b3, int(qw), (qb.n3 < 0 || qb.n5 < 0),
+                                    df, dt, df_b, dt_b);
+            F[0]+=df[0]; F[1]+=df[1]; F[2]+=df[2];
+            T[0]+=dt[0]; T[1]+=dt[1]; T[2]+=dt[2];
+        }
+
+        if (body_frame) lab_to_body(a1, a2, a3, T);
+
+        forces(i,0) = F[0]; forces(i,1) = F[1]; forces(i,2) = F[2]; forces(i,3) = e;
+        torques(i,0) = T[0]; torques(i,1) = T[1]; torques(i,2) = T[2];
+    }
+};
+
+inline void compute_forces_per_particle(ParticleArrays &p, const NeighborList &nl,
+                                        const DNAParams &par, const SimBox &box,
+                                        bool body_frame = true) {
+    DNAForcesPerParticleFunctor fun;
+    fun.poss = p.poss; fun.orientations = p.orientations;
+    fun.bonds = p.bonds; fun.matrix_neighs = nl.d_matrix_neighs;
+    fun.number_neighs = nl.d_number_neighs; fun.forces = p.forces; fun.torques = p.torques;
+    fun.par = par; fun.box = box; fun.body_frame = body_frame;
+    Kokkos::parallel_for("dna_forces", OxForcePolicy(0, p.N), fun);
 }

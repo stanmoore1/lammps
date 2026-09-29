@@ -1,19 +1,20 @@
 #pragma once
 
-// Bonded interactions (FENE + bonded excluded volume + stacking) computed as a
-// single GATHER kernel, mirroring the standalone oxDNA CUDA dna_forces_edge_bonded:
-// one thread per particle reads its 3' (n3) and 5' (n5) bonded neighbours,
-// accumulates the force/torque on ITSELF only, and writes once with no atomics.
-// This replaces the previous two atomic-scatter kernels (backbone + stacking).
+// Bonded interactions (FENE + bonded excluded volume + stacking).
 //
-// For a bond the force on the 3' end equals minus the force on the 5' end
-// (Newton's 3rd law), so the per-bond routine returns the 5'-end force F, the
-// torque on the 5' end (T5) and on the 3' end (T3); the gather kernel adds
-// (+F,T5) when the particle is the 5' end and (-F,T3) when it is the 3' end.
-// Energy is counted once per bond (only on the n3 side).
+// bonded_pair() is the analogue of the CUDA _bonded_part: one bond, returning
+// the force on the 5' end and the lab-frame torques on both ends. It is used
+//   * by the default per-particle kernel (dna_forces.h, DNAForcesPerParticleFunctor,
+//     = CUDA dna_forces) for the particle's n3 and n5 bonds, and
+//   * by BondedFunctor below (= CUDA dna_forces_edge_bonded, use_edge = true):
+//     one thread per particle gathers its n3 and n5 bonds on top of the
+//     nonbonded edge result, writes only its own particle (no atomics) and
+//     rotates the total torque into the body frame.
 //
-// Must run AFTER the nonbonded kernel: it does forces(i) += ... (plain, since
-// each thread owns its particle i) on top of the nonbonded result.
+// For a bond the force on the 3' end equals minus the force on the 5' end, so
+// the per-bond routine returns the 5'-end force F, the torque on the 5' end
+// (T5) and on the 3' end (T3). As upstream, the bonded separation is the plain
+// difference of the (unfolded) positions, without minimum image.
 
 #include "../types.h"
 #include "../particles.h"
@@ -21,15 +22,6 @@
 #include "orient.h"
 #include "mf_oxdna.h"
 #include <Kokkos_Core.hpp>
-
-// Launch-bounds / register tuning for the bonded gather kernel (GPU). See the
-// note in dna_forces.h; sweep on the target GPU (no-op on CPU backends).
-#ifndef OXDNA_BOND_MAXT
-#define OXDNA_BOND_MAXT 128
-#endif
-#ifndef OXDNA_BOND_MINB
-#define OXDNA_BOND_MINB 6
-#endif
 
 KOKKOS_INLINE_FUNCTION
 void bx_cross(const c_number a[3], const c_number b[3], c_number c[3]) {
@@ -44,14 +36,13 @@ void bx_cross(const c_number a[3], const c_number b[3], c_number c[3]) {
 KOKKOS_INLINE_FUNCTION
 c_number bonded_pair(const c_number p5[3], const c_number a1[3], const c_number a2[3], const c_number a3[3],
                      const c_number p3[3], const c_number b1[3], const c_number b2[3], const c_number b3[3],
-                     const DNAParams &par, const SimBox &box,
+                     const DNAParams &par,
                      c_number (&F)[3], c_number (&T5)[3], c_number (&T3)[3]) {
     const c_number pb1 = par.pb1, pb2 = par.pb2, dcbs = par.d_cbs, dcstk = par.d_cstk;
     c_number energy = 0;
 
-    // 5'-3' COM separation (wrapped)
+    // 5'-3' COM separation (plain difference, as upstream r = qpos - ppos)
     c_number d53[3] = {p5[0]-p3[0], p5[1]-p3[1], p5[2]-p3[2]};
-    box.wrap(d53[0], d53[1], d53[2]);
 
     // interaction sites
     c_number r5bk[3] = {pb1*a1[0]+pb2*a2[0], pb1*a1[1]+pb2*a2[1], pb1*a1[2]+pb2*a2[2]};
@@ -200,7 +191,8 @@ c_number bonded_pair(const c_number p5[3], const c_number a1[3], const c_number 
     return energy;
 }
 
-// Gather functor: one thread per particle, no atomics.
+// dna_forces_edge_bonded: one thread per particle, no atomics, runs after the
+// nonbonded edge kernel and adds on top of its (lab-frame) result.
 struct BondedFunctor {
     // Read-only gathers (i, n3, n5) via the read-only/texture cache.
     Vec4cr poss;
@@ -210,7 +202,7 @@ struct BondedFunctor {
     Vec4 forces;
     Vec4 torques;
     DNAParams par;
-    SimBox box;
+    bool body_frame = true;
 
     // Forces-only entry point (parallel_for) for steps that don't output energy.
     KOKKOS_INLINE_FUNCTION
@@ -223,13 +215,13 @@ struct BondedFunctor {
     void operator()(int i, c_number &ev) const {
         int n3 = bonds(i).n3;
         int n5 = bonds(i).n5;
-        if (n3 < 0 && n5 < 0) return;
 
         c_number ai1[3], ai2[3], ai3[3];
         get_vectors_from_quat_view(orientations, i, ai1, ai2, ai3);
         c_number pi[3] = {poss(i,0), poss(i,1), poss(i,2)};
 
-        c_number F[3] = {0,0,0}, Tt[3] = {0,0,0};
+        c_number F[3] = {forces(i,0), forces(i,1), forces(i,2)};
+        c_number Tt[3] = {torques(i,0), torques(i,1), torques(i,2)};
 
         // bond (i = 5', n3 = 3'): take 5'-end contribution; count energy here
         if (n3 >= 0) {
@@ -237,7 +229,7 @@ struct BondedFunctor {
             get_vectors_from_quat_view(orientations, n3, bj1, bj2, bj3);
             c_number pj[3] = {poss(n3,0), poss(n3,1), poss(n3,2)};
             c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
-            ev += bonded_pair(pi, ai1, ai2, ai3, pj, bj1, bj2, bj3, par, box, F5, T5, T3);
+            ev += bonded_pair(pi, ai1, ai2, ai3, pj, bj1, bj2, bj3, par, F5, T5, T3);
             F[0]+=F5[0]; F[1]+=F5[1]; F[2]+=F5[2];
             Tt[0]+=T5[0]; Tt[1]+=T5[1]; Tt[2]+=T5[2];
         }
@@ -247,29 +239,36 @@ struct BondedFunctor {
             get_vectors_from_quat_view(orientations, n5, bj1, bj2, bj3);
             c_number pj[3] = {poss(n5,0), poss(n5,1), poss(n5,2)};
             c_number F5[3] = {0,0,0}, T5[3] = {0,0,0}, T3[3] = {0,0,0};
-            bonded_pair(pj, bj1, bj2, bj3, pi, ai1, ai2, ai3, par, box, F5, T5, T3);
+            bonded_pair(pj, bj1, bj2, bj3, pi, ai1, ai2, ai3, par, F5, T5, T3);
             F[0]-=F5[0]; F[1]-=F5[1]; F[2]-=F5[2];
             Tt[0]+=T3[0]; Tt[1]+=T3[1]; Tt[2]+=T3[2];
         }
 
-        // each thread owns particle i -> plain add on top of the nonbonded result
-        forces(i,0)+=F[0];  forces(i,1)+=F[1];  forces(i,2)+=F[2];
-        torques(i,0)+=Tt[0]; torques(i,1)+=Tt[1]; torques(i,2)+=Tt[2];
+        // "we can do this because dna_forces_edge_nonbonded does not change the
+        // reference frame to the torque it calculates"
+        if (body_frame) {
+            const c_number t0 = ai1[0]*Tt[0] + ai1[1]*Tt[1] + ai1[2]*Tt[2];
+            const c_number t1 = ai2[0]*Tt[0] + ai2[1]*Tt[1] + ai2[2]*Tt[2];
+            const c_number t2 = ai3[0]*Tt[0] + ai3[1]*Tt[1] + ai3[2]*Tt[2];
+            Tt[0] = t0; Tt[1] = t1; Tt[2] = t2;
+        }
+
+        forces(i,0) = F[0];  forces(i,1) = F[1];  forces(i,2) = F[2];
+        torques(i,0) = Tt[0]; torques(i,1) = Tt[1]; torques(i,2) = Tt[2];
     }
 };
 
 inline c_number compute_bonded_forces(ParticleArrays &p, const DNAParams &par,
-                                      const SimBox &box, bool want_energy = true) {
+                                      bool want_energy = true, bool body_frame = false) {
     BondedFunctor fun;
     fun.poss = p.poss; fun.orientations = p.orientations; fun.bonds = p.bonds;
-    fun.forces = p.forces; fun.torques = p.torques; fun.par = par; fun.box = box;
-    using BondPolicy = Kokkos::RangePolicy<Kokkos::LaunchBounds<OXDNA_BOND_MAXT, OXDNA_BOND_MINB>>;
+    fun.forces = p.forces; fun.torques = p.torques; fun.par = par; fun.body_frame = body_frame;
 
     c_number etot = 0;
     if (want_energy) {
-        Kokkos::parallel_reduce("bonded_forces", BondPolicy(0, p.N), fun, etot);
+        Kokkos::parallel_reduce("dna_forces_edge_bonded", OxBondPolicy(0, p.N), fun, etot);
     } else {
-        Kokkos::parallel_for("bonded_forces", BondPolicy(0, p.N), fun);
+        Kokkos::parallel_for("dna_forces_edge_bonded", OxBondPolicy(0, p.N), fun);
     }
     return etot;
 }
