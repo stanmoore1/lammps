@@ -244,7 +244,7 @@ from a molecule template, which is also given to the fix:
 .. code-block:: LAMMPS
 
    molecule        co2mol CO2.txt
-   create_atoms    0 random ${N} 7771 NULL mol co2mol 464563 overlap 3.0 maxtry 1000
+   create_atoms    0 random ${N} 7771 NULL mol co2mol 464563 overlap 2.5 maxtry 1000
    ...
    fix             mc all gemc 1 50 100 2 ${T} 0.5 0.1 7771 &
                    mol co2mol maxangle 30 tune 20 0.4 0.4

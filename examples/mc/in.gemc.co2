@@ -11,7 +11,7 @@
 variable        T index 250.0                # temperature (K)
 variable        neq index 200                # equilibration cycles with step size tuning
 variable        nprod index 1000             # production cycles
-variable        rho world 0.05 1.0           # initial densities (g/cm^3)
+variable        rho world 0.05 0.9           # initial densities (g/cm^3)
 variable        N world 40 216               # initial numbers of molecules
 variable        L equal (v_N*44.0095/(0.60221408*v_rho))^(1.0/3.0)
 
@@ -21,7 +21,7 @@ region          box block 0 ${L} 0 ${L} 0 ${L}
 create_box      2 box bond/types 1 angle/types 1 extra/bond/per/atom 2 &
                 extra/angle/per/atom 1 extra/special/per/atom 2
 molecule        co2mol CO2.txt
-create_atoms    0 random ${N} 7771 NULL mol co2mol 464563 overlap 3.0 maxtry 1000
+create_atoms    0 random ${N} 7771 NULL mol co2mol 464563 overlap 2.5 maxtry 1000
 
 pair_style      lj/cut/coul/long 12.0
 pair_modify     mix arithmetic tail yes
