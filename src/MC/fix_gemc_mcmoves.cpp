@@ -273,13 +273,10 @@ void FixGEMC::attempt_atomic_exchange_full()
       if (iremove >= 0) atom->avec->unpack_exchange(exchange_buf.data());
       atom->natoms++;
     } else {
-      tagint *tag = atom->tag;
-      for (int i = 0; i < atom->nlocal; i++) {
-        if (tag[i] == newtag) {
-          atom->avec->copy(atom->nlocal - 1, i, 1);
-          atom->nlocal--;
-          break;
-        }
+      int i = local_index(newtag);
+      if (i >= 0) {
+        atom->avec->copy(atom->nlocal - 1, i, 1);
+        atom->nlocal--;
       }
       atom->natoms--;
     }
@@ -336,6 +333,7 @@ void FixGEMC::attempt_atomic_translation_full()
 
   int local = use_local();
   double energy_before = energy_stored;
+  double dmax = max_translation();
 
   int i = pick_random_gas_atom();
 
@@ -361,9 +359,9 @@ void FixGEMC::attempt_atomic_translation_full()
     xold[2] = x[i][2];
     imageold = atom->image[i];
     tagold = atom->tag[i];
-    coord[0] = x[i][0] + displace * rx;
-    coord[1] = x[i][1] + displace * ry;
-    coord[2] = x[i][2] + displace * rz;
+    coord[0] = x[i][0] + dmax * rx;
+    coord[1] = x[i][1] + dmax * ry;
+    coord[2] = x[i][2] + dmax * rz;
 
     if (local) {
       int itype = atom->type[i];
@@ -515,9 +513,10 @@ void FixGEMC::attempt_molecule_translation_full()
     d[2] = 2.0 * random_world->uniform() - 1.0;
     rsq = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
   }
-  d[0] *= displace;
-  d[1] *= displace;
-  d[2] *= displace;
+  double dmax = max_translation();
+  d[0] *= dmax;
+  d[1] *= dmax;
+  d[2] *= dmax;
 
   for (int i = 0; i < atom->nlocal; i++) {
     if (atom->molecule[i] == molid) {
@@ -597,6 +596,21 @@ void FixGEMC::attempt_molecule_rotation_full()
   MathExtra::axisangle_to_quat(r, theta, quat);
   MathExtra::quat_to_mat(quat, rotmat);
 
+  // reject rotations that move an atom farther than allowed by the subdomain
+  // size. the reverse rotation moves each atom by the same distance, so the
+  // rejection is symmetric. all ranks hold all atoms of the molecule.
+
+  double dmove = max_move();
+  for (int k = 0; k < n; k++) {
+    double dx[3], dxr[3];
+    dx[0] = data[NMOLDATA * k + 1] - com[0];
+    dx[1] = data[NMOLDATA * k + 2] - com[1];
+    dx[2] = data[NMOLDATA * k + 3] - com[2];
+    MathExtra::matvec(rotmat, dx, dxr);
+    MathExtra::sub3(dxr, dx, dxr);
+    if (MathExtra::lensq3(dxr) >= dmove * dmove) return;
+  }
+
   // save old positions and image flags, apply rotation to unwrapped coordinates
 
   const imageint imagezero =
@@ -650,8 +664,8 @@ void FixGEMC::attempt_molecule_rotation_full()
     x = atom->x;
     image = atom->image;
     for (int k = 0; k < ntotal; k += 5) {
-      int i = atom->map((tagint) ubuf(all[k]).i);
-      if ((i >= 0) && (i < atom->nlocal)) {
+      int i = local_index((tagint) ubuf(all[k]).i);
+      if (i >= 0) {
         x[i][0] = all[k + 1];
         x[i][1] = all[k + 2];
         x[i][2] = all[k + 3];

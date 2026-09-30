@@ -85,8 +85,18 @@ move at the same time:
 
 * A *translation* moves a randomly chosen atom of the fix group in each
   box by a random displacement inside a sphere of radius *displace*.
+  When a box runs on more than one processor, the radius is limited to
+  half of the smallest subdomain width, since an atom can only move
+  to a neighboring subdomain during the move.
   The two boxes accept or reject their translations independently with
   the Metropolis criterion :math:`\min[1, \exp(-\Delta U/k_B T)]`.
+
+.. versionchanged:: TBD
+
+   An exchange keeps the atom type, charge, group membership, and
+   velocity of the removed atom; previously an atom of type 1 with a
+   random velocity was inserted.  Atom styles with per-atom masses now
+   stop with an error instead of a warning.
 
 * An *exchange* removes a randomly chosen atom of the fix group from one
   box, the donor box, and inserts it at a random position in the other
@@ -148,6 +158,9 @@ e.g. with the *extra/special/per/atom* keyword of :doc:`create_box
   radius *displace*, or a rotation of a randomly chosen molecule about
   its center of mass around a random axis by a random angle between
   -*maxangle* and +*maxangle*.  The default *maxangle* is 30 degrees.
+  When a box runs on more than one processor, rotations that would
+  move an atom farther than half of the smallest subdomain width are
+  rejected.
   These are rigid-body moves; to sample the internal degrees of
   freedom of flexible molecules, combine the fix with time integration
   (see below).
@@ -208,8 +221,9 @@ ratio of the measured to the target acceptance ratio, limited to the
 range 0.5 to 1.5.  The maximum displacement and rotation angle are
 adjusted separately for each box, since the vapor box accepts much
 larger moves than the liquid box.  The displacement is limited to half
-the smallest box width and, when single-atom energies are used (see
-below), to the neighbor skin distance.  The maximum change of
+the smallest box width, to half the smallest subdomain width when a
+box runs on more than one processor, and, when single-atom energies are
+used (see below), to the neighbor skin distance.  The maximum change of
 ln(V1/V2) is limited to 1.0, and the maximum rotation angle to 180
 degrees.  An adjustment is only made after at least 20 moves of the
 respective kind were attempted.
@@ -349,7 +363,11 @@ built with that package.  See the :doc:`Build package <Build_package>`
 doc page for more info.
 
 This fix requires exactly two partitions, a 3d simulation with a box
-that is periodic in all three dimensions, and atom IDs.  Atom styles with per-atom masses are not supported.
+that is periodic in all three dimensions, and atom IDs.  Atom styles
+with per-atom masses or with per-atom properties other than charge,
+molecule ID, and bond topology (e.g. point dipoles, orientations, or
+custom properties from :doc:`fix property/atom <fix_property_atom>`)
+are not supported, since exchanged atoms would lose these properties.
 
 With the *mol* keyword, only molecules of a single kind (one molecule
 template) can be moved and exchanged.  Atom style *template* is not

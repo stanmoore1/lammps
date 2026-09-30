@@ -54,6 +54,7 @@ using MathConst::MY_PI;
 static constexpr double RESTART_VERSION = 3.0;
 static constexpr double MAXDLOGVOLRATIO = 1.0;
 static constexpr double DEG2RAD = MY_PI / 180.0;
+static constexpr double BIG = 1.0e20;
 
 /* ---------------------------------------------------------------------- */
 
@@ -82,6 +83,7 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   // box size changes with volume MC moves
 
   box_change |= BOX_CHANGE_SIZE;
+  if (domain->triclinic) box_change |= BOX_CHANGE_SHAPE;
 
   // required user args
 
@@ -232,6 +234,17 @@ void FixGEMC::init()
   if (!atom->mass) error->all(FLERR, "Fix gemc requires per-type masses");
   if (atom->rmass_flag)
     error->all(FLERR, "Fix gemc does not support atom styles with per-atom masses");
+
+  // exchanges transfer only type, charge, group membership, velocity, and
+  // topology, so other per-atom properties would be lost
+
+  if (atom->mu_flag || atom->quat_flag || atom->omega_flag || atom->angmom_flag ||
+      atom->ellipsoid_flag || atom->line_flag || atom->tri_flag || atom->body_flag ||
+      atom->superellipsoid_flag || atom->sp_flag || atom->temperature_flag || atom->dpd_flag ||
+      atom->edpd_flag || atom->tdpd_flag || atom->rho_flag)
+    error->all(FLERR, "Fix gemc does not support atom style {}", atom->atom_style);
+  if (atom->nivector || atom->ndvector || atom->niarray || atom->ndarray)
+    error->all(FLERR, "Fix gemc does not support custom per-atom properties");
   if (force->pair && force->pair->tail_flag && !force->pair->reinitflag)
     error->all(FLERR, "Fix gemc with pair_modify tail yes is not supported by pair style {}",
                force->pair_style);
@@ -273,6 +286,7 @@ void FixGEMC::init()
                    "use extra/special/per/atom",
                    idmol);
     }
+    onemol->check_attributes();
     natoms_per_molecule = onemol->natoms;
   } else {
     natoms_per_molecule = 1;
@@ -630,6 +644,7 @@ void FixGEMC::tune_steps()
     double maxdisp = 0.5 * min_box_width();
     if (local_flag) maxdisp = MIN(maxdisp, neighbor->skin);
     displace = MIN(displace * factor, maxdisp);
+    displace = max_translation();
     displace = MAX(displace, 1.0e-6 * maxdisp);
     tune_last[0] = ntranslation_attempts;
     tune_last[1] = ntranslation_successes;
@@ -1013,16 +1028,64 @@ double FixGEMC::box_volume()
 
 double FixGEMC::min_box_width()
 {
-  if (!triclinic) return MIN(MIN(domain->xprd, domain->yprd), domain->zprd);
+  double w[3];
+  box_widths(w);
+  return MIN(MIN(w[0], w[1]), w[2]);
+}
+
+/* ----------------------------------------------------------------------
+   distances between opposite faces of the box
+------------------------------------------------------------------------- */
+
+void FixGEMC::box_widths(double *w)
+{
+  if (!triclinic) {
+    w[0] = domain->xprd;
+    w[1] = domain->yprd;
+    w[2] = domain->zprd;
+    return;
+  }
 
   // rows of the inverse box matrix are normal to the box faces,
   // their lengths are the inverse face distances
 
   double *h_inv = domain->h_inv;
-  double wx = 1.0 / sqrt(h_inv[0] * h_inv[0] + h_inv[5] * h_inv[5] + h_inv[4] * h_inv[4]);
-  double wy = 1.0 / sqrt(h_inv[1] * h_inv[1] + h_inv[3] * h_inv[3]);
-  double wz = 1.0 / h_inv[2];
-  return MIN(MIN(wx, wy), wz);
+  w[0] = 1.0 / sqrt(h_inv[0] * h_inv[0] + h_inv[5] * h_inv[5] + h_inv[4] * h_inv[4]);
+  w[1] = 1.0 / sqrt(h_inv[1] * h_inv[1] + h_inv[3] * h_inv[3]);
+  w[2] = 1.0 / h_inv[2];
+}
+
+/* ----------------------------------------------------------------------
+   largest distance an atom may move in a translation or rotation.
+   with more than one rank per box, comm->exchange() in energy_full() can
+   only move an atom to a neighboring subdomain, so the distance must stay
+   below the smallest subdomain width
+------------------------------------------------------------------------- */
+
+double FixGEMC::max_move()
+{
+  if (comm->nprocs == 1) return BIG;
+  double w[3];
+  box_widths(w);
+  double wsub = BIG;
+  for (int k = 0; k < 3; k++) {
+    double frac = triclinic ? domain->subhi_lamda[k] - domain->sublo_lamda[k]
+                            : (domain->subhi[k] - domain->sublo[k]) / domain->prd[k];
+    wsub = MIN(wsub, frac * w[k]);
+  }
+  double wsub_all;
+  MPI_Allreduce(&wsub, &wsub_all, 1, MPI_DOUBLE, MPI_MIN, world);
+  return 0.5 * wsub_all;
+}
+
+/* ----------------------------------------------------------------------
+   maximum displacement actually used for translations. the box does not
+   change during a translation, so the move remains symmetric
+------------------------------------------------------------------------- */
+
+double FixGEMC::max_translation()
+{
+  return MIN(displace, max_move());
 }
 
 /* ----------------------------------------------------------------------
@@ -1068,6 +1131,21 @@ int FixGEMC::owns(double *coord)
   }
   return (c[0] >= lo[0]) && (c[0] < hi[0]) && (c[1] >= lo[1]) && (c[1] < hi[1]) &&
       (c[2] >= lo[2]) && (c[2] < hi[2]);
+}
+
+/* ----------------------------------------------------------------------
+   return local index of the owned atom with atom ID itag or -1 if not owned
+------------------------------------------------------------------------- */
+
+int FixGEMC::local_index(tagint itag)
+{
+  if (atom->map_style != Atom::MAP_NONE) {
+    int i = atom->map(itag);
+    return (i < atom->nlocal) ? i : -1;
+  }
+  for (int i = 0; i < atom->nlocal; i++)
+    if (atom->tag[i] == itag) return i;
+  return -1;
 }
 
 /* ----------------------------------------------------------------------

@@ -144,7 +144,11 @@ class FixGEMC : public Fix {
   void set_box(double, double, double, double, double, double);    // change box size
   double box_volume();
   double min_box_width();
+  void box_widths(double *);    // distances between opposite box faces
+  double max_move();            // largest move of an atom allowed by the subdomain size
+  double max_translation();     // displacement limited by the subdomain size
   int owns(double *);    // 1 if a point in the box is inside my subdomain
+  int local_index(tagint);    // local index of owned atom with this ID or -1
   void random_point(double *);
   void changed_atoms();    // update after atoms or charges changed
   void check_molecules();

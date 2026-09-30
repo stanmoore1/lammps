@@ -126,7 +126,7 @@ the acceptance ratios of the MC moves:
    thermo_style    custom step atoms vol pe v_rho_n f_mc[1] f_mc[2] &
                    f_mc[3] f_mc[4] f_mc[5] f_mc[6]
    thermo_modify   norm no
-   thermo          100
+   thermo          1000
    run             20000
 
 The columns *f_mc[1]* to *f_mc[6]* are the cumulative numbers of
