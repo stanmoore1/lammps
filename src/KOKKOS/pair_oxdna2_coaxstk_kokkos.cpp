@@ -1474,12 +1474,12 @@ void PairOxdna2CoaxstkKokkos<DeviceType>::ev_tally_xyz(EV_FLOAT &ev, const int &
   }
 
   if (VFLAG) {
-    const KK_ACC_FLOAT v0 = static_cast<KK_ACC_FLOAT>(static_cast<KK_ACC_FLOAT>(delx)*fx);
-    const KK_ACC_FLOAT v1 = static_cast<KK_ACC_FLOAT>(static_cast<KK_ACC_FLOAT>(dely)*fy);
-    const KK_ACC_FLOAT v2 = static_cast<KK_ACC_FLOAT>(static_cast<KK_ACC_FLOAT>(delz)*fz);
-    const KK_ACC_FLOAT v3 = static_cast<KK_ACC_FLOAT>(static_cast<KK_ACC_FLOAT>(delx)*fy);
-    const KK_ACC_FLOAT v4 = static_cast<KK_ACC_FLOAT>(static_cast<KK_ACC_FLOAT>(delx)*fz);
-    const KK_ACC_FLOAT v5 = static_cast<KK_ACC_FLOAT>(static_cast<KK_ACC_FLOAT>(dely)*fz);
+    const KK_ACC_FLOAT v0 = static_cast<KK_ACC_FLOAT>(delx)*fx;
+    const KK_ACC_FLOAT v1 = static_cast<KK_ACC_FLOAT>(dely)*fy;
+    const KK_ACC_FLOAT v2 = static_cast<KK_ACC_FLOAT>(delz)*fz;
+    const KK_ACC_FLOAT v3 = static_cast<KK_ACC_FLOAT>(delx)*fy;
+    const KK_ACC_FLOAT v4 = static_cast<KK_ACC_FLOAT>(delx)*fz;
+    const KK_ACC_FLOAT v5 = static_cast<KK_ACC_FLOAT>(dely)*fz;
 
     if (vflag_global) {
       if (NEIGHFLAG!=FULL) {
