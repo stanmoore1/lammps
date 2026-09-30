@@ -25,6 +25,13 @@ It prints every flagged `src/KOKKOS/<file>:line:col` reached by the TU (the
 BOTH single and mixed must be empty.  An `ERROR:` line means the file does not
 compile; a file with errors is never clean, even if it lists no warnings.
 
+To choose the cast direction you need the types clang reports ("'KK_FLOAT'
+(aka 'float') to 'double'"); print the full warning text with source and
+caret lines for the TU, or for one header it reaches:
+
+    $KKP_TOOLS/warntext.sh single src/KOKKOS/<TU>.cpp
+    $KKP_TOOLS/warntext.sh mixed  src/KOKKOS/<TU>.cpp <header>.h
+
 ## Rules (change ONLY lines the checker flags)
 
 1. **Bare math on KK_FLOAT promotes.**  Unqualified `sqrt`, `pow`, `exp`,
@@ -32,8 +39,8 @@ compile; a file with errors is never clean, even if it lists no warnings.
    `fabs`, `cbrt`, `sinh`, `cosh`, `tanh`, `log10`, ... call the double C
    library version.  Qualify with `Kokkos::` (it has float overloads):
    `Kokkos::sqrt(x)`.
-   - GOTCHA: `Kokkos::pow(x, 2)` with an **int** exponent promotes to double.
-     Make the exponent KK_FLOAT: `Kokkos::pow(x, static_cast<KK_FLOAT>(2))`.
+   - Caution: even `Kokkos::pow(x, 2)` computes in double, because the
+     exponent is an **int**.  Make the exponent KK_FLOAT: `Kokkos::pow(x, static_cast<KK_FLOAT>(2))`.
    - `pow(int_or_double_base, 0.23)` on genuine double data is legitimate
      double math: leave `pow` alone and cast the result at the KK_FLOAT
      boundary (rule 6).
@@ -52,6 +59,8 @@ compile; a file with errors is never clean, even if it lists no warnings.
    class) used in KK_FLOAT math: make one local copy near the top of the
    function, `const KK_FLOAT foo_kk = static_cast<KK_FLOAT>(foo);`, and use
    it on the flagged lines.  The `_kk` suffix is the established convention.
+   The copy is a new helper line, which the Discipline section allows; the
+   copy itself needs the cast, or it is flagged in turn.
    Check the `_kokkos.h` header first: many such members (`qqrd2e`,
    `special_lj[]`, `ftm2v`, ...) are already KK_FLOAT in the Kokkos class,
    and then only their host-side initialization needs a cast.
@@ -106,7 +115,7 @@ compile; a file with errors is never clean, even if it lists no warnings.
   `uCG_i`) gets KK_FLOAT casts even if it later feeds an accumulator; do not
   store a KK_ACC_FLOAT expression into it.  Views such as `uCG`, `rho`,
   `dpdTheta`, `d_result` are `t_kkfloat_*`: their `+=` uses KK_FLOAT.
-- **`MAX(1.0 - x*x, 0.0)`: cast BOTH literals.**  The ternary inside `MAX`
+- **In `MAX(1.0 - x*x, 0.0)` both literals need the cast.**  The ternary inside `MAX`
   re-promotes the result to double through the `0.0` branch.
 - **Leave unflagged lines alone**, e.g. the plain `ev.v[N] += v[N]` in the
   `newton_bond` branch next to a flagged `ev.v[N] += 0.5*v[N]`.  A later fix
@@ -125,19 +134,25 @@ compile; a file with errors is never clean, even if it lists no warnings.
   cannot have a single `_kk` copy: cast at the boundary,
   `static_cast<KK_FLOAT>(d_params[i].rm)`.  Frequently reused scalars from
   such a struct may still get a local `_kk` copy.
-- **Package-level constants**: a `constexpr` KK_FLOAT constant at file or
-  package scope, e.g. `static constexpr KK_FLOAT SMALL = static_cast<KK_FLOAT>(0.001);`
-  or `constexpr KK_FLOAT MY_PI_KK = static_cast<KK_FLOAT>(MY_PI);` (as in
-  `pair_oxdna_coaxstk_kokkos.cpp` of the CG-DNA port), avoids repeating the
-  cast when a `MathConst` constant is used many times.  Use such a constant
-  only where it is actually declared; never rename a
-  `using MathConst::MY_PI;` line to a constant that does not exist.
+- **File-scope constants** (a new helper line, see Discipline): a
+  `constexpr` KK_FLOAT constant at file scope, e.g.
+  `static constexpr KK_FLOAT SMALL = static_cast<KK_FLOAT>(0.001);`, avoids
+  repeating the same cast when a double constant is used on many flagged
+  lines.  *Learned in later rounds (Sep 2026):* the CG-DNA port uses
+  `constexpr KK_FLOAT MY_PI_KK = static_cast<KK_FLOAT>(MY_PI);` in
+  `pair_oxdna_coaxstk_kokkos.cpp`; in a post-compaction run a pattern
+  rewriter turned an unrelated `using MathConst::MY_PI;` line into a
+  reference to a `MY_PI_KK` that did not exist in that file.  Use such a
+  constant only where it is actually declared, and never edit `using`
+  declarations.
 - **Textually identical lines may need different fixes** (a host function
   on `double*` and a device kernel on KK_FLOAT views; a non-instantiated
   template copy).  Edit by line number, never with a global replace.
-- **Double reduction locals may be retyped** to `double` when they only
-  participate in double math and `MPI_DOUBLE` reductions (e.g. `fdotf` in
-  `min_fire`), which is cleaner than casting every use.
+- **Double reduction locals** that only participate in double math and
+  `MPI_DOUBLE` reductions (e.g. `fdotf` in `min_fire`) were retyped to
+  `double` in the original work where the declaration itself was flagged.
+  If the declaration is not flagged, this is a retyping proposal: report it,
+  do not apply it (see Discipline).
 - **Whole-expression wrapping at an accumulator.**  For
   `a_f(j,0) -= f1[0] + f3[0]` wrap the whole sum once, instead of casting
   one operand and leaving a promotion on the other.
@@ -159,10 +174,13 @@ argument:
 
     $KKP_TOOLS/chk.sh single src/KOKKOS/<including_tu>.cpp pair_tip4p_kokkos.h
 
-Edit the HEADER file itself.  Header warnings are per TU: they depend on
-which templates each TU instantiates, so check a header through more than one
-including TU, and rely on the full rebuild for the final word.  One agent
-owns a shared header; other agents ignore its warnings.
+Edit the HEADER file itself.  What a header reports varies from TU to TU,
+since each TU instantiates its own set of templates, so check a header
+through more than one including TU (the prompt names them;
+`$KKP_TOOLS/hdrorigin.sh <header>.h` lists the including TUs with their
+counts), keep every previously clean TU at zero, and rely on the full
+rebuild for the final word.  One agent owns a shared header; other agents
+ignore its warnings.
 
 ## MIXED-BUILD PASS (KK_ACC_FLOAT = double)
 
@@ -197,10 +215,20 @@ other.
 
 ## Discipline
 
-- Only touch flagged lines; never cast pre-emptively.  (Changing a few
-  unflagged declarations to remove many flags, e.g. retyping six `v0..v5`
-  locals instead of editing 36 lines, is acceptable when it is clearly
-  cleaner; say so in the report.)
+- Change ONLY lines the compiler flags; never cast pre-emptively, and never
+  edit an unflagged line "for consistency".  This was an explicit rule of
+  the original work, and it holds even when a neighboring unflagged line
+  looks similar.
+- The one exception: a fix of a flagged line may require a NEW helper line
+  that did not exist before, such as the `_kk` local copy of rule 3 or a
+  file-scope `constexpr` KK_FLOAT constant.  Adding such a line is allowed;
+  list every added line in the report.
+- Retyping an existing unflagged declaration (e.g. a local `v0..v5` or a
+  double reduction local) to remove many flags at once is NOT covered by the
+  exception.  Do not do it on your own: stop and report it as a proposal
+  with the line numbers; the main thread decides and asks the user if
+  needed.  (In the original work this was allowed only in a few nested
+  prompts of the mixed pass, and each case was reported.)
 - Re-run the checker after each batch of edits; confirm the count drops and
   NO new warnings or ERROR lines appear.
 - Preserve formatting, indentation, and trailing comments; keep lines within

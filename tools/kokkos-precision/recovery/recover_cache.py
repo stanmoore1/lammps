@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Decode uploaded Claude desktop cache pages -> merged event stream.
-Usage: recover.py <dir-with-page-files> [out.json]
+Usage: recover_cache.py <dir-with-page-files> [out.json]
 Follows the recovery doc: URL is plaintext at the START, headers at the END,
 zstd frame between; use decompress(), not stream_reader().
 """
