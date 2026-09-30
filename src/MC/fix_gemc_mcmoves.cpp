@@ -54,6 +54,10 @@ void FixGEMC::attempt_volume_change_full()
 {
   nvolume_attempts += 1.0;
 
+  // all owned atoms must be in the atom arrays
+
+  flush_pending();
+
   // random walk in logvolratio = log(V1/V2), identical in both boxes
   // V1 = Vtotal/(1+exp(-logvolratio)), V2 = Vtotal/(1+exp(logvolratio))
   // box volumes are always positive and Vtotal is conserved
@@ -134,7 +138,7 @@ void FixGEMC::attempt_atomic_exchange_full()
 
   double energy_before = energy_stored;
   double volume = box_volume();
-  int nold = natom_total;
+  bigint nold = natom_total;
   double denergy = 0.0;
 
   // donor box: pick an atom
@@ -144,13 +148,23 @@ void FixGEMC::attempt_atomic_exchange_full()
 
   double donor_info[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   int iremove = -1;
+  tagint itag = 0;
+  int owner = -1;
   if (sender) {
     if (natom_total == 0) {
       donor_info[0] = 1.0;
     } else {
       iremove = pick_random_gas_atom();
-      double info[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-      double eatom = 0.0;
+      if (local) {
+        itag = (iremove >= 0) ? atom->tag[iremove] : 0;
+        int bad = (iremove >= 0) && (subdomain_excess(atom->x[iremove]) > ghost_skin);
+        if (need_refresh(bad, itag)) iremove = local_index(itag);
+      }
+
+      // info = {type, mask, charge, velocity, owning rank + 1}, only from the owning rank
+
+      double info[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+      double eone = 0.0;
       if (iremove >= 0) {
         info[0] = atom->type[iremove];
         info[1] = atom->mask[iremove];
@@ -158,8 +172,9 @@ void FixGEMC::attempt_atomic_exchange_full()
         info[3] = atom->v[iremove][0];
         info[4] = atom->v[iremove][1];
         info[5] = atom->v[iremove][2];
+        info[6] = me + 1;
         if (local) {
-          eatom = energy_local(iremove, atom->type[iremove], atom->tag[iremove], atom->x[iremove]);
+          eone = energy_local(iremove, atom->type[iremove], atom->tag[iremove], atom->x[iremove]);
         } else {
           size_t nbuf = atom->avec->maxexchange + 1024;
           for (const auto &ifix : modify->get_fix_list()) nbuf += ifix->maxexchange;
@@ -170,9 +185,12 @@ void FixGEMC::attempt_atomic_exchange_full()
         }
       }
       // exactly one rank owns the atom, all others contribute zeros
-      MPI_Allreduce(info, &donor_info[1], 6, MPI_DOUBLE, MPI_SUM, world);
+      double info_all[7];
+      MPI_Allreduce(info, info_all, 7, MPI_DOUBLE, MPI_SUM, world);
+      for (int k = 0; k < 6; k++) donor_info[k + 1] = info_all[k];
+      owner = static_cast<int>(info_all[6]) - 1;
       if (local) {
-        MPI_Allreduce(&eatom, &denergy, 1, MPI_DOUBLE, MPI_SUM, world);
+        MPI_Allreduce(&eone, &denergy, 1, MPI_DOUBLE, MPI_SUM, world);
         denergy = -denergy;
       } else {
         atom->natoms--;
@@ -212,10 +230,13 @@ void FixGEMC::attempt_atomic_exchange_full()
     proc_flag = owns(coord);
 
     if (local) {
-      double eatom = 0.0;
+
+      // {energy of the inserted atom, owning rank + 1}, only from the owning rank
+
+      double eone[2] = {0.0, 0.0};
       if (proc_flag) {
-        int ii = atom->nlocal + atom->nghost;
-        if (ii >= atom->nmax) atom->avec->grow(0);
+        int ii = nstored;
+        grow_stored(ii + 1);
         atom->type[ii] = itype;
         atom->mask[ii] = imask;
         atom->tag[ii] = 0;
@@ -223,9 +244,13 @@ void FixGEMC::attempt_atomic_exchange_full()
         atom->x[ii][0] = coord[0];
         atom->x[ii][1] = coord[1];
         atom->x[ii][2] = coord[2];
-        eatom = energy_local(ii, itype, 0, coord);
+        eone[0] = energy_local(ii, itype, 0, coord);
+        eone[1] = me + 1;
       }
-      MPI_Allreduce(&eatom, &denergy, 1, MPI_DOUBLE, MPI_SUM, world);
+      double eone_all[2];
+      MPI_Allreduce(eone, eone_all, 2, MPI_DOUBLE, MPI_SUM, world);
+      denergy = eone_all[0];
+      owner = static_cast<int>(eone_all[1]) - 1;
     } else {
       newtag = insert_atom(itype, imask, iq, iv, coord, proc_flag);
       changed_atoms();
@@ -249,20 +274,34 @@ void FixGEMC::attempt_atomic_exchange_full()
     nexchange_successes += 1.0;
     energy_stored = energy_after;
 
-    // with local energy the move has not been applied yet
+    // with local energy the move has not been applied yet: update the grid
+    // on all ranks, the atom arrays are updated later by flush_pending()
 
     if (local) {
       if (sender) {
+        remove_images(itag);
         if (iremove >= 0) {
-          atom->avec->copy(atom->nlocal - 1, iremove, 1);
-          atom->nlocal--;
+          gas_remove(iremove);
+          if (iremove < atom->nlocal) {
+            removed.push_back(iremove);
+          } else {
+            for (auto &k : pending)
+              if (k == iremove) k = -1;
+          }
         }
+        natom_total--;
+        if (me > owner) natom_lower--;
         atom->natoms--;
       } else {
-        insert_atom(itype, imask, iq, iv, coord, proc_flag);
+        if (maxtag_box >= MAXTAGINT)
+          error->all(FLERR, "Fix gemc ran out of atom IDs; use reset_atoms id between runs");
+        tagint newid = ++maxtag_box;
+        insert_pending(newid, itype, imask, iq, coord, iv, proc_flag);
+        natom_total++;
+        if (me > owner) natom_lower++;
+        atom->natoms++;
       }
-      changed_atoms();
-      refresh_ghosts();
+      pending_changes = 1;
     }
 
   } else if (!local) {
@@ -285,7 +324,7 @@ void FixGEMC::attempt_atomic_exchange_full()
     ghosts_stale = 1;
   }
 
-  update_gas_atoms_list();
+  if (!local) update_gas_atoms_list();
 }
 
 /* ----------------------------------------------------------------------
@@ -333,18 +372,14 @@ void FixGEMC::attempt_atomic_translation_full()
 
   int local = use_local();
   double energy_before = energy_stored;
-  double dmax = max_translation();
+  double dmax = local ? MIN(displace, move_limit) : max_translation();
 
   int i = pick_random_gas_atom();
 
-  double xold[3] = {0.0, 0.0, 0.0};
-  double coord[3] = {0.0, 0.0, 0.0};
-  imageint imageold = 0;
-  tagint tagold = 0;
-  double denergy = 0.0;
+  // displacement drawn by the rank that owns the atom
 
+  double step[3] = {0.0, 0.0, 0.0};
   if (i >= 0) {
-    double **x = atom->x;
     double rsq = 1.1;
     double rx, ry, rz;
     rx = ry = rz = 0.0;
@@ -354,53 +389,99 @@ void FixGEMC::attempt_atomic_translation_full()
       rz = 2.0 * random_proc->uniform() - 1.0;
       rsq = rx * rx + ry * ry + rz * rz;
     }
+    step[0] = dmax * rx;
+    step[1] = dmax * ry;
+    step[2] = dmax * rz;
+  }
+
+  if (local) {
+
+    // the energies at the old and new position are covered by the stored atoms,
+    // if both are close enough to the subdomain of the owning rank, and the atom
+    // must stay within reach of the neighboring subdomains. otherwise rebuild the
+    // ghost atoms, the atom may then be owned by another rank.
+
+    tagint itag = (i >= 0) ? atom->tag[i] : 0;
+    int bad = 0;
+    if (i >= 0) {
+      double xnew[3], dnew[3];
+      MathExtra::add3(atom->x[i], step, xnew);
+      MathExtra::add3(&dacc[3 * i], step, dnew);
+      bad = (subdomain_excess(atom->x[i]) > ghost_skin) || (subdomain_excess(xnew) > ghost_skin) ||
+          (MathExtra::len3(dnew) > move_limit);
+    }
+    if (need_refresh(bad, itag)) {
+      double step_all[3];
+      MPI_Allreduce(step, step_all, 3, MPI_DOUBLE, MPI_SUM, world);
+      i = local_index(itag);
+      for (int d = 0; d < 3; d++) step[d] = (i >= 0) ? step_all[d] : 0.0;
+    }
+
+    // buf = {energy change, displacement, new position, type, mask, charge}
+    // only the owning rank contributes
+
+    double buf[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    if (i >= 0) {
+      int itype = atom->type[i];
+      double *xi = atom->x[i];
+      double xnew[3];
+      MathExtra::add3(xi, step, xnew);
+      buf[0] = energy_local(i, itype, itag, xnew) - energy_local(i, itype, itag, xi);
+      buf[1] = step[0];
+      buf[2] = step[1];
+      buf[3] = step[2];
+      buf[4] = xnew[0];
+      buf[5] = xnew[1];
+      buf[6] = xnew[2];
+      buf[7] = itype;
+      buf[8] = atom->mask[i];
+      buf[9] = atom->q_flag ? atom->q[i] : 0.0;
+    }
+    double buf_all[10];
+    MPI_Allreduce(buf, buf_all, 10, MPI_DOUBLE, MPI_SUM, world);
+    double energy_after = energy_before + buf_all[0];
+
+    if ((energy_after < MAXENERGYTEST) &&
+        (random_world->uniform() < exp(beta * (energy_before - energy_after)))) {
+      energy_stored = energy_after;
+      ntranslation_successes += 1.0;
+
+      // move the atom and all its images on all ranks, and store the images
+      // that are now within the ghost cutoff of a rank
+
+      move_images(itag, &buf_all[1]);
+      double vzero[3] = {0.0, 0.0, 0.0};
+      add_images(itag, static_cast<int>(buf_all[7]), static_cast<int>(buf_all[8]), buf_all[9],
+                 &buf_all[4], vzero);
+      if (i >= 0) MathExtra::add3(&dacc[3 * i], &buf_all[1], &dacc[3 * i]);
+    }
+    return;
+  }
+
+  double xold[3] = {0.0, 0.0, 0.0};
+  imageint imageold = 0;
+  tagint tagold = 0;
+
+  if (i >= 0) {
+    double **x = atom->x;
     xold[0] = x[i][0];
     xold[1] = x[i][1];
     xold[2] = x[i][2];
     imageold = atom->image[i];
     tagold = atom->tag[i];
-    coord[0] = x[i][0] + dmax * rx;
-    coord[1] = x[i][1] + dmax * ry;
-    coord[2] = x[i][2] + dmax * rz;
-
-    if (local) {
-      int itype = atom->type[i];
-      double energy_old;
-      double energy_new = energy_local(i, itype, tagold, coord, xold, &energy_old);
-      denergy = energy_new - energy_old;
-    } else {
-      x[i][0] = coord[0];
-      x[i][1] = coord[1];
-      x[i][2] = coord[2];
-    }
+    x[i][0] += step[0];
+    x[i][1] += step[1];
+    x[i][2] += step[2];
   }
 
-  double energy_after;
-  if (local) {
-    double denergy_all;
-    MPI_Allreduce(&denergy, &denergy_all, 1, MPI_DOUBLE, MPI_SUM, world);
-    energy_after = energy_before + denergy_all;
-  } else {
-    energy_after = energy_full();
-  }
+  double energy_after = energy_full();
 
   if ((energy_after < MAXENERGYTEST) &&
       (random_world->uniform() < exp(beta * (energy_before - energy_after)))) {
     energy_stored = energy_after;
     ntranslation_successes += 1.0;
 
-    // with local energy the move has not been applied yet
-
-    if (local) {
-      if (i >= 0) {
-        atom->x[i][0] = coord[0];
-        atom->x[i][1] = coord[1];
-        atom->x[i][2] = coord[2];
-      }
-      refresh_ghosts();
-    }
-
-  } else if (!local) {
+  } else {
 
     // rejected: restore position and image flags of the atom,
     // which may have moved to a different rank or across a periodic boundary
@@ -412,16 +493,12 @@ void FixGEMC::attempt_atomic_translation_full()
     imageint imageold_all;
     MPI_Allreduce(&imageold, &imageold_all, 1, MPI_LMP_IMAGEINT, MPI_SUM, world);
 
-    double **x = atom->x;
-    tagint *tag = atom->tag;
-    for (int j = 0; j < atom->nlocal; j++) {
-      if (tag[j] == tagold_all) {
-        x[j][0] = xold_all[0];
-        x[j][1] = xold_all[1];
-        x[j][2] = xold_all[2];
-        atom->image[j] = imageold_all;
-        break;
-      }
+    int j = local_index(tagold_all);
+    if (j >= 0) {
+      atom->x[j][0] = xold_all[0];
+      atom->x[j][1] = xold_all[1];
+      atom->x[j][2] = xold_all[2];
+      atom->image[j] = imageold_all;
     }
     energy_stored = energy_before;
     ghosts_stale = 1;
@@ -445,51 +522,69 @@ tagint FixGEMC::pick_random_molecule()
 }
 
 /* ----------------------------------------------------------------------
-   gather data of all atoms of molecule molid from all ranks, sorted by atom ID
-   NMOLDATA values per atom: atom ID, unwrapped x,y,z, charge, mask, mass, velocity
+   smallest atom ID of molecule molid, on all ranks of the box
+   molecules of the fix group have consecutive atom IDs in template order,
+   so atom ID - first atom ID is the index of an atom in its molecule
 ------------------------------------------------------------------------- */
 
-void FixGEMC::gather_molecule(tagint molid, std::vector<double> &data)
+tagint FixGEMC::first_atom(tagint molid)
 {
-  std::vector<double> mine;
+  tagint first = MAXTAGINT;
+  for (int i = 0; i < atom->nlocal; i++)
+    if (atom->molecule[i] == molid) first = MIN(first, atom->tag[i]);
+  tagint first_all;
+  MPI_Allreduce(&first, &first_all, 1, MPI_LMP_TAGINT, MPI_MIN, world);
+  return first_all;
+}
+
+/* ----------------------------------------------------------------------
+   gather data of all atoms of molecule molid on all ranks, in template order
+   NMOLDATA values per atom: 1 (count), unwrapped x,y,z, charge, mask, mass, velocity
+   returns the first atom ID of the molecule
+------------------------------------------------------------------------- */
+
+tagint FixGEMC::gather_molecule(tagint molid, std::vector<double> &data)
+{
+  const int n = natoms_per_molecule;
+  tagint first = first_atom(molid);
+
+  // each atom fills its own slot, all other ranks contribute zeros
+
+  std::vector<double> mine(NMOLDATA * n, 0.0);
+  int bad = 0;
   double xu[3];
   for (int i = 0; i < atom->nlocal; i++) {
     if (atom->molecule[i] != molid) continue;
+    bigint k = atom->tag[i] - first;
+    if ((k < 0) || (k >= n)) {
+      bad = 1;
+      continue;
+    }
+    double *slot = &mine[NMOLDATA * k];
     domain->unmap(atom->x[i], atom->image[i], xu);
-    mine.push_back(ubuf(atom->tag[i]).d);
-    mine.push_back(xu[0]);
-    mine.push_back(xu[1]);
-    mine.push_back(xu[2]);
-    mine.push_back(atom->q_flag ? atom->q[i] : 0.0);
-    mine.push_back(atom->mask[i]);
-    mine.push_back(atom->rmass ? atom->rmass[i] : atom->mass[atom->type[i]]);
-    mine.push_back(atom->v[i][0]);
-    mine.push_back(atom->v[i][1]);
-    mine.push_back(atom->v[i][2]);
+    slot[0] += 1.0;
+    slot[1] = xu[0];
+    slot[2] = xu[1];
+    slot[3] = xu[2];
+    slot[4] = atom->q_flag ? atom->q[i] : 0.0;
+    slot[5] = atom->mask[i];
+    slot[6] = atom->mass[atom->type[i]];
+    slot[7] = atom->v[i][0];
+    slot[8] = atom->v[i][1];
+    slot[9] = atom->v[i][2];
   }
-
-  int nprocs = comm->nprocs;
-  std::vector<int> counts(nprocs), displs(nprocs);
-  int nsend = mine.size();
-  MPI_Allgather(&nsend, 1, MPI_INT, counts.data(), 1, MPI_INT, world);
-  int ntotal = 0;
-  for (int iproc = 0; iproc < nprocs; iproc++) {
-    displs[iproc] = ntotal;
-    ntotal += counts[iproc];
-  }
-  std::vector<double> all(ntotal + 1);
-  MPI_Allgatherv(mine.data(), nsend, MPI_DOUBLE, all.data(), counts.data(), displs.data(),
-                 MPI_DOUBLE, world);
-
-  int n = ntotal / NMOLDATA;
-  std::vector<int> order(n);
-  for (int k = 0; k < n; k++) order[k] = k;
-  std::sort(order.begin(), order.end(), [&all](int a, int b) {
-    return (tagint) ubuf(all[NMOLDATA * a]).i < (tagint) ubuf(all[NMOLDATA * b]).i;
-  });
-  data.resize(ntotal);
+  data.resize(NMOLDATA * n);
+  MPI_Allreduce(mine.data(), data.data(), NMOLDATA * n, MPI_DOUBLE, MPI_SUM, world);
   for (int k = 0; k < n; k++)
-    for (int j = 0; j < NMOLDATA; j++) data[NMOLDATA * k + j] = all[NMOLDATA * order[k] + j];
+    if (data[NMOLDATA * k] != 1.0) bad = 1;
+  int bad_all;
+  MPI_Allreduce(&bad, &bad_all, 1, MPI_INT, MPI_MAX, world);
+  if (bad_all)
+    error->all(FLERR,
+               "Fix gemc found molecule {} whose atoms do not match molecule template {} with "
+               "consecutive atom IDs",
+               molid, idmol);
+  return first;
 }
 
 /* ----------------------------------------------------------------------
@@ -499,6 +594,10 @@ void FixGEMC::gather_molecule(tagint molid, std::vector<double> &data)
 void FixGEMC::attempt_molecule_translation_full()
 {
   ntranslation_attempts += 1.0;
+
+  // all owned atoms must be in the atom arrays
+
+  flush_pending();
 
   if (natom_total == 0) return;
 
@@ -558,6 +657,10 @@ void FixGEMC::attempt_molecule_rotation_full()
 {
   nrotation_attempts += 1.0;
 
+  // all owned atoms must be in the atom arrays
+
+  flush_pending();
+
   if (natom_total == 0) return;
 
   double energy_before = energy_stored;
@@ -566,8 +669,8 @@ void FixGEMC::attempt_molecule_rotation_full()
   // center of mass from unwrapped coordinates
 
   std::vector<double> data;
-  gather_molecule(molid, data);
-  int n = data.size() / NMOLDATA;
+  tagint first = gather_molecule(molid, data);
+  const int n = natoms_per_molecule;
   double com[3] = {0.0, 0.0, 0.0};
   double mtotal = 0.0;
   for (int k = 0; k < n; k++) {
@@ -615,16 +718,17 @@ void FixGEMC::attempt_molecule_rotation_full()
 
   const imageint imagezero =
       ((imageint) IMGMAX << IMG2BITS) | ((imageint) IMGMAX << IMGBITS) | IMGMAX;
-  std::vector<double> saved;
+  std::vector<double> xsaved(3 * n, 0.0);
+  std::vector<imageint> imagesaved(n, 0);
   double **x = atom->x;
   imageint *image = atom->image;
   for (int i = 0; i < atom->nlocal; i++) {
     if (atom->molecule[i] != molid) continue;
-    saved.push_back(ubuf(atom->tag[i]).d);
-    saved.push_back(x[i][0]);
-    saved.push_back(x[i][1]);
-    saved.push_back(x[i][2]);
-    saved.push_back(ubuf(image[i]).d);
+    bigint k = atom->tag[i] - first;
+    xsaved[3 * k] = x[i][0];
+    xsaved[3 * k + 1] = x[i][1];
+    xsaved[3 * k + 2] = x[i][2];
+    imagesaved[k] = image[i];
     double xu[3], dx[3];
     domain->unmap(x[i], image[i], xu);
     dx[0] = xu[0] - com[0];
@@ -647,29 +751,22 @@ void FixGEMC::attempt_molecule_rotation_full()
   } else {
 
     // rejected: energy_full() may have moved atoms of the molecule to other
-    // ranks, so restore saved positions and image flags by atom ID
+    // ranks, so restore saved positions and image flags by atom ID.
+    // each atom was saved by exactly one rank, all others contributed zeros
 
-    int nprocs = comm->nprocs;
-    std::vector<int> counts(nprocs), displs(nprocs);
-    int nsend = saved.size();
-    MPI_Allgather(&nsend, 1, MPI_INT, counts.data(), 1, MPI_INT, world);
-    int ntotal = 0;
-    for (int iproc = 0; iproc < nprocs; iproc++) {
-      displs[iproc] = ntotal;
-      ntotal += counts[iproc];
-    }
-    std::vector<double> all(ntotal + 1);
-    MPI_Allgatherv(saved.data(), nsend, MPI_DOUBLE, all.data(), counts.data(), displs.data(),
-                   MPI_DOUBLE, world);
+    std::vector<double> xsaved_all(3 * n);
+    std::vector<imageint> imagesaved_all(n);
+    MPI_Allreduce(xsaved.data(), xsaved_all.data(), 3 * n, MPI_DOUBLE, MPI_SUM, world);
+    MPI_Allreduce(imagesaved.data(), imagesaved_all.data(), n, MPI_LMP_IMAGEINT, MPI_SUM, world);
     x = atom->x;
     image = atom->image;
-    for (int k = 0; k < ntotal; k += 5) {
-      int i = local_index((tagint) ubuf(all[k]).i);
+    for (int k = 0; k < n; k++) {
+      int i = local_index(first + k);
       if (i >= 0) {
-        x[i][0] = all[k + 1];
-        x[i][1] = all[k + 2];
-        x[i][2] = all[k + 3];
-        image[i] = (imageint) ubuf(all[k + 4]).i;
+        x[i][0] = xsaved_all[3 * k];
+        x[i][1] = xsaved_all[3 * k + 1];
+        x[i][2] = xsaved_all[3 * k + 2];
+        image[i] = imagesaved_all[k];
       }
     }
     energy_stored = energy_before;
@@ -687,6 +784,10 @@ void FixGEMC::attempt_molecule_exchange_full()
 {
   nexchange_attempts += 1.0;
 
+  // all owned atoms must be in the atom arrays
+
+  flush_pending();
+
   const int n = natoms_per_molecule;
 
   // choose donor box with equal probability, identical in both boxes
@@ -696,7 +797,7 @@ void FixGEMC::attempt_molecule_exchange_full()
 
   double energy_before = energy_stored;
   double volume = box_volume();
-  int nold = natom_total / n;
+  bigint nold = natom_total / n;
 
   // donor box: pick a molecule, record its conformation relative to its
   // center of mass, then remove its atoms and keep their state for a restore
@@ -711,9 +812,6 @@ void FixGEMC::attempt_molecule_exchange_full()
       tagint molid = pick_random_molecule();
       std::vector<double> data;
       gather_molecule(molid, data);
-      if ((int) data.size() != NMOLDATA * n)
-        error->all(FLERR, "Fix gemc found molecule {} with {} atoms instead of {}", molid,
-                   data.size() / NMOLDATA, n);
       double com[3] = {0.0, 0.0, 0.0};
       double mtotal = 0.0;
       for (int k = 0; k < n; k++) {

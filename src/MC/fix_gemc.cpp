@@ -45,7 +45,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <map>
+#include <functional>
+#include <set>
+#include <string>
+#include <unordered_map>
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -55,11 +58,12 @@ static constexpr double RESTART_VERSION = 3.0;
 static constexpr double MAXDLOGVOLRATIO = 1.0;
 static constexpr double DEG2RAD = MY_PI / 180.0;
 static constexpr double BIG = 1.0e20;
+static constexpr int RVOUS = 0;    // 0 for irregular, 1 for all2all communication in rendezvous
 
 /* ---------------------------------------------------------------------- */
 
 FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
-    Fix(lmp, narg, arg), idmol(nullptr), onemol(nullptr), c_pe(nullptr), local_gas_list(nullptr),
+    Fix(lmp, narg, arg), idmol(nullptr), onemol(nullptr), c_pe(nullptr),
     comm_replica(MPI_COMM_NULL), random_universe(nullptr), random_world(nullptr),
     random_proc(nullptr)
 {
@@ -196,8 +200,20 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   force_reneighbor = 1;
   next_reneighbor = update->ntimestep + 1;
 
-  gemc_nmax = 0;
-  natom_lower = natom_local = natom_total = 0;
+  natom_lower = natom_total = 0;
+  natom_local = 0;
+  grid_valid = 0;
+  nstored = 0;
+  nbin[0] = nbin[1] = nbin[2] = 1;
+  binlo[0] = binlo[1] = binlo[2] = 0.0;
+  bininv[0] = bininv[1] = bininv[2] = 1.0;
+  ghost_skin = move_limit = 0.0;
+  nbase = use_map = 0;
+  maxtag_box = 0;
+  pending_changes = 0;
+  local_warned = 0;
+  rvous_count = 0;
+  rvous_bad = rvous_charged = 0;
   logvolratio = voltot = 0.0;
   triclinic = 0;
   xlo = ylo = zlo = xhi = yhi = zhi = boxxy = boxxz = boxyz = 0.0;
@@ -210,7 +226,6 @@ FixGEMC::~FixGEMC()
   delete random_proc;
   delete random_world;
   delete random_universe;
-  memory->destroy(local_gas_list);
   delete[] idmol;
   if (comm_replica != MPI_COMM_NULL) MPI_Comm_free(&comm_replica);
 }
@@ -231,18 +246,28 @@ void FixGEMC::init()
   if (domain->dimension != 3) error->all(FLERR, "Fix gemc requires a 3d system");
   if (domain->nonperiodic) error->all(FLERR, "Fix gemc requires a fully periodic box");
   if (!atom->tag_enable) error->all(FLERR, "Fix gemc requires atom IDs");
-  if (!atom->mass) error->all(FLERR, "Fix gemc requires per-type masses");
   if (atom->rmass_flag)
     error->all(FLERR, "Fix gemc does not support atom styles with per-atom masses");
+  if (!atom->mass) error->all(FLERR, "Fix gemc requires per-type masses");
 
   // exchanges transfer only type, charge, group membership, velocity, and
-  // topology, so other per-atom properties would be lost
+  // topology, so atom styles with any other per-atom property that moves
+  // with an atom would lose it
 
-  if (atom->mu_flag || atom->quat_flag || atom->omega_flag || atom->angmom_flag ||
-      atom->ellipsoid_flag || atom->line_flag || atom->tri_flag || atom->body_flag ||
-      atom->superellipsoid_flag || atom->sp_flag || atom->temperature_flag || atom->dpd_flag ||
-      atom->edpd_flag || atom->tdpd_flag || atom->rho_flag)
+  // clang-format off
+  static const std::set<std::string> transferred = {
+    "q", "molecule", "num_bond", "bond_type", "bond_atom",
+    "num_angle", "angle_type", "angle_atom1", "angle_atom2", "angle_atom3",
+    "num_dihedral", "dihedral_type", "dihedral_atom1", "dihedral_atom2", "dihedral_atom3",
+    "dihedral_atom4", "num_improper", "improper_type", "improper_atom1", "improper_atom2",
+    "improper_atom3", "improper_atom4", "nspecial", "special"};
+  // clang-format on
+  if (atom->avec->bonus_flag)
     error->all(FLERR, "Fix gemc does not support atom style {}", atom->atom_style);
+  for (const auto &field : atom->avec->fields_exchange)
+    if (!transferred.count(field))
+      error->all(FLERR, "Fix gemc does not support atom style {} with per-atom property {}",
+                 atom->atom_style, field);
   if (atom->nivector || atom->ndvector || atom->niarray || atom->ndarray)
     error->all(FLERR, "Fix gemc does not support custom per-atom properties");
   if (force->pair && force->pair->tail_flag && !force->pair->reinitflag)
@@ -297,8 +322,8 @@ void FixGEMC::init()
   // for translation and exchange moves. requires a pair style that
   // provides single() and has no many-body terms, no tail corrections,
   // no neighbor list exclusions, and no fixes contributing to the potential energy.
-  // displacements must stay within the neighbor skin so that ghost atoms
-  // cover all interactions of a displaced atom.
+  // displacements must stay within the ghost atom cutoff minus the pair cutoff
+  // so that ghost atoms cover all interactions of a displaced atom.
 
   local_flag = 0;
   if (!full_flag) {
@@ -318,10 +343,10 @@ void FixGEMC::init()
       reason = fmt::format("pair style {} is a many-body potential", force->pair_style);
     } else if (force->pair->tail_flag) {
       reason = "pair_modify tail yes is used";
-    } else if (neighbor->exclude) {
+    } else if (neighbor->nex_type || neighbor->nex_group || neighbor->nex_mol) {
       reason = "neighbor list exclusions are used";
-    } else if (displace > neighbor->skin) {
-      reason = "the displace value is larger than the neighbor skin";
+    } else if (displace > init_skin()) {
+      reason = "the displace value is larger than the ghost atom cutoff minus the pair cutoff";
     } else {
       for (const auto &ifix : modify->get_fix_list())
         if (ifix->energy_global_flag && ifix->thermo_energy)
@@ -396,70 +421,49 @@ void FixGEMC::check_molecules()
     if (flag_all)
       error->all(FLERR, "Fix gemc group contains atoms with molecule IDs; use the mol keyword");
   } else {
-    // gather (molecule ID, atom ID, type, charge) of all group atoms
 
-    std::vector<double> mine;
+    // check each molecule on a rendezvous rank (molecule ID modulo number of ranks)
+
+    int nsend = 0;
     for (int i = 0; i < nlocal; i++) {
       if (!(mask[i] & groupbit)) continue;
-      if (molecule[i] <= 0) flag = 1;
-      mine.push_back(ubuf(molecule[i]).d);
-      mine.push_back(ubuf(atom->tag[i]).d);
-      mine.push_back(atom->type[i]);
-      mine.push_back(q ? q[i] : 0.0);
+      if (molecule[i] <= 0)
+        flag = 1;
+      else
+        nsend++;
     }
     int flag_all;
     MPI_Allreduce(&flag, &flag_all, 1, MPI_INT, MPI_MAX, world);
     if (flag_all)
       error->all(FLERR, "Fix gemc group atoms must all belong to molecules with the mol keyword");
 
-    int nprocs = comm->nprocs;
-    std::vector<int> counts(nprocs), displs(nprocs);
-    int nsend = mine.size();
-    MPI_Allgather(&nsend, 1, MPI_INT, counts.data(), 1, MPI_INT, world);
-    int ntotal = 0;
-    for (int iproc = 0; iproc < nprocs; iproc++) {
-      displs[iproc] = ntotal;
-      ntotal += counts[iproc];
+    int *proclist;
+    memory->create(proclist, nsend, "gemc:proclist");
+    auto *inbuf = (CheckRvous *) memory->smalloc((bigint) nsend * sizeof(CheckRvous), "gemc:inbuf");
+    int n = 0;
+    for (int i = 0; i < nlocal; i++) {
+      if (!(mask[i] & groupbit) || (molecule[i] <= 0)) continue;
+      proclist[n] = molecule[i] % comm->nprocs;
+      inbuf[n].mol = molecule[i];
+      inbuf[n].tag = atom->tag[i];
+      inbuf[n].type = atom->type[i];
+      inbuf[n].q = q ? q[i] : 0.0;
+      n++;
     }
-    std::vector<double> all(ntotal + 1);
-    MPI_Allgatherv(mine.data(), nsend, MPI_DOUBLE, all.data(), counts.data(), displs.data(),
-                   MPI_DOUBLE, world);
+    char *buf;
+    rvous_bad = rvous_charged = 0;
+    comm->rendezvous(RVOUS, nsend, (char *) inbuf, sizeof(CheckRvous), 0, proclist,
+                     rendezvous_check, 0, buf, 0, (void *) this);
+    memory->destroy(proclist);
+    memory->sfree(inbuf);
 
-    struct Entry {
-      tagint mol, tag;
-      int type;
-      double q;
-    };
-    std::vector<Entry> entries(ntotal / 4);
-    for (size_t k = 0; k < entries.size(); k++)
-      entries[k] = {(tagint) ubuf(all[4 * k]).i, (tagint) ubuf(all[4 * k + 1]).i,
-                    (int) all[4 * k + 2], all[4 * k + 3]};
-    std::sort(entries.begin(), entries.end(), [](const Entry &a, const Entry &b) {
-      return (a.mol < b.mol) || ((a.mol == b.mol) && (a.tag < b.tag));
-    });
-
-    size_t k = 0;
-    while (k < entries.size()) {
-      size_t kend = k;
-      while ((kend < entries.size()) && (entries[kend].mol == entries[k].mol)) kend++;
-      if ((int) (kend - k) != natoms_per_molecule) flag = 1;
-      double qmol = 0.0;
-      for (size_t n = k; n < kend; n++) {
-        int iatom = n - k;
-        if (iatom < natoms_per_molecule) {
-          if (entries[n].type != onemol->type[iatom]) flag = 1;
-          if (entries[n].tag != entries[k].tag + iatom) flag = 1;
-        }
-        qmol += entries[n].q;
-      }
-      if (fabs(qmol) > 1.0e-6) charged = 1;
-      k = kend;
-    }
-    if (flag)
+    MPI_Allreduce(&rvous_bad, &flag_all, 1, MPI_INT, MPI_MAX, world);
+    if (flag_all)
       error->all(FLERR,
                  "Molecules in fix gemc group must match molecule template {}: same number and "
                  "types of atoms, with consecutive atom IDs in template order",
                  idmol);
+    charged = rvous_charged;
     if (onemol->qflag) {
       double qmol = 0.0;
       for (int i = 0; i < onemol->natoms; i++) qmol += onemol->q[i];
@@ -478,6 +482,48 @@ void FixGEMC::check_molecules()
 }
 
 /* ----------------------------------------------------------------------
+   callback of comm->rendezvous() for check_molecules():
+   check that the atoms of each molecule match the molecule template, with
+   consecutive atom IDs in template order, and whether it has a net charge
+------------------------------------------------------------------------- */
+
+int FixGEMC::rendezvous_check(int n, char *inbuf, int &flag, int *& /*proclist*/,
+                              char *& /*outbuf*/, void *ptr)
+{
+  auto *fptr = (FixGEMC *) ptr;
+  auto *in = (CheckRvous *) inbuf;
+  const int natoms = fptr->natoms_per_molecule;
+  Molecule *onemol = fptr->onemol;
+
+  std::sort(in, in + n, [](const CheckRvous &a, const CheckRvous &b) {
+    return (a.mol < b.mol) || ((a.mol == b.mol) && (a.tag < b.tag));
+  });
+
+  int k = 0;
+  while (k < n) {
+    int kend = k;
+    while ((kend < n) && (in[kend].mol == in[k].mol)) kend++;
+    if (kend - k != natoms) fptr->rvous_bad = 1;
+    double qmol = 0.0;
+    for (int m = k; m < kend; m++) {
+      int iatom = m - k;
+      if (iatom < natoms) {
+        if (in[m].type != onemol->type[iatom]) fptr->rvous_bad = 1;
+        if (in[m].tag != in[k].tag + iatom) fptr->rvous_bad = 1;
+      }
+      qmol += in[m].q;
+    }
+    if (fabs(qmol) > 1.0e-6) fptr->rvous_charged = 1;
+    k = kend;
+  }
+
+  // flag = 0: no second communication
+
+  flag = 0;
+  return 0;
+}
+
+/* ----------------------------------------------------------------------
    checks and initialization that require communication between the boxes.
    done in setup() and not in init(), since only setup() is guaranteed to be
    called at the same time in both partitions (at the start of a run).
@@ -491,8 +537,8 @@ void FixGEMC::setup(int /*vflag*/)
   // and the group definitions, since group bitmasks are transferred between boxes
 
   uint32_t hash = 2166136261u;
-  for (int igroup = 0; igroup < Group::MAX_GROUP; igroup++) {
-    std::string name = group->names[igroup] ? group->names[igroup] : "";
+  for (int ig = 0; ig < Group::MAX_GROUP; ig++) {
+    std::string name = group->names[ig] ? group->names[ig] : "";
     name += '\n';
     for (const auto c : name) hash = (hash ^ (uint32_t) (unsigned char) c) * 16777619u;
   }
@@ -621,6 +667,11 @@ void FixGEMC::pre_exchange()
     }
   }
 
+  // atoms inserted or removed with single-atom energies must exist
+  // in the atom arrays for the following time steps
+
+  flush_pending();
+
   if (tune_every && (++ntune_calls % tune_every == 0)) tune_steps();
 
   print_progress();
@@ -642,7 +693,7 @@ void FixGEMC::tune_steps()
     double ratio = (ntranslation_successes - tune_last[1]) / dtrans;
     double factor = MIN(MAX(ratio / tune_trans, 0.5), 1.5);
     double maxdisp = 0.5 * min_box_width();
-    if (local_flag) maxdisp = MIN(maxdisp, neighbor->skin);
+    if (local_flag) maxdisp = MIN(maxdisp, 0.5 * local_skin());
     displace = MIN(displace * factor, maxdisp);
     displace = max_translation();
     displace = MAX(displace, 1.0e-6 * maxdisp);
@@ -679,10 +730,10 @@ void FixGEMC::print_progress()
 {
   // world 0 needs the atom count of world 1 for the message
 
-  int n_other = 0;
+  bigint n_other = 0;
   if (me == 0)
-    MPI_Sendrecv(&natom_total, 1, MPI_INT, 1 - myworld, 0, &n_other, 1, MPI_INT, 1 - myworld, 0,
-                 comm_replica, MPI_STATUS_IGNORE);
+    MPI_Sendrecv(&natom_total, 1, MPI_LMP_BIGINT, 1 - myworld, 0, &n_other, 1, MPI_LMP_BIGINT,
+                 1 - myworld, 0, comm_replica, MPI_STATUS_IGNORE);
 
   if (universe->me != 0) return;
 
@@ -703,8 +754,8 @@ void FixGEMC::print_progress()
 
   double vol1 = voltot / (1.0 + exp(-logvolratio));
   double vol2 = voltot / (1.0 + exp(logvolratio));
-  int n1 = natom_total / natoms_per_molecule;
-  int n2 = n_other / natoms_per_molecule;
+  bigint n1 = natom_total / natoms_per_molecule;
+  bigint n2 = n_other / natoms_per_molecule;
 
   auto msg =
       fmt::format(" GEMC run progress: {:>3d}% \n  Trans: {:g}/{:g}\n"
@@ -727,19 +778,45 @@ void FixGEMC::update_gas_atoms_list()
   int nlocal = atom->nlocal;
   int *mask = atom->mask;
 
-  if (nlocal > gemc_nmax) {
-    memory->sfree(local_gas_list);
-    gemc_nmax = atom->nmax;
-    local_gas_list = (int *) memory->smalloc(gemc_nmax * sizeof(int), "GEMC:local_gas_list");
-  }
-
-  natom_local = 0;
+  if ((int) gas_pos.size() < atom->nmax) gas_pos.resize(atom->nmax, -1);
+  for (int i : gas_list) gas_pos[i] = -1;
+  gas_list.clear();
   for (int i = 0; i < nlocal; i++)
-    if (mask[i] & groupbit) local_gas_list[natom_local++] = i;
+    if (mask[i] & groupbit) gas_add(i);
+  natom_local = gas_list.size();
 
-  MPI_Allreduce(&natom_local, &natom_total, 1, MPI_INT, MPI_SUM, world);
-  MPI_Scan(&natom_local, &natom_lower, 1, MPI_INT, MPI_SUM, world);
-  natom_lower -= natom_local;
+  bigint nmine = natom_local;
+  MPI_Allreduce(&nmine, &natom_total, 1, MPI_LMP_BIGINT, MPI_SUM, world);
+  MPI_Scan(&nmine, &natom_lower, 1, MPI_LMP_BIGINT, MPI_SUM, world);
+  natom_lower -= nmine;
+}
+
+/* ----------------------------------------------------------------------
+   add local index i to the list of local group atoms
+   the counts on other ranks must be updated by the caller
+------------------------------------------------------------------------- */
+
+void FixGEMC::gas_add(int i)
+{
+  gas_pos[i] = gas_list.size();
+  gas_list.push_back(i);
+  natom_local = gas_list.size();
+}
+
+/* ----------------------------------------------------------------------
+   remove local index i from the list of local group atoms
+   the counts on other ranks must be updated by the caller
+------------------------------------------------------------------------- */
+
+void FixGEMC::gas_remove(int i)
+{
+  int pos = gas_pos[i];
+  int last = gas_list.back();
+  gas_list[pos] = last;
+  gas_pos[last] = pos;
+  gas_list.pop_back();
+  gas_pos[i] = -1;
+  natom_local = gas_list.size();
 }
 
 /* ----------------------------------------------------------------------
@@ -750,9 +827,9 @@ void FixGEMC::update_gas_atoms_list()
 int FixGEMC::pick_random_gas_atom()
 {
   int i = -1;
-  int iwhichglobal = static_cast<int>(natom_total * random_world->uniform());
+  auto iwhichglobal = static_cast<bigint>(natom_total * random_world->uniform());
   if ((iwhichglobal >= natom_lower) && (iwhichglobal < natom_lower + natom_local))
-    i = local_gas_list[iwhichglobal - natom_lower];
+    i = gas_list[iwhichglobal - natom_lower];
   return i;
 }
 
@@ -816,6 +893,7 @@ void FixGEMC::reset_comm()
 
 void FixGEMC::refresh_ghosts()
 {
+  flush_pending();
   if (triclinic) domain->x2lamda(atom->nlocal);
   domain->pbc();
   comm->exchange();
@@ -823,63 +901,523 @@ void FixGEMC::refresh_ghosts()
   comm->borders();
   if (triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
   ghosts_stale = 0;
+  grid_valid = 0;
   update_gas_atoms_list();
 }
 
 /* ----------------------------------------------------------------------
    return 1 if a translation or exchange move in my box can use energy_local()
    the box must be larger than the pair cutoff, so that an atom does
-   not interact with its own periodic images
+   not interact with its own periodic images, and a displacement must not
+   reach beyond the ghost atoms. must be called by all ranks of the box.
 ------------------------------------------------------------------------- */
 
 int FixGEMC::use_local()
 {
-  if (!local_flag) return 0;
-  if (min_box_width() <= force->pair->cutforce) return 0;
+  if (!local_flag || (min_box_width() <= force->pair->cutforce)) {
+    flush_pending();
+    return 0;
+  }
+  if (displace > local_skin()) {
+    if (!local_warned && (comm->me == 0))
+      error->warning(FLERR,
+                     "Fix gemc uses full energy evaluations for translations and exchanges, "
+                     "since the displace value {} is larger than the ghost atom cutoff minus the "
+                     "pair cutoff {}",
+                     displace, local_skin());
+    local_warned = 1;
+    flush_pending();
+    return 0;
+  }
   if (ghosts_stale) refresh_ghosts();
+  if (!grid_valid) build_grid();
   return 1;
 }
 
 /* ----------------------------------------------------------------------
-   pair energy of atom with local index i, type itype, and atom ID itag
-   placed at coord with all owned and ghost atoms, except for its own images.
-   i may be a scratch index beyond the ghost atoms for an atom not yet inserted.
-   if coord2 is not null, also return the energy at coord2 in energy2
+   estimate of local_skin() in init(), before neighbor lists and
+   communication are set up: comm->setup() uses the larger of the neighbor
+   cutoff and the user specified communication cutoff
 ------------------------------------------------------------------------- */
 
-double FixGEMC::energy_local(int i, int itype, tagint itag, double *coord, double *coord2,
-                             double *energy2)
+double FixGEMC::init_skin()
+{
+  double skin = neighbor->skin;
+  if ((comm->mode == Comm::SINGLE) && (comm->cutghostuser > force->pair->cutforce + skin))
+    skin = comm->cutghostuser - force->pair->cutforce;
+  return skin;
+}
+
+/* ----------------------------------------------------------------------
+   ghost atoms cover all atoms within the ghost cutoff of a subdomain, so an
+   atom may move by the ghost cutoff minus the pair cutoff before its
+   interactions are no longer covered. the ghost cutoff is in lamda units
+   for triclinic boxes. with cutoffs that depend on the atom type, only the
+   neighbor skin is guaranteed.
+------------------------------------------------------------------------- */
+
+double FixGEMC::local_skin()
+{
+  double skin = neighbor->skin;
+  if (comm->mode == Comm::SINGLE) {
+    double cut = comm->cutghost[0];
+    if (triclinic) {
+      double w[3];
+      box_widths(w);
+      cut = MIN(MIN(comm->cutghost[0] * w[0], comm->cutghost[1] * w[1]), comm->cutghost[2] * w[2]);
+    }
+    // the ghost cutoff is at least the pair cutoff plus the neighbor skin,
+    // which the difference may miss by round-off
+
+    skin = MAX(skin, cut - force->pair->cutforce);
+  }
+  return skin;
+}
+
+/* ----------------------------------------------------------------------
+   pair energy of atom with local index i, type itype, and atom ID itag
+   placed at coord with all owned, ghost, and pending atoms, except for its
+   own images. only the bins next to the bin of coord are searched, since
+   bins are at least as large as the pair cutoff.
+   i may be a scratch index beyond the stored atoms for an atom not yet inserted.
+------------------------------------------------------------------------- */
+
+double FixGEMC::energy_local(int i, int itype, tagint itag, double *coord)
 {
   double **x = atom->x;
   int *type = atom->type;
   tagint *tag = atom->tag;
-  int nall = atom->nlocal + atom->nghost;
   Pair *pair = force->pair;
-  double **cutsq = pair->cutsq;
-  double *cutsqi = cutsq[itype];
+  double *cutsqi = pair->cutsq[itype];
   double fpair;
 
+  int ib[3];
+  bin_index(coord, ib);
+
   double total_energy = 0.0;
-  double total_energy2 = 0.0;
-  for (int j = 0; j < nall; j++) {
-    if (tag[j] == itag) continue;
-    int jtype = type[j];
-    double delx = coord[0] - x[j][0];
-    double dely = coord[1] - x[j][1];
-    double delz = coord[2] - x[j][2];
-    double rsq = delx * delx + dely * dely + delz * delz;
-    if (rsq < cutsqi[jtype]) total_energy += pair->single(i, j, itype, jtype, rsq, 1.0, 1.0, fpair);
-    if (coord2) {
-      delx = coord2[0] - x[j][0];
-      dely = coord2[1] - x[j][1];
-      delz = coord2[2] - x[j][2];
-      rsq = delx * delx + dely * dely + delz * delz;
-      if (rsq < cutsqi[jtype])
-        total_energy2 += pair->single(i, j, itype, jtype, rsq, 1.0, 1.0, fpair);
+  for (int bz = MAX(ib[2] - 1, 0); bz <= MIN(ib[2] + 1, nbin[2] - 1); bz++) {
+    for (int by = MAX(ib[1] - 1, 0); by <= MIN(ib[1] + 1, nbin[1] - 1); by++) {
+      for (int bx = MAX(ib[0] - 1, 0); bx <= MIN(ib[0] + 1, nbin[0] - 1); bx++) {
+        for (int j : bins[(bz * nbin[1] + by) * nbin[0] + bx]) {
+          if (tag[j] == itag) continue;
+          int jtype = type[j];
+          double delx = coord[0] - x[j][0];
+          double dely = coord[1] - x[j][1];
+          double delz = coord[2] - x[j][2];
+          double rsq = delx * delx + dely * dely + delz * delz;
+          if (rsq < cutsqi[jtype])
+            total_energy += pair->single(i, j, itype, jtype, rsq, 1.0, 1.0, fpair);
+        }
+      }
     }
   }
-  if (energy2) *energy2 = total_energy2;
   return total_energy;
+}
+
+/* ----------------------------------------------------------------------
+   sort owned and ghost atoms into bins at least as large as the pair cutoff
+   must be called by all ranks of the box right after the ghost atoms were built
+------------------------------------------------------------------------- */
+
+void FixGEMC::build_grid()
+{
+  int nlocal = atom->nlocal;
+  int nall = nlocal + atom->nghost;
+  double **x = atom->x;
+  tagint *tag = atom->tag;
+
+  ghost_skin = local_skin();
+  move_limit = max_move();
+
+  // grid covers all stored atoms, bins are at least as large as the pair cutoff
+  // and there are not many more bins than atoms
+
+  double lo[3], hi[3];
+  for (int d = 0; d < 3; d++) {
+    lo[d] = BIG;
+    hi[d] = -BIG;
+  }
+  for (int i = 0; i < nall; i++) {
+    for (int d = 0; d < 3; d++) {
+      lo[d] = MIN(lo[d], x[i][d]);
+      hi[d] = MAX(hi[d], x[i][d]);
+    }
+  }
+  double binsize = force->pair->cutforce;
+  bigint maxbins = MAX(1000, 8 * (bigint) nall);
+  for (int d = 0; d < 3; d++) {
+    if (hi[d] < lo[d]) lo[d] = hi[d] = 0.0;
+    binlo[d] = lo[d];
+    nbin[d] = MAX(1, static_cast<int>(MIN((hi[d] - lo[d]) / binsize, 1.0e6)));
+  }
+  while ((bigint) nbin[0] * nbin[1] * nbin[2] > maxbins)
+    for (int d = 0; d < 3; d++) nbin[d] = MAX(1, nbin[d] / 2);
+  for (int d = 0; d < 3; d++)
+    bininv[d] = (hi[d] > lo[d]) ? nbin[d] / (hi[d] - lo[d]) : 1.0 / binsize;
+
+  bins.resize((size_t) nbin[0] * nbin[1] * nbin[2]);
+  for (auto &b : bins) b.clear();
+
+  nstored = 0;
+  grow_stored(nall);
+  nstored = nbase = nall;
+
+  // images of an atom ID: from the atom map, which comm->borders() has just built,
+  // plus stored atoms in taghead. without an atom map, taghead has all of them.
+
+  use_map = (atom->map_style != Atom::MAP_NONE) ? 1 : 0;
+  taghead.clear();
+  if (!use_map) taghead.reserve(nall);
+  for (int i = nall - 1; i >= 0; i--) {
+    bin_add(i);
+    if (!use_map) {
+      auto it = taghead.find(tag[i]);
+      tagnext[i] = (it == taghead.end()) ? -1 : it->second;
+      taghead[tag[i]] = i;
+    }
+  }
+  std::fill(dacc.begin(), dacc.begin() + 3 * nall, 0.0);
+  pending.clear();
+  removed.clear();
+
+  tagint maxtag = 0;
+  for (int i = 0; i < nlocal; i++) maxtag = MAX(maxtag, tag[i]);
+  MPI_Allreduce(&maxtag, &maxtag_box, 1, MPI_LMP_TAGINT, MPI_MAX, world);
+
+  grid_valid = 1;
+}
+
+/* ----------------------------------------------------------------------
+   bin indices of a point, points outside of the grid are assigned to the
+   closest bin. points closer than a bin size differ by at most 1 in each index.
+------------------------------------------------------------------------- */
+
+void FixGEMC::bin_index(double *coord, int *ib)
+{
+  for (int d = 0; d < 3; d++) {
+    double r = (coord[d] - binlo[d]) * bininv[d];
+    ib[d] = (r < 0.0) ? 0 : ((r >= nbin[d]) ? nbin[d] - 1 : static_cast<int>(r));
+  }
+}
+
+/* ----------------------------------------------------------------------
+   bin of a point
+------------------------------------------------------------------------- */
+
+int FixGEMC::coord2bin(double *coord)
+{
+  int ib[3];
+  bin_index(coord, ib);
+  return (ib[2] * nbin[1] + ib[1]) * nbin[0] + ib[0];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixGEMC::bin_add(int i)
+{
+  int b = coord2bin(atom->x[i]);
+  atombin[i] = b;
+  atombinpos[i] = bins[b].size();
+  bins[b].push_back(i);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixGEMC::bin_remove(int i)
+{
+  int b = atombin[i];
+  if (b < 0) return;
+  int pos = atombinpos[i];
+  int last = bins[b].back();
+  bins[b][pos] = last;
+  atombinpos[last] = pos;
+  bins[b].pop_back();
+  atombin[i] = -1;
+}
+
+/* ----------------------------------------------------------------------
+   make room in the atom arrays and in the per-atom data of this fix
+   for local indices up to n-1
+------------------------------------------------------------------------- */
+
+void FixGEMC::grow_stored(int n)
+{
+  while (n > atom->nmax) atom->avec->grow(0);
+  size_t nmax = atom->nmax;
+  if (atombin.size() < nmax) {
+    atombin.resize(nmax, -1);
+    atombinpos.resize(nmax, 0);
+    tagnext.resize(nmax, -1);
+    dacc.resize(3 * nmax, 0.0);
+  }
+  if (gas_pos.size() < nmax) gas_pos.resize(nmax, -1);
+}
+
+/* ----------------------------------------------------------------------
+   store an inserted atom with velocity iv or one of its images after the
+   stored atoms, returns its local index
+------------------------------------------------------------------------- */
+
+int FixGEMC::stored_atom(tagint itag, int itype, int imask, double iq, double *coord, double *iv)
+{
+  int k = nstored;
+  grow_stored(k + 1);
+  atom->x[k][0] = coord[0];
+  atom->x[k][1] = coord[1];
+  atom->x[k][2] = coord[2];
+  atom->v[k][0] = iv[0];
+  atom->v[k][1] = iv[1];
+  atom->v[k][2] = iv[2];
+  atom->type[k] = itype;
+  atom->mask[k] = imask;
+  atom->tag[k] = itag;
+  if (atom->q_flag) atom->q[k] = iq;
+  if (atom->molecule_flag) atom->molecule[k] = 0;
+  bin_add(k);
+  auto it = taghead.find(itag);
+  tagnext[k] = (it == taghead.end()) ? -1 : it->second;
+  taghead[itag] = k;
+  dacc[3 * k] = dacc[3 * k + 1] = dacc[3 * k + 2] = 0.0;
+  gas_pos[k] = -1;
+  nstored++;
+  return k;
+}
+
+/* ----------------------------------------------------------------------
+   local indices of all images of the atom with atom ID itag in the grid
+------------------------------------------------------------------------- */
+
+void FixGEMC::find_images(tagint itag, std::vector<int> &images)
+{
+  images.clear();
+  if (use_map) {
+    for (int j = atom->map(itag); j >= 0; j = atom->sametag[j])
+      if (j < nbase) images.push_back(j);
+  }
+  auto it = taghead.find(itag);
+  if (it != taghead.end())
+    for (int j = it->second; j >= 0; j = tagnext[j]) images.push_back(j);
+}
+
+/* ----------------------------------------------------------------------
+   remove all images of the atom with atom ID itag from the grid
+------------------------------------------------------------------------- */
+
+void FixGEMC::remove_images(tagint itag)
+{
+  find_images(itag, image_list);
+  for (int j : image_list) bin_remove(j);
+  taghead.erase(itag);
+}
+
+/* ----------------------------------------------------------------------
+   displace all images of the atom with atom ID itag by delta
+------------------------------------------------------------------------- */
+
+void FixGEMC::move_images(tagint itag, double *delta)
+{
+  find_images(itag, image_list);
+  double **x = atom->x;
+  for (int j : image_list) {
+    bin_remove(j);
+    x[j][0] += delta[0];
+    x[j][1] += delta[1];
+    x[j][2] += delta[2];
+    bin_add(j);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   insert an atom at coord in the box: the owning rank (owner = 1) stores it
+   as a pending atom, and every rank stores its periodic images within its
+   ghost cutoff. the atom is created in the atom arrays by flush_pending()
+------------------------------------------------------------------------- */
+
+void FixGEMC::insert_pending(tagint itag, int itype, int imask, double iq, double *coord,
+                             double *iv, int owner)
+{
+  if (owner) {
+    int k = stored_atom(itag, itype, imask, iq, coord, iv);
+    pending.push_back(k);
+    if (imask & groupbit) gas_add(k);
+  }
+  add_images(itag, itype, imask, iq, coord, iv);
+}
+
+/* ----------------------------------------------------------------------
+   store all periodic images of the atom with atom ID itag at coord that lie
+   within the ghost cutoff of my subdomain, like comm->borders() would, and
+   are not stored yet. with this, the stored atoms of each rank always
+   include all atoms within its ghost cutoff.
+------------------------------------------------------------------------- */
+
+void FixGEMC::add_images(tagint itag, int itype, int imask, double iq, double *coord, double *iv)
+{
+  // images in box or lamda coordinates, the ghost cutoff has the same units
+
+  double *lo, *hi, period[3], p[3];
+  if (triclinic) {
+    domain->x2lamda(coord, p);
+    lo = domain->sublo_lamda;
+    hi = domain->subhi_lamda;
+    period[0] = period[1] = period[2] = 1.0;
+  } else {
+    p[0] = coord[0];
+    p[1] = coord[1];
+    p[2] = coord[2];
+    lo = domain->sublo;
+    hi = domain->subhi;
+    period[0] = domain->prd[0];
+    period[1] = domain->prd[1];
+    period[2] = domain->prd[2];
+  }
+  double *cut = comm->cutghost;
+
+  // periodic shifts of the images that are already stored
+
+  find_images(itag, image_list);
+  std::vector<std::array<int, 3>> stored;
+  for (int j : image_list) {
+    double q[3];
+    if (triclinic)
+      domain->x2lamda(atom->x[j], q);
+    else {
+      q[0] = atom->x[j][0];
+      q[1] = atom->x[j][1];
+      q[2] = atom->x[j][2];
+    }
+    std::array<int, 3> k;
+    for (int d = 0; d < 3; d++) k[d] = static_cast<int>(lround((q[d] - p[d]) / period[d]));
+    stored.push_back(k);
+  }
+
+  int kmax[3];
+  for (int d = 0; d < 3; d++) kmax[d] = static_cast<int>(cut[d] / period[d]) + 1;
+  for (int kz = -kmax[2]; kz <= kmax[2]; kz++) {
+    for (int ky = -kmax[1]; ky <= kmax[1]; ky++) {
+      for (int kx = -kmax[0]; kx <= kmax[0]; kx++) {
+        double img[3] = {p[0] + kx * period[0], p[1] + ky * period[1], p[2] + kz * period[2]};
+        int inside = 1;
+        for (int d = 0; d < 3; d++)
+          if ((img[d] < lo[d] - cut[d]) || (img[d] > hi[d] + cut[d])) inside = 0;
+        if (!inside) continue;
+        std::array<int, 3> k = {kx, ky, kz};
+        if (std::find(stored.begin(), stored.end(), k) != stored.end()) continue;
+        double ximg[3];
+        if (triclinic)
+          domain->lamda2x(img, ximg);
+        else {
+          ximg[0] = img[0];
+          ximg[1] = img[1];
+          ximg[2] = img[2];
+        }
+        stored_atom(itag, itype, imask, iq, ximg, iv);
+      }
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------
+   largest distance of a point outside of my subdomain, measured
+   perpendicular to each pair of faces (0 inside)
+------------------------------------------------------------------------- */
+
+double FixGEMC::subdomain_excess(double *coord)
+{
+  double excess = 0.0;
+  if (triclinic) {
+    double lamda[3], w[3];
+    domain->x2lamda(coord, lamda);
+    box_widths(w);
+    for (int d = 0; d < 3; d++) {
+      double e = MAX(domain->sublo_lamda[d] - lamda[d], lamda[d] - domain->subhi_lamda[d]);
+      excess = MAX(excess, e * w[d]);
+    }
+  } else {
+    for (int d = 0; d < 3; d++)
+      excess = MAX(excess, MAX(domain->sublo[d] - coord[d], coord[d] - domain->subhi[d]));
+  }
+  return excess;
+}
+
+/* ----------------------------------------------------------------------
+   the stored atoms of a rank include all atoms within its ghost cutoff, so
+   they cover all interactions of a point at most the ghost skin outside of
+   its subdomain. an atom must also stay within reach of the neighboring
+   subdomains, which comm->exchange() can send it to. bad = 1 on the rank
+   that owns the atom, if a move would violate either condition. then the
+   ghost atoms and the grid are rebuilt, and 1 is returned.
+   itag = atom ID of the atom on the rank that owns it and 0 on all other
+   ranks, is set on all ranks, since the atom may then be owned by another rank.
+   must be called by all ranks of the box.
+------------------------------------------------------------------------- */
+
+int FixGEMC::need_refresh(int bad, tagint &itag)
+{
+  tagint mine[2] = {bad ? 1 : 0, itag};
+  tagint all[2];
+  MPI_Allreduce(mine, all, 2, MPI_LMP_TAGINT, MPI_MAX, world);
+  itag = all[1];
+  if (!all[0]) return 0;
+  refresh_ghosts();
+  build_grid();
+  return 1;
+}
+
+/* ----------------------------------------------------------------------
+   create pending atoms and delete removed atoms in the atom arrays
+   must be called by all ranks of the box before the owned atoms are used
+   in any other way than through the grid, and at the end of the MC moves
+------------------------------------------------------------------------- */
+
+void FixGEMC::flush_pending()
+{
+  if (!pending_changes) return;
+
+  struct NewAtom {
+    tagint tag;
+    int type, mask;
+    double q, x[3], v[3];
+  };
+  std::vector<NewAtom> newatoms;
+  for (int k : pending) {
+    if (k < 0) continue;
+    double *xk = atom->x[k];
+    double *vk = atom->v[k];
+    newatoms.push_back({atom->tag[k],
+                        atom->type[k],
+                        atom->mask[k],
+                        atom->q_flag ? atom->q[k] : 0.0,
+                        {xk[0], xk[1], xk[2]},
+                        {vk[0], vk[1], vk[2]}});
+  }
+
+  // ghost atoms and stored images are invalid from here on
+
+  atom->nghost = 0;
+  std::sort(removed.begin(), removed.end(), std::greater<int>());
+  for (int i : removed) {
+    atom->avec->copy(atom->nlocal - 1, i, 1);
+    atom->nlocal--;
+  }
+  for (auto &n : newatoms) {
+    atom->avec->create_atom(n.type, n.x);
+    int m = atom->nlocal - 1;
+    atom->mask[m] = n.mask;
+    atom->tag[m] = n.tag;
+    if (atom->q_flag) atom->q[m] = n.q;
+    atom->v[m][0] = n.v[0];
+    atom->v[m][1] = n.v[1];
+    atom->v[m][2] = n.v[2];
+    modify->create_attribute(m);
+  }
+
+  pending.clear();
+  removed.clear();
+  pending_changes = 0;
+  nstored = 0;
+  changed_atoms();
+  update_gas_atoms_list();
 }
 
 /* ----------------------------------------------------------------------
@@ -1160,6 +1698,7 @@ void FixGEMC::changed_atoms()
 
   atom->nghost = 0;
   ghosts_stale = 1;
+  grid_valid = 0;
   if (atom->map_style != Atom::MAP_NONE) atom->map_init();
   if (force->kspace) force->kspace->qsum_qsq();
   if (force->pair && force->pair->tail_flag) force->pair->reinit();
@@ -1185,6 +1724,7 @@ void FixGEMC::set_box(double xhi_new, double yhi_new, double zhi_new, double xy_
   comm->setup();
   if (neighbor->style) neighbor->setup_bins();
   if (force->kspace) force->kspace->setup();
+  grid_valid = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -1209,56 +1749,16 @@ bigint FixGEMC::scale_positions(double s, int check)
   double **x = atom->x;
   imageint *image = atom->image;
   tagint *molecule = atom->molecule;
-  int *type = atom->type;
-  double *mass = atom->mass;
-  double *rmass = atom->rmass;
   double *lo = domain->boxlo;
   double sm1 = s - 1.0;
 
-  // centers of mass of all molecules with atoms on this rank, from all ranks
+  // centers of mass of all molecules with atoms on this rank
 
-  std::map<tagint, std::array<double, 4>> com;
+  std::unordered_map<tagint, std::array<double, 3>> com;
   bigint nfree = 0;
+  bigint nmolecules = 0;
   if (molecule) {
-    std::map<tagint, std::array<double, 4>> partial;
-    double xu[3];
-    for (int i = 0; i < nlocal; i++) {
-      if (molecule[i] <= 0) continue;
-      double m = rmass ? rmass[i] : mass[type[i]];
-      domain->unmap(x[i], image[i], xu);
-      auto &p = partial[molecule[i]];
-      p[0] += m;
-      p[1] += m * xu[0];
-      p[2] += m * xu[1];
-      p[3] += m * xu[2];
-    }
-    std::vector<double> mine;
-    mine.reserve(5 * partial.size());
-    for (const auto &p : partial) {
-      mine.push_back(ubuf(p.first).d);
-      for (int k = 0; k < 4; k++) mine.push_back(p.second[k]);
-    }
-    int nprocs = comm->nprocs;
-    std::vector<int> counts(nprocs), displs(nprocs);
-    int nsend = mine.size();
-    MPI_Allgather(&nsend, 1, MPI_INT, counts.data(), 1, MPI_INT, world);
-    int ntotal = 0;
-    for (int iproc = 0; iproc < nprocs; iproc++) {
-      displs[iproc] = ntotal;
-      ntotal += counts[iproc];
-    }
-    std::vector<double> all(ntotal + 1);
-    MPI_Allgatherv(mine.data(), nsend, MPI_DOUBLE, all.data(), counts.data(), displs.data(),
-                   MPI_DOUBLE, world);
-    for (int k = 0; k < ntotal; k += 5) {
-      auto &c = com[(tagint) ubuf(all[k]).i];
-      for (int n = 0; n < 4; n++) c[n] += all[k + 1 + n];
-    }
-    for (auto &c : com) {
-      c.second[1] /= c.second[0];
-      c.second[2] /= c.second[0];
-      c.second[3] /= c.second[0];
-    }
+    nmolecules = molecule_centers(com);
     for (int i = 0; i < nlocal; i++)
       if (molecule[i] <= 0) nfree++;
   } else {
@@ -1277,9 +1777,9 @@ bigint FixGEMC::scale_positions(double s, int check)
         if (molecule[i] <= 0) continue;
         const auto &c = com[molecule[i]];
         domain->unmap(x[i], image[i], xu);
-        double dx = xu[0] - c[1];
-        double dy = xu[1] - c[2];
-        double dz = xu[2] - c[3];
+        double dx = xu[0] - c[0];
+        double dy = xu[1] - c[1];
+        double dz = xu[2] - c[2];
         rmax = MAX(rmax, dx * dx + dy * dy + dz * dz);
       }
     }
@@ -1293,9 +1793,9 @@ bigint FixGEMC::scale_positions(double s, int check)
     if (molecule && (molecule[i] > 0)) {
       const auto &c = com[molecule[i]];
       domain->unmap(x[i], image[i], xu);
-      x[i][0] += sm1 * (x[i][0] + c[1] - xu[0] - lo[0]);
-      x[i][1] += sm1 * (x[i][1] + c[2] - xu[1] - lo[1]);
-      x[i][2] += sm1 * (x[i][2] + c[3] - xu[2] - lo[2]);
+      x[i][0] += sm1 * (x[i][0] + c[0] - xu[0] - lo[0]);
+      x[i][1] += sm1 * (x[i][1] + c[1] - xu[1] - lo[1]);
+      x[i][2] += sm1 * (x[i][2] + c[2] - xu[2] - lo[2]);
     } else {
       x[i][0] += sm1 * (x[i][0] - lo[0]);
       x[i][1] += sm1 * (x[i][1] - lo[1]);
@@ -1303,5 +1803,106 @@ bigint FixGEMC::scale_positions(double s, int check)
     }
   }
 
-  return nfree_all + (bigint) com.size();
+  return nfree_all + nmolecules;
+}
+
+/* ----------------------------------------------------------------------
+   centers of mass (from unwrapped coordinates) of all molecules with atoms
+   on this rank. partial sums of each molecule are summed on a rendezvous
+   rank (molecule ID modulo number of ranks) and returned to the ranks that
+   hold its atoms, so the communication is proportional to the local atoms.
+   returns the number of molecules in the box.
+   must be called by all ranks of the box.
+------------------------------------------------------------------------- */
+
+bigint FixGEMC::molecule_centers(std::unordered_map<tagint, std::array<double, 3>> &com)
+{
+  int nlocal = atom->nlocal;
+  tagint *molecule = atom->molecule;
+
+  // partial sums of mass and mass-weighted unwrapped coordinates
+
+  std::unordered_map<tagint, std::array<double, 4>> partial;
+  double xu[3];
+  for (int i = 0; i < nlocal; i++) {
+    if (molecule[i] <= 0) continue;
+    double m = atom->mass[atom->type[i]];
+    domain->unmap(atom->x[i], atom->image[i], xu);
+    auto &p = partial[molecule[i]];
+    p[0] += m;
+    p[1] += m * xu[0];
+    p[2] += m * xu[1];
+    p[3] += m * xu[2];
+  }
+
+  int nsend = partial.size();
+  int *proclist;
+  memory->create(proclist, nsend, "gemc:proclist");
+  auto *inbuf = (ComRvous *) memory->smalloc((bigint) nsend * sizeof(ComRvous), "gemc:inbuf");
+  int n = 0;
+  for (const auto &p : partial) {
+    proclist[n] = p.first % comm->nprocs;
+    inbuf[n].mol = p.first;
+    inbuf[n].proc = comm->me;
+    for (int k = 0; k < 4; k++) inbuf[n].sum[k] = p.second[k];
+    n++;
+  }
+
+  char *buf;
+  rvous_count = 0;
+  int nreturn = comm->rendezvous(RVOUS, nsend, (char *) inbuf, sizeof(ComRvous), 0, proclist,
+                                 rendezvous_centers, 0, buf, sizeof(ComRvous), (void *) this);
+  auto *outbuf = (ComRvous *) buf;
+  memory->destroy(proclist);
+  memory->sfree(inbuf);
+
+  com.clear();
+  com.reserve(nreturn);
+  for (int k = 0; k < nreturn; k++)
+    com[outbuf[k].mol] = {outbuf[k].sum[1], outbuf[k].sum[2], outbuf[k].sum[3]};
+  memory->sfree(outbuf);
+
+  bigint nmolecules;
+  MPI_Allreduce(&rvous_count, &nmolecules, 1, MPI_LMP_BIGINT, MPI_SUM, world);
+  return nmolecules;
+}
+
+/* ----------------------------------------------------------------------
+   callback of comm->rendezvous() for molecule_centers():
+   sum partial sums of each molecule and return its center of mass
+   to every rank that sent a partial sum
+------------------------------------------------------------------------- */
+
+int FixGEMC::rendezvous_centers(int n, char *inbuf, int &flag, int *&proclist, char *&outbuf,
+                                void *ptr)
+{
+  auto *fptr = (FixGEMC *) ptr;
+  Memory *memory = fptr->memory;
+  auto *in = (ComRvous *) inbuf;
+
+  std::unordered_map<tagint, std::array<double, 4>> total;
+  for (int i = 0; i < n; i++) {
+    auto &t = total[in[i].mol];
+    for (int k = 0; k < 4; k++) t[k] += in[i].sum[k];
+  }
+  fptr->rvous_count = total.size();
+
+  memory->create(proclist, n, "gemc:proclist");
+  auto *out = (ComRvous *) memory->smalloc((bigint) n * sizeof(ComRvous), "gemc:outbuf");
+  for (int i = 0; i < n; i++) {
+    const auto &t = total[in[i].mol];
+    proclist[i] = in[i].proc;
+    out[i].mol = in[i].mol;
+    out[i].proc = in[i].proc;
+    out[i].sum[0] = t[0];
+    out[i].sum[1] = t[1] / t[0];
+    out[i].sum[2] = t[2] / t[0];
+    out[i].sum[3] = t[3] / t[0];
+  }
+  outbuf = (char *) out;
+
+  // flag = 2: new outbuf
+
+  flag = 2;
+  return n;
 }

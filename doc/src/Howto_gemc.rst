@@ -221,13 +221,18 @@ Performance
 For pair styles without many-body terms, fix gemc computes the energy
 change of a translation or exchange from the interactions of the moved
 atom only, which is much faster than recomputing the total energy of
-the box.  See the :doc:`fix gemc <fix_gemc>` page for the conditions.
+the box: the cost of such a move does not depend on the size of the
+box.  See the :doc:`fix gemc <fix_gemc>` page for the conditions.
 Volume changes always require the total energy, but they are also
 needed much less often.  Additional tips:
 
 * Use *N* = 1 and a number of moves per invocation that is comparable to
   or larger than the number of atoms.  Each invocation has an overhead
   of a neighbor list build and a force computation.
+* A larger communication cutoff, set with :doc:`comm_modify cutoff
+  <comm_modify>`, allows larger displacements with single-atom
+  energies and makes it less frequent that the ghost atoms must be
+  rebuilt during the moves.
 * Give the liquid box more MPI processes than the vapor box.  Very small
   systems (a few hundred atoms) run fastest on one process per box.
 

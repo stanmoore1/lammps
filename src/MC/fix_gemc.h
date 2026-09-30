@@ -22,6 +22,10 @@ FixStyle(gemc,FixGEMC);
 
 #include "fix.h"
 
+#include <array>
+#include <unordered_map>
+#include <vector>
+
 namespace LAMMPS_NS {
 
 class FixGEMC : public Fix {
@@ -55,6 +59,7 @@ class FixGEMC : public Fix {
   int full_flag;              // 1 if user requested full energy for all moves
   int local_flag;      // 1 if single-atom energies may be used for translations and exchanges
   int ghosts_stale;    // 1 if ghost atoms may be out of date
+  int local_warned;    // 1 if the fallback to full energy at run time was reported
 
   // molecule exchange
 
@@ -92,12 +97,41 @@ class FixGEMC : public Fix {
 
   // particle - related props
 
-  int natom_lower;                     // number of group atoms on lower ranks of my box
+  bigint natom_lower;                  // number of group atoms on lower ranks of my box
   int natom_local;                     // number of group atoms on this rank
-  int natom_total;                     // number of group atoms in my box
-  int gemc_nmax;                       // allocated length of local_gas_list
-  int *local_gas_list;                 // local indices of group atoms
+  bigint natom_total;                  // number of group atoms in my box
+  std::vector<int> gas_list;           // local indices of group atoms
+  std::vector<int> gas_pos;            // position of a local index in gas_list or -1
   std::vector<double> exchange_buf;    // storage for atoms removed during a trial exchange
+
+  // single-atom energies: owned and ghost atoms are sorted into a grid of bins at least
+  // as large as the pair cutoff. accepted translations and exchanges update the grid and
+  // all images of the atom on all ranks, including new images within the ghost cutoff,
+  // instead of rebuilding the ghost atoms. atoms inserted this way and new images are
+  // stored after the ghost atoms, and atoms removed this way stay in place until
+  // flush_pending() applies the insertions and removals to the owned atoms.
+
+  int grid_valid;                             // 1 if the grid matches the atom arrays
+  int nstored;                                // number of owned, ghost, and pending atoms
+  int nbin[3];                                // number of bins in each dimension
+  double binlo[3];                            // lower corner of the grid
+  double bininv[3];                           // inverse bin size in each dimension
+  std::vector<std::vector<int>> bins;         // local indices of the atoms in each bin
+  std::vector<int> atombin;                   // bin of each local index or -1
+  std::vector<int> atombinpos;                // position of each local index in its bin
+  std::unordered_map<tagint, int> taghead;    // first stored local index with an atom ID
+  std::vector<int> tagnext;                   // next local index with the same atom ID
+  int nbase;                      // number of owned and ghost atoms when the grid was built
+  int use_map;                    // 1 if the atom map provides the images of owned and ghost atoms
+  std::vector<int> image_list;    // scratch list of local indices
+  std::vector<double> dacc;       // displacement of owned atoms since ghosts were built
+  double ghost_skin;              // ghost cutoff minus pair cutoff
+  double move_limit;              // largest displacement allowed by the subdomains
+  tagint maxtag_box;              // largest atom ID in my box
+  std::vector<int> pending;       // local indices of inserted atoms owned by this rank,
+                                  // not yet created, or -1 if removed again
+  std::vector<int> removed;       // local indices of removed owned atoms, not yet deleted
+  int pending_changes;            // 1 if atoms were inserted or removed since last flush
 
   // domain - related props
 
@@ -120,6 +154,24 @@ class FixGEMC : public Fix {
 
   int progress;    // last percentage of the run reported
 
+  // rendezvous communication
+
+  struct ComRvous {
+    tagint mol;
+    int proc;
+    double sum[4];
+  };
+  struct CheckRvous {
+    tagint mol, tag;
+    int type;
+    double q;
+  };
+  bigint rvous_count;    // number of molecules on this rank in the rendezvous decomposition
+  int rvous_bad;         // 1 if a molecule on this rank does not match the template
+  int rvous_charged;     // 1 if a molecule on this rank has a net charge
+  static int rendezvous_centers(int, char *, int &, int *&, char *&, void *);
+  static int rendezvous_check(int, char *, int &, int *&, char *&, void *);
+
   void attempt_atomic_translation_full();
   void attempt_volume_change_full();
   void attempt_atomic_exchange_full();
@@ -132,14 +184,35 @@ class FixGEMC : public Fix {
   void reset_comm();               // re-distribute atoms and rebuild ghosts and neighbor lists
   void refresh_ghosts();           // re-distribute atoms and rebuild ghost atoms
   double energy_full();            // computes full potential energy
-  double energy_local(int, int, tagint, double *, double * = nullptr,
-                      double * = nullptr);    // pair energy of one atom
-  int use_local();                            // 1 if the next move in my box may use energy_local()
+  double energy_local(int, int, tagint, double *);    // pair energy of one atom
+  int use_local();        // 1 if the next move in my box may use energy_local()
+  double local_skin();    // distance an atom may move before ghost atoms must be rebuilt
+  double init_skin();     // estimate of local_skin() before the run is set up
   tagint insert_atom(int, int, double, double *, double *, int);    // insert atom into my box
-  void update_gas_atoms_list();                           // updates list of local group atoms
-  int pick_random_gas_atom();                             // picks random group atom
-  tagint pick_random_molecule();                          // picks random molecule of the group
-  void gather_molecule(tagint, std::vector<double> &);    // gather atoms of one molecule
+  void update_gas_atoms_list();     // updates list of local group atoms
+  void gas_add(int);                // add local index to gas_list
+  void gas_remove(int);             // remove local index from gas_list
+  int pick_random_gas_atom();       // picks random group atom
+  tagint pick_random_molecule();    // picks random molecule of the group
+  tagint first_atom(tagint);        // first atom ID of a molecule with consecutive IDs
+  tagint gather_molecule(tagint, std::vector<double> &);    // gather atoms of one molecule
+
+  void build_grid();                  // sort owned and ghost atoms into bins
+  void bin_index(double *, int *);    // bin indices of a point
+  int coord2bin(double *);            // bin of a point
+  void bin_add(int);                  // add local index to its bin
+  void bin_remove(int);               // remove local index from its bin
+  void grow_stored(int);              // make room for local index
+  int stored_atom(tagint, int, int, double, double *, double *);    // store pending atom
+  void find_images(tagint, std::vector<int> &);                     // local indices of all images
+  void remove_images(tagint);            // remove all images of an atom ID
+  void move_images(tagint, double *);    // displace all images of an atom ID
+  void insert_pending(tagint, int, int, double, double *, double *, int);
+  void add_images(tagint, int, int, double, double *, double *);    // store missing images
+  double subdomain_excess(double *);    // distance outside of my subdomain
+  int need_refresh(int, tagint &);      // rebuild ghosts if an atom would move too far
+  void flush_pending();                 // apply pending insertions and removals
+  bigint molecule_centers(std::unordered_map<tagint, std::array<double, 3>> &);
   bigint scale_positions(double, int);    // scale molecule centers and atoms relative to box origin
   void set_box(double, double, double, double, double, double);    // change box size
   double box_volume();
@@ -147,8 +220,8 @@ class FixGEMC : public Fix {
   void box_widths(double *);    // distances between opposite box faces
   double max_move();            // largest move of an atom allowed by the subdomain size
   double max_translation();     // displacement limited by the subdomain size
-  int owns(double *);    // 1 if a point in the box is inside my subdomain
-  int local_index(tagint);    // local index of owned atom with this ID or -1
+  int owns(double *);           // 1 if a point in the box is inside my subdomain
+  int local_index(tagint);      // local index of owned atom with this ID or -1
   void random_point(double *);
   void changed_atoms();    // update after atoms or charges changed
   void check_molecules();

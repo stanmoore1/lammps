@@ -225,7 +225,9 @@ adjusted separately for each box, since the vapor box accepts much
 larger moves than the liquid box.  The displacement is limited to half
 the smallest box width, to half the smallest subdomain width when a
 box runs on more than one processor, and, when single-atom energies are
-used (see below), to the neighbor skin distance.  The maximum change of
+used (see below), to half the distance by which the ghost atoms extend
+beyond the pair cutoff, so that the ghost atoms rarely need to be
+rebuilt.  The maximum change of
 ln(V1/V2) is limited to 1.0, and the maximum rotation angle to 180
 degrees.  An adjustment is only made after at least 20 moves of the
 respective kind were attempted.
@@ -273,18 +275,30 @@ output uses the current number of atoms in each box.
 
 By default, translation and exchange moves compute only the change of
 the pair energy of the moved atom, which is much faster than computing
-the total energy of the box.  This is only possible when the pair style
-supports the *single()* function, is not a many-body potential, does
-not use :doc:`pair_modify tail yes <pair_modify>`, and when no fix
-contributes to the potential energy and *displace* is not larger than
-the neighbor skin distance set by the :doc:`neighbor <neighbor>`
-command, and when no molecules are exchanged (*mol* keyword), the
-exchanged atoms are not charged, and no long-range solver is used.  If any of these conditions is not met, a
-warning is printed and the total energy is computed for every move.  The
-same is done for a move in a box whose width is smaller than the pair
-cutoff.
+the total energy of the box: the cost of such a move does not depend on
+the number of atoms.  This is only possible when the pair style supports
+the *single()* function, is not a many-body potential, does not use
+:doc:`pair_modify tail yes <pair_modify>`, and when no fix contributes
+to the potential energy, no molecules are exchanged (*mol* keyword), the
+exchanged atoms are not charged, and no long-range solver is used.
+*displace* must also not be larger than the distance by which the
+:doc:`ghost atoms <Developer_par_comm>` extend beyond the pair cutoff,
+which is the neighbor skin distance set by the :doc:`neighbor
+<neighbor>` command, or larger with :doc:`comm_modify cutoff
+<comm_modify>`.  If any of these conditions is not met, a warning is
+printed and the total energy is computed for every move.  The same is
+done for a move in a box whose width is smaller than the pair cutoff.
 Volume moves always compute the total energy.  The *full_energy*
 keyword requests that the total energy is computed for all moves.
+
+.. versionchanged:: TBD
+
+   The cost of translations and exchanges with single-atom energies no
+   longer grows with the number of atoms in the box.  Ghost atoms are
+   rebuilt only when an atom would move farther than the distance above
+   outside of the subdomain of its processor, or beyond the neighboring
+   subdomains, so a larger communication cutoff makes this less
+   frequent.
 
 Some fixes have an associated potential energy.  Examples of such fixes
 include: :doc:`efield <fix_efield>`, :doc:`gravity <fix_gravity>`,
