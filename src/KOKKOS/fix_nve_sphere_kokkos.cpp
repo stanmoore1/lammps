@@ -121,7 +121,7 @@ void FixNVESphereKokkos<DeviceType>::initial_integrate_item(const int i) const
     omega(i,1) += dtirotate * static_cast<KK_FLOAT>(torque(i,1));
     omega(i,2) += dtirotate * static_cast<KK_FLOAT>(torque(i,2));
 
-    if ((extra == DIPOLE) && (mu(i,3) > 0.0)) {
+    if ((extra == DIPOLE) && (mu(i,3) > static_cast<KK_FLOAT>(0.0))) {
       const KK_FLOAT g0 = mu(i,0) + dtv_kk * (omega(i,1) * mu(i,2) - omega(i,2) * mu(i,1));
       const KK_FLOAT g1 = mu(i,1) + dtv_kk * (omega(i,2) * mu(i,0) - omega(i,0) * mu(i,2));
       const KK_FLOAT g2 = mu(i,2) + dtv_kk * (omega(i,0) * mu(i,1) - omega(i,1) * mu(i,0));
@@ -240,7 +240,7 @@ void FixNVESphereKokkos<DeviceType>::fused_integrate_item(const int i) const
     omega(i,1) += dtirotate * static_cast<KK_FLOAT>(torque(i,1));
     omega(i,2) += dtirotate * static_cast<KK_FLOAT>(torque(i,2));
 
-    if ((extra == DIPOLE) && (mu(i,3) > 0.0)) {
+    if ((extra == DIPOLE) && (mu(i,3) > static_cast<KK_FLOAT>(0.0))) {
       const KK_FLOAT g0 = mu(i,0) + dtv_kk * (omega(i,1) * mu(i,2) - omega(i,2) * mu(i,1));
       const KK_FLOAT g1 = mu(i,1) + dtv_kk * (omega(i,2) * mu(i,0) - omega(i,0) * mu(i,2));
       const KK_FLOAT g2 = mu(i,2) + dtv_kk * (omega(i,0) * mu(i,1) - omega(i,1) * mu(i,0));

@@ -290,7 +290,7 @@ int MinFireKokkos::run_iterate(int maxiter) {
     }
 
     const KK_FLOAT dtv_kk = static_cast<KK_FLOAT>(dtv);
-    KK_FLOAT dtf_final = dtv * static_cast<KK_FLOAT>(force->ftm2v);
+    KK_FLOAT dtf_final = dtv_kk * static_cast<KK_FLOAT>(force->ftm2v);
     KK_FLOAT dtf_half = static_cast<KK_FLOAT>(0.5) * dtf_final;
     Kokkos::parallel_for("min_fire/integrate", nlocal, LAMMPS_LAMBDA(const int i) {
       KK_FLOAT mass_val = (l_rmass.data() ? l_rmass(i) : l_mass(l_type(i)));

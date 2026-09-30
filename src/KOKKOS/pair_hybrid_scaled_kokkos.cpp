@@ -149,7 +149,7 @@ void PairHybridScaledKokkos::accumulate_forces(int nall, double scale, int useat
   typename AT::t_kkacc_1d_3 d_tsum = k_tsum.template view<DeviceType>();
   typename AT::t_kkacc_1d d_atomscale = k_atomscale.template view<DeviceType>();
   const int torqueflag = atom->torque_flag;
-  const KK_ACC_FLOAT sval = scale;
+  const KK_ACC_FLOAT sval = static_cast<KK_ACC_FLOAT>(scale);
 
   Kokkos::parallel_for("PairHybridScaledKokkos::accumulate_forces",
                        Kokkos::RangePolicy<DeviceType>(0,nall), KOKKOS_LAMBDA(const int i) {
@@ -215,7 +215,7 @@ void PairHybridScaledKokkos::update_atomscale(int m)
 
   auto h_atomscale = k_atomscale.view_host();
   const int nlocal = atom->nlocal;
-  for (int i = 0; i < nlocal; ++i) h_atomscale(i) = atomscale[i];
+  for (int i = 0; i < nlocal; ++i) h_atomscale(i) = static_cast<KK_ACC_FLOAT>(atomscale[i]);
   k_atomscale.modify_host();
   k_atomscale.sync_device();
 
@@ -667,7 +667,7 @@ double PairHybridScaledKokkos::single(int i, int j, int itype, int jtype, double
         update_atomscale(m);
         k_atomscale.sync_host();
         auto h_atomscale = k_atomscale.view_host();
-        const double ascale = 0.5 * (h_atomscale(i) + h_atomscale(j));
+        const double ascale = 0.5 * static_cast<double>(h_atomscale(i) + h_atomscale(j));
         fforce += ascale * fone;
       }
     }
@@ -748,7 +748,7 @@ void PairHybridScaledKokkos::born_matrix(int i, int j, int itype, int jtype, dou
         update_atomscale(m);
         k_atomscale.sync_host();
         auto h_atomscale = k_atomscale.view_host();
-        const double ascale = 0.5 * (h_atomscale(i) + h_atomscale(j));
+        const double ascale = 0.5 * static_cast<double>(h_atomscale(i) + h_atomscale(j));
         dupair += ascale * du;
         du2pair += ascale * du2;
       }
@@ -966,7 +966,7 @@ int PairHybridScaledKokkos::pack_forward_comm(int n, int *list, double *buf, int
   m = 0;
   for (i = 0; i < n; i++) {
     j = list[i];
-    buf[m++] = h_atomscale(j);
+    buf[m++] = static_cast<double>(h_atomscale(j));
   }
   return m;
 }
@@ -981,7 +981,7 @@ void PairHybridScaledKokkos::unpack_forward_comm(int n, int first, double *buf)
 
   m = 0;
   last = first + n;
-  for (i = first; i < last; i++) h_atomscale(i) = buf[m++];
+  for (i = first; i < last; i++) h_atomscale(i) = static_cast<KK_ACC_FLOAT>(buf[m++]);
   k_atomscale.modify_host();
 }
 

@@ -298,20 +298,20 @@ int MinLineSearchKokkos::linemin_quadratic(double eoriginal, double &alpha)
       if constexpr (F_LAYOUTRIGHT) {
         auto l_fvec = fvec;
         Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_KK_double2& sdot) {
-          sdot.d0 += static_cast<KK_FLOAT>(l_fvec[i]*l_fvec[i]);
-          sdot.d1 += static_cast<KK_FLOAT>(l_fvec[i])*l_h[i];
+          sdot.d0 += static_cast<double>(l_fvec[i])*static_cast<double>(l_fvec[i]);
+          sdot.d1 += static_cast<double>(l_fvec[i])*static_cast<double>(l_h[i]);
         },sdot);
       } else {
         auto l_f = atomKK->k_f.view_device();
         Kokkos::parallel_reduce(atom->nlocal, LAMMPS_LAMBDA(const int& i, s_KK_double2& sdot) {
-          sdot.d0 += static_cast<KK_FLOAT>(l_f(i,0)*l_f(i,0));
-          sdot.d0 += static_cast<KK_FLOAT>(l_f(i,1)*l_f(i,1));
-          sdot.d0 += static_cast<KK_FLOAT>(l_f(i,2)*l_f(i,2));
+          sdot.d0 += static_cast<double>(l_f(i,0))*static_cast<double>(l_f(i,0));
+          sdot.d0 += static_cast<double>(l_f(i,1))*static_cast<double>(l_f(i,1));
+          sdot.d0 += static_cast<double>(l_f(i,2))*static_cast<double>(l_f(i,2));
 
           const int j = i*3;
-          sdot.d1 += static_cast<KK_FLOAT>(l_f(i,0))*l_h[j];
-          sdot.d1 += static_cast<KK_FLOAT>(l_f(i,1))*l_h[j+1];
-          sdot.d1 += static_cast<KK_FLOAT>(l_f(i,2))*l_h[j+2];
+          sdot.d1 += static_cast<double>(l_f(i,0))*static_cast<double>(l_h[j]);
+          sdot.d1 += static_cast<double>(l_f(i,1))*static_cast<double>(l_h[j+1]);
+          sdot.d1 += static_cast<double>(l_f(i,2))*static_cast<double>(l_h[j+2]);
         },sdot);
       }
     }
@@ -454,20 +454,20 @@ double MinLineSearchKokkos::compute_dir_deriv(double &ff)
     if constexpr (F_LAYOUTRIGHT) {
       auto l_fvec = fvec;
       Kokkos::parallel_reduce(nvec, LAMMPS_LAMBDA(const int& i, s_KK_double2& sdot) {
-        sdot.d0 += static_cast<KK_FLOAT>(l_fvec[i]*l_fvec[i]);
-        sdot.d1 += static_cast<KK_FLOAT>(l_fvec[i])*l_h[i];
+        sdot.d0 += static_cast<double>(l_fvec[i])*static_cast<double>(l_fvec[i]);
+        sdot.d1 += static_cast<double>(l_fvec[i])*static_cast<double>(l_h[i]);
       },sdot);
     } else {
       auto l_f = atomKK->k_f.view_device();
       Kokkos::parallel_reduce(atom->nlocal, LAMMPS_LAMBDA(const int& i, s_KK_double2& sdot) {
-        sdot.d0 += static_cast<KK_FLOAT>(l_f(i,0)*l_f(i,0));
-        sdot.d0 += static_cast<KK_FLOAT>(l_f(i,1)*l_f(i,1));
-        sdot.d0 += static_cast<KK_FLOAT>(l_f(i,2)*l_f(i,2));
+        sdot.d0 += static_cast<double>(l_f(i,0))*static_cast<double>(l_f(i,0));
+        sdot.d0 += static_cast<double>(l_f(i,1))*static_cast<double>(l_f(i,1));
+        sdot.d0 += static_cast<double>(l_f(i,2))*static_cast<double>(l_f(i,2));
 
         const int j = i*3;
-        sdot.d1 += static_cast<KK_FLOAT>(l_f(i,0))*l_h[j];
-        sdot.d1 += static_cast<KK_FLOAT>(l_f(i,1))*l_h[j+1];
-        sdot.d1 += static_cast<KK_FLOAT>(l_f(i,2))*l_h[j+2];
+        sdot.d1 += static_cast<double>(l_f(i,0))*static_cast<double>(l_h[j]);
+        sdot.d1 += static_cast<double>(l_f(i,1))*static_cast<double>(l_h[j+1]);
+        sdot.d1 += static_cast<double>(l_f(i,2))*static_cast<double>(l_h[j+2]);
       },sdot);
     }
   }

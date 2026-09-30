@@ -106,7 +106,7 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
   for (int lane = 0; lane < V; lane++) fx[lane] = fy[lane] = fz[lane] = 0.0;
 
   for (int n = 0; n < nradbase; ++n) {
-    const KK_FLOAT wn = w_r1[n * wr1_sn] * Y00;
+    const KK_FLOAT wn = w_r1[n * wr1_sn] * static_cast<KK_FLOAT>(Y00);
     for (int lane = 0; lane < V; lane++) {
       const KK_FLOAT DGR = dgr_b[n * V + lane] * wn;
       fx[lane] += DGR * rx[lane];
@@ -126,8 +126,8 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
       for (int lane = 0; lane < V; lane++) { plm[lane] = Y00; dplm[lane] = 0.0; }
     } else if (l == 1) {
       for (int lane = 0; lane < V; lane++) {
-        plm[lane] = Y00 * sq3 * rz[lane];
-        dplm[lane] = Y00 * sq3;
+        plm[lane] = static_cast<KK_FLOAT>(Y00 * sq3) * rz[lane];
+        dplm[lane] = static_cast<KK_FLOAT>(Y00 * sq3);
       }
     } else {
       const KK_FLOAT al = alm[idx_sph], bl = blm[idx_sph];
@@ -173,7 +173,7 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
     plm1[lane] = plm2[lane] = dplm1[lane] = dplm2[lane] = 0.0;
   for (int l = 1; l <= lmax; l++) {
     if (l == 1) {
-      for (int lane = 0; lane < V; lane++) { plm[lane] = -sq3o2 * Y00; dplm[lane] = 0.0; }
+      for (int lane = 0; lane < V; lane++) { plm[lane] = static_cast<KK_FLOAT>(-sq3o2 * Y00); dplm[lane] = 0.0; }
     } else if (l == 2) {
       const KK_FLOAT d2 = dl[l];
       for (int lane = 0; lane < V; lane++) {
@@ -213,8 +213,8 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
     const KK_FLOAT *dfr_l = dfr_b + l * nradmax * V;
     const KK_FLOAT *w_l = w + 2 * (idx_sph * w_ss);
     for (int n = 0; n < nradmax; n++) {
-      const KK_FLOAT wre = 2.0 * w_l[2 * (n * w_sn)];
-      const KK_FLOAT wim = 2.0 * w_l[2 * (n * w_sn) + 1];
+      const KK_FLOAT wre = static_cast<KK_FLOAT>(2.0) * w_l[2 * (n * w_sn)];
+      const KK_FLOAT wim = static_cast<KK_FLOAT>(2.0) * w_l[2 * (n * w_sn) + 1];
       for (int lane = 0; lane < V; lane++) {
         const KK_FLOAT R_over_r = fr_l[n * V + lane] * rinv[lane];
         const KK_FLOAT DR = dfr_l[n * V + lane];
@@ -242,7 +242,7 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
   // m > 1
   for (int lane = 0; lane < V; lane++)
     plm1[lane] = plm2[lane] = dplm1[lane] = dplm2[lane] = 0.0;
-  KK_FLOAT plm_mm1_mm1 = -sq3o2 * Y00;
+  KK_FLOAT plm_mm1_mm1 = static_cast<KK_FLOAT>(-sq3o2 * Y00);
   KK_FLOAT phasem_re[V], phasem_im[V];
   for (int lane = 0; lane < V; lane++) {
     phasem_re[lane] = rx[lane];
@@ -304,8 +304,8 @@ void pace_batched_derivative(const int lmax, const int nradmax, const int nradba
       const KK_FLOAT *dfr_l = dfr_b + l * nradmax * V;
       const KK_FLOAT *w_l = w + 2 * (idx_sph * w_ss);
       for (int n = 0; n < nradmax; n++) {
-        const KK_FLOAT wre = 2.0 * w_l[2 * (n * w_sn)];
-        const KK_FLOAT wim = 2.0 * w_l[2 * (n * w_sn) + 1];
+        const KK_FLOAT wre = static_cast<KK_FLOAT>(2.0) * w_l[2 * (n * w_sn)];
+        const KK_FLOAT wim = static_cast<KK_FLOAT>(2.0) * w_l[2 * (n * w_sn) + 1];
         for (int lane = 0; lane < V; lane++) {
           const KK_FLOAT R_over_r = fr_l[n * V + lane] * rinv[lane];
           const KK_FLOAT DR = dfr_l[n * V + lane];
@@ -508,10 +508,10 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
   auto h_npoti = Kokkos::create_mirror_view(d_npoti);
 
   for (int n = 0; n < nelements; n++) {
-    h_rho_core_cutoff[n] = basis_set->map_embedding_specifications.at(n).rho_core_cutoff;
-    h_drho_core_cutoff[n] = basis_set->map_embedding_specifications.at(n).drho_core_cutoff;
+    h_rho_core_cutoff[n] = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).rho_core_cutoff);
+    h_drho_core_cutoff[n] = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).drho_core_cutoff);
 
-    h_E0vals(n) = basis_set->E0vals(n);
+    h_E0vals(n) = static_cast<KK_FLOAT>(basis_set->E0vals(n));
 
     h_ndensity(n) = basis_set->map_embedding_specifications.at(n).ndensity;
 
@@ -537,8 +537,8 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
   for (int n = 0; n < nelements; n++) {
     const int ndensity = basis_set->map_embedding_specifications.at(n).ndensity;
     for (int p = 0; p < ndensity; p++) {
-      h_wpre(n, p) = basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 0);
-      h_mexp(n, p) = basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 1);
+      h_wpre(n, p) = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 0));
+      h_mexp(n, p) = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 1));
     }
   }
 
@@ -553,8 +553,8 @@ void PairPACEKokkos<DeviceType>::copy_pertype()
 
   for (int mu_i = 0; mu_i < nelements; ++mu_i) {
     for (int mu_j = 0; mu_j < nelements; ++mu_j) {
-      h_cut_in(mu_i,mu_j) = basis_set->map_bond_specifications.at({mu_i,mu_j}).rcut_in;
-      h_dcut_in(mu_i,mu_j) = basis_set->map_bond_specifications.at({mu_i,mu_j}).dcut_in;
+      h_cut_in(mu_i,mu_j) = static_cast<KK_FLOAT>(basis_set->map_bond_specifications.at({mu_i,mu_j}).rcut_in);
+      h_dcut_in(mu_i,mu_j) = static_cast<KK_FLOAT>(basis_set->map_bond_specifications.at({mu_i,mu_j}).dcut_in);
     }
   }
   Kokkos::deep_copy(d_cut_in, h_cut_in);
@@ -682,7 +682,7 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
       h_ns(mu, idx_func, 0) = func->ns[0];
 
       for (int p = 0; p < ndensity; ++p)
-        h_ctildes(mu, idx_ms_combs, p) = func->ctildes[p];
+        h_ctildes(mu, idx_ms_combs, p) = static_cast<KK_FLOAT>(func->ctildes[p]);
 
       h_idx_funcs(mu, idx_ms_combs) = idx_func;
       idx_ms_combs++;
@@ -711,7 +711,7 @@ void PairPACEKokkos<DeviceType>::copy_tilde()
 
         for (int p = 0; p < ndensity; ++p) {
           // real-part only multiplication
-          h_ctildes(mu, idx_ms_combs, p) = func->ctildes[ms_ind * ndensity + p];
+          h_ctildes(mu, idx_ms_combs, p) = static_cast<KK_FLOAT>(func->ctildes[ms_ind * ndensity + p]);
         }
 
         h_idx_funcs(mu, idx_ms_combs) = idx_func_through;
@@ -911,10 +911,10 @@ double PairPACEKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairPACE::init_one(i,j);
 
-  k_scale.view_host()(i,j) = k_scale.view_host()(j,i) = scale[i][j];
+  k_scale.view_host()(i,j) = k_scale.view_host()(j,i) = static_cast<KK_FLOAT>(scale[i][j]);
   k_scale.modify_host();
 
-  k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutone*cutone;
+  k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = static_cast<KK_FLOAT>(cutone*cutone);
   k_cutsq.modify_host();
 
   return cutone;
@@ -1104,7 +1104,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     Kokkos::deep_copy(A_rank1, 0.0);
     Kokkos::deep_copy(rhos, 0.0);
     Kokkos::deep_copy(rho_core, 0.0);
-    Kokkos::deep_copy(d_d_min, PairPACE::aceimpl->basis_set->cutoffmax);
+    Kokkos::deep_copy(d_d_min, static_cast<KK_FLOAT>(PairPACE::aceimpl->basis_set->cutoffmax));
     Kokkos::deep_copy(d_jj_min, -1);
     Kokkos::deep_copy(d_corerep, 0.0);
 
@@ -1221,7 +1221,7 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
       // element-wise rather than memcpy: the mirror is KK_FLOAT, which is
       // float in single/mixed precision builds, while corerep_factor is double
       for (int i = 0; i < chunk_size; i++)
-        corerep_factor[chunk_offset+i] = h_corerep(i);
+        corerep_factor[chunk_offset+i] = static_cast<double>(h_corerep(i));
     }
 
     chunk_offset += chunk_size;
@@ -1230,14 +1230,14 @@ void PairPACEKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (need_dup)
     Kokkos::Experimental::contribute(f, dup_f);
 
-  if (eflag_global) eng_vdwl += ev.evdwl;
+  if (eflag_global) eng_vdwl += static_cast<double>(ev.evdwl);
   if (vflag_global) {
-    virial[0] += ev.v[0];
-    virial[1] += ev.v[1];
-    virial[2] += ev.v[2];
-    virial[3] += ev.v[3];
-    virial[4] += ev.v[4];
-    virial[5] += ev.v[5];
+    virial[0] += static_cast<double>(ev.v[0]);
+    virial[1] += static_cast<double>(ev.v[1]);
+    virial[2] += static_cast<double>(ev.v[2]);
+    virial[3] += static_cast<double>(ev.v[3]);
+    virial[4] += static_cast<double>(ev.v[4]);
+    virial[5] += static_cast<double>(ev.v[5]);
   }
 
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
@@ -1328,7 +1328,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeNeigh,const typen
       const KK_FLOAT delz = ztmp - x(j,2);
       const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       const KK_FLOAT r = sqrt(rsq);
-      const KK_FLOAT rinv = 1.0/r;
+      const KK_FLOAT rinv = static_cast<KK_FLOAT>(1.0)/r;
       const int mu_j = d_map(type(j));
       d_mu(ii,offset) = mu_j;
       d_rnorms(ii,offset) = r;
@@ -1345,7 +1345,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeNeigh,const typen
     if (ncount > 0) {
       using minloc_value_type=Kokkos::MinLoc<KK_FLOAT,int>::value_type;
       minloc_value_type djjmin;
-      djjmin.val=1e20;
+      djjmin.val=static_cast<KK_FLOAT>(1e20);
       djjmin.loc=-1;
       Kokkos::MinLoc<KK_FLOAT,int> reducer_scalar(djjmin);
       // loop over ncount (actual neighbours withing cutoff) rather than jnum (total number of neigh in cutoff+skin)
@@ -1364,7 +1364,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeNeigh,const typen
       d_d_min(ii) = djjmin.val;
       d_jj_min(ii) = djjmin.loc;// d_jj_min should be NOT in 0..jnum range, but in 0..d_ncount(<=jnum)
     } else {
-      d_d_min(ii) = 1e20;
+      d_d_min(ii) = static_cast<KK_FLOAT>(1e20);
       d_jj_min(ii) = -1;
     }
   }
@@ -1578,9 +1578,9 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
   // rank = 1
   for (int n = 0; n < nradbase; n++) {
     if constexpr (NEED_ATOMICS)
-      Kokkos::atomic_add(&A_rank1_i[n * ar1_sn], gr_ij[n * gr_sn] * Y00);
+      Kokkos::atomic_add(&A_rank1_i[n * ar1_sn], gr_ij[n * gr_sn] * static_cast<KK_FLOAT>(Y00));
     else
-      A_rank1_i[n * ar1_sn] += gr_ij[n * gr_sn] * Y00;
+      A_rank1_i[n * ar1_sn] += gr_ij[n * gr_sn] * static_cast<KK_FLOAT>(Y00);
   }
 
   // rank > 1
@@ -1619,7 +1619,7 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
       plm_idx = Y00; //= 1;
     } else if (l == 1) {
       // l=1, m=0
-      plm_idx = Y00 * sq3 * rz;
+      plm_idx = static_cast<KK_FLOAT>(Y00 * sq3) * rz;
     } else {
       // l>=2, m=0
       plm_idx = alm(idx_sph) * (rz * plm_idx1 + blm(idx_sph) * plm_idx2);
@@ -1656,7 +1656,7 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
 
     if (l == 1) {
       // l=1, m=1
-      plm_idx = -sq3o2 * Y00;
+      plm_idx = static_cast<KK_FLOAT>(-sq3o2 * Y00);
     } else if (l == 2) {
       const KK_FLOAT t = dl(l) * plm_idx1;
       plm_idx = t * rz;
@@ -1688,7 +1688,7 @@ void PairPACEKokkos<DeviceType>::compute_ai_one(const int ii, const int jj) cons
 
   plm_idx = plm_idx1 = plm_idx2 = 0.0;
 
-  KK_FLOAT plm_mm1_mm1 = -sq3o2 * Y00; // (1, 1)
+  KK_FLOAT plm_mm1_mm1 = static_cast<KK_FLOAT>(-sq3o2 * Y00); // (1, 1)
 
   // m > 1
   phasem = phase;
@@ -1979,7 +1979,7 @@ void PairPACEKokkos<DeviceType>::rho_fs_weights_batch_cpu(const int ii0, const i
       for (int k = 0; k < nb; k++) {
         KK_FLOAT theta = 0.0;
         for (int p = 0; p < ndl; ++p) theta += bl[k].dF[p] * ct[p];
-        theta *= 0.5;
+        theta *= static_cast<KK_FLOAT>(0.5);
         const complex *dB = bl[k].dB + dbo;
         complex *w = bl[k].w;
         for (int t = 0; t < 3; ++t) {
@@ -2288,7 +2288,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeWeights, const in
     for (int p = 0; p < ndensity; ++p)
       theta += dF_drho(ii, p) * d_ctildes(mu_i, idx_ms_combs, p);
 
-    theta *= 0.5; // 0.5 factor due to possible KK_FLOAT counting ???
+    theta *= static_cast<KK_FLOAT>(0.5); // 0.5 factor due to possible KK_FLOAT counting ???
     for (int t = 0; t < rank; ++t) {
       const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
       const int factor = (m_t % 2 == 0 ? 1 : -1);
@@ -2351,7 +2351,7 @@ void PairPACEKokkos<DeviceType>::compute_weights_one_cpu(const BasisPtrs &b,
   for (int p = 0; p < nd; ++p)
     theta += b.dF[p] * ct[p];
 
-  theta *= 0.5; // 0.5 factor due to possible double counting
+  theta *= static_cast<KK_FLOAT>(0.5); // 0.5 factor due to possible double counting
   for (int t = 0; t < rank; ++t) {
     // both (l,m) and (l,-m) are updated unconditionally; entries outside the
     // packed triangle land in the trash row
@@ -2384,7 +2384,7 @@ void PairPACEKokkos<DeviceType>::compute_derivative_radial(const int ii, const i
     // Read and test the (idx_sph, n) weight first: skipping the radial reads
     // and complex products for zero weights avoids needless memory traffic.
     complex w = complex(weights_re(ii, mu_j, idx_sph, n), weights_im(ii, mu_j, idx_sph, n));
-    if (w.re == 0.0 && w.im == 0.0) continue;
+    if ((w.re == static_cast<KK_FLOAT>(0.0)) && (w.im == static_cast<KK_FLOAT>(0.0))) continue;
     // wscale folds in the factor-of-2 that accounts for the -m cases (m > 0)
     w.re *= wscale;
     w.im *= wscale;
@@ -2398,9 +2398,9 @@ void PairPACEKokkos<DeviceType>::compute_derivative_radial(const int ii, const i
     grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
     grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
     // real-part multiplication only
-    f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-    f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-    f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+    f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+    f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+    f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
   }
 }
 
@@ -2494,7 +2494,7 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeDerivativeCPU, co
         rxb[nb] = d_rhats(ii, jj, 0);
         ryb[nb] = d_rhats(ii, jj, 1);
         rzb[nb] = d_rhats(ii, jj, 2);
-        rinvb[nb] = 1.0 / d_rnorms(ii, jj);
+        rinvb[nb] = static_cast<KK_FLOAT>(1.0) / d_rnorms(ii, jj);
         jidx[nb] = jj;
         const KK_FLOAT *frp = &fr(ii, jj, 0);
         const KK_FLOAT *dfrp = &dfr(ii, jj, 0);
@@ -2597,18 +2597,18 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
   r_hat[1] = d_rhats(ii, jj, 1);
   r_hat[2] = d_rhats(ii, jj, 2);
   const KK_FLOAT r = d_rnorms(ii, jj);
-  const KK_FLOAT rinv = 1.0/r;
+  const KK_FLOAT rinv = static_cast<KK_FLOAT>(1.0)/r;
 
   KK_ACC_FLOAT f_ji[3];
   f_ji[0] = f_ji[1] = f_ji[2] = 0;
 
   // for rank = 1
   for (int n = 0; n < nradbase; ++n) {
-    KK_FLOAT DGR = dgr_ij[n * dgr_sn] * Y00;
+    KK_FLOAT DGR = dgr_ij[n * dgr_sn] * static_cast<KK_FLOAT>(Y00);
     DGR *= wr1_i[n * wr1_sn];
-    f_ji[0] += DGR * r_hat[0];
-    f_ji[1] += DGR * r_hat[1];
-    f_ji[2] += DGR * r_hat[2];
+    f_ji[0] += static_cast<KK_ACC_FLOAT>(DGR * r_hat[0]);
+    f_ji[1] += static_cast<KK_ACC_FLOAT>(DGR * r_hat[1]);
+    f_ji[2] += static_cast<KK_ACC_FLOAT>(DGR * r_hat[2]);
   }
 
   // for rank > 1
@@ -2650,8 +2650,8 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
       dplm_idx = 0.0;
     } else if (l == 1) {
       // l=1, m=0
-      plm_idx = Y00 * sq3 * rz;
-      dplm_idx = Y00 * sq3;
+      plm_idx = static_cast<KK_FLOAT>(Y00 * sq3) * rz;
+      dplm_idx = static_cast<KK_FLOAT>(Y00 * sq3);
     } else {
       // l>=2, m=0
       plm_idx = alm(idx_sph) * (rz * plm_idx1 + blm(idx_sph) * plm_idx2);
@@ -2684,9 +2684,9 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
         grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
         grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
         grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
-        f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-        f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-        f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+        f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+        f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+        f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
       }
     } else {
       compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 1.0, f_ji);
@@ -2710,7 +2710,7 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
 
     if (l == 1) {
       // l=1, m=1
-      plm_idx = -sq3o2 * Y00;
+      plm_idx = static_cast<KK_FLOAT>(-sq3o2 * Y00);
       dplm_idx = 0.0;
     } else if (l == 2) {
       const KK_FLOAT t = dl(l) * plm_idx1;
@@ -2749,15 +2749,15 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
         const KK_FLOAT DR = dr_nl[n * fr_sn];
         const complex Y_DR = ylm * DR;
         complex w = w_nl[n * w_sn];
-          w.re *= 2.0;
-          w.im *= 2.0;
+          w.re *= static_cast<KK_FLOAT>(2.0);
+          w.im *= static_cast<KK_FLOAT>(2.0);
         complex grad_phi_nlm[3];
         grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
         grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
         grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
-        f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-        f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-        f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+        f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+        f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+        f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
       }
     } else {
       compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 2.0, f_ji);
@@ -2775,7 +2775,7 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
   plm_idx = plm_idx1 = plm_idx2 = 0.0;
   dplm_idx = dplm_idx1 = dplm_idx2 = 0.0;
 
-  KK_FLOAT plm_mm1_mm1 = -sq3o2 * Y00; // (1, 1)
+  KK_FLOAT plm_mm1_mm1 = static_cast<KK_FLOAT>(-sq3o2 * Y00); // (1, 1)
 
   // m > 1
   phasem = phase;
@@ -2828,15 +2828,15 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
           const KK_FLOAT DR = dr_nl[n * fr_sn];
           const complex Y_DR = ylm * DR;
           complex w = w_nl[n * w_sn];
-            w.re *= 2.0;
-            w.im *= 2.0;
+            w.re *= static_cast<KK_FLOAT>(2.0);
+            w.im *= static_cast<KK_FLOAT>(2.0);
           complex grad_phi_nlm[3];
           grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
           grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
           grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
-          f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-          f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-          f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+          f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+          f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+          f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
         }
       } else {
         compute_derivative_radial(ii, jj, mu_j, idx_sph, l, ylm, dylm, rinv, r_hat, 2.0, f_ji);
@@ -2854,9 +2854,9 @@ void PairPACEKokkos<DeviceType>::compute_derivative_one(const int ii, const int 
 
   // hard-core repulsion
   const KK_FLOAT fpair = dF_drho_core(ii) * dcr(ii,jj);
-  f_ij(ii, jj, 0) = scale * f_ji[0] + fpair * r_hat[0];
-  f_ij(ii, jj, 1) = scale * f_ji[1] + fpair * r_hat[1];
-  f_ij(ii, jj, 2) = scale * f_ji[2] + fpair * r_hat[2];
+  f_ij(ii, jj, 0) = scale * static_cast<KK_FLOAT>(f_ji[0]) + fpair * r_hat[0];
+  f_ij(ii, jj, 1) = scale * static_cast<KK_FLOAT>(f_ji[1]) + fpair * r_hat[1];
+  f_ij(ii, jj, 2) = scale * static_cast<KK_FLOAT>(f_ji[2]) + fpair * r_hat[2];
 
   if (is_zbl) {
     if (jj==d_jj_min(ii)) {
@@ -2903,12 +2903,12 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
     const KK_FLOAT fpairy = f_ij(ii, jj, 1);
     const KK_FLOAT fpairz = f_ij(ii, jj, 2);
 
-    fitmp[0] += fpairx;
-    fitmp[1] += fpairy;
-    fitmp[2] += fpairz;
-    a_f(j,0) -= fpairx;
-    a_f(j,1) -= fpairy;
-    a_f(j,2) -= fpairz;
+    fitmp[0] += static_cast<KK_ACC_FLOAT>(fpairx);
+    fitmp[1] += static_cast<KK_ACC_FLOAT>(fpairy);
+    fitmp[2] += static_cast<KK_ACC_FLOAT>(fpairz);
+    a_f(j,0) -= static_cast<KK_ACC_FLOAT>(fpairx);
+    a_f(j,1) -= static_cast<KK_ACC_FLOAT>(fpairy);
+    a_f(j,2) -= static_cast<KK_ACC_FLOAT>(fpairz);
 
     // tally per-atom virial contribution
     if (EVFLAG && vflag_either)
@@ -2923,8 +2923,8 @@ void PairPACEKokkos<DeviceType>::operator() (TagPairPACEComputeForce<NEIGHFLAG,E
   if (EVFLAG && eflag_either) {
     const KK_FLOAT evdwl = scale*e_atom(ii);
     //ev_tally_full(i, 2.0 * evdwl, 0.0, 0.0, 0.0, 0.0, 0.0);
-    if (eflag_global) ev.evdwl += evdwl;
-    if (eflag_atom) d_eatom[i] += evdwl;
+    if (eflag_global) ev.evdwl += static_cast<KK_ACC_FLOAT>(evdwl);
+    if (eflag_atom) d_eatom[i] += static_cast<KK_ACC_FLOAT>(evdwl);
   }
 }
 
@@ -2960,27 +2960,27 @@ void PairPACEKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const int &i, const i
   const KK_FLOAT v5 = dely*fz;
 
   if (vflag_global) {
-    ev.v[0] += v0;
-    ev.v[1] += v1;
-    ev.v[2] += v2;
-    ev.v[3] += v3;
-    ev.v[4] += v4;
-    ev.v[5] += v5;
+    ev.v[0] += static_cast<KK_ACC_FLOAT>(v0);
+    ev.v[1] += static_cast<KK_ACC_FLOAT>(v1);
+    ev.v[2] += static_cast<KK_ACC_FLOAT>(v2);
+    ev.v[3] += static_cast<KK_ACC_FLOAT>(v3);
+    ev.v[4] += static_cast<KK_ACC_FLOAT>(v4);
+    ev.v[5] += static_cast<KK_ACC_FLOAT>(v5);
   }
 
   if (vflag_atom) {
-    a_vatom(i,0) += 0.5*v0;
-    a_vatom(i,1) += 0.5*v1;
-    a_vatom(i,2) += 0.5*v2;
-    a_vatom(i,3) += 0.5*v3;
-    a_vatom(i,4) += 0.5*v4;
-    a_vatom(i,5) += 0.5*v5;
-    a_vatom(j,0) += 0.5*v0;
-    a_vatom(j,1) += 0.5*v1;
-    a_vatom(j,2) += 0.5*v2;
-    a_vatom(j,3) += 0.5*v3;
-    a_vatom(j,4) += 0.5*v4;
-    a_vatom(j,5) += 0.5*v5;
+    a_vatom(i,0) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v0);
+    a_vatom(i,1) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v1);
+    a_vatom(i,2) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v2);
+    a_vatom(i,3) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v3);
+    a_vatom(i,4) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v4);
+    a_vatom(i,5) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v5);
+    a_vatom(j,0) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v0);
+    a_vatom(j,1) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v1);
+    a_vatom(j,2) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v2);
+    a_vatom(j,3) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v3);
+    a_vatom(j,4) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v4);
+    a_vatom(j,5) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v5);
   }
 }
 
@@ -3016,16 +3016,16 @@ void PairPACEKokkos<DeviceType>::pre_compute_harmonics(int lmax)
         a = sqrt((double(l1)) / (double(lsq - msq)));
         b = -sqrt((double(l2 - msq)) / (double(4 * l2 - 1)));
       }
-      h_alm(idx_sph) = a;
-      h_blm(idx_sph) = b;
+      h_alm(idx_sph) = static_cast<KK_FLOAT>(a);
+      h_blm(idx_sph) = static_cast<KK_FLOAT>(b);
       idx_sph++;
     }
   }
   idx_sph_max = idx_sph;
 
   for (int l = 1; l <= lmax; l++) {
-    h_cl(l) = -sqrt(1.0 + 0.5 / (double(l)));
-    h_dl(l) = sqrt(double(2 * (l - 1) + 3));
+    h_cl(l) = static_cast<KK_FLOAT>(-sqrt(1.0 + 0.5 / (double(l))));
+    h_dl(l) = static_cast<KK_FLOAT>(sqrt(double(2 * (l - 1) + 3)));
   }
 
   Kokkos::deep_copy(d_idx_sph, h_idx_sph);
@@ -3067,8 +3067,8 @@ void PairPACEKokkos<DeviceType>::cutoff_func_poly(const KK_FLOAT r, const KK_FLO
     const KK_FLOAT x3 = x2 * x;
     const KK_FLOAT x4 = x2 * x2;
     const KK_FLOAT x5 = x4 * x;
-    fc = 0.5 + 7.5 / 2. * (x / 4. - x3 / 6. + x5 / 20.);
-    dfc = -7.5 / delta_in * (0.25 - x2 / 2.0 + x4 / 4.);
+    fc = static_cast<KK_FLOAT>(0.5) + static_cast<KK_FLOAT>(7.5 / 2.) * (x / static_cast<KK_FLOAT>(4.) - x3 / static_cast<KK_FLOAT>(6.) + x5 / static_cast<KK_FLOAT>(20.));
+    dfc = static_cast<KK_FLOAT>(-7.5) / delta_in * (static_cast<KK_FLOAT>(0.25) - x2 / static_cast<KK_FLOAT>(2.0) + x4 / static_cast<KK_FLOAT>(4.));
   }
 }
 
@@ -3080,9 +3080,9 @@ KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::Fexp(const KK_FLOAT x, const KK_FLOAT m, KK_FLOAT &F, KK_FLOAT &DF) const
 {
   const KK_FLOAT w = 1.e6;
-  const KK_FLOAT eps = 1e-10;
+  const KK_FLOAT eps = static_cast<KK_FLOAT>(1e-10);
 
-  const KK_FLOAT lambda = pow(1.0 / w, m - 1.0);
+  const KK_FLOAT lambda = pow(static_cast<KK_FLOAT>(1.0) / w, m - static_cast<KK_FLOAT>(1.0));
   if (abs(x) > eps) {
     KK_FLOAT g;
     const KK_FLOAT a = abs(x);
@@ -3090,15 +3090,15 @@ void PairPACEKokkos<DeviceType>::Fexp(const KK_FLOAT x, const KK_FLOAT m, KK_FLO
     const KK_FLOAT wa = w * a;
     const KK_FLOAT w3x3 = wa * wa * wa; // cube (avoid pow())
     const KK_FLOAT sign_factor = (signbit(x) ? -1 : 1);
-    if (w3x3 > 30.0)
+    if (w3x3 > static_cast<KK_FLOAT>(30.0))
         g = 0.0;
     else
         g = exp(-w3x3);
 
-    const KK_FLOAT omg = 1.0 - g;
+    const KK_FLOAT omg = static_cast<KK_FLOAT>(1.0) - g;
     F = sign_factor * (omg * am + lambda * g * a);
-    const KK_FLOAT dg = -3.0 * w * w * w * a * a * g;
-    DF = m * pow(a, m - 1.0) * omg - am * dg + lambda * dg * a + lambda * g;
+    const KK_FLOAT dg = static_cast<KK_FLOAT>(-3.0) * w * w * w * a * a * g;
+    DF = m * pow(a, m - static_cast<KK_FLOAT>(1.0)) * omg - am * dg + lambda * dg * a + lambda * g;
   } else {
     F = lambda * x;
     DF = lambda;
@@ -3112,20 +3112,20 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEKokkos<DeviceType>::FexpShiftedScaled(const KK_FLOAT rho, const KK_FLOAT mexp, KK_FLOAT &F, KK_FLOAT &DF) const
 {
-  const KK_FLOAT eps = 1e-10;
+  const KK_FLOAT eps = static_cast<KK_FLOAT>(1e-10);
 
-  if (abs(mexp - 1.0) < eps) {
+  if (abs(mexp - static_cast<KK_FLOAT>(1.0)) < eps) {
     F = rho;
     DF = 1;
   } else {
     const KK_FLOAT a = abs(rho);
     const KK_FLOAT exprho = exp(-a);
-    const KK_FLOAT nx = 1. / mexp;
-    const KK_FLOAT xoff = pow(nx, (nx / (1.0 - nx))) * exprho;
-    const KK_FLOAT yoff = pow(nx, (1 / (1.0 - nx))) * exprho;
+    const KK_FLOAT nx = static_cast<KK_FLOAT>(1.) / mexp;
+    const KK_FLOAT xoff = pow(nx, (nx / (static_cast<KK_FLOAT>(1.0) - nx))) * exprho;
+    const KK_FLOAT yoff = pow(nx, (1 / (static_cast<KK_FLOAT>(1.0) - nx))) * exprho;
     const KK_FLOAT sign_factor = (signbit(rho) ? -1 : 1);
     F = sign_factor * (pow(xoff + a, mexp) - yoff);
-    DF = yoff + mexp * (-xoff + 1.0) * pow(xoff + a, mexp - 1.);
+    DF = yoff + mexp * (-xoff + static_cast<KK_FLOAT>(1.0)) * pow(xoff + a, mexp - static_cast<KK_FLOAT>(1.));
   }
 }
 
@@ -3204,12 +3204,12 @@ void PairPACEKokkos<DeviceType>::evaluate_splines(const int ii, const int jj, KK
 template<class DeviceType>
 typename PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos &
 PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::operator=(const SplineInterpolator &spline) {
-    cutoff = spline.cutoff;
-    deltaSplineBins = spline.deltaSplineBins;
+    cutoff = static_cast<KK_FLOAT>(spline.cutoff);
+    deltaSplineBins = static_cast<KK_FLOAT>(spline.deltaSplineBins);
     ntot = spline.ntot;
     nlut = spline.nlut;
-    invrscalelookup = spline.invrscalelookup;
-    rscalelookup = spline.rscalelookup;
+    invrscalelookup = static_cast<KK_FLOAT>(spline.invrscalelookup);
+    rscalelookup = static_cast<KK_FLOAT>(spline.rscalelookup);
     num_of_functions = spline.num_of_functions;
 
     lookupTable = t_ace_3d4_lr("lookupTable", ntot+1, num_of_functions);
@@ -3217,7 +3217,7 @@ PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::operator=(const SplineInte
     for (int i = 0; i < ntot+1; i++)
         for (int j = 0; j < num_of_functions; j++)
             for (int k = 0; k < 4; k++)
-                h_lookupTable(i, j, k) = spline.lookupTable(i, j, k);
+                h_lookupTable(i, j, k) = static_cast<KK_FLOAT>(spline.lookupTable(i, j, k));
     Kokkos::deep_copy(lookupTable, h_lookupTable);
 
     return *this;
@@ -3244,7 +3244,7 @@ void PairPACEKokkos<DeviceType>::SplineInterpolatorKokkos::calcSplines(const int
       // Horner: three FMAs for the value, two for the derivative
       d_values(ii, jj, func_id) = c[0] + wl * (c[1] + wl * (c[2] + wl * c[3]));
       d_derivatives(ii, jj, func_id) =
-          (c[1] + wl * (2.0 * c[2] + wl * (3.0 * c[3]))) * rscalelookup;
+          (c[1] + wl * (static_cast<KK_FLOAT>(2.0) * c[2] + wl * (static_cast<KK_FLOAT>(3.0) * c[3]))) * rscalelookup;
     }
   } else { // fill with zeroes
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
@@ -3358,9 +3358,9 @@ double PairPACEKokkos<DeviceType>::memory_usage()
   if (k_splines_gk.view_host().data()) {
     for (int i = 0; i < nelements; i++) {
       for (int j = 0; j < nelements; j++) {
-        bytes += k_splines_gk.view_host()(i, j).memory_usage();
-        bytes += k_splines_rnl.view_host()(i, j).memory_usage();
-        bytes += k_splines_hc.view_host()(i, j).memory_usage();
+        bytes += static_cast<double>(k_splines_gk.view_host()(i, j).memory_usage());
+        bytes += static_cast<double>(k_splines_rnl.view_host()(i, j).memory_usage());
+        bytes += static_cast<double>(k_splines_hc.view_host()(i, j).memory_usage());
       }
     }
   }

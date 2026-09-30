@@ -192,10 +192,10 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_pertype()
   auto h_npoti = Kokkos::create_mirror_view(d_npoti);
 
   for (int n = 0; n < nelements; n++) {
-    h_rho_core_cutoff[n] = basis_set->map_embedding_specifications.at(n).rho_core_cutoff;
-    h_drho_core_cutoff[n] = basis_set->map_embedding_specifications.at(n).drho_core_cutoff;
+    h_rho_core_cutoff[n] = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).rho_core_cutoff);
+    h_drho_core_cutoff[n] = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).drho_core_cutoff);
 
-    h_E0vals(n) = basis_set->E0vals(n);
+    h_E0vals(n) = static_cast<KK_FLOAT>(basis_set->E0vals(n));
 
     h_ndensity(n) = basis_set->map_embedding_specifications.at(n).ndensity;
 
@@ -221,8 +221,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_pertype()
   for (int n = 0; n < nelements; n++) {
     const int ndensity = basis_set->map_embedding_specifications.at(n).ndensity;
     for (int p = 0; p < ndensity; p++) {
-      h_wpre(n, p) = basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 0);
-      h_mexp(n, p) = basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 1);
+      h_wpre(n, p) = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 0));
+      h_mexp(n, p) = static_cast<KK_FLOAT>(basis_set->map_embedding_specifications.at(n).FS_parameters.at(p * 2 + 1));
     }
   }
 
@@ -237,8 +237,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_pertype()
 
   for (int mu_i = 0; mu_i < nelements; ++mu_i) {
     for (int mu_j = 0; mu_j < nelements; ++mu_j) {
-      h_cut_in(mu_i,mu_j) = basis_set->map_bond_specifications.at({mu_i,mu_j}).rcut_in;
-      h_dcut_in(mu_i,mu_j) = basis_set->map_bond_specifications.at({mu_i,mu_j}).dcut_in;
+      h_cut_in(mu_i,mu_j) = static_cast<KK_FLOAT>(basis_set->map_bond_specifications.at({mu_i,mu_j}).rcut_in);
+      h_dcut_in(mu_i,mu_j) = static_cast<KK_FLOAT>(basis_set->map_bond_specifications.at({mu_i,mu_j}).dcut_in);
     }
   }
   Kokkos::deep_copy(d_cut_in, h_cut_in);
@@ -375,9 +375,9 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_tilde()
       h_ns(mu, idx_func, 0) = func->ns[0];
 
       for (int p = 0; p < ndensity; ++p)
-        h_coeffs(mu, idx_func, p) = func->coeff[p];
+        h_coeffs(mu, idx_func, p) = static_cast<KK_FLOAT>(func->coeff[p]);
 
-      h_gen_cgs(mu, idx_ms_combs) = func->gen_cgs[0];
+      h_gen_cgs(mu, idx_ms_combs) = static_cast<KK_FLOAT>(func->gen_cgs[0]);
 
       h_idx_funcs(mu, idx_ms_combs) = idx_func;
       idx_ms_combs++;
@@ -399,7 +399,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_tilde()
       }
 
       for (int p = 0; p < ndensity; ++p)
-        h_coeffs(mu, idx_func_through, p) = func->coeff[p];
+        h_coeffs(mu, idx_func_through, p) = static_cast<KK_FLOAT>(func->coeff[p]);
 
       // loop over {ms} combinations in sum
       for (int ms_ind = 0; ms_ind < func->num_ms_combs; ++ms_ind) {
@@ -407,7 +407,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_tilde()
         for (int t = 0; t < rank; t++)
           h_ms_combs(mu, idx_ms_combs, t) = ms[t];
 
-        h_gen_cgs(mu, idx_ms_combs) = func->gen_cgs[ms_ind];
+        h_gen_cgs(mu, idx_ms_combs) = static_cast<KK_FLOAT>(func->gen_cgs[ms_ind]);
 
         h_idx_funcs(mu, idx_ms_combs) = idx_func_through;
         idx_ms_combs++;
@@ -418,7 +418,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::copy_tilde()
     const auto &A_as_inv = b_evaluator->A_active_set_inv.at(mu);
     for (int i = 0; i < total_basis_size_rank1 + total_basis_size; i++)
       for (int j = 0; j < total_basis_size_rank1 + total_basis_size; j++){
-        h_ASI(mu,i,j) = A_as_inv(j,i); // transpose back for better performance on GPU
+        h_ASI(mu,i,j) = static_cast<KK_FLOAT>(A_as_inv(j,i)); // transpose back for better performance on GPU
     }
   }
 
@@ -495,10 +495,10 @@ double PairPACEExtrapolationKokkos<DeviceType>::init_one(int i, int j)
 {
   double cutone = PairPACEExtrapolation::init_one(i,j);
 
-  k_scale.view_host()(i,j) = k_scale.view_host()(j,i) = scale[i][j];
+  k_scale.view_host()(i,j) = k_scale.view_host()(j,i) = static_cast<KK_FLOAT>(scale[i][j]);
   k_scale.modify_host();
 
-  k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = cutone*cutone;
+  k_cutsq.view_host()(i,j) = k_cutsq.view_host()(j,i) = static_cast<KK_FLOAT>(cutone*cutone);
   k_cutsq.modify_host();
 
   return cutone;
@@ -693,7 +693,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::compute(int eflag_in, int vflag_in
     Kokkos::deep_copy(A_rank1, 0.0);
     Kokkos::deep_copy(rhos, 0.0);
     Kokkos::deep_copy(rho_core, 0.0);
-    Kokkos::deep_copy(d_d_min, PairPACEExtrapolation::aceimpl->basis_set->cutoffmax);
+    Kokkos::deep_copy(d_d_min, static_cast<KK_FLOAT>(PairPACEExtrapolation::aceimpl->basis_set->cutoffmax));
     Kokkos::deep_copy(d_jj_min, -1);
     Kokkos::deep_copy(projections, 0.0);
     Kokkos::deep_copy(d_gamma, 0.0);
@@ -811,14 +811,14 @@ void PairPACEExtrapolationKokkos<DeviceType>::compute(int eflag_in, int vflag_in
         // element-wise rather than memcpy: the mirrors are KK_FLOAT, which is
         // float in single/mixed precision builds, while the targets are double
         for (int i = 0; i < chunk_size; i++)
-          extrapolation_grade_gamma[chunk_offset+i] = h_gamma(i);
+          extrapolation_grade_gamma[chunk_offset+i] = static_cast<double>(h_gamma(i));
     }
 
     if (flag_corerep_factor) {
       h_corerep = Kokkos::create_mirror_view(d_corerep);
       Kokkos::deep_copy(h_corerep,d_corerep);
       for (int i = 0; i < chunk_size; i++)
-        corerep_factor[chunk_offset+i] = h_corerep(i);
+        corerep_factor[chunk_offset+i] = static_cast<double>(h_corerep(i));
     }
 
     chunk_offset += chunk_size;
@@ -827,14 +827,14 @@ void PairPACEExtrapolationKokkos<DeviceType>::compute(int eflag_in, int vflag_in
   if (need_dup)
     Kokkos::Experimental::contribute(f, dup_f);
 
-  if (eflag_global) eng_vdwl += ev.evdwl;
+  if (eflag_global) eng_vdwl += static_cast<double>(ev.evdwl);
   if (vflag_global) {
-    virial[0] += ev.v[0];
-    virial[1] += ev.v[1];
-    virial[2] += ev.v[2];
-    virial[3] += ev.v[3];
-    virial[4] += ev.v[4];
-    virial[5] += ev.v[5];
+    virial[0] += static_cast<double>(ev.v[0]);
+    virial[1] += static_cast<double>(ev.v[1]);
+    virial[2] += static_cast<double>(ev.v[2]);
+    virial[3] += static_cast<double>(ev.v[3]);
+    virial[4] += static_cast<double>(ev.v[4]);
+    virial[5] += static_cast<double>(ev.v[5]);
   }
 
   if (vflag_fdotr) pair_virial_fdotr_compute(this);
@@ -925,7 +925,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
       const KK_FLOAT delz = ztmp - x(j,2);
       const KK_FLOAT rsq = delx*delx + dely*dely + delz*delz;
       const KK_FLOAT r = sqrt(rsq);
-      const KK_FLOAT rinv = 1.0/r;
+      const KK_FLOAT rinv = static_cast<KK_FLOAT>(1.0)/r;
       const int mu_j = d_map(type(j));
       d_mu(ii,offset) = mu_j;
       d_rnorms(ii,offset) = r;
@@ -942,7 +942,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
     if (ncount > 0) {
       using minloc_value_type=Kokkos::MinLoc<KK_FLOAT,int>::value_type;
       minloc_value_type djjmin;
-      djjmin.val=1e20;
+      djjmin.val=static_cast<KK_FLOAT>(1e20);
       djjmin.loc=-1;
       Kokkos::MinLoc<KK_FLOAT,int> reducer_scalar(djjmin);
       // loop over ncount (actual neighbours withing cutoff) rather than jnum (total number of neigh in cutoff+skin)
@@ -961,7 +961,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeNeig
       d_d_min(ii) = djjmin.val;
       d_jj_min(ii) = djjmin.loc;// d_jj_min should be NOT in 0..jnum range, but in 0..d_ncount(<=jnum)
     } else {
-      d_d_min(ii) = 1e20;
+      d_d_min(ii) = static_cast<KK_FLOAT>(1e20);
       d_jj_min(ii) = -1;
     }
   }
@@ -1013,7 +1013,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeAi, 
 
   // rank = 1
   for (int n = 0; n < nradbase; n++)
-    Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * Y00);
+    Kokkos::atomic_add(&A_rank1(ii, mu_j, n), gr(ii, jj, n) * static_cast<KK_FLOAT>(Y00));
 
   // rank > 1
 
@@ -1051,7 +1051,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeAi, 
       plm_idx = Y00; //= 1;
     } else if (l == 1) {
       // l=1, m=0
-      plm_idx = Y00 * sq3 * rz;
+      plm_idx = static_cast<KK_FLOAT>(Y00 * sq3) * rz;
     } else {
       // l>=2, m=0
       plm_idx = alm(idx_sph) * (rz * plm_idx1 + blm(idx_sph) * plm_idx2);
@@ -1079,7 +1079,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeAi, 
 
     if (l == 1) {
       // l=1, m=1
-      plm_idx = -sq3o2 * Y00;
+      plm_idx = static_cast<KK_FLOAT>(-sq3o2 * Y00);
     } else if (l == 2) {
       const KK_FLOAT t = dl(l) * plm_idx1;
       plm_idx = t * rz;
@@ -1102,7 +1102,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeAi, 
 
   plm_idx = plm_idx1 = plm_idx2 = 0.0;
 
-  KK_FLOAT plm_mm1_mm1 = -sq3o2 * Y00; // (1, 1)
+  KK_FLOAT plm_mm1_mm1 = static_cast<KK_FLOAT>(-sq3o2 * Y00); // (1, 1)
 
   // m > 1
   phasem = phase;
@@ -1381,7 +1381,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeWeig
     for (int p = 0; p < ndensity; ++p)
       theta += dF_drho(ii, p) * d_coeffs(mu_i, idx_func, p) * d_gen_cgs(mu_i, idx_ms_combs);
 
-    theta *= 0.5; // 0.5 factor due to possible KK_FLOAT counting ???
+    theta *= static_cast<KK_FLOAT>(0.5); // 0.5 factor due to possible KK_FLOAT counting ???
     for (int t = 0; t < rank; ++t) {
       const int m_t = d_ms_combs(mu_i, idx_ms_combs, t);
       const int factor = (m_t % 2 == 0 ? 1 : -1);
@@ -1439,7 +1439,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
   r_hat[1] = d_rhats(ii, jj, 1);
   r_hat[2] = d_rhats(ii, jj, 2);
   const KK_FLOAT r = d_rnorms(ii, jj);
-  const KK_FLOAT rinv = 1.0/r;
+  const KK_FLOAT rinv = static_cast<KK_FLOAT>(1.0)/r;
 
   KK_ACC_FLOAT f_ji[3];
   f_ji[0] = f_ji[1] = f_ji[2] = 0;
@@ -1448,11 +1448,11 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
   for (int n = 0; n < nradbase; ++n) {
     if (weights_rank1(ii, mu_j, n) == 0) continue;
     KK_FLOAT &DG = dgr(ii, jj, n);
-    KK_FLOAT DGR = DG * Y00;
+    KK_FLOAT DGR = DG * static_cast<KK_FLOAT>(Y00);
     DGR *= weights_rank1(ii, mu_j, n);
-    f_ji[0] += DGR * r_hat[0];
-    f_ji[1] += DGR * r_hat[1];
-    f_ji[2] += DGR * r_hat[2];
+    f_ji[0] += static_cast<KK_ACC_FLOAT>(DGR * r_hat[0]);
+    f_ji[1] += static_cast<KK_ACC_FLOAT>(DGR * r_hat[1]);
+    f_ji[2] += static_cast<KK_ACC_FLOAT>(DGR * r_hat[2]);
   }
 
   // for rank > 1
@@ -1494,8 +1494,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
       dplm_idx = 0.0;
     } else if (l == 1) {
       // l=1, m=0
-      plm_idx = Y00 * sq3 * rz;
-      dplm_idx = Y00 * sq3;
+      plm_idx = static_cast<KK_FLOAT>(Y00 * sq3) * rz;
+      dplm_idx = static_cast<KK_FLOAT>(Y00 * sq3);
     } else {
       // l>=2, m=0
       plm_idx = alm(idx_sph) * (rz * plm_idx1 + blm(idx_sph) * plm_idx2);
@@ -1522,16 +1522,16 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
       const complex Y_DR = ylm * DR;
 
       complex w = weights(ii, mu_j, idx_sph, n);
-      if (w.re == 0.0 && w.im == 0.0) continue;
+      if (w.re == static_cast<KK_FLOAT>(0.0) && w.im == static_cast<KK_FLOAT>(0.0)) continue;
 
       complex grad_phi_nlm[3];
       grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
       grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
       grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
       // real-part multiplication only
-      f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-      f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-      f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+      f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+      f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+      f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
     }
 
     plm_idx2 = plm_idx1;
@@ -1552,7 +1552,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
 
     if (l == 1) {
       // l=1, m=1
-      plm_idx = -sq3o2 * Y00;
+      plm_idx = static_cast<KK_FLOAT>(-sq3o2 * Y00);
       dplm_idx = 0.0;
     } else if (l == 2) {
       const KK_FLOAT t = dl(l) * plm_idx1;
@@ -1589,19 +1589,19 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
       const complex Y_DR = ylm * DR;
 
       complex w = weights(ii, mu_j, idx_sph, n);
-      if (w.re == 0.0 && w.im == 0.0) continue;
+      if (w.re == static_cast<KK_FLOAT>(0.0) && w.im == static_cast<KK_FLOAT>(0.0)) continue;
       // counting for -m cases if m > 0
-      w.re *= 2.0;
-      w.im *= 2.0;
+      w.re *= static_cast<KK_FLOAT>(2.0);
+      w.im *= static_cast<KK_FLOAT>(2.0);
 
       complex grad_phi_nlm[3];
       grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
       grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
       grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
       // real-part multiplication only
-      f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-      f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-      f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+      f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+      f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+      f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
     }
 
     plm_idx2 = plm_idx1;
@@ -1616,7 +1616,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
   plm_idx = plm_idx1 = plm_idx2 = 0.0;
   dplm_idx = dplm_idx1 = dplm_idx2 = 0.0;
 
-  KK_FLOAT plm_mm1_mm1 = -sq3o2 * Y00; // (1, 1)
+  KK_FLOAT plm_mm1_mm1 = static_cast<KK_FLOAT>(-sq3o2 * Y00); // (1, 1)
 
   // m > 1
   phasem = phase;
@@ -1667,19 +1667,19 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
         const complex Y_DR = ylm * DR;
 
         complex w = weights(ii, mu_j, idx_sph, n);
-        if (w.re == 0.0 && w.im == 0.0) continue;
+        if (w.re == static_cast<KK_FLOAT>(0.0) && w.im == static_cast<KK_FLOAT>(0.0)) continue;
         // counting for -m cases if m > 0
-        w.re *= 2.0;
-        w.im *= 2.0;
+        w.re *= static_cast<KK_FLOAT>(2.0);
+        w.im *= static_cast<KK_FLOAT>(2.0);
 
         complex grad_phi_nlm[3];
         grad_phi_nlm[0] = Y_DR * r_hat[0] + dylm[0] * R_over_r;
         grad_phi_nlm[1] = Y_DR * r_hat[1] + dylm[1] * R_over_r;
         grad_phi_nlm[2] = Y_DR * r_hat[2] + dylm[2] * R_over_r;
         // real-part multiplication only
-        f_ji[0] += w.real_part_product(grad_phi_nlm[0]);
-        f_ji[1] += w.real_part_product(grad_phi_nlm[1]);
-        f_ji[2] += w.real_part_product(grad_phi_nlm[2]);
+        f_ji[0] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[0]));
+        f_ji[1] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[1]));
+        f_ji[2] += static_cast<KK_ACC_FLOAT>(w.real_part_product(grad_phi_nlm[2]));
       }
 
       plm_idx2 = plm_idx1;
@@ -1694,9 +1694,9 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeDeri
 
   // hard-core repulsion
   const KK_FLOAT fpair = dF_drho_core(ii) * dcr(ii,jj);
-  f_ij(ii, jj, 0) = scale * f_ji[0] + fpair * r_hat[0];
-  f_ij(ii, jj, 1) = scale * f_ji[1] + fpair * r_hat[1];
-  f_ij(ii, jj, 2) = scale * f_ji[2] + fpair * r_hat[2];
+  f_ij(ii, jj, 0) = scale * static_cast<KK_FLOAT>(f_ji[0]) + fpair * r_hat[0];
+  f_ij(ii, jj, 1) = scale * static_cast<KK_FLOAT>(f_ji[1]) + fpair * r_hat[1];
+  f_ij(ii, jj, 2) = scale * static_cast<KK_FLOAT>(f_ji[2]) + fpair * r_hat[2];
 
   if (is_zbl) {
     if (jj==d_jj_min(ii)) {
@@ -1743,12 +1743,12 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeForc
     const KK_FLOAT fpairy = f_ij(ii, jj, 1);
     const KK_FLOAT fpairz = f_ij(ii, jj, 2);
 
-    fitmp[0] += fpairx;
-    fitmp[1] += fpairy;
-    fitmp[2] += fpairz;
-    a_f(j,0) -= fpairx;
-    a_f(j,1) -= fpairy;
-    a_f(j,2) -= fpairz;
+    fitmp[0] += static_cast<KK_ACC_FLOAT>(fpairx);
+    fitmp[1] += static_cast<KK_ACC_FLOAT>(fpairy);
+    fitmp[2] += static_cast<KK_ACC_FLOAT>(fpairz);
+    a_f(j,0) -= static_cast<KK_ACC_FLOAT>(fpairx);
+    a_f(j,1) -= static_cast<KK_ACC_FLOAT>(fpairy);
+    a_f(j,2) -= static_cast<KK_ACC_FLOAT>(fpairz);
 
     // tally per-atom virial contribution
     if (EVFLAG && vflag_either)
@@ -1763,8 +1763,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::operator() (TagPairPACEComputeForc
   if (EVFLAG && eflag_either) {
     const KK_FLOAT evdwl = scale*e_atom(ii);
     //ev_tally_full(i, 2.0 * evdwl, 0.0, 0.0, 0.0, 0.0, 0.0);
-    if (eflag_global) ev.evdwl += evdwl;
-    if (eflag_atom) d_eatom[i] += evdwl;
+    if (eflag_global) ev.evdwl += static_cast<KK_ACC_FLOAT>(evdwl);
+    if (eflag_atom) d_eatom[i] += static_cast<KK_ACC_FLOAT>(evdwl);
   }
 }
 
@@ -1800,27 +1800,27 @@ void PairPACEExtrapolationKokkos<DeviceType>::v_tally_xyz(EV_FLOAT &ev, const in
   const KK_FLOAT v5 = dely*fz;
 
   if (vflag_global) {
-    ev.v[0] += v0;
-    ev.v[1] += v1;
-    ev.v[2] += v2;
-    ev.v[3] += v3;
-    ev.v[4] += v4;
-    ev.v[5] += v5;
+    ev.v[0] += static_cast<KK_ACC_FLOAT>(v0);
+    ev.v[1] += static_cast<KK_ACC_FLOAT>(v1);
+    ev.v[2] += static_cast<KK_ACC_FLOAT>(v2);
+    ev.v[3] += static_cast<KK_ACC_FLOAT>(v3);
+    ev.v[4] += static_cast<KK_ACC_FLOAT>(v4);
+    ev.v[5] += static_cast<KK_ACC_FLOAT>(v5);
   }
 
   if (vflag_atom) {
-    a_vatom(i,0) += 0.5*v0;
-    a_vatom(i,1) += 0.5*v1;
-    a_vatom(i,2) += 0.5*v2;
-    a_vatom(i,3) += 0.5*v3;
-    a_vatom(i,4) += 0.5*v4;
-    a_vatom(i,5) += 0.5*v5;
-    a_vatom(j,0) += 0.5*v0;
-    a_vatom(j,1) += 0.5*v1;
-    a_vatom(j,2) += 0.5*v2;
-    a_vatom(j,3) += 0.5*v3;
-    a_vatom(j,4) += 0.5*v4;
-    a_vatom(j,5) += 0.5*v5;
+    a_vatom(i,0) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v0);
+    a_vatom(i,1) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v1);
+    a_vatom(i,2) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v2);
+    a_vatom(i,3) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v3);
+    a_vatom(i,4) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v4);
+    a_vatom(i,5) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v5);
+    a_vatom(j,0) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v0);
+    a_vatom(j,1) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v1);
+    a_vatom(j,2) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v2);
+    a_vatom(j,3) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v3);
+    a_vatom(j,4) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v4);
+    a_vatom(j,5) += static_cast<KK_ACC_FLOAT>(static_cast<KK_FLOAT>(0.5)*v5);
   }
 }
 
@@ -1856,16 +1856,16 @@ void PairPACEExtrapolationKokkos<DeviceType>::pre_compute_harmonics(int lmax)
         a = sqrt((double(l1)) / (double(lsq - msq)));
         b = -sqrt((double(l2 - msq)) / (double(4 * l2 - 1)));
       }
-      h_alm(idx_sph) = a;
-      h_blm(idx_sph) = b;
+      h_alm(idx_sph) = static_cast<KK_FLOAT>(a);
+      h_blm(idx_sph) = static_cast<KK_FLOAT>(b);
       idx_sph++;
     }
   }
   idx_sph_max = idx_sph;
 
   for (int l = 1; l <= lmax; l++) {
-    h_cl(l) = -sqrt(1.0 + 0.5 / (double(l)));
-    h_dl(l) = sqrt(double(2 * (l - 1) + 3));
+    h_cl(l) = static_cast<KK_FLOAT>(-sqrt(1.0 + 0.5 / (double(l))));
+    h_dl(l) = static_cast<KK_FLOAT>(sqrt(double(2 * (l - 1) + 3)));
   }
 
   Kokkos::deep_copy(d_idx_sph, h_idx_sph);
@@ -1890,8 +1890,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::cutoff_func_poly(const KK_FLOAT r,
     dfc = 0;
   } else {
     KK_FLOAT x = 1 - 2 * (1 + (r - r_in) / delta_in);
-    fc = 0.5 + 7.5 / 2. * (x / 4. - pow(x, 3) / 6. + pow(x, 5) / 20.);
-    dfc = -7.5 / delta_in * (0.25 - x * x / 2.0 + pow(x, 4) / 4.);
+    fc = static_cast<KK_FLOAT>(0.5) + static_cast<KK_FLOAT>(7.5 / 2.) * (x / static_cast<KK_FLOAT>(4.) - Kokkos::pow(x, static_cast<KK_FLOAT>(3)) / static_cast<KK_FLOAT>(6.) + Kokkos::pow(x, static_cast<KK_FLOAT>(5)) / static_cast<KK_FLOAT>(20.));
+    dfc = static_cast<KK_FLOAT>(-7.5) / delta_in * (static_cast<KK_FLOAT>(0.25) - x * x / static_cast<KK_FLOAT>(2.0) + Kokkos::pow(x, static_cast<KK_FLOAT>(4)) / static_cast<KK_FLOAT>(4.));
   }
 }
 
@@ -1903,24 +1903,24 @@ KOKKOS_INLINE_FUNCTION
 void PairPACEExtrapolationKokkos<DeviceType>::Fexp(const KK_FLOAT x, const KK_FLOAT m, KK_FLOAT &F, KK_FLOAT &DF) const
 {
   const KK_FLOAT w = 1.e6;
-  const KK_FLOAT eps = 1e-10;
+  const KK_FLOAT eps = static_cast<KK_FLOAT>(1e-10);
 
-  const KK_FLOAT lambda = pow(1.0 / w, m - 1.0);
+  const KK_FLOAT lambda = Kokkos::pow(static_cast<KK_FLOAT>(1.0) / w, m - static_cast<KK_FLOAT>(1.0));
   if (abs(x) > eps) {
     KK_FLOAT g;
     const KK_FLOAT a = abs(x);
     const KK_FLOAT am = pow(a, m);
-    const KK_FLOAT w3x3 = pow(w * a, 3); //// use cube
+    const KK_FLOAT w3x3 = Kokkos::pow(w * a, static_cast<KK_FLOAT>(3)); //// use cube
     const KK_FLOAT sign_factor = (signbit(x) ? -1 : 1);
-    if (w3x3 > 30.0)
+    if (w3x3 > static_cast<KK_FLOAT>(30.0))
         g = 0.0;
     else
         g = exp(-w3x3);
 
-    const KK_FLOAT omg = 1.0 - g;
+    const KK_FLOAT omg = static_cast<KK_FLOAT>(1.0) - g;
     F = sign_factor * (omg * am + lambda * g * a);
-    const KK_FLOAT dg = -3.0 * w * w * w * a * a * g;
-    DF = m * pow(a, m - 1.0) * omg - am * dg + lambda * dg * a + lambda * g;
+    const KK_FLOAT dg = static_cast<KK_FLOAT>(-3.0) * w * w * w * a * a * g;
+    DF = m * Kokkos::pow(a, m - static_cast<KK_FLOAT>(1.0)) * omg - am * dg + lambda * dg * a + lambda * g;
   } else {
     F = lambda * x;
     DF = lambda;
@@ -1934,20 +1934,20 @@ template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairPACEExtrapolationKokkos<DeviceType>::FexpShiftedScaled(const KK_FLOAT rho, const KK_FLOAT mexp, KK_FLOAT &F, KK_FLOAT &DF) const
 {
-  const KK_FLOAT eps = 1e-10;
+  const KK_FLOAT eps = static_cast<KK_FLOAT>(1e-10);
 
-  if (abs(mexp - 1.0) < eps) {
+  if (abs(mexp - static_cast<KK_FLOAT>(1.0)) < eps) {
     F = rho;
     DF = 1;
   } else {
     const KK_FLOAT a = abs(rho);
     const KK_FLOAT exprho = exp(-a);
-    const KK_FLOAT nx = 1. / mexp;
-    const KK_FLOAT xoff = pow(nx, (nx / (1.0 - nx))) * exprho;
-    const KK_FLOAT yoff = pow(nx, (1 / (1.0 - nx))) * exprho;
+    const KK_FLOAT nx = static_cast<KK_FLOAT>(1.) / mexp;
+    const KK_FLOAT xoff = Kokkos::pow(nx, (nx / (static_cast<KK_FLOAT>(1.0) - nx))) * exprho;
+    const KK_FLOAT yoff = Kokkos::pow(nx, (1 / (static_cast<KK_FLOAT>(1.0) - nx))) * exprho;
     const KK_FLOAT sign_factor = (signbit(rho) ? -1 : 1);
     F = sign_factor * (pow(xoff + a, mexp) - yoff);
-    DF = yoff + mexp * (-xoff + 1.0) * pow(xoff + a, mexp - 1.);
+    DF = yoff + mexp * (-xoff + static_cast<KK_FLOAT>(1.0)) * Kokkos::pow(xoff + a, mexp - static_cast<KK_FLOAT>(1.));
   }
 }
 
@@ -2028,12 +2028,12 @@ void PairPACEExtrapolationKokkos<DeviceType>::evaluate_splines(const int ii, con
 template<class DeviceType>
 typename PairPACEExtrapolationKokkos<DeviceType>::SplineInterpolatorKokkos &
 PairPACEExtrapolationKokkos<DeviceType>::SplineInterpolatorKokkos::operator=(const SplineInterpolator &spline) {
-    cutoff = spline.cutoff;
-    deltaSplineBins = spline.deltaSplineBins;
+    cutoff = static_cast<KK_FLOAT>(spline.cutoff);
+    deltaSplineBins = static_cast<KK_FLOAT>(spline.deltaSplineBins);
     ntot = spline.ntot;
     nlut = spline.nlut;
-    invrscalelookup = spline.invrscalelookup;
-    rscalelookup = spline.rscalelookup;
+    invrscalelookup = static_cast<KK_FLOAT>(spline.invrscalelookup);
+    rscalelookup = static_cast<KK_FLOAT>(spline.rscalelookup);
     num_of_functions = spline.num_of_functions;
 
     lookupTable = t_ace_3d4_lr("lookupTable", ntot+1, num_of_functions);
@@ -2041,7 +2041,7 @@ PairPACEExtrapolationKokkos<DeviceType>::SplineInterpolatorKokkos::operator=(con
     for (int i = 0; i < ntot+1; i++)
         for (int j = 0; j < num_of_functions; j++)
             for (int k = 0; k < 4; k++)
-                h_lookupTable(i, j, k) = spline.lookupTable(i, j, k);
+                h_lookupTable(i, j, k) = static_cast<KK_FLOAT>(spline.lookupTable(i, j, k));
     Kokkos::deep_copy(lookupTable, h_lookupTable);
 
     return *this;
@@ -2064,8 +2064,8 @@ void PairPACEExtrapolationKokkos<DeviceType>::SplineInterpolatorKokkos::calcSpli
     wl = x - KK_FLOAT(nl);
     wl2 = wl * wl;
     wl3 = wl2 * wl;
-    w2l1 = 2.0 * wl;
-    w3l2 = 3.0 * wl2;
+    w2l1 = static_cast<KK_FLOAT>(2.0) * wl;
+    w3l2 = static_cast<KK_FLOAT>(3.0) * wl2;
     for (int func_id = 0; func_id < num_of_functions; func_id++) {
       for (int idx = 0; idx < 4; idx++)
         c[idx] = lookupTable(nl, func_id, idx);
@@ -2182,9 +2182,9 @@ double PairPACEExtrapolationKokkos<DeviceType>::memory_usage()
   if (k_splines_gk.view_host().data()) {
     for (int i = 0; i < nelements; i++) {
       for (int j = 0; j < nelements; j++) {
-        bytes += k_splines_gk.view_host()(i, j).memory_usage();
-        bytes += k_splines_rnl.view_host()(i, j).memory_usage();
-        bytes += k_splines_hc.view_host()(i, j).memory_usage();
+        bytes += static_cast<double>(k_splines_gk.view_host()(i, j).memory_usage());
+        bytes += static_cast<double>(k_splines_rnl.view_host()(i, j).memory_usage());
+        bytes += static_cast<double>(k_splines_hc.view_host()(i, j).memory_usage());
       }
     }
   }

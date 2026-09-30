@@ -41,9 +41,12 @@ struct ForceAdder {
 // NOLINTNEXTLINE
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& i) const {
-    a(i,0) += b(i,0);
-    a(i,1) += b(i,1);
-    a(i,2) += b(i,2);
+    // add in the common type of the two views and round once, like the implicit conversion did
+    using A = typename ViewA::non_const_value_type;
+    using T = std::common_type_t<A, typename ViewB::non_const_value_type>;
+    a(i,0) = static_cast<A>(static_cast<T>(a(i,0)) + static_cast<T>(b(i,0)));
+    a(i,1) = static_cast<A>(static_cast<T>(a(i,1)) + static_cast<T>(b(i,1)));
+    a(i,2) = static_cast<A>(static_cast<T>(a(i,2)) + static_cast<T>(b(i,2)));
   }
 };
 

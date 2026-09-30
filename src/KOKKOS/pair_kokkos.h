@@ -153,7 +153,7 @@ struct PairComputeFunctor  {
 
     for (int jj = 0; jj < jnum; jj++) {
       int j = neighbors_i(jj);
-      const KK_FLOAT factor_lj = c.special_lj[sbmask(j)];
+      const KK_FLOAT factor_lj = static_cast<KK_FLOAT>(c.special_lj[sbmask(j)]);
       j &= NEIGHMASK;
       const KK_FLOAT delx = xtmp - c.x(j,0);
       const KK_FLOAT dely = ytmp - c.x(j,1);

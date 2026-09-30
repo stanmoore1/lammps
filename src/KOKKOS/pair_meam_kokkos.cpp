@@ -331,7 +331,7 @@ double PairMEAMKokkos<DeviceType>::init_one(int i, int j)
     auto h_scale = Kokkos::create_mirror_view(d_scale);
     for (int ii = 1; ii <= n; ii++)
       for (int jj = 1; jj <= n; jj++)
-        h_scale(ii,jj) = scale[ii][jj];
+        h_scale(ii,jj) = static_cast<KK_FLOAT>(scale[ii][jj]);
     Kokkos::deep_copy(d_scale,h_scale);
   }
 
@@ -357,7 +357,7 @@ void PairMEAMKokkos<DeviceType>::reinit()
   auto h_scale = Kokkos::create_mirror_view(d_scale);
   for (int i = 1; i <= n; i++)
     for (int j = 1; j <= n; j++)
-      h_scale(i,j) = scale[i][j];
+      h_scale(i,j) = static_cast<KK_FLOAT>(scale[i][j]);
   Kokkos::deep_copy(d_scale,h_scale);
 
   // meam_inst_kk->d_scale is refreshed from this view on the next meam_dens_final()

@@ -472,7 +472,7 @@ compute_item(
 
   for (int jj = 0; jj < jnum; jj++) {
     auto j = jlist(jj);
-    const KK_FLOAT factor_lj = special_lj[sbmask(j)];
+    const KK_FLOAT factor_lj = static_cast<KK_FLOAT>(special_lj[sbmask(j)]);
     j &= NEIGHMASK;
 
     auto delx = xtmp - x(j,0);
