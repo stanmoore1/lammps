@@ -1,0 +1,41 @@
+# oxDNA3 single-point energy/force evaluation; vars: data, tag
+variable T    equal 0.1
+variable rhos equal 0.5
+variable potfile index oxdna3_lj.cgdna
+units lj
+dimension 3
+newton on
+boundary p p p
+atom_style hybrid bond ellipsoid oxdna
+atom_modify sort 0 1.0
+neighbor 1.0 bin
+neigh_modify every 1 delay 0 check yes
+read_data ${data}
+set atom * mass 3.1575
+bond_style hybrid oxdna3/fene
+bond_coeff * oxdna3/fene ${potfile}
+special_bonds lj 0 1 1
+pair_style hybrid/overlay oxdna3/excv oxdna3/stk oxdna3/hbond oxdna3/xstk oxdna3/coaxstk oxdna3/dh
+pair_coeff * * oxdna3/excv     ${potfile}
+pair_coeff * * oxdna3/stk      ${T} ${potfile}
+pair_coeff * * oxdna3/hbond    ${potfile}
+pair_coeff 1 4 oxdna3/hbond    ${potfile}
+pair_coeff 2 3 oxdna3/hbond    ${potfile}
+pair_coeff * * oxdna3/xstk     ${potfile}
+pair_coeff * * oxdna3/coaxstk  ${potfile}
+pair_coeff * * oxdna3/dh       ${T} ${rhos} ${potfile} half_charged_ends yes
+comm_modify cutoff 5.8
+fix 1 all nve/asphere
+timestep 1e-9
+compute ebond all bond
+compute eexcv all pair oxdna3/excv
+compute estk  all pair oxdna3/stk
+compute ehb   all pair oxdna3/hbond
+compute exstk all pair oxdna3/xstk
+compute ecx   all pair oxdna3/coaxstk
+compute edh   all pair oxdna3/dh
+compute epot  all pe
+thermo_style custom step c_epot c_ebond[1] c_eexcv c_estk c_ehb c_exstk c_ecx c_edh
+thermo_modify norm no
+run 0
+print "ENERGY $(atoms) $(c_ebond[1]:%.15g) $(c_eexcv:%.15g) $(c_estk:%.15g) $(c_ehb:%.15g) $(c_exstk:%.15g) $(c_ecx:%.15g) $(c_edh:%.15g) $(c_epot:%.15g)" file energy_${tag}.txt screen yes

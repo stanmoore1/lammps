@@ -1,0 +1,22 @@
+case                                 code             hb         xstk           cx   (N = nucleotides; total energies, oxDNA units)
+control_coax_nick_oxdna2             oxDNA    -11.549858    -4.164518    -0.068345
+control_coax_nick_oxdna2             lmp      -11.549858    -4.164516    -0.068346
+q1_hbond_smoothing_oxdna3            oxDNA     -7.785143    -5.294095     0.000000
+q1_hbond_smoothing_oxdna3            lmp       -7.798547    -5.294185     0.000000
+q1_hbond_smoothing_oxdna3            lmp_ts    -7.785143    -5.294167     0.000000
+q2_xstk_gate_hot_duplex_oxdna3       oxDNA     -3.501156    -2.976394     0.000000
+q2_xstk_gate_hot_duplex_oxdna3       lmp       -3.501164    -2.997959     0.000000
+q2_xstk_gate_hot_duplex_oxdna3       lmp_ts    -3.501156    -2.996496     0.000000
+q2_xstk_gate_nick_oxdna3             oxDNA     -8.774524    -6.186766     0.000000
+q2_xstk_gate_nick_oxdna3             lmp       -8.774525    -6.207985     0.000000
+q2_xstk_gate_nick_oxdna3             lmp_ts    -8.774525    -6.206307     0.000000
+q3_coax_bulge_oxdna2                 oxDNA     -7.989003    -2.635706    -0.888245
+q3_coax_bulge_oxdna2                 lmp       -7.989004    -2.635705     0.000000
+q3_coax_bulge_oxdna3                 oxDNA     -4.869957    -4.439568    -1.340742
+q3_coax_bulge_oxdna3                 lmp       -4.869959    -4.439568     0.000000
+q3_coax_bulge_oxdna3                 lmp_ts    -4.869958    -4.439568     0.000000
+q3_coax_flipped_base_oxdna3          oxDNA     -2.770753    -2.208422    -1.068439
+q3_coax_flipped_base_oxdna3          lmp       -2.770788    -2.209020     0.000000
+q3_coax_flipped_base_oxdna3          lmp_ts    -2.770753    -2.208422     0.000000
+q3_coax_mirror_lobe_ss_ends_oxdna2   oxDNA      0.000000     0.000000     0.000000
+q3_coax_mirror_lobe_ss_ends_oxdna2   lmp        0.000000     0.000000    -0.119516

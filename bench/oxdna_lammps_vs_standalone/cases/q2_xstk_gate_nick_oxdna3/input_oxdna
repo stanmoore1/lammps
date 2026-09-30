@@ -1,0 +1,39 @@
+backend = CPU
+sim_type = MD
+interaction_type = DNA3_nomesh
+T = 0.1
+salt_concentration = 0.5
+topology = top.top
+conf_file = conf.dat
+refresh_vel = 0
+restart_step_counter = 1
+time_scale = linear
+verlet_skin = 0.2
+use_average_seq = 0
+seq_dep_file = ../../../oxdna_kokkos/params/oxDNA3_sequence_dependent_parameters.txt
+dt = 1e-9
+steps = 1
+thermostat = no
+trajectory_file = /dev/null
+lastconf_file = /dev/null
+energy_file = /dev/null
+print_energy_every = 1
+print_conf_interval = 100000
+data_output_1 = {
+  name = pe_ox.dat
+  print_every = 1
+  only_last = 1
+  col_1 = {
+    type = potential_energy
+    split = true
+    precision = 15
+  }
+}
+data_output_2 = {
+  name = pairs_ox.dat
+  print_every = 1
+  only_last = 1
+  col_1 = {
+    type = pair_energy
+  }
+}

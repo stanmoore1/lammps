@@ -1,0 +1,48 @@
+== blunt16/oxDNA2 T=0.1  (199 frames)
+  hb    standalone <E> =  -10.1414 | lmp: <E>  -10.1414, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>  -10.1414, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -3.4343 | lmp: <E>   -3.4343, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -3.4343, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.1866 | lmp: <E>   -0.1866, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -0.1866, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== blunt16/oxDNA3 T=0.1  (199 frames)
+  hb    standalone <E> =   -7.9407 | lmp: <E>   -7.9413, <dE> -0.0005, max|dE| 0.0134, frames |dE|>1e-3: 28/199 | lmpT: <E>   -7.9407, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -7.9407, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -5.5924 | lmp: <E>   -5.5932, <dE> -0.0008, max|dE| 0.0116, frames |dE|>1e-3: 35/199 | lmpT: <E>   -5.5930, <dE> -0.0006, max|dE| 0.0105, frames |dE|>1e-3: 23/199 | lmpV: <E>   -5.5924, <dE> -0.0000, max|dE| 0.0001, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.2595 | lmp: <E>   -0.2595, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpT: <E>   -0.2595, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -0.2595, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== bulge12/oxDNA2 T=0.1  (199 frames)
+  hb    standalone <E> =   -7.6872 | lmp: <E>   -7.6872, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -7.6872, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -2.6521 | lmp: <E>   -2.6521, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -2.6521, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.3446 | lmp: <E>    0.0000, <dE> +0.3446, max|dE| 0.8882, frames |dE|>1e-3: 115/199 | lmpV: <E>   -0.3446, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== bulge12/oxDNA3 T=0.1  (199 frames)
+  hb    standalone <E> =   -5.7990 | lmp: <E>   -5.7996, <dE> -0.0005, max|dE| 0.0083, frames |dE|>1e-3: 34/199 | lmpT: <E>   -5.7990, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -5.7990, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -4.6879 | lmp: <E>   -4.6890, <dE> -0.0011, max|dE| 0.0126, frames |dE|>1e-3: 48/199 | lmpT: <E>   -4.6886, <dE> -0.0007, max|dE| 0.0117, frames |dE|>1e-3: 27/199 | lmpV: <E>   -4.6879, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.1104 | lmp: <E>    0.0000, <dE> +0.1104, max|dE| 1.3407, frames |dE|>1e-3: 34/199 | lmpT: <E>    0.0000, <dE> +0.1104, max|dE| 1.3407, frames |dE|>1e-3: 34/199 | lmpV: <E>   -0.1104, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== duplex12/oxDNA2 T=0.1  (199 frames)
+  hb    standalone <E> =   -7.7337 | lmp: <E>   -7.7337, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -7.7337, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -2.6370 | lmp: <E>   -2.6370, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -2.6370, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =    0.0000 | lmp: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== duplex12/oxDNA2 T=0.12  (199 frames)
+  hb    standalone <E> =   -6.1394 | lmp: <E>   -6.1394, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -6.1394, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -2.1482 | lmp: <E>   -2.1482, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -2.1482, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =    0.0000 | lmp: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== duplex12/oxDNA3 T=0.1  (199 frames)
+  hb    standalone <E> =   -6.2403 | lmp: <E>   -6.2406, <dE> -0.0004, max|dE| 0.0105, frames |dE|>1e-3: 21/199 | lmpT: <E>   -6.2403, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -6.2403, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -4.5110 | lmp: <E>   -4.5113, <dE> -0.0003, max|dE| 0.0076, frames |dE|>1e-3: 21/199 | lmpT: <E>   -4.5111, <dE> -0.0001, max|dE| 0.0067, frames |dE|>1e-3: 5/199 | lmpV: <E>   -4.5110, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.0000 | lmp: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpT: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -0.0000, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== duplex12/oxDNA3 T=0.12  (199 frames)
+  hb    standalone <E> =   -3.1316 | lmp: <E>   -3.1321, <dE> -0.0005, max|dE| 0.0111, frames |dE|>1e-3: 28/199 | lmpT: <E>   -3.1316, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -3.1316, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -2.4526 | lmp: <E>   -2.4534, <dE> -0.0008, max|dE| 0.0216, frames |dE|>1e-3: 28/199 | lmpT: <E>   -2.4532, <dE> -0.0005, max|dE| 0.0201, frames |dE|>1e-3: 14/199 | lmpV: <E>   -2.4526, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.0572 | lmp: <E>    0.0000, <dE> +0.0572, max|dE| 1.0684, frames |dE|>1e-3: 16/199 | lmpT: <E>    0.0000, <dE> +0.0572, max|dE| 1.0684, frames |dE|>1e-3: 16/199 | lmpV: <E>   -0.0572, <dE> +0.0000, max|dE| 0.0001, frames |dE|>1e-3: 0/199
+== nick16/oxDNA2 T=0.1  (199 frames)
+  hb    standalone <E> =  -10.4933 | lmp: <E>  -10.4933, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>  -10.4933, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -3.5998 | lmp: <E>   -3.5998, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -3.5998, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.5069 | lmp: <E>   -0.5069, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -0.5069, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== nick16/oxDNA3 T=0.1  (199 frames)
+  hb    standalone <E> =   -8.1172 | lmp: <E>   -8.1177, <dE> -0.0005, max|dE| 0.0133, frames |dE|>1e-3: 30/199 | lmpT: <E>   -8.1172, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -8.1172, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -5.9433 | lmp: <E>   -5.9441, <dE> -0.0008, max|dE| 0.0212, frames |dE|>1e-3: 30/199 | lmpT: <E>   -5.9438, <dE> -0.0005, max|dE| 0.0195, frames |dE|>1e-3: 15/199 | lmpV: <E>   -5.9433, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.2183 | lmp: <E>   -0.2183, <dE> +0.0000, max|dE| 0.0002, frames |dE|>1e-3: 0/199 | lmpT: <E>   -0.2183, <dE> +0.0000, max|dE| 0.0002, frames |dE|>1e-3: 0/199 | lmpV: <E>   -0.2183, <dE> +0.0000, max|dE| 0.0002, frames |dE|>1e-3: 0/199
+== ss20/oxDNA2 T=0.1  (199 frames)
+  hb    standalone <E> =    0.0000 | lmp: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>    0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -0.0011 | lmp: <E>   -0.0011, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -0.0011, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.0000 | lmp: <E>   -0.0006, <dE> -0.0006, max|dE| 0.1195, frames |dE|>1e-3: 2/199 | lmpV: <E>   -0.0000, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+== ss20/oxDNA3 T=0.1  (199 frames)
+  hb    standalone <E> =   -1.3084 | lmp: <E>   -1.3085, <dE> -0.0001, max|dE| 0.0036, frames |dE|>1e-3: 5/199 | lmpT: <E>   -1.3084, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199 | lmpV: <E>   -1.3084, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  xstk  standalone <E> =   -0.7861 | lmp: <E>   -0.7862, <dE> -0.0001, max|dE| 0.0025, frames |dE|>1e-3: 8/199 | lmpT: <E>   -0.7862, <dE> -0.0000, max|dE| 0.0022, frames |dE|>1e-3: 1/199 | lmpV: <E>   -0.7861, <dE> -0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199
+  cx    standalone <E> =   -0.0000 | lmp: <E>    0.0000, <dE> +0.0000, max|dE| 0.0014, frames |dE|>1e-3: 1/199 | lmpT: <E>    0.0000, <dE> +0.0000, max|dE| 0.0014, frames |dE|>1e-3: 1/199 | lmpV: <E>   -0.0000, <dE> +0.0000, max|dE| 0.0000, frames |dE|>1e-3: 0/199

@@ -1,0 +1,131 @@
+diff --git a/src/CG-DNA/pair_oxdna2_coaxstk.cpp b/src/CG-DNA/pair_oxdna2_coaxstk.cpp
+index 351c8bf859..b92cff9bf4 100644
+--- a/src/CG-DNA/pair_oxdna2_coaxstk.cpp
++++ b/src/CG-DNA/pair_oxdna2_coaxstk.cpp
+@@ -33,6 +33,11 @@
+ #include "potential_file_reader.h"
+ 
+ #include <cmath>
++#include <cstdlib>
++// VERIFICATION ONLY: env OXDNA_COAX_NOTERM / OXDNA_COAX_NOMIRROR switch off the terminal
++// criterion / the mirrored theta4 lobe (standalone-oxDNA rules)
++static const bool vf_noterm = std::getenv("OXDNA_COAX_NOTERM") != nullptr;
++static const double vf_mirror = std::getenv("OXDNA_COAX_NOMIRROR") ? 0.0 : 1.0;
+ #include <cstring>
+ #include <exception>
+ 
+@@ -215,7 +220,7 @@ void PairOxdna2Coaxstk::compute(int eflag, int vflag)
+     a = alist[ia];
+ 
+     // a has to be terminal nucleotide
+-    if(id3p[a]!=-1 && id5p[a]!=-1) continue;
++    if(!vf_noterm && id3p[a]!=-1 && id5p[a]!=-1) continue;
+ 
+     atype = type[a];
+ 
+@@ -239,7 +244,7 @@ void PairOxdna2Coaxstk::compute(int eflag, int vflag)
+       b &= NEIGHMASK;
+ 
+       // b has to be terminal nucleotide
+-      if(id3p[b]!=-1 && id5p[b]!=-1) continue;
++      if(!vf_noterm && id3p[b]!=-1 && id5p[b]!=-1) continue;
+ 
+       btype = type[b];
+ 
+@@ -307,7 +312,7 @@ void PairOxdna2Coaxstk::compute(int eflag, int vflag)
+ 
+       f4t4 = F4(theta4, a_cxst4[atype][btype], theta_cxst4_0[atype][btype],
+                 dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+-                dtheta_cxst4_c[atype][btype]) +
++                dtheta_cxst4_c[atype][btype]) + vf_mirror *
+              F4(theta4, a_cxst4[atype][btype], MY_PI - theta_cxst4_0[atype][btype],
+                 dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+                 dtheta_cxst4_c[atype][btype]);
+@@ -383,7 +388,7 @@ void PairOxdna2Coaxstk::compute(int eflag, int vflag)
+ 
+       df4t4 = (DF4(theta4, a_cxst4[atype][btype], theta_cxst4_0[atype][btype],
+                   dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+-                  dtheta_cxst4_c[atype][btype]) +
++                  dtheta_cxst4_c[atype][btype]) + vf_mirror *
+                DF4(theta4, a_cxst4[atype][btype], MY_PI - theta_cxst4_0[atype][btype],
+                   dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+                   dtheta_cxst4_c[atype][btype]))/sin(theta4);
+diff --git a/src/CG-DNA/pair_oxdna3_xstk.cpp b/src/CG-DNA/pair_oxdna3_xstk.cpp
+index 502c2245fb..bb5824b3a5 100644
+--- a/src/CG-DNA/pair_oxdna3_xstk.cpp
++++ b/src/CG-DNA/pair_oxdna3_xstk.cpp
+@@ -34,6 +34,7 @@
+ #include "math_special.h"
+ 
+ #include <cmath>
++#include <cstdlib>
+ #include <cstring>
+ #include <cassert>
+ 
+@@ -381,6 +382,14 @@ void PairOxdna3Xstk::compute(int eflag, int vflag)
+       f4t8_55 = F4(theta8, a_xst8[atype][btype], theta_xst8_0_55[atype][btype], dtheta_xst8_ast[atype][btype],
+                  b_xst8[atype][btype], dtheta_xst8_c[atype][btype]);
+ 
++      // VERIFICATION ONLY: standalone oxDNA sign gate (DNA3Interaction.cpp:1638)
++      if (std::getenv("OXDNA3_XSTK_GATE") &&
++          !((cost7 > 0.0 && cost8 > 0.0 && r_bsbs > cut_xst_lc_33[a3ptype][atype][btype][b3ptype] &&
++             r_bsbs < cut_xst_hc_33[a3ptype][atype][btype][b3ptype]) ||
++            (cost7 < 0.0 && cost8 < 0.0 && r_bsbs > cut_xst_lc_55[a5ptype][atype][btype][b5ptype] &&
++             r_bsbs < cut_xst_hc_55[a5ptype][atype][btype][b5ptype])))
++        factor_lj = 0.0;
++
+       evdwl = f4t1 * f4t2 * f4t3 * (f2_33 * f4t4_33 * f4t7_33 * f4t8_33 + f2_55 * f4t4_55 * f4t7_55 * f4t8_55) * factor_lj;
+ 
+       // early rejection criterium
+diff --git a/src/CG-DNA/pair_oxdna_coaxstk.cpp b/src/CG-DNA/pair_oxdna_coaxstk.cpp
+index 245671c796..aaabd62467 100644
+--- a/src/CG-DNA/pair_oxdna_coaxstk.cpp
++++ b/src/CG-DNA/pair_oxdna_coaxstk.cpp
+@@ -34,6 +34,11 @@
+ #include "potential_file_reader.h"
+ 
+ #include <cmath>
++#include <cstdlib>
++// VERIFICATION ONLY: env OXDNA_COAX_NOTERM / OXDNA_COAX_NOMIRROR switch off the terminal
++// criterion / the mirrored theta4 lobe (standalone-oxDNA rules)
++static const bool vf_noterm = std::getenv("OXDNA_COAX_NOTERM") != nullptr;
++static const double vf_mirror = std::getenv("OXDNA_COAX_NOMIRROR") ? 0.0 : 1.0;
+ #include <cstring>
+ #include <exception>
+ 
+@@ -204,7 +209,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
+     a = alist[ia];
+ 
+     // a has to be terminal nucleotide
+-    if(id3p[a]!=-1 && id5p[a]!=-1) continue;
++    if(!vf_noterm && id3p[a]!=-1 && id5p[a]!=-1) continue;
+ 
+     atype = type[a];
+ 
+@@ -228,7 +233,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
+       b &= NEIGHMASK;
+ 
+       // b has to be terminal nucleotide
+-      if(id3p[b]!=-1 && id5p[b]!=-1) continue;
++      if(!vf_noterm && id3p[b]!=-1 && id5p[b]!=-1) continue;
+ 
+       btype = type[b];
+ 
+@@ -298,7 +303,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
+ 
+       f4t4 = F4(theta4, a_cxst4[atype][btype], theta_cxst4_0[atype][btype],
+                 dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+-                dtheta_cxst4_c[atype][btype]) +
++                dtheta_cxst4_c[atype][btype]) + vf_mirror *
+              F4(theta4, a_cxst4[atype][btype], MY_PI - theta_cxst4_0[atype][btype],
+                 dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+                 dtheta_cxst4_c[atype][btype]);
+@@ -365,7 +370,7 @@ void PairOxdnaCoaxstk::compute(int eflag, int vflag)
+ 
+       df4t4 = (DF4(theta4, a_cxst4[atype][btype], theta_cxst4_0[atype][btype],
+                    dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+-                   dtheta_cxst4_c[atype][btype]) +
++                   dtheta_cxst4_c[atype][btype]) + vf_mirror *
+                DF4(theta4, a_cxst4[atype][btype], MY_PI - theta_cxst4_0[atype][btype],
+                    dtheta_cxst4_ast[atype][btype], b_cxst4[atype][btype],
+                    dtheta_cxst4_c[atype][btype]))/sin(theta4);

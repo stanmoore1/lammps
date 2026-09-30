@@ -1,0 +1,24 @@
+== q3_coax_bulge_oxdna2 (standalone pair_energy)
+  pair 5 (strand 1, nt 5) - 7 (strand 1, nt 7): E_cxst = -0.88824  -> NOT evaluated in LAMMPS (non-terminal nucleotide)
+  total standalone coaxial stacking -0.88824: terminal-terminal pairs +0.00000, pairs with a non-terminal nucleotide -0.88824
+== q3_coax_bulge_oxdna3 (standalone pair_energy)
+  pair 6 (strand 1, nt 6) - 8 (strand 1, nt 8): E_cxst = -0.55250  -> NOT evaluated in LAMMPS (non-terminal nucleotide)
+  pair 7 (strand 1, nt 7) - 9 (strand 1, nt 9): E_cxst = -0.78825  -> NOT evaluated in LAMMPS (non-terminal nucleotide)
+  total standalone coaxial stacking -1.34074: terminal-terminal pairs +0.00000, pairs with a non-terminal nucleotide -1.34074
+== q3_coax_flipped_base_oxdna3 (standalone pair_energy)
+  pair 6 (strand 1, nt 6) - 8 (strand 1, nt 8): E_cxst = -1.06844  -> NOT evaluated in LAMMPS (non-terminal nucleotide)
+  total standalone coaxial stacking -1.06844: terminal-terminal pairs +0.00000, pairs with a non-terminal nucleotide -1.06844
+== q3_coax_mirror_lobe_ss_ends_oxdna2 (standalone pair_energy)
+  total standalone coaxial stacking +0.00000: terminal-terminal pairs +0.00000, pairs with a non-terminal nucleotide +0.00000
+== control_coax_nick_oxdna2 (standalone pair_energy)
+  pair 7 (strand 1, nt 7, 5' end) - 8 (strand 2, nt 0, 3' end): E_cxst = -0.06835  -> evaluated in LAMMPS
+  total standalone coaxial stacking -0.06835: terminal-terminal pairs -0.06835, pairs with a non-terminal nucleotide +0.00000
+== q2_xstk_gate_hot_duplex_oxdna3
+E_xstk LAMMPS rule -2.996496   standalone rule -2.976394   difference -0.020102
+  pair ( 10, 13) cross strand: E = -0.01897 (3'3' -0.01897, 5'5' -0.00000), theta7 =  90.1 deg, theta8 =  69.7 deg, r = 0.581; standalone 0: mixed signs of cos7, cos8
+  pair (  6, 17) cross strand: E = -0.00113 (3'3' -0.00113, 5'5' -0.00000), theta7 =  79.0 deg, theta8 =  90.1 deg, r = 0.455; standalone 0: mixed signs of cos7, cos8
+== q2_xstk_gate_nick_oxdna3
+E_xstk LAMMPS rule -6.206307   standalone rule -6.186768   difference -0.019539
+  pair (  7, 24) cross strand: E = -0.01954 (3'3' -0.01954, 5'5' -0.00000), theta7 =  92.7 deg, theta8 =  71.9 deg, r = 0.578; standalone 0: mixed signs of cos7, cos8
+== q3_coax_flipped_base_oxdna3
+E_xstk LAMMPS rule -2.208422   standalone rule -2.208422   difference +0.000000

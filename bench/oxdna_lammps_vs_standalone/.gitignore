@@ -1,0 +1,6 @@
+cases/*/pe_ox.dat
+cases/*/pairs_ox.dat
+cases/*/energy_*.txt
+cases/*/log_*
+cases/*/oxdna3_lj*.cgdna
+md_work/
