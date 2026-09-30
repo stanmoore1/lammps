@@ -1517,31 +1517,33 @@ struct AtomVecKokkos_PackReverseSelfFused {
     if (j >= nlocal)
       j = _g2l(j-nlocal);
 
-    _f(j,0) += _f(i+_nfirst,0);
-    _f(j,1) += _f(i+_nfirst,1);
-    _f(j,2) += _f(i+_nfirst,2);
+    // all ghost images of an owned atom are reduced into it in one kernel,
+    // so different threads can add into the same atom j: use atomics
+
+    Kokkos::atomic_add(&_f(j,0),_f(i+_nfirst,0));
+    Kokkos::atomic_add(&_f(j,1),_f(i+_nfirst,1));
+    Kokkos::atomic_add(&_f(j,2),_f(i+_nfirst,2));
 
     if constexpr (!DEFAULT) {
 
       // DIPOLE package
 
       if (_datamask & TORQUE_MASK) {
-        _torque(j,0) += _torque(i+_nfirst,0);
-        _torque(j,1) += _torque(i+_nfirst,1);
-        _torque(j,2) += _torque(i+_nfirst,2);
+        Kokkos::atomic_add(&_torque(j,0),_torque(i+_nfirst,0));
+        Kokkos::atomic_add(&_torque(j,1),_torque(i+_nfirst,1));
+        Kokkos::atomic_add(&_torque(j,2),_torque(i+_nfirst,2));
       }
 
       // SPIN package
 
       if (_datamask & FM_MASK) {
-        _fm(j,0) += _fm(i+_nfirst,0);
-        _fm(j,1) += _fm(i+_nfirst,1);
-        _fm(j,2) += _fm(i+_nfirst,2);
-        _fm(j,3) += _fm(i+_nfirst,3);
+        Kokkos::atomic_add(&_fm(j,0),_fm(i+_nfirst,0));
+        Kokkos::atomic_add(&_fm(j,1),_fm(i+_nfirst,1));
+        Kokkos::atomic_add(&_fm(j,2),_fm(i+_nfirst,2));
 
-        _fm_long(j,0) += _fm_long(i+_nfirst,0);
-        _fm_long(j,1) += _fm_long(i+_nfirst,1);
-        _fm_long(j,2) += _fm_long(i+_nfirst,2);
+        Kokkos::atomic_add(&_fm_long(j,0),_fm_long(i+_nfirst,0));
+        Kokkos::atomic_add(&_fm_long(j,1),_fm_long(i+_nfirst,1));
+        Kokkos::atomic_add(&_fm_long(j,2),_fm_long(i+_nfirst,2));
       }
     }
   }
@@ -1695,7 +1697,7 @@ struct AtomVecKokkos_PackBorder {
       if (_datamask & CG_DNA_MASK) {
         _buf(i,m++) = d_ubuf(_id3p(j)).d;
         _buf(i,m++) = d_ubuf(_id5p(j)).d;
-        _buf(i,m++) = _qeff(j);
+        _buf(i,m++) = static_cast<double>(_qeff(j));
       }
     }
   }
@@ -1886,7 +1888,7 @@ struct AtomVecKokkos_UnpackBorder {
       if (_datamask & CG_DNA_MASK) {
         _id3p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
         _id5p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
-        _qeff(i+_first) = _buf(i,m++);
+        _qeff(i+_first) = static_cast<KK_FLOAT>(_buf(i,m++));
       }
     }
   }
@@ -2091,7 +2093,7 @@ struct AtomVecKokkos_PackBorderVel {
     if (_datamask & CG_DNA_MASK) {
       _buf(i,m++) = d_ubuf(_id3p(j)).d;
       _buf(i,m++) = d_ubuf(_id5p(j)).d;
-      _buf(i,m++) = _qeff(j);
+      _buf(i,m++) = static_cast<double>(_qeff(j));
     }
   }
 };
@@ -2312,7 +2314,7 @@ struct AtomVecKokkos_UnpackBorderVel {
       if (_datamask & CG_DNA_MASK) {
         _id3p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
         _id5p(i+_first) = (tagint) d_ubuf(_buf(i,m++)).i;
-        _qeff(i+_first) = _buf(i,m++);
+        _qeff(i+_first) = static_cast<KK_FLOAT>(_buf(i,m++));
       }
     }
   }
@@ -2596,7 +2598,7 @@ struct AtomVecKokkos_PackExchangeFunctor {
       if (_datamask & CG_DNA_MASK) {
         _buf(mysend,m++) = d_ubuf(_id3p(i)).d;
         _buf(mysend,m++) = d_ubuf(_id5p(i)).d;
-        _buf(mysend,m++) = _qeff(i);
+        _buf(mysend,m++) = static_cast<double>(_qeff(i));
       }
     }
 
@@ -3012,7 +3014,7 @@ struct AtomVecKokkos_UnpackExchangeFunctor {
         if (_datamask & CG_DNA_MASK) {
           _id3p(i) = (tagint) d_ubuf(_buf(myrecv,m++)).i;
           _id5p(i) = (tagint) d_ubuf(_buf(myrecv,m++)).i;
-          _qeff(i) = _buf(myrecv,m++);
+          _qeff(i) = static_cast<KK_FLOAT>(_buf(myrecv,m++));
         }
       }
     }
