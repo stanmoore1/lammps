@@ -1,5 +1,5 @@
 # oxDNA2 N512 benchmark — runnable by both oxdna_kokkos and the standalone oxDNA.
-# Run from this directory:  ../../build/oxdna_kokkos input
+# Run from this directory:  ../../build/oxdna_kokkos_lammps input
 interaction_type = DNA2
 salt_concentration = 1.0
 T = 20C

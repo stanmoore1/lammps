@@ -11,5 +11,5 @@ Verified against the standalone oxDNA (oxDNA2, T=20C, salt=1.0, average seq):
 
 Run:
 ```bash
-cd tests/N512 && ../../build/oxdna_kokkos input
+cd tests/N512 && ../../build/oxdna_kokkos_lammps input
 ```

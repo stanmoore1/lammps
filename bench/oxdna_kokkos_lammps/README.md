@@ -158,7 +158,7 @@ is taken from the bundled LAMMPS tree (`lib/kokkos`) by default, or any
 installed/standalone Kokkos via `-DKOKKOS_SOURCE_DIR=<path>` (or `find_package`).
 
 ```bash
-cd bench/oxdna_kokkos
+cd bench/oxdna_kokkos_lammps
 
 # CPU, single-threaded (debug / portable)
 cmake -B build -DKokkos_ENABLE_SERIAL=ON -DCMAKE_BUILD_TYPE=Release
@@ -175,9 +175,11 @@ cmake -B build -DKokkos_ENABLE_CUDA=ON -DKokkos_ARCH_AMPERE80=ON \
 cmake --build build -j
 ```
 
-Useful CMake options:
+The executable is `build/oxdna_kokkos_lammps`. Useful CMake options:
 
-- `-DOXDNA_SINGLE_PRECISION=ON` — use `float` instead of `double`.
+- `-DOXDNA_MIXED_PRECISION=ON` — compute in `float`, accumulate forces / torques /
+  energies in `double` (LAMMPS `SINGLE_DOUBLE`, `-DKOKKOS_PREC=MIXED`).
+- `-DOXDNA_SINGLE_PRECISION=ON` — `float` everywhere (LAMMPS `SINGLE_SINGLE`).
 - `-DOXDNA_BUILD_TESTS=ON` — also build the validation tools (`fd_test`, `xcheck`).
 
 ### Matching the reference GPU performance
@@ -212,7 +214,7 @@ the edge kernel.
 ## Running
 
 ```bash
-./build/oxdna_kokkos <input_file>
+./build/oxdna_kokkos_lammps <input_file>
 ```
 
 The program is driven by a **standalone-oxDNA-style input file** (`key = value`),
@@ -265,7 +267,7 @@ with position, `a1`, `a3`, and optionally velocity and angular momentum.
 Example (the bundled oxDNA2 cases each ship an `input` file):
 
 ```bash
-cd tests/N8 && ../../build/oxdna_kokkos input
+cd tests/N8 && ../../build/oxdna_kokkos_lammps input
 ```
 
 ### Energy output

@@ -13,7 +13,7 @@ oxDNA2, average sequence, `T = 20C` (= 0.097717 reduced), `salt_concentration = 
 
 ```bash
 # this directory ships an `input` file in standalone-oxDNA format
-cd tests/N8 && ../../build/oxdna_kokkos input
+cd tests/N8 && ../../build/oxdna_kokkos_lammps input
 ```
 
 ## Cross-check vs. standalone oxDNA
