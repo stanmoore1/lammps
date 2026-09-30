@@ -40,7 +40,7 @@ struct SimConfig {
     int         lammps_tables = -1;  // per-type coefficient tables (oxDNA1/2 kernels)
     int         lammps_ghosts = -1;  // ghost atoms + comm + LAMMPS neighbor build + Verlet sequence
     // physics-changing options, off by default:
-    bool        lammps_cutoff = false;  // list radius = LAMMPS cutforce (site cutoffs) + skin
+    bool        lammps_cutoff = false;  // lean mode: list radius = LAMMPS cutforce + skin (ghost mode: always)
     bool        lammps_integrator = false;  // fix nve/asphere/kk (Richardson; ghost mode only)
     double      lammps_mass  = 1.0;          // rmass for lammps_integrator
     double      lammps_shape = 1.5811388300841898;  // ellipsoid radii (sqrt(2.5): inertia 1 for mass 1)
@@ -129,7 +129,7 @@ public:
 
         // Force-field
         c_number cutsq_nb, screen_cutsq;
-        double screen_site_cut = 0, site_cut_max = 0;
+        LmpStyleCuts lcuts;   // LAMMPS pair style cutoffs (COM ranges)
         if (cfg_.model == 3) {
             DNA3Options o = dna3_options(cfg_);
             if (!o.average) std::cout << "oxDNA3: sequence-dependent parameters from " << o.seq_file << "\n";
@@ -138,8 +138,7 @@ public:
             dna3_ = make_dna3_model(o, cfg_.coaxstk_terminal);
             cutsq_nb     = dna3_.p.cutsq_nb;
             screen_cutsq = dna3_.p.screen_cutsq;
-            screen_site_cut = dna3_.p.screen_site_cut;
-            site_cut_max    = dna3_.p.site_cut_max;
+            lcuts        = dna3_.p.lmp;
         } else {
             par_ = (cfg_.model == 2) ? make_oxdna2_params(cfg_.T, cfg_.salt)
                                      : make_oxdna1_params(cfg_.T);
@@ -149,8 +148,7 @@ public:
             }
             cutsq_nb     = par_.cutsq_nb;
             screen_cutsq = par_.screen_cutsq;
-            screen_site_cut = par_.screen_site_cut;
-            site_cut_max    = par_.site_cut_max;
+            lcuts        = par_.lmp;
         }
 
         // Thermostat (optional)
@@ -164,24 +162,27 @@ public:
         if (cfg_.lammps_ghosts > 0 && cfg_.fuse_hbxstk)
             std::cerr << "Warning: fuse_hbond_xstk has no LAMMPS equivalent\n";
 
-        // Neighbor list radius (LAMMPS: cutneighmax = cutforce + skin, with
-        // skin = 2 * verlet_skin). Default: the COM range of every term plus
-        // 2 * verlet_skin (exact: no interaction can be missed between
-        // rebuilds). lammps_cutoff = 1: LAMMPS' cutforce, the largest SITE
-        // cutoff, which relies on the skin to cover the site offsets.
+        // Neighbor lists. LAMMPS (kk-fixes e1a8c85f05, e2f233566c): each pair
+        // style's cutoff is its COM range (site cutoff + site offsets,
+        // lmp_cuts.h), each sub-style's list is trimmed to its cutoff + skin
+        // (skin = 2 * verlet_skin), the master list has cutforce + skin. The
+        // ghost mode builds these lists (LammpsNeigh). The lean mode keeps one
+        // list: default radius the bench's exact COM range (or `cutoff` if
+        // larger) + 2 * verlet_skin; lammps_cutoff = 1: LAMMPS' cutforce +
+        // 2 * verlet_skin. The LAMMPS cutoffs are the bench's own exact ranges
+        // (computed from its tables and sites), so no option drops a pair.
         const double vs = static_cast<double>(cfg_.skin);
         double nl_cut = std::max(static_cast<double>(cfg_.cutoff), std::sqrt(static_cast<double>(cutsq_nb)));
-        if (cfg_.lammps_cutoff) nl_cut = site_cut_max;
+        if (cfg_.lammps_cutoff || ghosts) nl_cut = lcuts.cutforce();
         nl_.init(nl_cut, cfg_.skin, N_, box_);
         // COM screen cutoff for the hbond/xstk/coaxstk pair kernels, as LAMMPS
-        // fix OXDNA/NPAIR/kk (kk-fixes): the largest registered site cutoff
-        // (hbond, xstk incl. oxdna3/xstk, coaxstk) + 2 * max_site_offset()
-        // (0.43) + the full LAMMPS skin (= 2 * verlet_skin, the most two atoms
-        // can approach each other between rebuilds). This is never shorter
-        // than the exact range of the bench's physics (screen_cutsq) plus
-        // 2 * verlet_skin, so no interacting pair is dropped.
+        // fix OXDNA/NPAIR/kk: the largest cutoff registered by hbond, xstk (incl.
+        // oxdna3/xstk) and coaxstk (request_screen_cutoff(cutone), COM ranges
+        // since e1a8c85f05) + the full LAMMPS skin (= 2 * verlet_skin, the most
+        // two atoms can approach each other between rebuilds). Never shorter
+        // than the exact range of the bench's physics (screen_cutsq).
         {
-            const double cut = screen_site_cut + 2.0 * LAMMPS_MAX_SITE_OFFSET + 2.0 * vs;
+            const double cut = lcuts.screen() + 2.0 * vs;
             const double exact = std::sqrt(static_cast<double>(screen_cutsq)) + 2.0 * vs;
             nl_.screen_cutsq = static_cast<c_number>(std::max(cut, exact) * std::max(cut, exact));
         }
@@ -204,7 +205,7 @@ public:
                              "the Brownian thermostat still assume unit mass and inertia\n";
         }
         if (ghosts) {
-            lmp_.setup(dev_, nl_, box_, nl_cut + 2.0 * vs, 2.0 * vs, cfg_.comm_cutoff,
+            lmp_.setup(dev_, nl_, box_, lcuts, 2.0 * vs, cfg_.comm_cutoff,
                        cfg_.neigh_every, cfg_.neigh_check);
             lmp_.rebuild(dev_, nl_);
             LammpsFramework::force_clear(dev_);
@@ -234,9 +235,10 @@ public:
             std::printf("LAMMPS mode: tables %s, ghosts %s", dev_.use_tables ? "on" : "off", ghosts ? "on" : "off");
         if (ghosts)
             std::printf(" (%d ghost atoms, ghost cutoff %.4f, list radius %.4f, %d bins, %d stencil bins)",
-                        dev_.nghost, lmp_.comm.cutghost, lmp_.neigh.cutneighmax, lmp_.neigh.mbins,
-                        lmp_.neigh.nstencil);
+                        dev_.nghost, lmp_.comm.cutghost, lmp_.neigh.cutneighmax(), lmp_.neigh.master.mbins,
+                        lmp_.neigh.master.nstencil);
         if (cfg_.lammps_overhead) std::printf("\n");
+        if (ghosts) print_lists();
     }
 
     void run() {
@@ -369,8 +371,7 @@ private:
                 auto c0 = mark(); tm.comm += sec(b2, c0);
                 lmp_.neigh.ncalls++;
                 if (lmp_.check) lmp_.neigh.store_xhold(dev_);   // dist_check only
-                lmp_.neigh.bin_atoms(dev_);
-                lmp_.neigh.build_pairs(dev_, nl_);
+                lmp_.neigh.build(dev_, nl_);
                 lmp_.neigh.bond_all(dev_);
                 lmp_.ago = 0; lmp_.nbuilds++;
                 auto c1 = mark(); tm.neigh += sec(c0, c1);
@@ -415,6 +416,23 @@ private:
 
             if (want_e) emit(step + 1);
             auto h = mark(); tm.out += sec(g, h);
+        }
+    }
+
+    // the neighbor lists of the ghost mode, as LAMMPS' "Neighbor list info"
+    void print_lists() {
+        static const char *names[LammpsNeigh::NSTYLES] = {"excv", "stk", "hbond", "xstk", "coaxstk", "dh"};
+        auto &ng = lmp_.neigh;
+        std::printf("Neighbor lists (pair_modify neigh/trim): master list distance cutoff = %.7g\n",
+                    ng.cutneighmax());
+        for (int st = 0; st < LammpsNeigh::NSTYLES; st++) {
+            if (ng.cut_style[st] <= ng.skin) continue;   // style not present
+            const NeighborList &l = ng.list(st, nl_);
+            std::printf("  %-8s cutoff %.7g + skin %.7g: ", names[st], ng.cut_style[st] - ng.skin, ng.skin);
+            if (st == ng.master_style)      std::printf("half/bin/newton (master list; fix OXDNA/NPAIR copies it)");
+            else if (st == ng.custom_style) std::printf("half/bin/newton (own bins and stencil)");
+            else                            std::printf("trim from %s", names[ng.trim_parent[st]]);
+            std::printf(", %d pairs\n", LammpsNeigh::count_pairs(dev_, l));
         }
     }
 

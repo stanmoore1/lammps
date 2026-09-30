@@ -7,6 +7,7 @@
 // initialization from the fundamental input parameters.
 
 #include "../types.h"
+#include "lmp_cuts.h"
 #include <algorithm>
 #include <cmath>
 #include <Kokkos_Core.hpp>
@@ -169,22 +170,10 @@ struct DNAParams {
     // screen (excludes excv/dh): the largest of those site-site cutoffs plus
     // the two COM->site offsets of the model (0.4 + 0.4), i.e. the exact range.
     c_number screen_cutsq;
-    // Largest site-site cutoff of hbond / xstk / coaxstk (cut_*_hc). This is
-    // what the LAMMPS styles register with fix OXDNA/NPAIR
-    // (request_screen_cutoff(cutone)); the fix adds 2 * max_site_offset()
-    // (= 2 * 0.43, the largest site offset over all oxDNA/oxRNA models) and
-    // the full neighbor skin (see Simulation::init).
-    c_number screen_site_cut = 0;
-    // Largest site-site cutoff of all nonbonded styles: LAMMPS' cutforce
-    // (neighbor list radius = cutforce + skin, lammps_cutoff = 1).
-    c_number site_cut_max = 0;
+    // LAMMPS per-style COM cutoffs (init_one, lmp_cuts.h), set by
+    // set_lmp_cuts() at the end of make_oxdna1_params / make_oxdna2_params
+    LmpStyleCuts lmp;
 };
-
-// LAMMPS fix OXDNA/NPAIR/kk::max_site_offset(): largest distance of any
-// hydrogen-bonding or stacking site from the COM over all supported models
-// (oxDNA3 purine base site, 0.43). The screen adds twice this to the
-// registered site cutoffs.
-constexpr double LAMMPS_MAX_SITE_OFFSET = 0.43;
 
 // =====================================================================
 // LAMMPS per-type coefficient tables (lammps_tables). The LAMMPS KOKKOS
@@ -276,6 +265,25 @@ inline F5Params make_f5(double a, double x_ast) {
     f.b     = static_cast<c_number>(dU * dU / (4 * U));
     f.x_c   = static_cast<c_number>(-x_ast - 2 * U / dU);
     return f;
+}
+
+// LAMMPS init_one() cutoffs of the oxDNA1 / oxDNA2 styles (lmp_cuts.h): the
+// site cutoffs plus the site offsets of the model (backbone 0.4 for oxDNA1,
+// |(-0.34, 0.3408)| for the grooved oxDNA2 backbone; base 0.4; stacking 0.34).
+inline void set_lmp_cuts(DNAParams &p) {
+    const double bk  = std::sqrt(static_cast<double>(p.pb1) * static_cast<double>(p.pb1) +
+                                 static_cast<double>(p.pb2) * static_cast<double>(p.pb2));
+    const double bs  = static_cast<double>(p.d_cbs);
+    const double stk = static_cast<double>(p.d_cstk);
+    LmpStyleCuts &c = p.lmp;
+    c.excv = std::max({static_cast<double>(p.excv_bkbk.cut_c) + 2.0 * bk,
+                       static_cast<double>(p.excv_bkbs.cut_c) + bk + bs,
+                       static_cast<double>(p.excv_bsbs.cut_c) + 2.0 * bs});
+    c.stk     = static_cast<double>(p.stk_f1.cut_hc);
+    c.hbond   = static_cast<double>(p.hb_f1.cut_hc) + 2.0 * bs;
+    c.xstk    = static_cast<double>(p.xstk_f2.cut_hc) + 2.0 * bs;
+    c.coaxstk = static_cast<double>(p.cxst_f2.cut_hc) + 2.0 * stk;
+    c.dh      = p.dh_enabled ? static_cast<double>(p.dh_RC) + 2.0 * bk : 0.0;
 }
 
 // Initialize all parameters for oxDNA1 (standalone model.h, average-sequence).
@@ -434,11 +442,7 @@ inline DNAParams make_oxdna1_params(double T = 0.1, double hb_multi = 0.0) {
     screen_cut = std::max(screen_cut, static_cast<double>(p.xstk_f2.cut_hc) + 0.8);
     screen_cut = std::max(screen_cut, static_cast<double>(p.cxst_f2.cut_hc) + 0.8);
     p.screen_cutsq = static_cast<c_number>(screen_cut * screen_cut);
-    p.screen_site_cut = std::max({p.hb_f1.cut_hc, p.xstk_f2.cut_hc, p.cxst_f2.cut_hc});
-    // LAMMPS cutforce: max init_one() over the styles (site-site cutoffs):
-    // excv (cut_bkbk_c ...), stk (cut_st_hc), hbond, xstk, coaxstk
-    p.site_cut_max = std::max({p.screen_site_cut, p.stk_f1.cut_hc, p.excv_bkbk.cut_c,
-                               p.excv_bkbs.cut_c, p.excv_bsbs.cut_c});
+    set_lmp_cuts(p);
 
     return p;
 }
@@ -505,7 +509,7 @@ inline DNAParams make_oxdna2_params(double T = 0.1, double salt = 0.5,
     double max_cut  = std::sqrt(static_cast<double>(p.cutsq_nb));
     max_cut = std::max(max_cut, dh_cut);
     p.cutsq_nb = static_cast<c_number>(max_cut * max_cut);
-    p.site_cut_max = std::max(p.site_cut_max, static_cast<c_number>(RC));   // cut_dh_c
+    set_lmp_cuts(p);
 
     return p;
 }

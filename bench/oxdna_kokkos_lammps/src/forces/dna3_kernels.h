@@ -1,7 +1,7 @@
 #pragma once
 
 // LAMMPS-faithful oxDNA3 kernels (tracks the LAMMPS KOKKOS oxDNA3 styles on
-// LAMMPS branch origin/oxdna3KK-kk-fixes, 392462c401), with the physics of the
+// LAMMPS branch origin/oxdna3KK-kk-fixes, 2afff57fb5), with the physics of the
 // CUDA-faithful sibling bench/oxdna_kokkos (upstream oxDNA DNA3_nomesh):
 // every kernel calls the dna3:: physics functions of dna3_forces.h, so the
 // energies, forces and torques equal the sibling's to floating-point round-off.
@@ -527,9 +527,10 @@ inline void build_prime_xstk(const ParticleArrays &p, const NeighborList &nl) {
 // on energy steps).
 // -----------------------------------------------------------------------
 template <int MASK = dna3k::EXCV_BOTH>
-inline c_acc run_excv3(ParticleArrays &p, const NeighborList &nl, const DNA3Params &par,
+inline c_acc run_excv3(ParticleArrays &p, const NeighborList &nl_all, const DNA3Params &par,
                        const SimBox &box, bool want_energy, bool lammps_overhead,
                        bool neigh_rebuilt) {
+    const NeighborList &nl = nl_all.list_for(NeighborList::LIST_EXCV);   // trimmed excv list
     if (lammps_overhead && (neigh_rebuilt || nl.prime_pair.extent(0) == 0)) build_prime_pair(p, nl);
     if (lammps_overhead && !nl_has_ilist(p, nl)) {
         nl.d_ilist = Kokkos::View<int *>("neighlist:ilist", nl.d_num_neigh.extent(0));

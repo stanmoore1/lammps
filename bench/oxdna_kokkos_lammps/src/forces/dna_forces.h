@@ -524,7 +524,7 @@ c_number dh_pair(const c_number ra_bk[3], const c_number rb_bk[3],
 
 // =======================================================================
 // LAMMPS-FAITHFUL force kernels (tracks LAMMPS origin/oxdna3KK-kk-fixes,
-// 392462c401).
+// 2afff57fb5).
 //
 // Mirrors the LAMMPS KOKKOS oxDNA kernel structure, one kernel per style:
 //   * fix OXDNA/LRF: a per-atom pass stores the body frames nx/ny/nz; every
@@ -1233,9 +1233,10 @@ inline bool nl_has_ilist(const ParticleArrays &p, const NeighborList &nl) {
     return nl.d_ilist.extent_int(0) >= p.N && p.N > 0;
 }
 
-inline c_acc run_excv(ParticleArrays &p, const NeighborList &nl, const DNAParams &par,
+inline c_acc run_excv(ParticleArrays &p, const NeighborList &nl_all, const DNAParams &par,
                       const SimBox &box, bool want_energy, bool lammps_overhead,
                       bool neigh_rebuilt) {
+    const NeighborList &nl = nl_all.list_for(NeighborList::LIST_EXCV);   // trimmed excv list
     const bool tab = lammps_overhead && p.use_tables;
     if (lammps_overhead) {
         if (tab) p.ensure_tables(par);
@@ -1310,10 +1311,11 @@ inline c_acc run_coaxstk(ParticleArrays &p, const NeighborList &nl, const DNAPar
     const bool tab = lammps_overhead && p.use_tables;
     if (tab) p.ensure_tables(par);
     if (par.model == 1) {
+        const NeighborList &cl = nl.list_for(NeighborList::LIST_COAXSTK);   // trimmed coaxstk list
         auto run = [&](auto &f) {
             f.poss = p.poss; f.nx = p.nx; f.ny = p.ny; f.nz = p.nz;
             f.bonds = p.bonds; f.btype = p.btype;
-            f.num_neigh = nl.d_num_neigh; f.neigh_matrix = nl.d_neigh_matrix; f.ilist = nl.d_ilist;
+            f.num_neigh = cl.d_num_neigh; f.neigh_matrix = cl.d_neigh_matrix; f.ilist = cl.d_ilist;
             f.par = par; f.box = box;
             f.sf = ScatterF4(p.forces); f.st = ScatterF4(p.torques);
             return launch_term<Plain>("oxdna_coaxstk", p.N, f, want_energy);
@@ -1332,8 +1334,9 @@ inline c_acc run_coaxstk(ParticleArrays &p, const NeighborList &nl, const DNAPar
     Coaxstk2Functor<false> f; return run2(f);
 }
 
-inline c_acc run_dh(ParticleArrays &p, const NeighborList &nl, const DNAParams &par,
+inline c_acc run_dh(ParticleArrays &p, const NeighborList &nl_all, const DNAParams &par,
                     const SimBox &box, bool want_energy, bool lammps_overhead = false) {
+    const NeighborList &nl = nl_all.list_for(NeighborList::LIST_DH);   // trimmed dh list
     if (!par.dh_enabled) return 0;
     p.ensure_qeff(par.dh_half_ends);
     const bool tab = lammps_overhead && p.use_tables && par.model != 3;

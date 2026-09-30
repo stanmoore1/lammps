@@ -142,6 +142,14 @@ struct NeighborList {
     // indirection); lean mode leaves it empty.
     mutable Kokkos::View<int *> d_ilist;
 
+    // Trimmed per-style lists (lammps_ghosts, pair_modify neigh/trim, kk-fixes
+    // e2f233566c): the kernels that loop over a neighbor list read the list of
+    // their own style (excv, dh, oxDNA1 coaxstk); this list (the master list,
+    // the largest cutoff) is the one fix OXDNA/NPAIR screens. nullptr = this.
+    enum SubList { LIST_EXCV = 0, LIST_DH, LIST_COAXSTK, NSUBLISTS };
+    const NeighborList *sub[NSUBLISTS] = {};
+    const NeighborList &list_for(SubList s) const { return sub[s] ? *sub[s] : *this; }
+
     // Check if rebuild needed (max displacement > skin)
     bool needs_rebuild(const ParticleArrays &p, const SimBox &box);
 

@@ -63,10 +63,12 @@ static void fold_host(ParticleArraysHost &h, int N, const SimBox &box) {
         }
 }
 
-static void enable_ghosts(Sys &s, double nl_cut, double skin, bool half_ends) {
+// cuts: the LAMMPS pair style cutoffs (per-style trimmed lists, list radius
+// cutforce + skin)
+static void enable_ghosts(Sys &s, const LmpStyleCuts &cuts, double skin, bool half_ends) {
     s.ghosts = true;
     s.dev.ensure_qeff(half_ends);
-    s.lmp.setup(s.dev, s.nl, s.box, nl_cut + 2 * skin, 2 * skin, 0);
+    s.lmp.setup(s.dev, s.nl, s.box, cuts, 2 * skin, 0);
     s.lmp.rebuild(s.dev, s.nl);
     s.nl.build_screen(s.dev, s.box);
 }
@@ -99,7 +101,7 @@ static void load(Sys &s, int model, const char *top = "tests/8bp_duplex/test.top
     s.par.cxst_t4_blunt      = terminal;
     double nl_cut = std::max(2.5, std::sqrt((double)s.par.cutsq_nb));
     s.nl.init(nl_cut, 1.0, s.N, s.box);
-    if (ghosts) enable_ghosts(s, nl_cut, 1.0, s.par.dh_half_ends);
+    if (ghosts) enable_ghosts(s, s.par.lmp, 1.0, s.par.dh_half_ends);
     else        s.nl.build(s.dev, s.box);
 }
 
@@ -147,7 +149,7 @@ static void load3(Sys &s, bool nicked = false, bool consistent_gamma = false, bo
     s.nl.init(nl_cut, skin, s.N, s.box);
     const double scr = std::sqrt((double)s.m3.p.screen_cutsq) + skin;   // as Simulation::init
     s.nl.screen_cutsq = static_cast<c_number>(scr * scr);
-    if (ghosts) enable_ghosts(s, nl_cut, skin, s.m3.dh.dh_half_ends);
+    if (ghosts) enable_ghosts(s, s.m3.p.lmp, skin, s.m3.dh.dh_half_ends);
     else        s.nl.build(s.dev, s.box);
 }
 

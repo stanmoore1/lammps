@@ -28,13 +28,20 @@
 #include "particles.h"
 #include "neighbor_list.h"
 #include "lammps_comm.h"
+#include "forces/lmp_cuts.h"
+#include <algorithm>
 #include <Kokkos_Core.hpp>
 #include <cmath>
 #include <stdexcept>
 #include <vector>
 
-struct LammpsNeigh {
-    double cutneighmax = 0, cutneighmaxsq = 0, skin = 0, triggersq = 0;
+// One binned half/bin/newton list with its own NBin + NStencil: the master
+// list (radius cutforce + skin) or a list with a custom cutoff (a hybrid
+// sub-style trimmed to its own cutoff that cannot be trimmed from another
+// list, see LammpsNeigh), whose bins and stencil LAMMPS sizes from that
+// cutoff (NBin / NStencil::post_constructor: cutneighmax = cutoff_custom).
+struct LammpsBinList {
+    double cutneighmax = 0, cutneighmaxsq = 0;
     double bboxlo[3] = {}, bboxhi[3] = {}, binsize[3] = {}, bininv[3] = {};
     int nbin[3] = {}, mbinlo[3] = {}, mbin[3] = {};
     int mbins = 0, atoms_per_bin = 16, nstencil = 0;
@@ -45,18 +52,11 @@ struct LammpsNeigh {
     // neighbor:scalars (resize, new_maxneighs)
     Kokkos::View<int[2]> d_scalars;
     Kokkos::View<int[2]>::host_mirror_type h_scalars;
-    Kokkos::View<c_number *[3], Kokkos::LayoutRight> xhold;
     Kokkos::View<c_number **> cutneighsq;                  // (ntypes+1)^2
-    // bond list host copy (the list itself is ParticleArrays::bondlist)
-    Kokkos::View<int **, Kokkos::LayoutRight>::host_mirror_type h_bondlist;
-    Kokkos::View<int[2]> d_bscalars;                       // (nlist, fail_flag)
-    Kokkos::View<int[2]>::host_mirror_type h_bscalars;
-    long long ncalls = 0;                                  // neighbor->ncalls
 
-    // cutneigh: list radius (cutforce + skin); skin: LAMMPS skin (2 * verlet_skin)
-    void setup(const LammpsComm &comm, double cutneigh, double skin_in, double binsize_user = 0) {
+    // cutneigh: list radius (cutoff + skin)
+    void setup(const LammpsComm &comm, double cutneigh, double binsize_user = 0) {
         cutneighmax = cutneigh; cutneighmaxsq = cutneigh * cutneigh;
-        skin = skin_in; triggersq = 0.25 * skin * skin;
         const double binsize_optimal = (binsize_user > 0) ? binsize_user : 0.5 * cutneighmax;
         const double binsizeinv = 1.0 / binsize_optimal;
         constexpr double SMALL = 1.0e-6;
@@ -84,8 +84,6 @@ struct LammpsNeigh {
         h_resize = Kokkos::create_mirror_view(d_resize);
         d_scalars = Kokkos::View<int[2]>("neighbor:scalars");
         h_scalars = Kokkos::create_mirror_view(d_scalars);
-        d_bscalars = Kokkos::View<int[2]>("NeighBond:scalars");
-        h_bscalars = Kokkos::create_mirror_view(d_bscalars);
 
         // NStencil::create_setup + NStencilBin<HALF=1, DIM_3D=1, TRI=0>::create
         int s[3];
@@ -246,6 +244,130 @@ struct LammpsNeigh {
                 nl.d_neigh_matrix = Kokkos::View<int **>(Kokkos::view_alloc(Kokkos::WithoutInitializing, "neighlist:neighbors"), p.nmax, nl.max_neigh);
             }
         }
+    }
+
+};
+
+// NeighborKokkos with pair_style hybrid/overlay and neigh/trim (kk-fixes
+// e2f233566c): every sub-style requests a list cut at its own cutoff + skin
+// (LmpStyleCuts), fix OXDNA/NPAIR/kk requests a plain list. Neighbor::
+// morph_copy_trim() then makes
+//   - the list of the style with the largest cutoff (cutforce) the master
+//     list: a half/bin/newton build with the default bins; fix OXDNA/NPAIR
+//     copies it (no kernel), so the screen reads the master list;
+//   - the list with the next-largest cutoff a half/bin/newton build of its own
+//     (with its own bins and stencil): a list with a custom cutoff larger than
+//     cutneighmin (the smallest custom cutoff + skin) may not be copied or
+//     trimmed from a list without one;
+//   - every smaller list an NPairTrim of the next-larger one (a chain, since
+//     the candidates are scanned in increasing cutoff order).
+// On a rebuild the two lists are binned (custom list first, in request
+// order), then built: custom list, the trims, the master list (oxDNA2/3; with
+// oxDNA1, where hbond has the master list, LAMMPS runs the master build after
+// the first trim; same kernels).
+struct LammpsNeigh {
+    enum Style { EXCV = 0, STK, HBOND, XSTK, COAXSTK, DH, NSTYLES };
+    double skin = 0, triggersq = 0;
+    LammpsBinList master, custom;
+    bool has_custom = false;
+    // lists of the styles other than the master (the NeighborList of the
+    // master style is the Simulation's list); [style]
+    NeighborList lists[NSTYLES];
+    int master_style = -1, custom_style = -1;
+    std::vector<int> trim_order;        // styles built by NPairTrim, in build order
+    int trim_parent[NSTYLES] = {};      // parent style of each trimmed list
+    double cut_style[NSTYLES] = {};     // style cutoff + skin
+    Kokkos::View<c_number *[3], Kokkos::LayoutRight> xhold;
+    // bond list host copy (the list itself is ParticleArrays::bondlist)
+    Kokkos::View<int **, Kokkos::LayoutRight>::host_mirror_type h_bondlist;
+    Kokkos::View<int[2]> d_bscalars;                       // (nlist, fail_flag)
+    Kokkos::View<int[2]>::host_mirror_type h_bscalars;
+    long long ncalls = 0;                                  // neighbor->ncalls
+
+    double cutneighmax() const { return master.cutneighmax; }
+
+    // skin: LAMMPS skin (2 * verlet_skin); cuts: the styles' cutoffs, each
+    // raised to the bench's exact range where needed (see Simulation::init)
+    void setup(const LammpsComm &comm, const LmpStyleCuts &cuts, double skin_in) {
+        skin = skin_in; triggersq = 0.25 * skin * skin;
+        d_bscalars = Kokkos::View<int[2]>("NeighBond:scalars");
+        h_bscalars = Kokkos::create_mirror_view(d_bscalars);
+        const double c[NSTYLES] = {cuts.excv, cuts.stk, cuts.hbond, cuts.xstk, cuts.coaxstk, cuts.dh};
+        // styles present (dh only with oxDNA2/3), sorted by decreasing cutoff;
+        // ties keep the request order (the stable sort)
+        std::vector<int> order;
+        for (int s = 0; s < NSTYLES; s++) if (c[s] > 0) order.push_back(s);
+        std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return c[a] > c[b]; });
+        for (int s = 0; s < NSTYLES; s++) cut_style[s] = c[s] + skin;
+        master_style = order[0];
+        master.setup(comm, cuts.cutforce() + skin);
+        has_custom = order.size() > 1;
+        trim_order.clear();
+        if (has_custom) {
+            custom_style = order[1];
+            custom.setup(comm, cut_style[custom_style]);
+            for (size_t k = 2; k < order.size(); k++) {
+                trim_order.push_back(order[k]);
+                trim_parent[order[k]] = order[k - 1];
+            }
+        }
+    }
+
+    // the list of a style (the master style's is nl)
+    NeighborList &list(int s, NeighborList &nl) { return (s == master_style) ? nl : lists[s]; }
+
+    // point the kernels that loop over a neighbor list at their style's list
+    void attach(NeighborList &nl) {
+        nl.sub[NeighborList::LIST_EXCV]    = (master_style == EXCV) ? nullptr : &lists[EXCV];
+        nl.sub[NeighborList::LIST_DH]      = (master_style == DH) ? nullptr : &lists[DH];
+        nl.sub[NeighborList::LIST_COAXSTK] = (master_style == COAXSTK) ? nullptr : &lists[COAXSTK];
+    }
+
+    // Neighbor::build: bins, the two binned builds and the trims
+    void build(const ParticleArrays &p, NeighborList &nl) {
+        if (has_custom) custom.bin_atoms(p);
+        master.bin_atoms(p);
+        if (has_custom) {
+            custom.build_pairs(p, lists[custom_style]);
+            for (int s : trim_order) trim(p, list(trim_parent[s], nl), lists[s], cut_style[s]);
+        }
+        master.build_pairs(p, nl);
+    }
+
+    // NPairTrimKokkos::trim_to_kokkos: one thread per parent-list atom, keeps
+    // the neighbors (raw entries, special bits kept) within the cutoff; the
+    // trimmed list gets the parent's maxneighs
+    static void trim(const ParticleArrays &p, const NeighborList &src, NeighborList &dst, double cut) {
+        const int nlocal = p.N;
+        dst.max_neigh = src.max_neigh;
+        if (dst.d_num_neigh.extent_int(0) < p.nmax) dst.d_num_neigh = Kokkos::View<int *>("num_neigh", p.nmax);
+        if (dst.d_ilist.extent_int(0) < p.nmax) dst.d_ilist = Kokkos::View<int *>("neighlist:ilist", p.nmax);
+        if (dst.d_neigh_matrix.extent_int(0) < p.nmax || dst.d_neigh_matrix.extent_int(1) != src.max_neigh)
+            dst.d_neigh_matrix = Kokkos::View<int **>(Kokkos::view_alloc(Kokkos::WithoutInitializing, "neighlist:neighbors"),
+                                                      p.nmax, src.max_neigh);
+        auto x = p.poss; auto il_s = src.d_ilist; auto nn_s = src.d_num_neigh; auto nm_s = src.d_neigh_matrix;
+        auto il = dst.d_ilist; auto nn = dst.d_num_neigh; auto nm = dst.d_neigh_matrix;
+        const double cutsq = cut * cut;
+        Kokkos::parallel_for("NPairTrimKokkos", nlocal, KOKKOS_LAMBDA(int ii) {
+            int n = 0;
+            const int i = il_s(ii);
+            const double xtmp = static_cast<double>(x(i, 0));
+            const double ytmp = static_cast<double>(x(i, 1));
+            const double ztmp = static_cast<double>(x(i, 2));
+            const int jnum = nn_s(i);
+            for (int jj = 0; jj < jnum; jj++) {
+                const int joriginal = nm_s(i, jj);
+                const int j = joriginal & OX_NEIGHMASK;
+                const double delx = xtmp - static_cast<double>(x(j, 0));
+                const double dely = ytmp - static_cast<double>(x(j, 1));
+                const double delz = ztmp - static_cast<double>(x(j, 2));
+                const double rsq = delx * delx + dely * dely + delz * delz;
+                if (rsq > cutsq) continue;
+                nm(i, n++) = joriginal;
+            }
+            nn(i) = n;
+            il(ii) = i;
+        });
     }
 
     // number of pairs in the list (diagnostics only; not part of a step)

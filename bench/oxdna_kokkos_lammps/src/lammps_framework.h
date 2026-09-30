@@ -7,7 +7,8 @@
 //
 //   rebuild():     domain->pbc(), atom->map_clear(), comm->exchange(),
 //                  comm->borders() (incl. map_set), neighbor->build():
-//                  xhold, bins, half/bin/newton pair list, bond topology
+//                  xhold, bins, the half/bin/newton pair lists and the trimmed
+//                  per-style lists (LammpsNeigh), bond topology
 //   forward():     comm->forward_comm()          (steps without a rebuild)
 //   force_clear(): VerletKokkos::force_clear()   (Zero f, Zero torque, nall)
 //   reverse():     comm->reverse_comm()          (newton on, every step)
@@ -33,10 +34,12 @@ struct LammpsFramework {
     int ago = 0;            // steps since the last rebuild
     long long nbuilds = 0, ndanger = 0;
 
-    // list_radius: cutforce + skin; lmp_skin: LAMMPS skin (2 * verlet_skin);
-    // comm_cutoff: comm_modify cutoff (0 = the list radius)
-    void setup(ParticleArrays &p, NeighborList &nl, SimBox &box, double list_radius,
+    // cuts: the pair styles' cutoffs (list radius = cutforce + skin); lmp_skin:
+    // LAMMPS skin (2 * verlet_skin); comm_cutoff: comm_modify cutoff (0 = the
+    // list radius)
+    void setup(ParticleArrays &p, NeighborList &nl, SimBox &box, const LmpStyleCuts &cuts,
                double lmp_skin, double comm_cutoff, int every_in = 1, bool check_in = true) {
+        const double list_radius = cuts.cutforce() + lmp_skin;
         box.min_image = false;
         every = std::max(1, every_in);
         check = check_in;
@@ -55,7 +58,8 @@ struct LammpsFramework {
         }
         const double cutghost = std::max(list_radius, comm_cutoff);
         comm.setup(box, box_lo, cutghost, p.N);
-        neigh.setup(comm, list_radius, lmp_skin);
+        neigh.setup(comm, cuts, lmp_skin);
+        neigh.attach(nl);
         nl.max_neigh = 0;
         p.init_topology_arrays();
     }
@@ -77,8 +81,7 @@ struct LammpsFramework {
         comm.borders(p);
         neigh.ncalls++;
         if (check) neigh.store_xhold(p);    // dist_check only
-        neigh.bin_atoms(p);
-        neigh.build_pairs(p, nl);
+        neigh.build(p, nl);
         neigh.bond_all(p);
         ago = 0;          // (setup build: not counted in nbuilds, as LAMMPS)
     }

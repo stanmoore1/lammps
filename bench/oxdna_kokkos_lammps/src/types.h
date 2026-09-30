@@ -98,9 +98,9 @@ struct SimBox {
     // as in LAMMPS and wrap() is a no-op.
     bool min_image = true;
 
-    KOKKOS_INLINE_FUNCTION c_number Lx_half() const { return Lx * 0.5; }
-    KOKKOS_INLINE_FUNCTION c_number Ly_half() const { return Ly * 0.5; }
-    KOKKOS_INLINE_FUNCTION c_number Lz_half() const { return Lz * 0.5; }
+    KOKKOS_INLINE_FUNCTION c_number Lx_half() const { return Lx * c_number(0.5); }
+    KOKKOS_INLINE_FUNCTION c_number Ly_half() const { return Ly * c_number(0.5); }
+    KOKKOS_INLINE_FUNCTION c_number Lz_half() const { return Lz * c_number(0.5); }
 
     KOKKOS_INLINE_FUNCTION void wrap(c_number &dx, c_number &dy, c_number &dz) const {
         if (!min_image) return;

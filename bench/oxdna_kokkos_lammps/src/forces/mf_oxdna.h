@@ -54,7 +54,7 @@ static c_number F2(c_number r, c_number k, c_number cut_0, c_number cut_lc,
                    c_number b_lo, c_number b_hi, c_number cut_c) {
     if (r < cut_lc || r > cut_hc) return 0;
     if (r < cut_lo)  return k * b_lo * (cut_lc - r) * (cut_lc - r);
-    if (r < cut_hi)  return k * 0.5 * ((r - cut_0) * (r - cut_0) - (cut_0 - cut_c) * (cut_0 - cut_c));
+    if (r < cut_hi)  return k * c_number(0.5) * ((r - cut_0) * (r - cut_0) - (cut_0 - cut_c) * (cut_0 - cut_c));
     return k * b_hi * (cut_hc - r) * (cut_hc - r);
 }
 
@@ -134,7 +134,7 @@ static c_number DF5(c_number x, c_number a, c_number x_ast,
 // F6: harmonic penalty (used for backbone restoring)
 KOKKOS_INLINE_FUNCTION
 static c_number F6(c_number theta, c_number a, c_number b) {
-    return (theta < b) ? 0 : 0.5 * a * (theta - b) * (theta - b);
+    return (theta < b) ? c_number(0) : c_number(0.5) * a * (theta - b) * (theta - b);
 }
 
 KOKKOS_INLINE_FUNCTION

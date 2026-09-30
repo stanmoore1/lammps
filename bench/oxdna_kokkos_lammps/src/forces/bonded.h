@@ -145,11 +145,11 @@ c_number bonded_stk(const c_number p5[3], const c_number a1[3], const c_number a
                         energy += est;
                         c_number df1 = MFOxdna::DF1(r_stk, f1p.eps, f1p.a, f1p.cut_0, f1p.cut_lc, f1p.cut_hc, f1p.cut_lo, f1p.cut_hi, f1p.b_lo, f1p.b_hi);
                         c_number sT4 = Kokkos::sqrt(1-cost4*cost4);
-                        c_number df4t4 = (sT4>1e-12)? MFOxdna::DF4(theta4,par.stk_t4.a,par.stk_t4.theta_0,par.stk_t4.dtheta_ast,par.stk_t4.b,par.stk_t4.dtheta_c)/sT4 : c_number(0);
+                        c_number df4t4 = (sT4>c_number(1e-12))? MFOxdna::DF4(theta4,par.stk_t4.a,par.stk_t4.theta_0,par.stk_t4.dtheta_ast,par.stk_t4.b,par.stk_t4.dtheta_c)/sT4 : c_number(0);
                         c_number sT5 = Kokkos::sqrt(1-cost5*cost5);
-                        c_number df4t5 = (sT5>1e-12)? MFOxdna::DF4(theta5,par.stk_t5.a,par.stk_t5.theta_0,par.stk_t5.dtheta_ast,par.stk_t5.b,par.stk_t5.dtheta_c)/sT5 : c_number(0);
+                        c_number df4t5 = (sT5>c_number(1e-12))? MFOxdna::DF4(theta5,par.stk_t5.a,par.stk_t5.theta_0,par.stk_t5.dtheta_ast,par.stk_t5.b,par.stk_t5.dtheta_c)/sT5 : c_number(0);
                         c_number sT6 = Kokkos::sqrt(1-cost6*cost6);
-                        c_number df4t6 = (sT6>1e-12)? MFOxdna::DF4(theta6,par.stk_t6.a,par.stk_t6.theta_0,par.stk_t6.dtheta_ast,par.stk_t6.b,par.stk_t6.dtheta_c)/sT6 : c_number(0);
+                        c_number df4t6 = (sT6>c_number(1e-12))? MFOxdna::DF4(theta6,par.stk_t6.a,par.stk_t6.theta_0,par.stk_t6.dtheta_ast,par.stk_t6.b,par.stk_t6.dtheta_c)/sT6 : c_number(0);
                         c_number df5c1 = MFOxdna::DF5(-cosphi1, par.stk_cp1.a, par.stk_cp1.x_ast, par.stk_cp1.b, par.stk_cp1.x_c);
                         c_number df5c2 = MFOxdna::DF5(-cosphi2, par.stk_cp2.a, par.stk_cp2.x_ast, par.stk_cp2.b, par.stk_cp2.x_c);
 

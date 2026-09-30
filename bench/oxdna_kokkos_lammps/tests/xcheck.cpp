@@ -97,10 +97,10 @@ int main(int argc, char**argv){
         NeighborList nl;
         LammpsFramework lmp;
         const double skin = 1.0;   // verlet_skin of the list (LAMMPS skin 2.0)
-        // LAMMPS ghost path: ghosts, binned list with the bench's list radius,
-        // bond list; the screen is rebuilt from the new list
-        auto ghost_setup = [&](double nl_cut) {
-            lmp.setup(dev, nl, box, nl_cut + 2 * skin, 2 * skin, comm_cutoff);
+        // LAMMPS ghost path: ghosts, the per-style trimmed lists at the LAMMPS
+        // pair style cutoffs, bond list; the screen is rebuilt from the master list
+        auto ghost_setup = [&](const LmpStyleCuts &cuts) {
+            lmp.setup(dev, nl, box, cuts, 2 * skin, comm_cutoff);
             lmp.rebuild(dev, nl);
             nl.build_screen(dev, box);
             nl.N_edges = LammpsNeigh::count_pairs(dev, nl);
@@ -117,7 +117,7 @@ int main(int argc, char**argv){
             double nl_cut = std::max(2.5, std::sqrt((double)m.p.cutsq_nb));
             nl.init(nl_cut, skin, N, box);
             nl.screen_cutsq = m.p.screen_cutsq;
-            if (ghosts) { dev.ensure_qeff(m.dh.dh_half_ends); ghost_setup(nl_cut); }
+            if (ghosts) { dev.ensure_qeff(m.dh.dh_half_ends); ghost_setup(m.p.lmp); }
             else nl.build(dev, box);
             using namespace dna3k;
             // per-term energies (each evaluated separately)
@@ -173,7 +173,7 @@ int main(int argc, char**argv){
             nl.init(nl_cut, skin, N, box);
             if (ghosts) {
                 if (par.dh_enabled) dev.ensure_qeff(par.dh_half_ends);
-                ghost_setup(nl_cut);
+                ghost_setup(par.lmp);
                 std::printf("  [ghosts] ghost atoms: %d, pairs: %d, screened: %d\n", dev.nghost, nl.N_edges,
                             nl.N_screened);
             } else nl.build(dev, box);
