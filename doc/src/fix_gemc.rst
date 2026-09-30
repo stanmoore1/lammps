@@ -169,8 +169,10 @@ e.g. with the *extra/special/per/atom* keyword of :doc:`create_box
   inserts it with a random orientation at a random position in the
   other box.  The inserted molecule keeps the conformation, the charges,
   the group membership, and the velocities (rotated with the molecule)
-  of its atoms, so the move is also correct for flexible molecules.  The acceptance probability is the one given
-  above, with :math:`N` the number of molecules.
+  of its atoms, so the move is also correct for flexible molecules.
+  The acceptance probability is the one given above, with :math:`N`
+  the number of molecules.  For the reason given below, an exchange
+  into a box narrower than twice the size of the molecule is rejected.
 
 * A volume exchange moves the center of mass of each molecule with the
   box, while the shape of the molecules is not changed.  :math:`N` in

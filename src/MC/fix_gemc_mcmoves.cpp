@@ -778,6 +778,31 @@ void FixGEMC::attempt_molecule_exchange_full()
 
   if (molinfo[0] != 0.0) return;
 
+  // put the removed atoms back into the donor box
+
+  auto restore_donor = [&]() {
+    size_t pos = 0;
+    for (int k = 0; k < nremoved; k++) pos += atom->avec->unpack_exchange(&exchange_buf[pos]);
+    atom->natoms += n;
+    atom->nbonds += onemol->nbonds;
+    atom->nangles += onemol->nangles;
+    atom->ndihedrals += onemol->ndihedrals;
+    atom->nimpropers += onemol->nimpropers;
+    changed_atoms();
+  };
+
+  // reject if the receiving box is not wider than twice the molecule
+  // (the same condition as for volume moves, see scale_positions()),
+  // so that both moves sample the same set of allowed states
+
+  double rmaxsq = 0.0;
+  for (int k = 0; k < n; k++) rmaxsq = MAX(rmaxsq, MathExtra::lensq3(&molinfo[1 + NMOLINFO * k]));
+  if (any_box(!sender && (min_box_width() <= 4.0 * sqrt(rmaxsq)))) {
+    if (sender) restore_donor();
+    update_gas_atoms_list();
+    return;
+  }
+
   // receiver box: insert the molecule at a random position with a uniformly
   // distributed random orientation (random unit quaternion).
   // velocities are rotated with the molecule, so that time integration
@@ -866,13 +891,7 @@ void FixGEMC::attempt_molecule_exchange_full()
     // rejected: put the removed atoms back or delete the inserted molecule
 
     if (sender) {
-      size_t pos = 0;
-      for (int k = 0; k < nremoved; k++) pos += atom->avec->unpack_exchange(&exchange_buf[pos]);
-      atom->natoms += n;
-      atom->nbonds += onemol->nbonds;
-      atom->nangles += onemol->nangles;
-      atom->ndihedrals += onemol->ndihedrals;
-      atom->nimpropers += onemol->nimpropers;
+      restore_donor();
     } else {
       int i = 0;
       while (i < atom->nlocal) {
