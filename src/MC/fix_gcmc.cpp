@@ -74,7 +74,7 @@ FixGCMC::FixGCMC(LAMMPS *lmp, int narg, char **arg) :
     Fix(lmp, narg, arg), region(nullptr), idregion(nullptr), full_flag(false),
     groupstrings(nullptr), grouptypestrings(nullptr), grouptypebits(nullptr), grouptypes(nullptr),
     sublo(nullptr), subhi(nullptr), local_gas_list(nullptr), cutsq(nullptr), molcoords(nullptr),
-    molq(nullptr), molimage(nullptr), pair(nullptr), random_equal(nullptr),
+    molq(nullptr), molimage(nullptr), moltags(nullptr), pair(nullptr), random_equal(nullptr),
     random_unequal(nullptr), model_atom(nullptr), onemols(nullptr), fixrigid(nullptr),
     fixshake(nullptr), idrigid(nullptr), idshake(nullptr), c_pe(nullptr)
 {
@@ -404,6 +404,7 @@ FixGCMC::~FixGCMC()
   memory->destroy(molcoords);
   memory->destroy(molq);
   memory->destroy(molimage);
+  memory->destroy(moltags);
 
   delete[] idrigid;
   delete[] idshake;
@@ -741,14 +742,6 @@ void FixGCMC::init()
       grouptypebits[igroup] = group->bitmask[jgroup];
     }
   }
-
-  // current implementation is broken using
-  // full_flag and translation/rotation of molecules
-  // on more than one processor.
-
-  if (full_flag && movemode == MOVEMOL && comm->nprocs > 1)
-    error->all(FLERR,"fix gcmc does currently not support full_energy "
-               "option with molecule MC moves on more than 1 MPI process.");
 
 }
 
@@ -2026,6 +2019,7 @@ void FixGCMC::attempt_molecule_rotation_full()
       molcoords[n][1] = x[i][1];
       molcoords[n][2] = x[i][2];
       molimage[n] = image[i];
+      moltags[n] = atom->tag[i];
       double xtmp[3];
       domain->unmap(x[i],image[i],xtmp);
       xtmp[0] -= com[0];
@@ -2052,17 +2046,40 @@ void FixGCMC::attempt_molecule_rotation_full()
     energy_stored = energy_after;
   } else {
     energy_stored = energy_before;
+
+    // energy_full() may have moved atoms of the molecule to other
+    // processors and reordered the local atoms, so the saved coordinates
+    // and image flags are shared by all processors and restored by atom ID.
+    // each processor places its values at an offset from a prefix sum.
+
+    int nsend = n;
+    int offset = 0, ntotal = 0;
+    MPI_Scan(&nsend,&offset,1,MPI_INT,MPI_SUM,world);
+    offset -= nsend;
+    MPI_Allreduce(&nsend,&ntotal,1,MPI_INT,MPI_SUM,world);
+    std::vector<tagint> tagmine(ntotal,0), tagall(ntotal,0);
+    std::vector<imageint> imagemine(ntotal,0), imageall(ntotal,0);
+    std::vector<double> xmine(3*ntotal,0.0), xall(3*ntotal,0.0);
+    for (int k = 0; k < nsend; k++) {
+      tagmine[offset+k] = moltags[k];
+      imagemine[offset+k] = molimage[k];
+      xmine[3*(offset+k)] = molcoords[k][0];
+      xmine[3*(offset+k)+1] = molcoords[k][1];
+      xmine[3*(offset+k)+2] = molcoords[k][2];
+    }
+    MPI_Allreduce(tagmine.data(),tagall.data(),ntotal,MPI_LMP_TAGINT,MPI_SUM,world);
+    MPI_Allreduce(imagemine.data(),imageall.data(),ntotal,MPI_LMP_IMAGEINT,MPI_SUM,world);
+    MPI_Allreduce(xmine.data(),xall.data(),3*ntotal,MPI_DOUBLE,MPI_SUM,world);
+
     x = atom->x;
     image = atom->image;
-    mask = atom->mask;
-    int n = 0;
-    for (int i = 0; i < atom->nlocal; i++) {
-      if (mask[i] & molecule_group_bit) {
-        x[i][0] = molcoords[n][0];
-        x[i][1] = molcoords[n][1];
-        x[i][2] = molcoords[n][2];
-        image[i] = molimage[n];
-        n++;
+    for (int k = 0; k < ntotal; k++) {
+      int i = local_index(tagall[k]);
+      if (i >= 0) {
+        x[i][0] = xall[3*k];
+        x[i][1] = xall[3*k+1];
+        x[i][2] = xall[3*k+2];
+        image[i] = imageall[k];
       }
     }
   }
@@ -2809,6 +2826,7 @@ void FixGCMC::grow_molecule_arrays(int nmolatoms) {
     molcoords = memory->grow(molcoords,nmaxmolatoms,3,"gcmc:molcoords");
     molq = memory->grow(molq,nmaxmolatoms,"gcmc:molq");
     molimage = memory->grow(molimage,nmaxmolatoms,"gcmc:molimage");
+    moltags = memory->grow(moltags,nmaxmolatoms,"gcmc:moltags");
 }
 
 
