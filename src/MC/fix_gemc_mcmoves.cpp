@@ -1005,8 +1005,8 @@ void FixGEMC::attempt_molecule_exchange_full()
       atom->nangles -= onemol->nangles;
       atom->ndihedrals -= onemol->ndihedrals;
       atom->nimpropers -= onemol->nimpropers;
+      changed_atoms();
     }
-    changed_atoms();
     energy_stored = energy_before;
   }
 

@@ -73,9 +73,13 @@ like the initial box size or number of atoms, can use
 <partition>` command.  The two partitions can use different numbers of
 processors, which is useful because the liquid box usually contains
 many more atoms than the vapor box, e.g. ``-partition 1 3`` on 4
-processors.  The fix command itself (and the number of atom types)
-must be the same in both partitions, except for the *displace* value,
-which may differ between the boxes.
+processors.  The fix command itself must be the same in both
+partitions, except for the *displace* and *maxangle* values and the
+*full_energy* keyword, which may differ between the boxes.  The fix
+group, the names of all groups, the number of atom types, the atom
+style, and the molecule template must also be the same, since atoms
+are exchanged between the boxes; otherwise the fix stops with an
+error at the start of a run.
 
 Every *N* timesteps the fix performs a total of *M* + *X* + *V* MC
 moves.  The type of each move is chosen randomly with probabilities

@@ -124,14 +124,15 @@ class FixGEMC : public Fix {
   int nbase;                      // number of owned and ghost atoms when the grid was built
   int use_map;                    // 1 if the atom map provides the images of owned and ghost atoms
   std::vector<int> image_list;    // scratch list of local indices
-  std::vector<double> dacc;       // displacement of owned atoms since ghosts were built
-  double ghost_skin;              // ghost cutoff minus pair cutoff
-  double move_limit;              // largest displacement allowed by the subdomains
-  tagint maxtag_box;              // largest atom ID in my box
-  std::vector<int> pending;       // local indices of inserted atoms owned by this rank,
-                                  // not yet created, or -1 if removed again
-  std::vector<int> removed;       // local indices of removed owned atoms, not yet deleted
-  int pending_changes;            // 1 if atoms were inserted or removed since last flush
+  std::vector<std::array<int, 3>> image_shifts;    // scratch list of periodic shifts
+  std::vector<double> dacc;    // displacement of owned atoms since ghosts were built
+  double ghost_skin;           // ghost cutoff minus pair cutoff
+  double move_limit;           // largest displacement allowed by the subdomains
+  tagint maxtag_box;           // largest atom ID in my box
+  std::vector<int> pending;    // local indices of inserted atoms owned by this rank,
+                               // not yet created, or -1 if removed again
+  std::vector<int> removed;    // local indices of removed owned atoms, not yet deleted
+  int pending_changes;         // 1 if atoms were inserted or removed since last flush
 
   // domain - related props
 

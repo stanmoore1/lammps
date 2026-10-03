@@ -567,7 +567,7 @@ void FixGEMC::setup(int /*vflag*/)
     }
   }
 
-  constexpr int NCHECK = 18;
+  constexpr int NCHECK = 19;
   int mismatch = 0;
   if (me == 0) {
     double mine[NCHECK] = {(double) nevery,
@@ -587,7 +587,8 @@ void FixGEMC::setup(int /*vflag*/)
                            (double) hash,
                            (double) molflag,
                            (double) natoms_per_molecule,
-                           molsig};
+                           molsig,
+                           (double) igroup};
     double other[NCHECK];
     MPI_Sendrecv(mine, NCHECK, MPI_DOUBLE, 1 - myworld, 0, other, NCHECK, MPI_DOUBLE, 1 - myworld,
                  0, comm_replica, MPI_STATUS_IGNORE);
@@ -600,6 +601,17 @@ void FixGEMC::setup(int /*vflag*/)
                         "Fix gemc settings, groups, number of atom types, atom style, molecule "
                         "template, timestep, and restart status must be the same in both "
                         "partitions");
+
+  // atoms are exchanged between the boxes, so single-atom energies are not
+  // possible in either box if the exchanged atoms in one box are charged
+
+  if (any_box(group_charged) && local_flag) {
+    local_flag = 0;
+    if (comm->me == 0)
+      error->warning(FLERR,
+                     "Fix gemc uses full energy evaluations for all moves because "
+                     "exchanged atoms are charged");
+  }
 
   // initialize log volume ratio and total volume
 
@@ -645,7 +657,6 @@ void FixGEMC::pre_exchange()
   // so both boxes always attempt the same type of move
 
   energy_stored = energy_full();
-  update_gas_atoms_list();
 
   for (int i = 0; i < nmoves; i++) {
     double imove = random_universe->uniform();
@@ -1190,9 +1201,13 @@ int FixGEMC::stored_atom(tagint itag, int itype, int imask, double iq, double *c
 void FixGEMC::find_images(tagint itag, std::vector<int> &images)
 {
   images.clear();
-  if (use_map) {
-    for (int j = atom->map(itag); j >= 0; j = atom->sametag[j])
-      if (j < nbase) images.push_back(j);
+
+  // atom IDs of atoms inserted since the atom map was built are not in it
+
+  if (use_map && (itag <= atom->map_tag_max)) {
+    for (int j = atom->map(itag); (j >= 0) && (j < nbase) && (atom->tag[j] == itag);
+         j = atom->sametag[j])
+      images.push_back(j);
   }
   auto it = taghead.find(itag);
   if (it != taghead.end())
@@ -1276,7 +1291,8 @@ void FixGEMC::add_images(tagint itag, int itype, int imask, double iq, double *c
   // periodic shifts of the images that are already stored
 
   find_images(itag, image_list);
-  std::vector<std::array<int, 3>> stored;
+  std::vector<std::array<int, 3>> &stored = image_shifts;
+  stored.clear();
   for (int j : image_list) {
     double q[3];
     if (triclinic)
