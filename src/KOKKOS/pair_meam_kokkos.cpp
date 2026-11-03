@@ -123,6 +123,13 @@ void PairMEAMKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   int n = 0;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagPairMEAMOffsets>(0,inum_half),*this,n);
 
+  // the per-atom arho3 and arho3m arrays have 10 columns and are accumulated
+  // through a Kokkos::ScatterView, which cannot use 64-bit indexing yet
+  if ((bigint) atom->nmax * 10 > MAXSMALLINT)
+    error->one(FLERR, "Pair style meam/kk supports at most {} atoms per MPI process "
+               "including ghost atoms; use more MPI processes",
+               MAXSMALLINT / 10);
+
   meam_inst_kk->meam_dens_setup(atom->nmax, nall, n);
   update_meam_views();
 

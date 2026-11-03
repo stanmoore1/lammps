@@ -738,6 +738,12 @@ template <class DeviceType> void PairUF3Kokkos<DeviceType>::compute(int eflag_in
   }
 
   if (cvflag_atom) {
+    // cvatom has 9 columns and is accumulated through a Kokkos::ScatterView,
+    // which cannot use 64-bit indexing yet
+    if ((bigint) maxcvatom * 9 > MAXSMALLINT)
+      error->one(FLERR, "Pair style uf3/kk supports at most {} atoms per MPI process including "
+                 "ghost atoms when computing the per-atom centroid virial; use more MPI processes",
+                 MAXSMALLINT / 9);
     memoryKK->destroy_kokkos(k_cvatom, cvatom);
     memoryKK->create_kokkos(k_cvatom, cvatom, maxcvatom, "pair:cvatom");
     d_cvatom = k_cvatom.view<DeviceType>();

@@ -24,6 +24,7 @@
 
 #include "atom_kokkos.h"
 #include "atom_masks.h"
+#include "error.h"
 #include "math_const.h"
 #include "memory_kokkos.h"
 #include "neigh_request.h"
@@ -166,6 +167,15 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
 
   maxneigh = 0;
   Kokkos::parallel_reduce("ComputeOrientOrderAtomKokkos::find_max_neighs",inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Max<int>(maxneigh));
+
+  // the per-chunk arrays index with 32-bit arithmetic, so the largest of them
+  // must have fewer than 2^31 entries
+  const bigint per_atom = MAX((bigint) maxneigh * 3, (bigint) nqlist * (qmax + 1));
+  if ((bigint) chunk_size * per_atom > MAXSMALLINT)
+    error->all(FLERR, "Compute orientorder/atom/kk: chunksize {} is too large for these settings, "
+               "it needs an internal array of {} entries and the limit is {}. Set the chunksize "
+               "keyword to {} or less", chunk_size, (bigint) chunk_size * per_atom,
+               (bigint) MAXSMALLINT, MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));
 
   if (chunk_size > (int)d_distsq.extent(0) || maxneigh > (int)d_distsq.extent(1)) {
     d_distsq = t_sna_2d_lr("orientorder/atom:distsq",chunk_size,maxneigh);

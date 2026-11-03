@@ -403,6 +403,19 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
 {
   auto basis_set = aceimpl->basis_set;
 
+  // the per-chunk arrays below index with 32-bit arithmetic, so the largest
+  // of them must have fewer than 2^31 entries
+
+  bigint per_atom = MAX((bigint) nelements * MAX(idx_sph_max + 1, (lmax + 1) * (lmax + 1)) *
+                        (nradmax + 1), (bigint) basis_set->ndensitymax + 1);
+  per_atom = MAX(per_atom, (bigint) maxneigh * MAX(nradbase, nradmax * (lmax + 1)));
+  per_atom = MAX(per_atom, (bigint) dB_total_max);
+  if ((bigint) natom * per_atom > MAXSMALLINT)
+    error->all(FLERR, "Pair style pace/kk: chunksize {} is too large for this potential, it needs "
+               "an internal array of {} entries and the limit is {}. Set chunksize to {} or less",
+               natom, (bigint) natom * per_atom, (bigint) MAXSMALLINT,
+               MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));
+
   // A_sph_re is allocated on the device path only, so it cannot be the
   // growth test: on a host backend its extent stays 0 and every call would
   // re-allocate (and re-zero, and re-fault) the whole set.  A_rank1 is
