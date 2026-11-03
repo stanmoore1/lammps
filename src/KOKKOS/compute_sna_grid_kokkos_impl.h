@@ -264,7 +264,13 @@ void ComputeSNAGridKokkos<DeviceType, real_type, accum_type, vector_length>::com
 
         max_neighs = max_ninside;
         // grow with the full chunk size so a short final chunk cannot shrink the arrays
-        snaKK.grow_rij(chunk_size_max, max_neighs, padding_factor);
+        const bigint max_elements_grown = snaKK.grow_rij(chunk_size_max, max_neighs, padding_factor);
+        if (max_elements_grown > MAXSMALLINT)
+          error->all(FLERR, "Compute sna/grid/kk: chunksize {} is too large for these settings, "
+                     "it needs an internal array of {} entries and the limit is {}. Set the "
+                     "chunksize keyword to {} or less", chunksize, max_elements_grown,
+                     (bigint) MAXSMALLINT, sna_suggested_chunk_size(chunk_size_max, max_elements_grown,
+                                                                    vector_length * padding_factor));
       }
     }
 
