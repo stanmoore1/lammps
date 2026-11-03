@@ -60,15 +60,12 @@ endif()
 ########################################################################
 # consistency checks and Kokkos options/settings required by LAMMPS
 
-# Kokkos 5.2 still provides the legacy view implementation, which computes
-# view offsets in 64-bit arithmetic; the newer one does not, and can index a
-# view of more than 2^31 entries incorrectly, e.g. a neighbor list.  Keep the
-# legacy views until the KOKKOS package is ready for the newer ones (Kokkos 5.3
-# removes them), and do not let the build be talked out of it.  The legacy
-# implementation is deprecated in 5.2, so silence the warnings about it.
-set(Kokkos_ENABLE_IMPL_VIEW_LEGACY ON CACHE BOOL "" FORCE)
-set(Kokkos_ENABLE_DEPRECATION_WARNINGS OFF CACHE BOOL "" FORCE)
-mark_as_advanced(Kokkos_ENABLE_IMPL_VIEW_LEGACY Kokkos_ENABLE_DEPRECATION_WARNINGS)
+# Kokkos 5.3 removed the legacy view implementation, which LAMMPS used to force
+# on because it computes view offsets in 64-bit arithmetic.  The views that can
+# grow beyond 2^31 entries (e.g. neighbor lists) now request 64-bit indexing
+# explicitly, see KKBigView in src/KOKKOS/kokkos_type.h.  Drop the setting from
+# a cache created by an earlier LAMMPS version, where it was forced on.
+unset(Kokkos_ENABLE_IMPL_VIEW_LEGACY CACHE)
 
 # Kokkos removed Kokkos_ENABLE_CUDA_UVM in 5.2 (deprecated since 4.0); CMake
 # would otherwise accept the stale setting and silently do nothing with it
@@ -128,8 +125,8 @@ if(DOWNLOAD_KOKKOS)
   list(APPEND KOKKOS_LIB_BUILD_ARGS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
   include(ExternalProject)
   SetDownloadSettings(KOKKOS "KOKKOS"
-    "https://github.com/kokkos/kokkos/archive/5.2.1.tar.gz"
-    "2b94b8db0ab093f0a3cacc282c737e4ba590542b783e6785a9209004ba9842a3")
+    "https://github.com/kokkos/kokkos/archive/5.3.0.tar.gz"
+    "0000000000000000000000000000000000000000000000000000000000000000")
   GetFallbackURL(KOKKOS_URL KOKKOS_FALLBACK)
 
   ExternalProject_Add(kokkos_build
@@ -152,7 +149,7 @@ if(DOWNLOAD_KOKKOS)
   add_dependencies(LAMMPS::KOKKOSCORE kokkos_build)
   add_dependencies(LAMMPS::KOKKOSCONTAINERS kokkos_build)
 elseif(EXTERNAL_KOKKOS)
-  find_package(Kokkos 5.2.1 REQUIRED CONFIG)
+  find_package(Kokkos 5.3.0 REQUIRED CONFIG)
   target_link_libraries(lammps PRIVATE Kokkos::kokkos)
 else()
   set(LAMMPS_LIB_KOKKOS_SRC_DIR ${LAMMPS_LIB_SOURCE_DIR}/kokkos)

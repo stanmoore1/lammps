@@ -116,7 +116,7 @@ TYPE create_kokkos(TYPE &data, typename TYPE::value_type **&array,
     if (n2 == 0)
       array[i] = nullptr;
     else
-      array[i] = &data.view_host()(i,0);
+      array[i] = &data.view_host()((bigint) i,0);
   }
   return data;
 }
@@ -138,7 +138,7 @@ template <typename TYPE, typename HTYPE>
     if (n2 == 0)
       array[i] = nullptr;
     else
-      array[i] = &h_data(i,0);
+      array[i] = &h_data((bigint) i,0);
   }
   return data;
 }
@@ -158,7 +158,7 @@ TYPE create_kokkos(TYPE &data, typename TYPE::value_type **&array,
     if (data.view_host().extent(1) == 0)
       array[i] = nullptr;
     else
-      array[i] = &data.view_host()(i,0);
+      array[i] = &data.view_host()((bigint) i,0);
 
   return data;
 }
@@ -183,7 +183,7 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
     if (n2 == 0)
       array[i] = nullptr;
     else
-      array[i] = &data.view_host()(i,0);
+      array[i] = &data.view_host()((bigint) i,0);
 
   return data;
 }
@@ -206,7 +206,7 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type **&array,
     if (data.view_host().extent(1) == 0)
       array[i] = nullptr;
     else
-      array[i] = &data.view_host()(i,0);
+      array[i] = &data.view_host()((bigint) i,0);
 
   return data;
 }
@@ -256,7 +256,7 @@ TYPE create_kokkos(TYPE &data, typename TYPE::value_type ***&array,
         if (n3 == 0)
            array[i][j] = nullptr;
          else
-           array[i][j] = &data.view_host()(i,j,0);
+           array[i][j] = &data.view_host()((bigint) i,j,0);
       }
     }
   }
@@ -290,7 +290,7 @@ template <typename TYPE, typename HTYPE>
         if (n3 == 0)
            array[i][j] = nullptr;
          else
-           array[i][j] = &h_data(i,j,0);
+           array[i][j] = &h_data((bigint) i,j,0);
       }
     }
   }
@@ -337,7 +337,7 @@ TYPE grow_kokkos(TYPE &data, typename TYPE::value_type ***&array,
         if (n3 == 0)
            array[i][j] = nullptr;
          else
-           array[i][j] = &data.view_host()(i,j,0);
+           array[i][j] = &data.view_host()((bigint) i,j,0);
       }
     }
   }

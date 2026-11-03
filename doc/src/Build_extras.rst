@@ -762,6 +762,9 @@ They must be specified in uppercase.
    *  - BLACKWELL103
       - GPU
       - NVIDIA Blackwell generation CC 10.3
+   *  - RUBIN107
+      - GPU
+      - NVIDIA Rubin generation CC 10.7
    *  - BLACKWELL120
       - GPU
       - NVIDIA Blackwell generation CC 12.0
@@ -834,8 +837,11 @@ They must be specified in uppercase.
    *  - INTEL_DG2
       - GPU
       - Intel GPU DG2
+   *  - INTEL_BMG
+      - GPU
+      - Intel GPU Battlemage
 
-This list was last updated for version 5.2.1 of the Kokkos library.
+This list was last updated for version 5.3.0 of the Kokkos library.
 
 .. tabs::
 
