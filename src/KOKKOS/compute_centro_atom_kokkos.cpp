@@ -119,8 +119,8 @@ void ComputeCentroAtomKokkos<DeviceType>::compute_peratom()
   maxneigh = maxneigh_kk;
 
   if ((int)d_distsq.extent(0) < inum || (int)d_distsq.extent(1) < maxneigh_kk) {
-    d_distsq = typename AT::t_kkfloat_2d("centro/atom:distsq",inum,maxneigh_kk);
-    d_nearest = typename AT::t_int_2d("centro/atom:nearest",inum,maxneigh_kk);
+    d_distsq = typename AT::t_kkfloat_2d_big("centro/atom:distsq",inum,maxneigh_kk);
+    d_nearest = typename AT::t_int_2d_big("centro/atom:nearest",inum,maxneigh_kk);
   }
   if ((int)d_pairs.extent(0) < inum || (int)d_pairs.extent(1) < npairs)
     d_pairs = typename AT::t_kkfloat_2d("centro/atom:pairs",inum,npairs);

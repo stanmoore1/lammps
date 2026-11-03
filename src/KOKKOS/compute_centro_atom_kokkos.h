@@ -74,8 +74,8 @@ class ComputeCentroAtomKokkos : public ComputeCentroAtom {
 
   // per-atom scratch, so that the kernel needs no dynamic allocation
 
-  typename AT::t_kkfloat_2d d_distsq;
-  typename AT::t_int_2d d_nearest;
+  typename AT::t_kkfloat_2d_big d_distsq;
+  typename AT::t_int_2d_big d_nearest;
   typename AT::t_kkfloat_2d d_pairs;
 
   KK_FLOAT cutsq_kk;

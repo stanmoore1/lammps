@@ -144,7 +144,7 @@ class PairEDIPMultiKokkos : public PairEDIPMulti {
 
   // neighbors within the cutoff of each pair, and the coordination Z of each atom
 
-  typename AT::t_int_2d_dl d_neighbors_short;
+  typename AT::t_neighbors_2d d_neighbors_short;
   typename AT::t_int_1d d_numneigh_short;
   typename AT::t_kkfloat_1d d_zeta;
 

@@ -134,7 +134,7 @@ class PairThreebodyTableKokkos : public PairThreebodyTable {
   int nlocal,nall,eflag,vflag;
 
   int inum;
-  typename AT::t_int_2d_dl d_neighbors_short;
+  typename AT::t_neighbors_2d d_neighbors_short;
   typename AT::t_int_1d d_numneigh_short;
 
   friend void pair_virial_fdotr_compute<PairThreebodyTableKokkos>(PairThreebodyTableKokkos*);

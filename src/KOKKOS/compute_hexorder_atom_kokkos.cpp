@@ -102,8 +102,8 @@ void ComputeHexOrderAtomKokkos<DeviceType>::compute_peratom()
   maxneigh = maxneigh_kk;
 
   if ((int)d_distsq.extent(0) < inum || (int)d_distsq.extent(1) < maxneigh_kk) {
-    d_distsq = typename AT::t_kkfloat_2d("hexorder/atom:distsq",inum,maxneigh_kk);
-    d_nearest = typename AT::t_int_2d("hexorder/atom:nearest",inum,maxneigh_kk);
+    d_distsq = typename AT::t_kkfloat_2d_big("hexorder/atom:distsq",inum,maxneigh_kk);
+    d_nearest = typename AT::t_int_2d_big("hexorder/atom:nearest",inum,maxneigh_kk);
   }
 
   cutsq_kk = static_cast<KK_FLOAT>(cutsq);

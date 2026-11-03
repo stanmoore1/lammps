@@ -130,9 +130,9 @@ class PairEDIPKokkos : public PairEDIP {
   // neighbors within the cutoff with the per-pair quantities of the three-body loop,
   // and the coordination Z of each atom
 
-  typename AT::t_int_2d_dl d_neighbors_short;
+  typename AT::t_neighbors_2d d_neighbors_short;
   typename AT::t_int_1d d_numneigh_short;
-  typename AT::t_kkfloat_2d_dl d_preInvR, d_preExp3B, d_preExp3BDerived;
+  typename AT::t_kkfloat_2d_dl_big d_preInvR, d_preExp3B, d_preExp3BDerived;
   typename AT::t_kkfloat_1d d_zeta;
 
   DAT::tdual_int_scalar k_overflow;

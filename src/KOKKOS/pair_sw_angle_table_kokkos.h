@@ -153,7 +153,7 @@ class PairSWAngleTableKokkos : public PairSWAngleTable {
   int nlocal,nall,eflag,vflag;
 
   int inum;
-  typename AT::t_int_2d_dl d_neighbors_short;
+  typename AT::t_neighbors_2d d_neighbors_short;
   typename AT::t_int_1d d_numneigh_short;
 
 
