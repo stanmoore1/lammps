@@ -64,6 +64,9 @@ template <class AT> constexpr bool check_array_types()
   static_assert(index_is_64bit<typename AT::t_kkfloat_2d_dl_big>);
   static_assert(index_is_64bit<typename AT::t_double_2d_lr_big>);
   static_assert(index_is_64bit<typename AT::t_kkfloat_2d_lr_big>);
+  static_assert(index_is_64bit<typename AT::t_int_2d_lr_big>);
+  static_assert(index_is_64bit<typename AT::t_int_3d_lr_big>);
+  static_assert(index_is_64bit<typename AT::t_double_3d_lr_big>);
 
   // the dual views: their device and host views, also the const ones
   static_assert(index_is_64bit<typename AT::tdual_int_2d_big::t_dev>);
@@ -73,6 +76,9 @@ template <class AT> constexpr bool check_array_types()
   static_assert(index_is_64bit<typename AT::tdual_tagint_2d_big::t_dev>);
   static_assert(index_is_64bit<typename AT::tdual_kkfloat_2d_big::t_dev>);
   static_assert(index_is_64bit<typename AT::tdual_double_2d_lr_big::t_host>);
+  static_assert(index_is_64bit<typename AT::tdual_int_2d_lr_big::t_dev>);
+  static_assert(index_is_64bit<typename AT::tdual_int_3d_lr_big::t_dev>);
+  static_assert(index_is_64bit<typename AT::tdual_double_3d_lr_big::t_host>);
 
   // the device view of a dual view is the matching KKBigView, so they can be
   // assigned to each other
@@ -91,7 +97,18 @@ static_assert(index_is_64bit<DAT::ttransform_int_2d_big::kk_view::t_host>);
 static_assert(index_is_64bit<DAT::ttransform_tagint_2d_big::kk_view::t_dev>);
 static_assert(index_is_64bit<DAT::ttransform_kkfloat_2d_big::kk_view::t_dev>);
 static_assert(index_is_64bit<DAT::ttransform_kkfloat_2d_lr_big::kk_view::t_dev>);
-static_assert(index_is_64bit<DAT::ttransform_kkfloat_2d_lr_big::pinned_mirror_type>);
+// the host view that the legacy pointer arrays alias, i.e. what view_host()
+// returns, indexes with 64-bit arithmetic too
+static_assert(index_is_64bit<DAT::ttransform_int_2d_big::legacy_view>);
+static_assert(index_is_64bit<DAT::ttransform_tagint_2d_big::legacy_view>);
+static_assert(index_is_64bit<DAT::ttransform_kkfloat_2d_big::legacy_view>);
+static_assert(index_is_64bit<DAT::ttransform_kkfloat_2d_lr_big::legacy_view>);
+static_assert(
+    std::is_same_v<DAT::ttransform_kkfloat_2d_lr_big::array_layout, Kokkos::LayoutRight>);
+// pinned_mirror_type, the staging view for copies through a pinned host
+// buffer, keeps the regular index type: it is only ever the source or target
+// of a whole-view Kokkos::deep_copy, which switches to 64-bit loop indices by
+// itself once a view spans more than 2^31 elements
 
 // the regular view types stay as they are
 static_assert(!index_is_64bit<DAT::t_int_2d>);
@@ -175,6 +192,11 @@ TEST_F(KokkosViewIndex, transform_view)
   k_vectors.modify_device();
   k_vectors.sync_host();
   EXPECT_DOUBLE_EQ(k_vectors.view_host()(3, 2), 4.0);
+
+  // resize keeps the data and the 64-bit host view
+  k_vectors.resize(6, 3);
+  EXPECT_DOUBLE_EQ(k_vectors.view_host()(3, 2), 4.0);
+  EXPECT_EQ(k_vectors.view_host().extent(0), 6U);
 }
 
 TEST_F(KokkosViewIndex, big_host_views)
