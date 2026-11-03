@@ -88,6 +88,18 @@ if(PKG_KOKKOS)
       find_package(CUDAToolkit REQUIRED)
     endif()
   endif()
+
+  # 64-bit index view types of the KOKKOS package
+  add_executable(test_kokkos_view_index test_kokkos_view_index.cpp)
+  target_link_libraries(test_kokkos_view_index PRIVATE lammps GTest::GMockMain $<COMPILE_ONLY:Kokkos::kokkos>)
+  if(Kokkos_ENABLE_CUDA)
+    target_link_libraries(test_kokkos_view_index PRIVATE CUDA::cudart)
+  endif()
+  if(Kokkos_ENABLE_OPENMP)
+    target_link_libraries(test_kokkos_view_index PRIVATE OpenMP::OpenMP_CXX)
+  endif()
+  target_include_directories(test_kokkos_view_index PRIVATE ${LAMMPS_SOURCE_DIR})
+  add_test(NAME KokkosViewIndex COMMAND test_kokkos_view_index)
 endif()
 
 # -----------------------------------------------------------------------------
