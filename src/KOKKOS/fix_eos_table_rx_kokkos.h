@@ -127,7 +127,7 @@ class FixEOStableRXKokkos : public FixEOStableRX {
 
   typename AT::t_int_1d mask;
   typename AT::t_kkfloat_1d uCond,uMech,uChem,uCG,uCGnew,rho,dpdTheta,duChem;
-  typename AT::t_kkfloat_2d dvector;
+  typename AT::t_kkfloat_2d_big dvector;
 
   FixRxKokkos<DeviceType> * rx_fixKK;
   typename AT::t_int_1d species_ind_to_atom_prop_ind;

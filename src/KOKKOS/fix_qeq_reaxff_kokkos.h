@@ -317,8 +317,8 @@ class FixQEqReaxFFKokkos : public FixQEqReaxFF, public KokkosBase {
   typename AT::t_kkfloat_2d_randomread r_s_hist, r_t_hist;
 
   // auxiliary variables of the extended-Lagrangian propagation, always in double precision
-  DAT::tdual_double_2d_lr k_xls_hist, k_xlt_hist;
-  typename AT::t_double_2d_lr d_xls_hist, d_xlt_hist;
+  DAT::tdual_double_2d_lr_big k_xls_hist, k_xlt_hist;
+  typename AT::t_double_2d_lr_big d_xls_hist, d_xlt_hist;
   int xl_restart;      // 1 if the XL history is re-seeded in the current step
   int nexchange;       // number of values per atom in the exchange buffer
 

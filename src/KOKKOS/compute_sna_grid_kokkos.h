@@ -262,8 +262,8 @@ class ComputeSNAGridKokkos : public ComputeSNAGrid {
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_int_1d_randomread type;
   typename AT::t_int_1d_randomread mask;
-  DAT::tdual_double_2d_lr k_grid;
-  typename AT::t_double_2d_lr d_grid;
+  DAT::tdual_double_2d_lr_big k_grid;
+  typename AT::t_double_2d_lr_big d_grid;
 
 
   // Utility routine which wraps computing per-team scratch size requirements for

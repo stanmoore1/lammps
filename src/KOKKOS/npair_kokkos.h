@@ -172,7 +172,7 @@ class NPairKokkos : public NPair {
 
   int atoms_per_bin;
   DAT::tdual_int_1d k_bincount;
-  DAT::tdual_int_2d k_bins;
+  DAT::tdual_int_2d_big k_bins;
   DAT::tdual_int_1d k_atom2bin;
 
   // data from NStencil class
@@ -218,8 +218,8 @@ class NeighborKokkosExecute
   const int mbins;
   const typename AT::t_int_1d bincount;
   const typename AT::t_int_1d_const c_bincount;
-  typename AT::t_int_2d bins;
-  typename AT::t_int_2d_const c_bins;
+  typename AT::t_int_2d_big bins;
+  typename AT::t_int_2d_big_const c_bins;
   const typename AT::t_int_1d atom2bin;
   const typename AT::t_int_1d_const c_atom2bin;
 
@@ -237,7 +237,7 @@ class NeighborKokkosExecute
   const typename AT::t_int_1d_const type,mask;
   const typename AT::t_tagint_1d_const molecule;
   const typename AT::t_tagint_1d_const tag;
-  const typename AT::t_tagint_2d_const special;
+  const typename AT::t_tagint_2d_big_const special;
   const typename AT::t_int_2d_const nspecial;
   const int molecular;
   int moltemplate;
@@ -268,7 +268,7 @@ class NeighborKokkosExecute
                         const typename AT::t_kkfloat_2d_randomread &_cutneighsq,
                         const typename AT::t_kkfloat_2d_randomread &_cutneighghostsq,
                         const typename AT::t_int_1d &_bincount,
-                        const typename AT::t_int_2d &_bins,
+                        const typename AT::t_int_2d_big &_bins,
                         const typename AT::t_int_1d &_atom2bin,
                         const int _mbins,const int _nstencil,
                         const typename AT::t_int_1d &_d_stencil,
@@ -280,7 +280,7 @@ class NeighborKokkosExecute
                         const typename AT::t_int_1d_const &_mask,
                         const typename AT::t_tagint_1d_const &_molecule,
                         const typename AT::t_tagint_1d_const &_tag,
-                        const typename AT::t_tagint_2d_const &_special,
+                        const typename AT::t_tagint_2d_big_const &_special,
                         const typename AT::t_int_2d_const &_nspecial,
                         const int &_molecular,
                         const int & _nbinx,const int & _nbiny,const int & _nbinz,

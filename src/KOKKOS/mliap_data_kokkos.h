@@ -82,13 +82,13 @@ template <class DeviceType> class MLIAPDataKokkos : public MLIAPData {
   DAT::tdual_double_2d_lr_big k_betas;      // betas for all atoms in list
   DAT::tdual_double_2d_lr_big k_descriptors; // descriptors for all atoms in list
   DAT::tdual_double_1d k_eatoms;         // energies for all atoms in list
-  DAT::tdual_double_2d_lr k_rij;            // distance vector of each neighbor
-  DAT::tdual_double_2d_lr k_gradforce;
-  DAT::tdual_double_3d_lr k_graddesc;         // descriptor gradient w.r.t. each neighbor
+  DAT::tdual_double_2d_lr_big k_rij;            // distance vector of each neighbor
+  DAT::tdual_double_2d_lr_big k_gradforce;
+  DAT::tdual_double_3d_lr_big k_graddesc;         // descriptor gradient w.r.t. each neighbor
   DAT::tdual_int_1d k_numneighs;          // neighbors count for each atom
-  DAT::tdual_double_2d_lr k_gamma;            // gamma element
-  DAT::tdual_int_2d_lr k_gamma_row_index;    // row (parameter) index
-  DAT::tdual_int_2d_lr k_gamma_col_index;    // column (descriptor) index
+  DAT::tdual_double_2d_lr_big k_gamma;            // gamma element
+  DAT::tdual_int_2d_lr_big k_gamma_row_index;    // row (parameter) index
+  DAT::tdual_int_2d_lr_big k_gamma_col_index;    // column (descriptor) index
 
   // Just cached for python interface
   double *f_device;

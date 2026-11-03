@@ -123,7 +123,7 @@ void ComputeCentroAtomKokkos<DeviceType>::compute_peratom()
     d_nearest = typename AT::t_int_2d_big("centro/atom:nearest",inum,maxneigh_kk);
   }
   if ((int)d_pairs.extent(0) < inum || (int)d_pairs.extent(1) < npairs)
-    d_pairs = typename AT::t_kkfloat_2d("centro/atom:pairs",inum,npairs);
+    d_pairs = typename AT::t_kkfloat_2d_big("centro/atom:pairs",inum,npairs);
 
   cutsq_kk = static_cast<KK_FLOAT>(force->pair->cutforce * force->pair->cutforce);
   groupbit_kk = groupbit;

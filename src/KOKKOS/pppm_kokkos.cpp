@@ -686,7 +686,7 @@ void PPPMKokkos<DeviceType>::compute(int eflag, int vflag)
   if (atom->nmax > nmax) {
     nmax = atomKK->nmax;
     d_part2grid = typename AT::t_int_1d_3("pppm:part2grid",nmax);
-    d_rho1d = typename FFT_AT::t_FFT_SCALAR_2d_3("pppm:rho1d",nmax,order/2+order/2+1);
+    d_rho1d = typename FFT_AT::t_FFT_SCALAR_2d_3_big("pppm:rho1d",nmax,order/2+order/2+1);
   }
 
   // find grid points for all my particles
@@ -921,7 +921,7 @@ void PPPMKokkos<DeviceType>::allocate()
   order_allocated = order;
   k_gf_b = typename DAT::tdual_double_1d("pppm:gf_b",order);
   d_gf_b = k_gf_b.view<DeviceType>();
-  d_rho1d = typename FFT_AT::t_FFT_SCALAR_2d_3("pppm:rho1d",nmax,order/2+order/2+1);
+  d_rho1d = typename FFT_AT::t_FFT_SCALAR_2d_3_big("pppm:rho1d",nmax,order/2+order/2+1);
   k_rho_coeff = FFT_DAT::tdual_FFT_SCALAR_2d("pppm:rho_coeff",order,order/2-(1-order)/2+1);
   d_rho_coeff = k_rho_coeff.view<DeviceType>();
   h_rho_coeff = k_rho_coeff.view_host();

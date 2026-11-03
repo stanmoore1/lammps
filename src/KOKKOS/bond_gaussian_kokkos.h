@@ -66,7 +66,7 @@ class BondGaussianKokkos : public BondGaussian {
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename Kokkos::View<KK_ACC_FLOAT*[3],DAT::t_kkacc_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
-  typename AT::t_int_2d_lr bondlist;
+  typename AT::t_int_2d_lr_big bondlist;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
   TransformView<KK_ACC_FLOAT*,double*,Kokkos::LayoutRight,KKDeviceType> k_eatom;

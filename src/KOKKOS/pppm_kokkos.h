@@ -441,7 +441,7 @@ class PPPMKokkos : public PPPM, public KokkosBaseFFT {
   typename AT::t_double_1d d_gf_b;
 
   //FFT_SCALAR **rho1d,**rho_coeff,**drho1d,**drho_coeff;
-  typename FFT_AT::t_FFT_SCALAR_2d_3 d_rho1d;
+  typename FFT_AT::t_FFT_SCALAR_2d_3_big d_rho1d;
   FFT_DAT::tdual_FFT_SCALAR_2d k_rho_coeff;
   typename FFT_AT::t_FFT_SCALAR_2d d_rho_coeff;
   FFT_HAT::t_FFT_SCALAR_2d h_rho_coeff;

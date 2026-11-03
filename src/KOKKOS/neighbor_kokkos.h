@@ -61,10 +61,10 @@ class NeighborKokkos : public Neighbor {
   NeighBondKokkos<LMPHostType> neighbond_host;
   NeighBondKokkos<LMPDeviceType> neighbond_device;
 
-  DAT::tdual_int_2d_lr k_bondlist;
-  DAT::tdual_int_2d_lr k_anglelist;
-  DAT::tdual_int_2d_lr k_dihedrallist;
-  DAT::tdual_int_2d_lr k_improperlist;
+  DAT::tdual_int_2d_lr_big k_bondlist;
+  DAT::tdual_int_2d_lr_big k_anglelist;
+  DAT::tdual_int_2d_lr_big k_dihedrallist;
+  DAT::tdual_int_2d_lr_big k_improperlist;
 
   int device_flag;
 

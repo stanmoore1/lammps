@@ -65,7 +65,7 @@ class BondQuarticExpKokkos : public BondQuarticExp {
                         typename KKDevice<DeviceType>::value,
                         Kokkos::MemoryTraits<Kokkos::Atomic>>
       f;
-  typename AT::t_int_2d_lr bondlist;
+  typename AT::t_int_2d_lr_big bondlist;
 
   typedef typename KKDevice<DeviceType>::value KKDeviceType;
 

@@ -122,7 +122,7 @@ class DihedralCharmmKokkos : public DihedralCharmm {
   typename AT::t_int_1d_randomread atomtype;
   typename AT::t_kkfloat_1d_randomread q;
   typename AT::t_kkacc_1d_3 f;
-  typename AT::t_int_2d_lr dihedrallist;
+  typename AT::t_int_2d_lr_big dihedrallist;
 
   Kokkos::View<KK_ACC_FLOAT*,Kokkos::LayoutRight,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_eatom;
   Kokkos::View<KK_ACC_FLOAT*[6],LMPDeviceLayout,KKDeviceType,Kokkos::MemoryTraits<Kokkos::Atomic>> d_vatom;

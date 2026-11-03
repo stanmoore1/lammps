@@ -428,9 +428,9 @@ void AtomVecMolecularKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, in
       if (atomKK->k_num_bond.need_sync_device())
         perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space,async_flag);
       if (atomKK->k_bond_type.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_bond_type,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d_big>(atomKK->k_bond_type,space,async_flag);
       if (atomKK->k_bond_atom.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_bond_atom,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_bond_atom,space,async_flag);
     }
     if (mask & ANGLE_MASK) {
       if (atomKK->k_num_angle.need_sync_device())
@@ -460,15 +460,15 @@ void AtomVecMolecularKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, in
       if (atomKK->k_num_improper.need_sync_device())
         perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_improper,space,async_flag);
       if (atomKK->k_improper_type.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_improper_type,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d_big>(atomKK->k_improper_type,space,async_flag);
       if (atomKK->k_improper_atom1.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom1,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom1,space,async_flag);
       if (atomKK->k_improper_atom2.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom2,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom2,space,async_flag);
       if (atomKK->k_improper_atom3.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom3,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom3,space,async_flag);
       if (atomKK->k_improper_atom4.need_sync_device())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom4,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom4,space,async_flag);
     }
   } else {
     if ((mask & X_MASK) && atomKK->k_x.need_sync_host())
@@ -497,9 +497,9 @@ void AtomVecMolecularKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, in
       if (atomKK->k_num_bond.need_sync_host())
         perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_bond,space,async_flag);
       if (atomKK->k_bond_type.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_bond_type,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d_big>(atomKK->k_bond_type,space,async_flag);
       if (atomKK->k_bond_atom.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_bond_atom,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_bond_atom,space,async_flag);
     }
     if (mask & ANGLE_MASK) {
       if (atomKK->k_num_angle.need_sync_host())
@@ -531,15 +531,15 @@ void AtomVecMolecularKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, in
       if (atomKK->k_num_improper.need_sync_host())
         perform_pinned_copy<DAT::tdual_int_1d>(atomKK->k_num_improper,space,async_flag);
       if (atomKK->k_improper_type.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_int_2d>(atomKK->k_improper_type,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_int_2d_big>(atomKK->k_improper_type,space,async_flag);
       if (atomKK->k_improper_atom1.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom1,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom1,space,async_flag);
       if (atomKK->k_improper_atom2.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom2,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom2,space,async_flag);
       if (atomKK->k_improper_atom3.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom3,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom3,space,async_flag);
       if (atomKK->k_improper_atom4.need_sync_host())
-        perform_pinned_copy_transform<DAT::ttransform_tagint_2d>(atomKK->k_improper_atom4,space,async_flag);
+        perform_pinned_copy_transform<DAT::ttransform_tagint_2d_big>(atomKK->k_improper_atom4,space,async_flag);
     }
   }
 }

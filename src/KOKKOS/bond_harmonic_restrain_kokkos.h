@@ -70,7 +70,7 @@ class BondHarmonicRestrainKokkos : public BondHarmonicRestrain {
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename Kokkos::View<KK_ACC_FLOAT*[3],DAT::t_kkacc_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
-  typename AT::t_int_2d_lr bondlist;
+  typename AT::t_int_2d_lr_big bondlist;
 
   // initial positions from FixStoreAtom, synced to device each compute
   DAT::tdual_kkfloat_2d k_x0;

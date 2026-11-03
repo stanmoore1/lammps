@@ -238,18 +238,18 @@ void FixPropertyAtomKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_device())
       atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space,async_flag);
     if ((mask & DVECTOR_MASK) && atomKK->k_dvector.need_sync_device())
-      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d>(atomKK->k_dvector,space,async_flag);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d_big>(atomKK->k_dvector,space,async_flag);
     if ((mask & IVECTOR_MASK) && atomKK->k_ivector.need_sync_device())
-      atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr>(atomKK->k_ivector,space,async_flag);
+      atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr_big>(atomKK->k_ivector,space,async_flag);
     if (mask & IARRAY_MASK)
       for (int i = 0; i < atom->niarray; i++)
         if (atomKK->k_iarray.view_host()[i].k_view.need_sync_device())
-          atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr>(
+          atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr_big>(
               atomKK->k_iarray.view_host()[i].k_view, space, async_flag);
     if (mask & DARRAY_MASK)
       for (int i = 0; i < atom->ndarray; i++)
         if (atomKK->k_darray.view_host()[i].k_view.need_sync_device())
-          atomKK->avecKK->perform_pinned_copy<DAT::tdual_double_2d_lr>(
+          atomKK->avecKK->perform_pinned_copy<DAT::tdual_double_2d_lr_big>(
               atomKK->k_darray.view_host()[i].k_view, space, async_flag);
   } else {
     if ((mask & MOLECULE_MASK) && atomKK->k_molecule.need_sync_host())
@@ -259,18 +259,18 @@ void FixPropertyAtomKokkos::sync_pinned(ExecutionSpace space, uint64_t mask, int
     if ((mask & RMASS_MASK) && atomKK->k_rmass.need_sync_host())
       atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_1d>(atomKK->k_rmass,space,async_flag);
     if ((mask & DVECTOR_MASK) && atomKK->k_dvector.need_sync_host())
-      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d>(atomKK->k_dvector,space,async_flag);
+      atomKK->avecKK->perform_pinned_copy_transform<DAT::ttransform_kkfloat_2d_big>(atomKK->k_dvector,space,async_flag);
     if ((mask & IVECTOR_MASK) && atomKK->k_ivector.need_sync_host())
-      atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr>(atomKK->k_ivector,space,async_flag);
+      atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr_big>(atomKK->k_ivector,space,async_flag);
     if (mask & IARRAY_MASK)
       for (int i = 0; i < atom->niarray; i++)
         if (atomKK->k_iarray.view_host()[i].k_view.need_sync_host())
-          atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr>(
+          atomKK->avecKK->perform_pinned_copy<DAT::tdual_int_2d_lr_big>(
               atomKK->k_iarray.view_host()[i].k_view, space, async_flag);
     if (mask & DARRAY_MASK)
       for (int i = 0; i < atom->ndarray; i++)
         if (atomKK->k_darray.view_host()[i].k_view.need_sync_host())
-          atomKK->avecKK->perform_pinned_copy<DAT::tdual_double_2d_lr>(
+          atomKK->avecKK->perform_pinned_copy<DAT::tdual_double_2d_lr_big>(
               atomKK->k_darray.view_host()[i].k_view, space, async_flag);
   }
 }

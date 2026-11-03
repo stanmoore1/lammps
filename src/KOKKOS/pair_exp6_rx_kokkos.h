@@ -154,14 +154,16 @@ class PairExp6rxKokkos : public PairExp6rx {
   typename AT::t_kkacc_1d_3 f;
   typename AT::t_int_1d_randomread type;
   typename AT::t_kkfloat_1d uCG, uCGnew;
-  typename AT::t_kkfloat_2d dvector;
+  typename AT::t_kkfloat_2d_big dvector;
 
   FixRxKokkos<DeviceType> * rx_fixKK;
   typename AT::t_int_1d species_ind_to_atom_prop_ind;
   typename AT::t_int_1d species_ind_to_atom_prop_ind_old;
 
-  typedef Kokkos::View<KK_FLOAT**[3],Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_3_thread;
-  typedef Kokkos::View<KK_FLOAT**,Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_thread;
+  // one copy of the per-atom arrays per thread, so they can exceed 2^31
+  // elements with many threads; indexed with 64-bit arithmetic
+  typedef KKBigViewFixedLast<KK_FLOAT,2,3,Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_3_thread;
+  typedef KKBigView<KK_FLOAT,2,Kokkos::LayoutRight,DeviceType> t_kkfloat_1d_thread;
 
   t_kkfloat_1d_3_thread t_f;
   t_kkfloat_1d_thread t_uCG, t_uCGnew;

@@ -126,10 +126,10 @@ AtomKokkos::~AtomKokkos()
   // and sfree()s the row-pointer arrays via the standard nullptr-safe path, so
   // no Kokkos-specific handling is needed in ~Atom.
 
-  k_dvector = DAT::ttransform_kkfloat_2d();
+  k_dvector = DAT::ttransform_kkfloat_2d_big();
   for (int i = 0; i < ndvector; i++) dvector[i] = nullptr;
 
-  k_ivector = DAT::tdual_int_2d_lr();
+  k_ivector = DAT::tdual_int_2d_lr_big();
   for (int i = 0; i < nivector; i++) ivector[i] = nullptr;
 
   // views-of-views: destroy each inner DualView (this frees its row-pointer
@@ -582,7 +582,7 @@ void AtomKokkos::remove_custom(int index, int flag, int cols)
     // row-pointer array; reset the stored inner DualView to release its
     // host+device data, then push the emptied slot to the device-side view
     memoryKK->destroy_kokkos(k_iarray.view_host()[index].k_view, iarray[index]);
-    k_iarray.view_host()[index].k_view = DAT::tdual_int_2d_lr();
+    k_iarray.view_host()[index].k_view = DAT::tdual_int_2d_lr_big();
     k_iarray.modify_host();
     k_iarray.sync_device();
     iarray[index] = nullptr;
@@ -591,7 +591,7 @@ void AtomKokkos::remove_custom(int index, int flag, int cols)
 
   } else if (flag == 1 && cols) {
     memoryKK->destroy_kokkos(k_darray.view_host()[index].k_view, darray[index]);
-    k_darray.view_host()[index].k_view = DAT::tdual_double_2d_lr();
+    k_darray.view_host()[index].k_view = DAT::tdual_double_2d_lr_big();
     k_darray.modify_host();
     k_darray.sync_device();
     darray[index] = nullptr;

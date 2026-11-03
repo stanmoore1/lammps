@@ -177,7 +177,7 @@ class PairMultiLucyRXKokkos : public PairMultiLucyRX, public KokkosBase {
   typename AT::t_kkfloat_1d rho;
   typename HAT::t_double_1d h_rho;
   typename AT::t_kkfloat_1d uCG, uCGnew;
-  typename AT::t_kkfloat_2d dvector;
+  typename AT::t_kkfloat_2d_big dvector;
 
   FixRxKokkos<DeviceType> * rx_fixKK;
   typename AT::t_int_1d species_ind_to_atom_prop_ind;

@@ -84,7 +84,7 @@ class PairGranHertzHistoryKokkos : public PairGranHertzHistory {
   typename AT::t_int_1d_randomread d_ilist;
   typename AT::t_int_1d_randomread d_numneigh;
 
-  typename AT::t_int_2d d_firsttouch;
+  typename AT::t_int_2d_big d_firsttouch;
   typename AT::t_kkfloat_2d_big d_firstshear;
 
   typename AT::t_neighbors_2d d_neighbors_touch;

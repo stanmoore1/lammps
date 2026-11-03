@@ -1937,7 +1937,7 @@ void FixRxKokkos<DeviceType>::computeLocalTemperatureKokkos()
 template <typename DeviceType>
 int FixRxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
 {
-  HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.view_host();
+  HAT::t_double_2d_lr_big h_dvector = atomKK->k_dvector.view_host();
 
   const auto & h_species_ind_to_atom_prop_ind =
     k_species_ind_to_atom_prop_ind.view_host();
@@ -1964,7 +1964,7 @@ int FixRxKokkos<DeviceType>::pack_forward_comm(int n, int *list, double *buf, in
 template <typename DeviceType>
 void FixRxKokkos<DeviceType>::unpack_forward_comm(int n, int first, double *buf)
 {
-  HAT::t_double_2d_lr h_dvector = atomKK->k_dvector.view_host();
+  HAT::t_double_2d_lr_big h_dvector = atomKK->k_dvector.view_host();
 
   const auto & h_species_ind_to_atom_prop_ind =
     k_species_ind_to_atom_prop_ind.view_host();

@@ -63,7 +63,7 @@ MLIAP_SO3Kokkos<DeviceType>::~MLIAP_SO3Kokkos()
   t_numneighs = int_1d();
   t_jelems = int_1d();
   t_wjelem = float_1d();
-  t_rij = float_2d();
+  t_rij = float_2d_big();
   t_ij = int_1d();
 }
 
@@ -353,7 +353,7 @@ template <typename ViewType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void MLIAP_SO3Kokkos<DeviceType>::compute_pi(int nmax, int lmax, ViewType clisttot_r, ViewType clisttot_i, int /*lcl2*/,
-                           float_2d plist_r, int indpl) const
+                           float_2d_big plist_r, int indpl) const
 {
   int n1, n2, j, l, m, i = 0;
   double norm;
@@ -673,7 +673,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAPSO3GetRipArrayTag&, int
 
 template <class DeviceType>
 void MLIAP_SO3Kokkos<DeviceType>::spectrum(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems, DAT::tdual_double_1d wjelem,
-                               DAT::tdual_double_2d_lr rij,  DAT::tdual_int_1d k_ij,
+                               DAT::tdual_double_2d_lr_big rij,  DAT::tdual_int_1d k_ij,
                                int nmax, int lmax, double rcut, double alpha, int totaln, int ncoefs)
 {
   init_arrays(nlocal, ncoefs);
@@ -696,7 +696,7 @@ void MLIAP_SO3Kokkos<DeviceType>::spectrum(int nlocal, DAT::tdual_int_1d numneig
 
   totali = (bigint) totaln * ncoefs * 3;
   if ( totali > (bigint)k_dplist_r.extent(0)) {
-    memoryKK->realloc_kokkos(k_dplist_r, "MLIAP_SO3Kokkos:m_dplist_r", (int)totaln, ncoefs, 3);
+    memoryKK->realloc_kokkos(k_dplist_r, "MLIAP_SO3Kokkos:m_dplist_r", totaln, ncoefs, 3);
     alloc_arrays += 2.0 * totali * sizeof(double);
   }
 
@@ -798,7 +798,7 @@ void MLIAP_SO3Kokkos<DeviceType>::operator() (const MLIAP_SO3Kokkos<DeviceType>:
 
 template <class DeviceType>
 void MLIAP_SO3Kokkos<DeviceType>::spectrum_dxdr(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems, DAT::tdual_double_1d wjelem,
-                                    DAT::tdual_double_2d_lr rij, DAT::tdual_int_1d k_ij,
+                                    DAT::tdual_double_2d_lr_big rij, DAT::tdual_int_1d k_ij,
                                     int nmax, int lmax, double rcut, double alpha, bigint totaln,
                                     int ncoefs)
 {
@@ -821,14 +821,14 @@ void MLIAP_SO3Kokkos<DeviceType>::spectrum_dxdr(int nlocal, DAT::tdual_int_1d nu
 
   totali = (bigint) totaln * m_Nmax * (m_lmax + 1);
   if ( totali > (bigint)m_sbes_array.extent(0)) {
-    memoryKK->create_kokkos(m_sbes_array, totali, "MLIAP_SO3Kokkos:m_sbes_array");
-    memoryKK->create_kokkos(m_sbes_darray, totali, "MLIAP_SO3Kokkos:m_sbes_darray");
+    memoryKK->realloc_kokkos(m_sbes_array, "MLIAP_SO3Kokkos:m_sbes_array", totali);
+    memoryKK->realloc_kokkos(m_sbes_darray, "MLIAP_SO3Kokkos:m_sbes_darray", totali);
 
     totali = totaln * m_nmax * (m_lmax + 1);
-    memoryKK->create_kokkos(m_rip_array, totali, "MLIAP_SO3Kokkos:m_rip_array");
-    memoryKK->create_kokkos(m_rip_darray, totali, "MLIAP_SO3Kokkos:m_rip_darray");
+    memoryKK->realloc_kokkos(m_rip_array, "MLIAP_SO3Kokkos:m_rip_array", totali);
+    memoryKK->realloc_kokkos(m_rip_darray, "MLIAP_SO3Kokkos:m_rip_darray", totali);
 
-    memoryKK->create_kokkos(k_dplist_r, (int)totaln, ncoefs, 3, "MLIAP_SO3Kokkos:m_dplist_r");
+    memoryKK->realloc_kokkos(k_dplist_r, "MLIAP_SO3Kokkos:m_dplist_r", totaln, ncoefs, 3);
   }
 
   t_numneighs=numneighs.template view<DeviceType>();

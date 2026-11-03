@@ -64,10 +64,10 @@ class ComputeCoordAtomKokkos : public ComputeCoordAtom {
 
   DAT::ttransform_kkfloat_1d k_cvec;
   typename AT::t_kkfloat_1d d_cvec;
-  DAT::ttransform_kkfloat_2d k_carray;
+  DAT::ttransform_kkfloat_2d_big k_carray;
   typename AT::t_kkfloat_2d_big d_carray;
 
-  typename AT::t_kkfloat_2d d_normv;
+  typename AT::t_kkfloat_2d_big d_normv;
 };
 
 }

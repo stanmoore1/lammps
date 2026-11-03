@@ -49,10 +49,10 @@ class NBinSSAKokkos : public NBinStandard {
 
   int atoms_per_bin;
   DAT::tdual_int_1d k_bincount;
-  DAT::tdual_int_2d k_bins;
+  DAT::tdual_int_2d_big k_bins;
   typename AT::t_int_1d bincount;
-  typename AT::t_int_2d bins;
-  typename AT::t_int_2d_const c_bins;
+  typename AT::t_int_2d_big bins;
+  typename AT::t_int_2d_big_const c_bins;
 
   int ghosts_per_gbin;
   DAT::tdual_int_1d k_gbincount;
@@ -92,11 +92,13 @@ class NBinSSAKokkos : public NBinStandard {
   KOKKOS_INLINE_FUNCTION
   void binIDGhostsItem(const int &i, int &update) const;
 
+  // used for both the local bins (64-bit indexing) and the ghost bins
 // NOLINTNEXTLINE
+  template<class BinsView>
   static KOKKOS_INLINE_FUNCTION
   void sortBin(
       typename AT::t_int_1d gbincount,
-      typename AT::t_int_2d gbins,
+      BinsView gbins,
       const int &ibin);
 
 /* ----------------------------------------------------------------------

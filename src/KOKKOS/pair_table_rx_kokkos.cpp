@@ -55,7 +55,7 @@ template<class DeviceType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void getMixingWeights(
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread dvector,
+    typename ArrayTypes<DeviceType>::t_kkfloat_2d_big_randomread dvector,
     typename ArrayTypes<DeviceType>::t_int_1d species_ind_to_atom_prop_ind,
     typename ArrayTypes<DeviceType>::t_int_1d species_ind_to_atom_prop_ind_old,
     int isite1, int isite2,
@@ -626,7 +626,7 @@ static void compute_all_items(
 template<class DeviceType>
 static void getAllMixingWeights(
     int ntotal,
-    typename ArrayTypes<DeviceType>::t_kkfloat_2d_randomread dvector,
+    typename ArrayTypes<DeviceType>::t_kkfloat_2d_big_randomread dvector,
     typename ArrayTypes<DeviceType>::t_int_1d species_ind_to_atom_prop_ind,
     typename ArrayTypes<DeviceType>::t_int_1d species_ind_to_atom_prop_ind_old,
     int isite1, int isite2,
@@ -1231,7 +1231,7 @@ double PairTableRXKokkos<DeviceType>::single(int i, int j, int itype, int jtype,
   b = 0.0;
 
   atomKK->k_dvector.sync_host();
-  typename ArrayTypes<LMPHostType>::t_kkfloat_2d_randomread h_dvector =
+  typename ArrayTypes<LMPHostType>::t_kkfloat_2d_big_randomread h_dvector =
     atomKK->k_dvector.view_hostkk();
   getMixingWeights<LMPHostType>(h_dvector,
                                 rx_fixKK->get_k_species_ind_to_atom_prop_ind().view_host(),

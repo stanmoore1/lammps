@@ -212,6 +212,9 @@ typedef tdual_FFT_SCALAR_2d::t_dev t_FFT_SCALAR_2d;
 
 typedef Kokkos::DualView<FFT_SCALAR**[3],Kokkos::LayoutRight,LMPDeviceType> tdual_FFT_SCALAR_2d_3;
 typedef tdual_FFT_SCALAR_2d_3::t_dev t_FFT_SCALAR_2d_3;
+// per-atom stencil weights, nmax x order x 3, indexed with 64-bit arithmetic
+typedef KKBigViewFixedLast<FFT_SCALAR,2,3,Kokkos::LayoutRight,
+                           typename KKDevice<LMPDeviceType>::value> t_FFT_SCALAR_2d_3_big;
 
 typedef Kokkos::DualView<FFT_SCALAR***,Kokkos::LayoutRight,LMPDeviceType> tdual_FFT_SCALAR_3d;
 typedef tdual_FFT_SCALAR_3d::t_dev t_FFT_SCALAR_3d;
@@ -244,6 +247,8 @@ typedef tdual_FFT_SCALAR_2d::t_host t_FFT_SCALAR_2d;
 
 typedef Kokkos::DualView<FFT_SCALAR**[3],Kokkos::LayoutRight,LMPDeviceType> tdual_FFT_SCALAR_2d_3;
 typedef tdual_FFT_SCALAR_2d_3::t_host t_FFT_SCALAR_2d_3;
+typedef KKBigViewFixedLast<FFT_SCALAR,2,3,Kokkos::LayoutRight,
+                           typename KKDevice<LMPHostType>::value> t_FFT_SCALAR_2d_3_big;
 
 typedef Kokkos::DualView<FFT_SCALAR***,Kokkos::LayoutRight,LMPDeviceType> tdual_FFT_SCALAR_3d;
 typedef tdual_FFT_SCALAR_3d::t_host t_FFT_SCALAR_3d;

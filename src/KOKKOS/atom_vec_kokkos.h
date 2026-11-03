@@ -187,15 +187,15 @@ class AtomVecKokkos : virtual public AtomVec {
   DAT::t_int_2d d_nspecial;
   DAT::t_tagint_2d_big d_special;
   DAT::t_int_1d d_num_bond;
-  DAT::t_int_2d d_bond_type;
-  DAT::t_tagint_2d d_bond_atom;
+  DAT::t_int_2d_big d_bond_type;
+  DAT::t_tagint_2d_big d_bond_atom;
 
   HAT::t_tagint_1d h_molecule;
   HAT::t_int_2d h_nspecial;
   HAT::t_tagint_2d_big h_special;
   HAT::t_int_1d h_num_bond;
-  HAT::t_int_2d h_bond_type;
-  HAT::t_tagint_2d h_bond_atom;
+  HAT::t_int_2d_big h_bond_type;
+  HAT::t_tagint_2d_big h_bond_atom;
 
   DAT::t_int_1d d_num_angle;
   DAT::t_int_2d_big d_angle_type;
@@ -210,8 +210,8 @@ class AtomVecKokkos : virtual public AtomVec {
   DAT::t_tagint_2d_big d_dihedral_atom1,d_dihedral_atom2,
     d_dihedral_atom3,d_dihedral_atom4;
   DAT::t_int_1d d_num_improper;
-  DAT::t_int_2d d_improper_type;
-  DAT::t_tagint_2d d_improper_atom1,d_improper_atom2,
+  DAT::t_int_2d_big d_improper_type;
+  DAT::t_tagint_2d_big d_improper_atom1,d_improper_atom2,
     d_improper_atom3,d_improper_atom4;
 
   HAT::t_int_1d h_num_dihedral;
@@ -219,8 +219,8 @@ class AtomVecKokkos : virtual public AtomVec {
   HAT::t_tagint_2d_big h_dihedral_atom1,h_dihedral_atom2,
     h_dihedral_atom3,h_dihedral_atom4;
   HAT::t_int_1d h_num_improper;
-  HAT::t_int_2d h_improper_type;
-  HAT::t_tagint_2d h_improper_atom1,h_improper_atom2,
+  HAT::t_int_2d_big h_improper_type;
+  HAT::t_tagint_2d_big h_improper_atom1,h_improper_atom2,
     h_improper_atom3,h_improper_atom4;
 
   DAT::t_kkfloat_1d_4 d_mu;
@@ -257,21 +257,24 @@ class AtomVecKokkos : virtual public AtomVec {
   #ifdef LMP_KOKKOS_GPU
   template<class ViewType>
   void perform_pinned_copy(ViewType& src, unsigned int space, int async_flag = 0) {
-    typedef Kokkos::View<typename ViewType::data_type,
-                 typename ViewType::array_layout,
+    // spelled from the device view rather than the dual view's traits, so that
+    // it is right for a dual view with 64-bit indexing too (see TransformView)
+    typedef typename ViewType::t_dev t_dev;
+    typedef Kokkos::View<typename t_dev::data_type,
+                 typename t_dev::array_layout,
                  typename std::conditional<
-                   std::is_same_v<typename ViewType::execution_space,LMPDeviceType>,
-                   LMPPinnedHostType,typename ViewType::memory_space>::type,
+                   std::is_same_v<typename t_dev::execution_space,LMPDeviceType>,
+                   LMPPinnedHostType,typename t_dev::memory_space>::type,
                  Kokkos::MemoryTraits<Kokkos::Unmanaged> > mirror_type;
     if (buffer_size == 0) {
-       buffer_size = src.span()*sizeof(typename ViewType::value_type);
+       buffer_size = src.span()*sizeof(typename t_dev::value_type);
        buffer = Kokkos::kokkos_malloc<LMPPinnedHostType>(buffer_size);
-    } else if (buffer_size < src.span()*sizeof(typename ViewType::value_type)) {
-       buffer_size = src.span()*sizeof(typename ViewType::value_type);
+    } else if (buffer_size < src.span()*sizeof(typename t_dev::value_type)) {
+       buffer_size = src.span()*sizeof(typename t_dev::value_type);
        buffer = Kokkos::kokkos_realloc<LMPPinnedHostType>(buffer,buffer_size);
     }
 
-    mirror_type tmp_view((typename ViewType::value_type*)buffer, src.view_device().layout());
+    mirror_type tmp_view((typename t_dev::value_type*)buffer, src.view_device().layout());
 
     if (src.view_device().data() && space == Device) {
       Kokkos::deep_copy(LMPHostType(),tmp_view,src.view_host()),

@@ -69,14 +69,14 @@ class ComputeCentroAtomKokkos : public ComputeCentroAtom {
 
   DAT::ttransform_kkfloat_1d k_centro;
   typename AT::t_kkfloat_1d d_centro;
-  DAT::ttransform_kkfloat_2d k_array_atom;
+  DAT::ttransform_kkfloat_2d_big k_array_atom;
   typename AT::t_kkfloat_2d_big d_array_atom;
 
   // per-atom scratch, so that the kernel needs no dynamic allocation
 
   typename AT::t_kkfloat_2d_big d_distsq;
   typename AT::t_int_2d_big d_nearest;
-  typename AT::t_kkfloat_2d d_pairs;
+  typename AT::t_kkfloat_2d_big d_pairs;
 
   KK_FLOAT cutsq_kk;
   int groupbit_kk, npairs, nhalf;

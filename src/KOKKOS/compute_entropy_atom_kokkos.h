@@ -70,7 +70,7 @@ class ComputeEntropyAtomKokkos : public ComputeEntropyAtom {
 
   // per-atom scratch for the g(r) histogram and its integrand
 
-  typename AT::t_kkfloat_2d d_gofr;
+  typename AT::t_kkfloat_2d_big d_gofr;
   typename AT::t_kkfloat_1d d_rbin;
   typename AT::t_kkfloat_1d d_rbinsq;
 

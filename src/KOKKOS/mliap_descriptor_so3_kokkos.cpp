@@ -141,11 +141,11 @@ void MLIAPDescriptorSO3Kokkos<DeviceType>::compute_forces(class MLIAPData *data_
    add virial contribution into global and per-atom accumulators
 ------------------------------------------------------------------------- */
 template <class DeviceType>
-template <typename ViewType>
+template <typename RijViewType, typename ViewType>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void MLIAPDescriptorSO3Kokkos<DeviceType>::v_tally(int vflag_either, int vflag_global, int vflag_atom, int i, int j, int ij,
-    double *fij, ViewType rij, Kokkos::View<double[6],DeviceType> virial, ViewType vatom)
+    double *fij, RijViewType rij, Kokkos::View<double[6],DeviceType> virial, ViewType vatom)
 {
   double v[6];
   if (vflag_either) {

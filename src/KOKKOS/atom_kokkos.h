@@ -49,8 +49,8 @@ class AtomKokkos : public Atom {
   DAT::ttransform_int_2d k_nspecial;
   DAT::ttransform_tagint_2d_big k_special;
   DAT::tdual_int_1d k_num_bond;
-  DAT::ttransform_int_2d k_bond_type;
-  DAT::ttransform_tagint_2d k_bond_atom;
+  DAT::ttransform_int_2d_big k_bond_type;
+  DAT::ttransform_tagint_2d_big k_bond_atom;
   DAT::tdual_int_1d k_num_angle;
   DAT::ttransform_int_2d_big k_angle_type;
   DAT::ttransform_tagint_2d_big k_angle_atom1, k_angle_atom2, k_angle_atom3;
@@ -58,11 +58,11 @@ class AtomKokkos : public Atom {
   DAT::ttransform_int_2d_big k_dihedral_type;
   DAT::ttransform_tagint_2d_big k_dihedral_atom1, k_dihedral_atom2, k_dihedral_atom3, k_dihedral_atom4;
   DAT::tdual_int_1d k_num_improper;
-  DAT::ttransform_int_2d k_improper_type;
-  DAT::ttransform_tagint_2d k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
+  DAT::ttransform_int_2d_big k_improper_type;
+  DAT::ttransform_tagint_2d_big k_improper_atom1, k_improper_atom2, k_improper_atom3, k_improper_atom4;
 
-  DAT::ttransform_kkfloat_2d k_dvector;
-  DAT::tdual_int_2d_lr k_ivector;         // width-1: single contiguous 2D view
+  DAT::ttransform_kkfloat_2d_big k_dvector;
+  DAT::tdual_int_2d_lr_big k_ivector;         // width-1: single contiguous 2D view
   tdual_struct_tdual_int_2d_1d k_iarray;  // ragged cols: view-of-views
   tdual_struct_tdual_double_2d_1d k_darray;
 

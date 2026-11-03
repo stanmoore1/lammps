@@ -61,7 +61,7 @@ template<class DeviceType>
 void NBinSSAKokkos<DeviceType>::bin_atoms_setup(int /*nall*/)
 {
   if (mbins > (int) k_bins.view_host().extent(0)) {
-    k_bins = DAT::tdual_int_2d("NBinSSAKokkos::bins",mbins,atoms_per_bin);
+    k_bins = DAT::tdual_int_2d_big("NBinSSAKokkos::bins",mbins,atoms_per_bin);
     bins = k_bins.view<DeviceType>();
 
     k_bincount = DAT::tdual_int_1d("NBinSSAKokkos::bincount",mbins);
@@ -199,7 +199,7 @@ void NBinSSAKokkos<DeviceType>::bin_atoms()
   {
     if ((mbins > (int) bins.extent(0)) ||
         (atoms_per_bin > (int) bins.extent(1))) {
-      k_bins = DAT::tdual_int_2d("bins", mbins, atoms_per_bin);
+      k_bins = DAT::tdual_int_2d_big("bins", mbins, atoms_per_bin);
       bins = k_bins.view<DeviceType>();
     }
     MemsetZeroFunctor<DeviceType> f_zero;
@@ -295,11 +295,12 @@ void NBinSSAKokkos<DeviceType>::binIDGhostsItem(const int &i, int &update) const
 
 // An implementation of heapsort without recursion
 template<class DeviceType>
+template<class BinsView>
 // NOLINTNEXTLINE
 KOKKOS_INLINE_FUNCTION
 void NBinSSAKokkos<DeviceType>::sortBin(
       typename AT::t_int_1d gbincount,
-      typename AT::t_int_2d gbins,
+      BinsView gbins,
       const int &ibin)
 {
   int n = gbincount(ibin);

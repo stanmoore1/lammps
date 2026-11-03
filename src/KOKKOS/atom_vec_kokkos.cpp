@@ -2220,20 +2220,20 @@ struct AtomVecKokkos_PackExchangeFunctor {
   typename AT::t_kkfloat_1d _q;
   typename AT::t_tagint_1d _molecule;
   typename AT::t_int_2d _nspecial;
-  typename AT::t_tagint_2d _special;
+  typename AT::t_tagint_2d_big _special;
   typename AT::t_int_1d _num_bond;
-  typename AT::t_int_2d _bond_type;
-  typename AT::t_tagint_2d _bond_atom;
+  typename AT::t_int_2d_big _bond_type;
+  typename AT::t_tagint_2d_big _bond_atom;
   typename AT::t_int_1d _num_angle;
-  typename AT::t_int_2d _angle_type;
-  typename AT::t_tagint_2d _angle_atom1,_angle_atom2,_angle_atom3;
+  typename AT::t_int_2d_big _angle_type;
+  typename AT::t_tagint_2d_big _angle_atom1,_angle_atom2,_angle_atom3;
   typename AT::t_int_1d _num_dihedral;
-  typename AT::t_int_2d _dihedral_type;
-  typename AT::t_tagint_2d _dihedral_atom1,_dihedral_atom2,
+  typename AT::t_int_2d_big _dihedral_type;
+  typename AT::t_tagint_2d_big _dihedral_atom1,_dihedral_atom2,
     _dihedral_atom3,_dihedral_atom4;
   typename AT::t_int_1d _num_improper;
-  typename AT::t_int_2d _improper_type;
-  typename AT::t_tagint_2d _improper_atom1,_improper_atom2,
+  typename AT::t_int_2d_big _improper_type;
+  typename AT::t_tagint_2d_big _improper_atom1,_improper_atom2,
     _improper_atom3,_improper_atom4;
   typename AT::t_kkfloat_1d_4 _mu;
   typename AT::t_kkfloat_1d_4 _sp;
@@ -2613,20 +2613,20 @@ struct AtomVecKokkos_UnpackExchangeFunctor {
   typename AT::t_kkfloat_1d _q;
   typename AT::t_tagint_1d _molecule;
   typename AT::t_int_2d _nspecial;
-  typename AT::t_tagint_2d _special;
+  typename AT::t_tagint_2d_big _special;
   typename AT::t_int_1d _num_bond;
-  typename AT::t_int_2d _bond_type;
-  typename AT::t_tagint_2d _bond_atom;
+  typename AT::t_int_2d_big _bond_type;
+  typename AT::t_tagint_2d_big _bond_atom;
   typename AT::t_int_1d _num_angle;
-  typename AT::t_int_2d _angle_type;
-  typename AT::t_tagint_2d _angle_atom1,_angle_atom2,_angle_atom3;
+  typename AT::t_int_2d_big _angle_type;
+  typename AT::t_tagint_2d_big _angle_atom1,_angle_atom2,_angle_atom3;
   typename AT::t_int_1d _num_dihedral;
-  typename AT::t_int_2d _dihedral_type;
-  typename AT::t_tagint_2d _dihedral_atom1,_dihedral_atom2,
+  typename AT::t_int_2d_big _dihedral_type;
+  typename AT::t_tagint_2d_big _dihedral_atom1,_dihedral_atom2,
     _dihedral_atom3,_dihedral_atom4;
   typename AT::t_int_1d _num_improper;
-  typename AT::t_int_2d _improper_type;
-  typename AT::t_tagint_2d _improper_atom1,_improper_atom2,
+  typename AT::t_int_2d_big _improper_type;
+  typename AT::t_tagint_2d_big _improper_atom1,_improper_atom2,
     _improper_atom3,_improper_atom4;
   typename AT::t_kkfloat_1d_4 _mu;
   typename AT::t_kkfloat_1d_4 _sp;

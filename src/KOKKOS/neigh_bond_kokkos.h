@@ -79,10 +79,10 @@ class NeighBondKokkos : protected Pointers  {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagNeighBondImproperPartial, const int&, int&) const;
 
-  DAT::tdual_int_2d_lr k_bondlist;
-  DAT::tdual_int_2d_lr k_anglelist;
-  DAT::tdual_int_2d_lr k_dihedrallist;
-  DAT::tdual_int_2d_lr k_improperlist;
+  DAT::tdual_int_2d_lr_big k_bondlist;
+  DAT::tdual_int_2d_lr_big k_anglelist;
+  DAT::tdual_int_2d_lr_big k_dihedrallist;
+  DAT::tdual_int_2d_lr_big k_improperlist;
 
   // KOKKOS host/device flag and data masks
   ExecutionSpace execution_space;
@@ -99,31 +99,31 @@ class NeighBondKokkos : protected Pointers  {
   DAT::tdual_int_1d k_map_array;
   dual_hash_type k_map_hash;
 
-  typename AT::t_int_2d_lr v_bondlist;
-  typename AT::t_int_2d_lr v_anglelist;
-  typename AT::t_int_2d_lr v_dihedrallist;
-  typename AT::t_int_2d_lr v_improperlist;
-  typename AT::t_int_2d_lr list;
+  typename AT::t_int_2d_lr_big v_bondlist;
+  typename AT::t_int_2d_lr_big v_anglelist;
+  typename AT::t_int_2d_lr_big v_dihedrallist;
+  typename AT::t_int_2d_lr_big v_improperlist;
+  typename AT::t_int_2d_lr_big list;
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename AT::t_tagint_1d_randomread tag;
 
   typename AT::t_int_1d num_bond;
-  typename AT::t_int_2d bond_type;
-  typename AT::t_tagint_2d bond_atom;
+  typename AT::t_int_2d_big bond_type;
+  typename AT::t_tagint_2d_big bond_atom;
 
   typename AT::t_int_1d num_angle;
-  typename AT::t_int_2d angle_type;
-  typename AT::t_tagint_2d angle_atom1,angle_atom2,angle_atom3;
+  typename AT::t_int_2d_big angle_type;
+  typename AT::t_tagint_2d_big angle_atom1,angle_atom2,angle_atom3;
 
   typename AT::t_int_1d num_dihedral;
-  typename AT::t_int_2d dihedral_type;
-  typename AT::t_tagint_2d dihedral_atom1,dihedral_atom2,
+  typename AT::t_int_2d_big dihedral_type;
+  typename AT::t_tagint_2d_big dihedral_atom1,dihedral_atom2,
     dihedral_atom3,dihedral_atom4;
 
   typename AT::t_int_1d num_improper;
-  typename AT::t_int_2d improper_type;
-  typename AT::t_tagint_2d improper_atom1,improper_atom2,
+  typename AT::t_int_2d_big improper_type;
+  typename AT::t_tagint_2d_big improper_atom1,improper_atom2,
     improper_atom3,improper_atom4;
 
   typename AT::t_int_1d d_scalars;
@@ -163,7 +163,7 @@ class NeighBondKokkos : protected Pointers  {
   void dihedral_all();                // dihedral list with all dihedrals
   void dihedral_template();           // dihedral list with templated bonds
   void dihedral_partial();            // exclude certain dihedrals
-  void dihedral_check(int, typename AT::t_int_2d_lr list);
+  void dihedral_check(int, typename AT::t_int_2d_lr_big list);
 
   BondPtr improper_build_kk;             // ptr to improper list functions
   void improper_all();                // improper list with all impropers

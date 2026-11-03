@@ -38,11 +38,14 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   using float_2d = Kokkos::View<double **, Kokkos::LayoutRight, MemoryDeviceType>;
   using float_3d = Kokkos::View<double ***, Kokkos::LayoutRight, MemoryDeviceType>;
   using float_4d = Kokkos::View<double ****, Kokkos::LayoutRight, MemoryDeviceType>;
+  // for arrays sized by the number of atoms or pairs times a descriptor count
+  using float_2d_big = KKBigView<double, 2, Kokkos::LayoutRight, MemoryDeviceType>;
+  using float_3d_big = KKBigView<double, 3, Kokkos::LayoutRight, MemoryDeviceType>;
   using int_1d = Kokkos::View<int *, MemoryDeviceType>;
 
   int ncoeff;
-  float_2d m_plist_r;
-  float_3d k_dplist_r;
+  float_2d_big m_plist_r;
+  float_3d_big k_dplist_r;
 
  private:
   double alloc_init, alloc_arrays;
@@ -59,7 +62,7 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   int m_idxu_count, m_idxy_count;
   int m_numYlms;
 
-  float_3d m_clisttot_r, m_clisttot_i;
+  float_3d_big m_clisttot_r, m_clisttot_i;
   float_1d m_rip_array, m_rip_darray;
   float_1d m_sbes_array, m_sbes_darray;
   int m_init_arrays;
@@ -73,7 +76,7 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
   int_1d t_numneighs;
   int_1d t_jelems;
   float_1d t_wjelem;
-  float_2d t_rij;
+  float_2d_big t_rij;
   int t_nmax;
   int t_lmax;
   double t_rcut;
@@ -85,14 +88,14 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
 
  public:
   void spectrum(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems,
-                DAT::tdual_double_1d wjelem, DAT::tdual_double_2d_lr rij, DAT::tdual_int_1d k_ij,
+                DAT::tdual_double_1d wjelem, DAT::tdual_double_2d_lr_big rij, DAT::tdual_int_1d k_ij,
                 int nmax, int lmax, double rcut, double alpha, int totaln, int ncoefs);
   struct MLIAPSO3SpectrumTag {};
   KOKKOS_FUNCTION
   void operator()(const MLIAPSO3SpectrumTag &, int ii) const;
 
   void spectrum_dxdr(int nlocal, DAT::tdual_int_1d numneighs, DAT::tdual_int_1d jelems,
-                     DAT::tdual_double_1d wjelem, DAT::tdual_double_2d_lr rij, DAT::tdual_int_1d k_ij,
+                     DAT::tdual_double_1d wjelem, DAT::tdual_double_2d_lr_big rij, DAT::tdual_int_1d k_ij,
                      int nmax, int lmax, double rcut, double alpha, bigint npairs, int ncoefs);
   struct MLIAPSO3SpectrumDXDRTag {};
   KOKKOS_FUNCTION
@@ -133,7 +136,7 @@ template <class DeviceType> class MLIAP_SO3Kokkos : protected Pointers {
 
   template <typename ViewType>
   KOKKOS_FUNCTION void compute_pi(int nmax, int lmax, ViewType clisttot_r, ViewType clisttot_i,
-                                  int lcl2, float_2d plist_r, int indpl) const;
+                                  int lcl2, float_2d_big plist_r, int indpl) const;
 
   void compute_W(int nmax, double *arr);
 };

@@ -85,7 +85,7 @@ class ImproperClass2Kokkos : public ImproperClass2 {
 
   typename AT::t_kkfloat_1d_3_lr_randomread x;
   typename Kokkos::View<KK_ACC_FLOAT*[3],DAT::t_kkacc_1d_3::array_layout,typename KKDevice<DeviceType>::value,Kokkos::MemoryTraits<Kokkos::Atomic> > f;
-  typename AT::t_int_2d_lr improperlist;
+  typename AT::t_int_2d_lr_big improperlist;
   typename AT::t_kkacc_1d d_eatom;
   typename AT::t_kkacc_1d_6 d_vatom;
 

@@ -123,7 +123,7 @@ void ComputeEntropyAtomKokkos<DeviceType>::compute_peratom()
   // one g(r) histogram per atom, so that the kernel needs no scratch
 
   if ((int)d_gofr.extent(0) < inum || (int)d_gofr.extent(1) != nbin)
-    d_gofr = typename AT::t_kkfloat_2d("entropy/atom:gofr",inum,nbin);
+    d_gofr = typename AT::t_kkfloat_2d_big("entropy/atom:gofr",inum,nbin);
 
   const double volume = domain->xprd * domain->yprd * domain->zprd;
 

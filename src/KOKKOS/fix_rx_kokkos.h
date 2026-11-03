@@ -272,7 +272,7 @@ class FixRxKokkos : public FixRX {
   typename AT::t_int_1d       d_ilist;
   typename AT::t_int_1d       d_numneigh;
 
-  typename AT::t_kkfloat_2d  d_dvector;
+  typename AT::t_kkfloat_2d_big d_dvector;
   typename AT::t_int_1d    d_mask;
 
   typename AT::t_int_1d d_species_ind_to_atom_prop_ind;
