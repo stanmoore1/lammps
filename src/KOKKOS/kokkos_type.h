@@ -1324,9 +1324,6 @@ KOKKOS_BIGVIEW(TYPE, RANK, LAYOUT, typename KKDevice<LMPDeviceType>::value, SUFF
 #define KOKKOS_HOST_BIGVIEW(TYPE, RANK, LAYOUT, SUFFIX) \
 KOKKOS_BIGVIEW(TYPE, RANK, LAYOUT, typename KKDevice<LMPHostType>::value, SUFFIX)
 
-using LAMMPS_NS::bigint;
-using LAMMPS_NS::tagint;
-using LAMMPS_NS::imageint;
 
 template <class DeviceType>
 struct ArrayTypes;
@@ -1418,7 +1415,7 @@ typedef TransformView<KK_FLOAT****, double****, LMPDeviceLayout> ttransform_kkfl
 // 2D view types with 64-bit indexing
 
 KOKKOS_DEVICE_BIGVIEW(int, 2, LMPDeviceLayout, int_2d_big)
-KOKKOS_DEVICE_BIGVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
+KOKKOS_DEVICE_BIGVIEW(LAMMPS_NS::tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_DEVICE_BIGVIEW(KK_FLOAT, 2, LMPDeviceType::array_layout, kkfloat_2d_dl_big)
 KOKKOS_DEVICE_BIGVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
@@ -1428,7 +1425,7 @@ KOKKOS_DEVICE_BIGVIEW(int, 3, Kokkos::LayoutRight, int_3d_lr_big)
 KOKKOS_DEVICE_BIGVIEW(double, 3, Kokkos::LayoutRight, double_3d_lr_big)
 
 KOKKOS_DEVICE_BIGDUALVIEW(int, 2, LMPDeviceLayout, int_2d_big)
-KOKKOS_DEVICE_BIGDUALVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
+KOKKOS_DEVICE_BIGDUALVIEW(LAMMPS_NS::tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_DEVICE_BIGDUALVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_DEVICE_BIGDUALVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
 KOKKOS_DEVICE_BIGDUALVIEW(int, 2, Kokkos::LayoutRight, int_2d_lr_big)
@@ -1505,7 +1502,7 @@ KOKKOS_HOST_DUALVIEW(KK_FLOAT****, LMPDeviceLayout, kkfloat_4d)
 // 2D view types with 64-bit indexing
 
 KOKKOS_HOST_BIGVIEW(int, 2, LMPDeviceLayout, int_2d_big)
-KOKKOS_HOST_BIGVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
+KOKKOS_HOST_BIGVIEW(LAMMPS_NS::tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_HOST_BIGVIEW(KK_FLOAT, 2, LMPDeviceType::array_layout, kkfloat_2d_dl_big)
 KOKKOS_HOST_BIGVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
@@ -1515,7 +1512,7 @@ KOKKOS_HOST_BIGVIEW(int, 3, Kokkos::LayoutRight, int_3d_lr_big)
 KOKKOS_HOST_BIGVIEW(double, 3, Kokkos::LayoutRight, double_3d_lr_big)
 
 KOKKOS_HOST_BIGDUALVIEW(int, 2, LMPDeviceLayout, int_2d_big)
-KOKKOS_HOST_BIGDUALVIEW(tagint, 2, LMPDeviceLayout, tagint_2d_big)
+KOKKOS_HOST_BIGDUALVIEW(LAMMPS_NS::tagint, 2, LMPDeviceLayout, tagint_2d_big)
 KOKKOS_HOST_BIGDUALVIEW(KK_FLOAT, 2, LMPDeviceLayout, kkfloat_2d_big)
 KOKKOS_HOST_BIGDUALVIEW(double, 2, Kokkos::LayoutRight, double_2d_lr_big)
 KOKKOS_HOST_BIGDUALVIEW(int, 2, Kokkos::LayoutRight, int_2d_lr_big)
