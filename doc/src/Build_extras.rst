@@ -657,6 +657,9 @@ They must be specified in uppercase.
    *  - ARMV9_GRACE
       - HOST
       - ARMv9 NVIDIA Grace CPU
+   *  - ARMV9_VERA
+      - HOST
+      - ARMv9 NVIDIA Vera CPU
    *  - SNB
       - HOST
       - Intel Sandy/Ivy Bridge CPUs
@@ -678,9 +681,6 @@ They must be specified in uppercase.
    *  - SKX
       - HOST
       - Intel Skylake Xeon Server CPUs (AVX512)
-   *  - KNC
-      - HOST
-      - Intel Knights Corner Xeon Phi
    *  - KNL
       - HOST
       - Intel Knights Landing Xeon Phi
