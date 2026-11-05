@@ -99,6 +99,9 @@ if(PKG_KOKKOS)
     target_link_libraries(test_kokkos_view_index PRIVATE OpenMP::OpenMP_CXX)
   endif()
   target_include_directories(test_kokkos_view_index PRIVATE ${LAMMPS_SOURCE_DIR})
+  # the library sets these privately; the test must see the same view types
+  target_compile_definitions(test_kokkos_view_index PRIVATE LMP_KOKKOS_${KOKKOS_PREC_SETTING}
+                             LMP_KOKKOS_LAYOUT_${KOKKOS_LAYOUT})
   add_test(NAME KokkosViewIndex COMMAND test_kokkos_view_index)
 endif()
 

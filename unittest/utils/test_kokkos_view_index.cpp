@@ -203,33 +203,46 @@ TEST_F(KokkosViewIndex, big_host_views)
 {
   using LayoutLR = Kokkos::LayoutRight;
   using HostDevice = typename KKDevice<LMPHostType>::value;
-  KKBigView<int8_t, 2, LayoutLR, HostDevice> v_lr(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "v_lr"), N0, N1);
-  KKBigView<int8_t, 2, Kokkos::LayoutLeft, HostDevice> v_ll(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "v_ll"), N0, N1);
-  ASSERT_GT(v_lr.span(), static_cast<size_t>(MAXSMALLINT));
-  EXPECT_EQ(offset_of_last(v_lr), expected_offset_of_last(v_lr));
-  EXPECT_EQ(offset_of_last(v_ll), expected_offset_of_last(v_ll));
-  EXPECT_EQ(offset_of_last(v_lr), static_cast<bigint>(N0) * N1 - 1);
 
-  // the first and the last element are distinct
-  v_lr(0, 0) = 1;
-  v_lr(N0 - 1, N1 - 1) = 2;
-  EXPECT_EQ(v_lr(0, 0), 1);
-  EXPECT_EQ(v_lr(N0 - 1, N1 - 1), 2);
+  // each array below has more than 2^31 elements; they are allocated one at a
+  // time in their own scope, so the test needs memory for only one of them
+
+  {
+    KKBigView<int8_t, 2, LayoutLR, HostDevice> v_lr(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "v_lr"), N0, N1);
+    ASSERT_GT(v_lr.span(), static_cast<size_t>(MAXSMALLINT));
+    EXPECT_EQ(offset_of_last(v_lr), expected_offset_of_last(v_lr));
+    EXPECT_EQ(offset_of_last(v_lr), static_cast<bigint>(N0) * N1 - 1);
+
+    // the first and the last element are distinct
+    v_lr(0, 0) = 1;
+    v_lr(N0 - 1, N1 - 1) = 2;
+    EXPECT_EQ(v_lr(0, 0), 1);
+    EXPECT_EQ(v_lr(N0 - 1, N1 - 1), 2);
+  }
+
+  {
+    KKBigView<int8_t, 2, Kokkos::LayoutLeft, HostDevice> v_ll(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "v_ll"), N0, N1);
+    EXPECT_EQ(offset_of_last(v_ll), expected_offset_of_last(v_ll));
+  }
 
   // the same for the host views of a dual view
-  KKBigDualView<int8_t, 2, LayoutLR, HostDevice> k_view(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "k_view"), N0, N1);
-  EXPECT_EQ(offset_of_last(k_view.view_host()), expected_offset_of_last(k_view.view_host()));
-  EXPECT_EQ(offset_of_last(k_view.view_device()), expected_offset_of_last(k_view.view_device()));
+  {
+    KKBigDualView<int8_t, 2, LayoutLR, HostDevice> k_view(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "k_view"), N0, N1);
+    EXPECT_EQ(offset_of_last(k_view.view_host()), expected_offset_of_last(k_view.view_host()));
+    EXPECT_EQ(offset_of_last(k_view.view_device()), expected_offset_of_last(k_view.view_device()));
+  }
 
   // the views in memory_kokkos.h that alias legacy pointer arrays are regular
   // views; they are indexed with a 64-bit first index to get the same result
-  Kokkos::View<int8_t **, LayoutLR, HostDevice> v_regular(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "v_regular"), N0, N1);
-  EXPECT_EQ(&v_regular((bigint) N0 - 1, N1 - 1) - v_regular.data(),
-            static_cast<bigint>(N0) * N1 - 1);
+  {
+    Kokkos::View<int8_t **, LayoutLR, HostDevice> v_regular(
+        Kokkos::view_alloc(Kokkos::WithoutInitializing, "v_regular"), N0, N1);
+    EXPECT_EQ(&v_regular((bigint) N0 - 1, N1 - 1) - v_regular.data(),
+              static_cast<bigint>(N0) * N1 - 1);
+  }
 }
 
 } // namespace
