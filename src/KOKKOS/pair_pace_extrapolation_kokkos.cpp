@@ -123,7 +123,7 @@ void PairPACEExtrapolationKokkos<DeviceType>::grow(int natom, int maxneigh)
   per_atom = MAX(per_atom, (bigint) idx_ms_combs_max * (basis_set->rankmax + 1));
   per_atom = MAX(per_atom, (bigint) total_num_functions_max);
   if ((bigint) natom * per_atom > MAXSMALLINT)
-    error->all(FLERR, "Pair style pace/extrapolation/kk: chunksize {} is too large for this potential, it needs "
+    error->one(FLERR, "Pair style pace/extrapolation/kk: chunksize {} is too large for this potential, it needs "
                "an internal array of {} entries and the limit is {}. Set chunksize to {} or less",
                natom, (bigint) natom * per_atom, (bigint) MAXSMALLINT,
                MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));

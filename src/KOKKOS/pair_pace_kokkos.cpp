@@ -411,7 +411,7 @@ void PairPACEKokkos<DeviceType>::grow(int natom, int maxneigh)
   per_atom = MAX(per_atom, (bigint) maxneigh * MAX(nradbase, nradmax * (lmax + 1)));
   per_atom = MAX(per_atom, (bigint) dB_total_max);
   if ((bigint) natom * per_atom > MAXSMALLINT)
-    error->all(FLERR, "Pair style pace/kk: chunksize {} is too large for this potential, it needs "
+    error->one(FLERR, "Pair style pace/kk: chunksize {} is too large for this potential, it needs "
                "an internal array of {} entries and the limit is {}. Set chunksize to {} or less",
                natom, (bigint) natom * per_atom, (bigint) MAXSMALLINT,
                MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));

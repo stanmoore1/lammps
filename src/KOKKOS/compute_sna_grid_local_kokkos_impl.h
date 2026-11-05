@@ -203,9 +203,10 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
   //snaKK.grow_rij(chunk_size, ntotal);
   const bigint max_elements = snaKK.grow_rij(chunk_size, max_neighs, padding_factor);
   if (max_elements > MAXSMALLINT)
-    error->all(FLERR, "Compute sna/grid/local/kk: chunksize {} is too large for these settings, "
+    error->one(FLERR, "Compute sna/grid/local/kk: chunksize {} is too large for these settings, "
                "it needs an internal array of {} entries and the limit is {}. Set the "
-               "chunksize keyword to {} or less", chunksize, max_elements, (bigint) MAXSMALLINT,
+               "chunksize keyword to {} or less; fitting in memory may need a smaller value",
+               chunksize, max_elements, (bigint) MAXSMALLINT,
                sna_suggested_chunk_size(chunk_size, max_elements, vector_length * padding_factor));
 
   //chunk_size = total_range;
@@ -256,9 +257,10 @@ void ComputeSNAGridLocalKokkos<DeviceType, real_type, accum_type, vector_length>
         // grow with the full chunk size so a short final chunk cannot shrink the arrays
         const bigint max_elements_grown = snaKK.grow_rij(chunk_size_max, max_neighs, padding_factor);
         if (max_elements_grown > MAXSMALLINT)
-          error->all(FLERR, "Compute sna/grid/local/kk: chunksize {} is too large for these settings, "
+          error->one(FLERR, "Compute sna/grid/local/kk: chunksize {} is too large for these settings, "
                      "it needs an internal array of {} entries and the limit is {}. Set the "
-                     "chunksize keyword to {} or less", chunksize, max_elements_grown,
+                     "chunksize keyword to {} or less; fitting in memory may need a smaller value",
+                     chunksize, max_elements_grown,
                      (bigint) MAXSMALLINT, sna_suggested_chunk_size(chunk_size_max, max_elements_grown,
                                                                     vector_length * padding_factor));
       }

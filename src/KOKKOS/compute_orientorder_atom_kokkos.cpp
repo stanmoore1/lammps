@@ -172,7 +172,7 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   // must have fewer than 2^31 entries
   const bigint per_atom = MAX((bigint) maxneigh * 3, (bigint) nqlist * (qmax + 1));
   if ((bigint) chunk_size * per_atom > MAXSMALLINT)
-    error->all(FLERR, "Compute orientorder/atom/kk: chunksize {} is too large for these settings, "
+    error->one(FLERR, "Compute orientorder/atom/kk: chunksize {} is too large for these settings, "
                "it needs an internal array of {} entries and the limit is {}. Set the chunksize "
                "keyword to {} or less", chunk_size, (bigint) chunk_size * per_atom,
                (bigint) MAXSMALLINT, MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));
