@@ -156,6 +156,20 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   chunk_size = MIN(chunksize,inum); // "chunksize" variable is set by user
   chunk_offset = 0;
 
+  maxneigh = 0;
+  Kokkos::parallel_reduce("ComputeOrientOrderAtomKokkos::find_max_neighs",inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Max<int>(maxneigh));
+
+  // the per-chunk arrays index with 32-bit arithmetic, so the largest of them
+  // must have fewer than 2^31 entries; check before allocating any of them and
+  // before setting copymode, which would keep the destructor from freeing them
+
+  const bigint per_atom = MAX((bigint) maxneigh * 3, (bigint) nqlist * (qmax + 1));
+  if ((bigint) chunk_size * per_atom > MAXSMALLINT)
+    error->one(FLERR, "Compute orientorder/atom/kk: chunksize {} is too large for these settings, "
+               "it needs an internal array of {} entries and the limit is {}. Set the chunksize "
+               "keyword to {} or less", chunk_size, (bigint) chunk_size * per_atom,
+               (bigint) MAXSMALLINT, MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));
+
   if (chunk_size > (int)d_ncount.extent(0)) {
     d_qnm = t_sna_3c("orientorder/atom:qnm",chunk_size,nqlist,qmax+1);
     d_ncount = t_sna_1i("orientorder/atom:ncount",chunk_size);
@@ -164,18 +178,6 @@ void ComputeOrientOrderAtomKokkos<DeviceType>::compute_peratom()
   copymode = 1;
 
   // ensure distsq and nearest arrays are long enough
-
-  maxneigh = 0;
-  Kokkos::parallel_reduce("ComputeOrientOrderAtomKokkos::find_max_neighs",inum, FindMaxNumNeighs<DeviceType>(k_list), Kokkos::Max<int>(maxneigh));
-
-  // the per-chunk arrays index with 32-bit arithmetic, so the largest of them
-  // must have fewer than 2^31 entries
-  const bigint per_atom = MAX((bigint) maxneigh * 3, (bigint) nqlist * (qmax + 1));
-  if ((bigint) chunk_size * per_atom > MAXSMALLINT)
-    error->one(FLERR, "Compute orientorder/atom/kk: chunksize {} is too large for these settings, "
-               "it needs an internal array of {} entries and the limit is {}. Set the chunksize "
-               "keyword to {} or less", chunk_size, (bigint) chunk_size * per_atom,
-               (bigint) MAXSMALLINT, MAX((bigint) 1, (bigint) MAXSMALLINT / per_atom));
 
   if (chunk_size > (int)d_distsq.extent(0) || maxneigh > (int)d_distsq.extent(1)) {
     d_distsq = t_sna_2d_lr("orientorder/atom:distsq",chunk_size,maxneigh);
