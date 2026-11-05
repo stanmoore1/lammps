@@ -217,7 +217,7 @@ class PairGWKokkosBase : public PairCPUBase {
   int nlocal,nall,eflag,vflag;
 
   int inum;
-  typename AT::t_int_2d_dl d_neighbors_short;
+  typename AT::t_neighbors_2d d_neighbors_short;
   typename AT::t_int_1d d_numneigh_short;
 
   friend void pair_virial_fdotr_compute<PairGWKokkosBase>(PairGWKokkosBase*);
@@ -300,7 +300,7 @@ void PairGWKokkosBase<DeviceType,PairCPUBase>::compute(int eflag_in, int vflag_i
 
   if (((int) d_neighbors_short.extent(1) < max_neighs) ||
       ((int) d_neighbors_short.extent(0) < ignum)) {
-    d_neighbors_short = typename AT::t_int_2d_dl("GW::neighbors_short",ignum*1.2,max_neighs);
+    d_neighbors_short = typename AT::t_neighbors_2d("GW::neighbors_short",ignum*1.2,max_neighs);
   }
   if ((int)d_numneigh_short.extent(0) < ignum)
     d_numneigh_short = typename AT::t_int_1d("GW::numneighs_short",ignum*1.2);
