@@ -477,6 +477,10 @@ void CommTiledKokkos::forward_comm_device(Pair *pair, int size)
 
   KokkosBase* pairKKBase = dynamic_cast<KokkosBase*>(pair);
 
+  // styles reach this entry point directly as well as through the dispatcher
+  // above, and only the dispatcher syncs the send list
+  k_sendlist.sync<DeviceType>();
+
   // ensure send/recv buffers are large enough for all swaps/procs
   // send buf holds one forward send to a single proc
   // recv buf holds all forward recvs in one swap (packed at per-proc offsets)
@@ -595,6 +599,10 @@ void CommTiledKokkos::reverse_comm_device(Pair *pair, int size)
   else nsize = MAX(pair->comm_reverse, pair->comm_reverse_off);
 
   KokkosBase* pairKKBase = dynamic_cast<KokkosBase*>(pair);
+
+  // styles reach this entry point directly as well as through the dispatcher
+  // above, and only the dispatcher syncs the send list
+  k_sendlist.sync<DeviceType>();
 
   // ensure send/recv buffers are large enough for all swaps/procs
   // send buf holds one reverse send to a single proc
@@ -983,3 +991,19 @@ void CommTiledKokkos::grow_swap_send(int i, int n, int /*nold*/)
     for (int j = 0; j < nprocmaxtot; j++)
       maxsendlist[i][j] = BUFMIN;
 }
+
+/* ----------------------------------------------------------------------
+   explicit instantiation of the Pair comm methods.  The dispatchers above
+   only call the LMPDeviceType versions, but PairMLIAPKokkos calls them
+   directly for both instances, so on a GPU build (LMPHostType !=
+   LMPDeviceType) the host versions must be instantiated here.
+------------------------------------------------------------------------- */
+
+#ifdef LMP_KOKKOS_GPU
+namespace LAMMPS_NS {
+template void CommTiledKokkos::forward_comm_device<LMPDeviceType>(Pair *, int);
+template void CommTiledKokkos::reverse_comm_device<LMPDeviceType>(Pair *, int);
+template void CommTiledKokkos::forward_comm_device<LMPHostType>(Pair *, int);
+template void CommTiledKokkos::reverse_comm_device<LMPHostType>(Pair *, int);
+}
+#endif

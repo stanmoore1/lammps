@@ -300,6 +300,15 @@ See the :doc:`Build package <Build_package>` page for more info. Note
 that `pair_mliap/kk` acceleration will *not* invoke the `kk`
 accelerated variants of SNAP or ACE descriptors.
 
+When a *unified* model exchanges per-atom data between owned and ghost
+atoms with its *forward_exchange()* or *reverse_exchange()* functions,
+pair style *mliap/kk* always uses the KOKKOS communication for this
+data, also when the *pair/only on* or *gpu/aware off* settings of the
+:doc:`package kokkos <package>` command select the regular communication
+for other pair styles.  When running on GPUs, the *comm/pair/forward*
+and *comm/pair/reverse* keywords of the :doc:`package kokkos <package>`
+command may therefore not be set to *host* or *no* with this pair style.
+
 
 Related commands
 """"""""""""""""
