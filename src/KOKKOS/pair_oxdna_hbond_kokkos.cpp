@@ -935,8 +935,7 @@ void PairOxdnaHbondKokkos<DeviceType>::init_style()
   idc_index = -1;
   last_idc_nbuild = -1;
   last_idc_nall = -1;
-  const int ifix = modify->find_fix("Basepairs");
-  if (ifix >= 0) {
+  if (modify->get_fix_by_id("Basepairs")) {
     int idx, flag, cols;
     idx = atom->find_custom("idc", flag, cols);
     if (idx >= 0 && flag == 0) {
