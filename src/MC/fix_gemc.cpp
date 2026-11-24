@@ -177,7 +177,7 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   }
 
   // set up comm_replica = communicator between the same ranks of both boxes
-  // only rank 0 of each box uses it, rank 0 of box 1 is rank 0 of comm_replica
+  // only rank 0 of each box uses it, rank 0 of box N is rank N of comm_replica
 
   MPI_Comm_rank(world, &me);
   myworld = universe->iworld;
@@ -402,6 +402,8 @@ void FixGEMC::init()
    with mol keyword, each group molecule must match the template:
    consecutive atom IDs in the order of the template atoms, same types.
    also warn once if exchanged atoms or molecules carry a net charge.
+   errors are stored in group_error and reported by setup() in both boxes,
+   since an error in only one box would leave the other one waiting.
 ------------------------------------------------------------------------- */
 
 void FixGEMC::check_molecules()
@@ -414,6 +416,7 @@ void FixGEMC::check_molecules()
   int flag = 0;
   int charged = 0;
   group_charged = 0;
+  group_error.clear();
 
   if (!molflag) {
     int anyq = 0;
@@ -426,7 +429,7 @@ void FixGEMC::check_molecules()
     int flag_all;
     MPI_Allreduce(&flag, &flag_all, 1, MPI_INT, MPI_MAX, world);
     if (flag_all)
-      error->all(FLERR, "Fix gemc group contains atoms with molecule IDs; use the mol keyword");
+      group_error = "Fix gemc group contains atoms with molecule IDs; use the mol keyword";
   } else {
 
     // check each molecule on a rendezvous rank (molecule ID modulo number of ranks)
@@ -441,8 +444,10 @@ void FixGEMC::check_molecules()
     }
     int flag_all;
     MPI_Allreduce(&flag, &flag_all, 1, MPI_INT, MPI_MAX, world);
-    if (flag_all)
-      error->all(FLERR, "Fix gemc group atoms must all belong to molecules with the mol keyword");
+    if (flag_all) {
+      group_error = "Fix gemc group atoms must all belong to molecules with the mol keyword";
+      return;
+    }
 
     int *proclist;
     memory->create(proclist, nsend, "gemc:proclist");
@@ -470,11 +475,11 @@ void FixGEMC::check_molecules()
 
     MPI_Allreduce(&rvous_bad, &flag_all, 1, MPI_INT, MPI_MAX, world);
     if (flag_all)
-      error->all(FLERR,
-                 "Molecules in fix gemc group must match molecule template {}: same number and "
-                 "types of atoms, with consecutive atom IDs in template order, and the same "
-                 "number of bonds, angles, dihedrals, and impropers",
-                 idmol);
+      group_error = fmt::format(
+          "Molecules in fix gemc group must match molecule template {}: same number and "
+          "types of atoms, with consecutive atom IDs in template order, and the same "
+          "number of bonds, angles, dihedrals, and impropers",
+          idmol);
     charged = rvous_charged;
     if (onemol->qflag) {
       double qmol = 0.0;
@@ -602,14 +607,21 @@ void FixGEMC::setup(int /*vflag*/)
   // without the mol keyword, exchanged atoms must not be bonded to other atoms.
   // checked here, since the ghost atoms that hold the bond partners exist now
 
-  if (!molflag) {
+  if (!molflag && group_error.empty()) {
     int flag = group_topology();
     int flag_all;
     MPI_Allreduce(&flag, &flag_all, 1, MPI_INT, MPI_MAX, world);
     if (flag_all)
-      error->all(FLERR,
-                 "Fix gemc group contains atoms with bonds, angles, dihedrals, or impropers; "
-                 "use the mol keyword");
+      group_error = "Fix gemc group contains atoms with bonds, angles, dihedrals, or impropers; "
+                    "use the mol keyword";
+  }
+
+  // errors found in the atoms of one box stop both boxes, since the other
+  // box would otherwise wait for it forever
+
+  if (any_box(!group_error.empty())) {
+    if (!group_error.empty()) error->all(FLERR, group_error);
+    error->all(FLERR, "Fix gemc stopped because of an error in the other partition");
   }
 
   // both boxes must use the same settings, or they would fall out of step and hang
@@ -1596,8 +1608,17 @@ void FixGEMC::write_restart(FILE *fp)
 
 /* ----------------------------------------------------------------------
    use state info from restart file to restart the Fix
-   restart files written before the version marker was added start with the
-   (positive) random number generator state and contain rotation counters
+   restart files written before the version marker was added start with a
+   (positive) random number generator state, store the rotation counters
+   after the translation counters, and use one of two layouts:
+     A: state of rank 0, world and universe states, next_reneighbor,
+        8 counters, timestep
+     B: world and universe states, next_reneighbor, 8 counters, timestep,
+        number of ranks, state of each rank
+   they are told apart by the position of the timestep, which must match the
+   current timestep.  in layout A, list[12] holds the timestep and list[11]
+   a counter, which matches the timestep only if both are zero.  in layout B,
+   list[12] holds the number of ranks, which is at least 1.
 ------------------------------------------------------------------------- */
 
 void FixGEMC::restart(char *buf)
@@ -1605,13 +1626,17 @@ void FixGEMC::restart(char *buf)
   int n = 0;
   auto *list = (double *) buf;
 
-  int oldformat = (list[0] > 0.0);
-  int version = oldformat ? 1 : static_cast<int>(-list[0]);
-  if (!oldformat) n++;
+  int nomarker = (list[0] > 0.0);
+  int layout_a = 0;
+  if (nomarker) {
+    layout_a = !(((bigint) ubuf(list[11]).i == update->ntimestep) && (list[12] >= 1.0));
+  } else {
+    auto version = static_cast<int>(-list[n++]);
+    if (version != static_cast<int>(RESTART_VERSION))
+      error->all(FLERR, "Unsupported fix gemc restart data version {}", version);
+  }
 
-  // earlier versions stored the state of rank 0 only, ahead of the other values
-
-  int procstate = (version < 4) ? static_cast<int>(list[n++]) : 0;
+  int procstate = layout_a ? static_cast<int>(list[n++]) : 0;
 
   random_world->reset(static_cast<int>(list[n++]));
   random_universe->reset(static_cast<int>(list[n++]));
@@ -1620,12 +1645,15 @@ void FixGEMC::restart(char *buf)
 
   ntranslation_attempts = list[n++];
   ntranslation_successes = list[n++];
-  if (oldformat) n += 2;
+  if (nomarker) {
+    nrotation_attempts = list[n++];
+    nrotation_successes = list[n++];
+  }
   nexchange_attempts = list[n++];
   nexchange_successes = list[n++];
   nvolume_attempts = list[n++];
   nvolume_successes = list[n++];
-  if (version >= 3) {
+  if (!nomarker) {
     nrotation_attempts = list[n++];
     nrotation_successes = list[n++];
   }
@@ -1637,7 +1665,7 @@ void FixGEMC::restart(char *buf)
   // read stored state of RNG unique to this process
   // if nprocs changed, derive a unique state from the state of proc 0
 
-  if (version >= 4) {
+  if (!layout_a) {
     auto nlocalvals = (int) list[n++];
     if (nlocalvals == comm->nprocs) {
       random_proc->reset(static_cast<int>(list[n + me]));

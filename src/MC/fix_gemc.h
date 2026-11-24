@@ -23,6 +23,7 @@ FixStyle(gemc,FixGEMC);
 #include "fix.h"
 
 #include <array>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -69,6 +70,7 @@ class FixGEMC : public Fix {
   int natoms_per_molecule;    // number of atoms in each molecule
   int group_charged;          // 1 if atoms in the fix group have charges (atoms only)
   int charge_warned;          // 1 if warning about charged exchanges was printed
+  std::string group_error;    // error found by check_molecules() or setup(), empty if none
 
   // for evaluating probability
 
