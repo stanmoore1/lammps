@@ -34,7 +34,7 @@ FixOxdnaLRF::FixOxdnaLRF(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg
   peratom_freq = 1;
 
   FixOxdnaLRF::grow_arrays(atom->nmax);
-  atom->add_callback(Atom::GROW);
+  atom->add_callback(this, Atom::GROW);
 
   int nlocal = atom->nlocal;
   for (int i = 0; i < nlocal; i++)
@@ -45,7 +45,7 @@ FixOxdnaLRF::FixOxdnaLRF(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg
 
 FixOxdnaLRF::~FixOxdnaLRF()
 {
-  atom->delete_callback(id, Atom::GROW);
+  atom->delete_callback(this, Atom::GROW);
   memory->destroy(nxyz);
 }
 

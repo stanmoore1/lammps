@@ -28,7 +28,7 @@
 using namespace LAMMPS_NS;
 
 // Currently the Intel compiler is required for this pair style.
-#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+#if defined(__INTEL_LLVM_COMPILER)
 
 
 #include "intel_intrinsics.h"
@@ -1171,7 +1171,7 @@ void IntelKernelTersoff<flt_t, acc_t, mic, pack_i>::force_zeta_vector(
     fvec vrcp2powern = v::recip(v_2_0 * vppowern);
     fvec va = (v_1_0 - vpowminus_powern * vrcp2powern) * vinvsqrt;
     fvec va_d = vpbeta * v_m0_5 * vinvsqrt * v::recip(vtmp) *
-            (v_1_0 + v_m0_5 * vpowminus_powern * (v_1_0 + vrcp2powern));
+            (v_1_0 - vpowminus_powern * (v_1_0 + vrcp2powern));
     vbij = v::blend(vmc2, vbij, va);
     vbij_d = v::blend(vmc2, vbij_d, va_d);
   }
@@ -1295,4 +1295,4 @@ void IntelKernelTersoff<flt_t,acc_t,mic, pack_i>::attractive_vector(
 
 
 
-#endif // __INTEL_COMPILER
+#endif // __INTEL_LLVM_COMPILER

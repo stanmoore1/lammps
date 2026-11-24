@@ -361,6 +361,8 @@ overview.
 * :doc:`atom_style body <atom_style>`
 * :doc:`fix nve/body <fix_nve_body>`
 * :doc:`pair_style body/nparticle <pair_body_nparticle>`
+* :doc:`pair_style body/rounded/polyhedron/granular <pair_body_rounded_polyhedron_granular>` (requires the GRANULAR package)
+* :doc:`fix wall/body/polyhedron/granular <fix_wall_body_polyhedron_granular>` (requires the GRANULAR package)
 * ``examples/body``
 
 ----------
@@ -612,7 +614,6 @@ This package has :ref:`specific installation instructions <compress>` on the :do
 
 * ``src/COMPRESS``: filenames -> commands
 * ``src/COMPRESS/README``
-* ``lib/compress/README``
 * :doc:`dump atom/gz <dump>`
 * :doc:`dump cfg/gz <dump>`
 * :doc:`dump custom/gz <dump>`
@@ -1335,11 +1336,6 @@ You need to have an Intel compiler, version 14 or higher to take full
 advantage of this package. While compilation with GNU compilers is
 supported, performance will be sub-optimal.
 
-.. note::
-
-   the INTEL package contains styles that require using the
-   -restrict flag, when compiling with Intel compilers.
-
 **Author:** Mike Brown (Intel).
 
 **Install:**
@@ -1439,7 +1435,6 @@ This package has :ref:`specific installation instructions <kim>` on the
 * :doc:`pair_style kim <pair_kim>`
 * ``src/KIM``: filenames -> commands
 * ``src/KIM/README``
-* ``lib/kim/README``
 * ``examples/kim``
 
 ----------
@@ -1466,9 +1461,9 @@ optimized for CPUs, KNLs, and GPUs.
 You must have a C++20 compatible compiler to use this package.  KOKKOS
 makes extensive use of advanced C++ features, which can expose compiler
 bugs, especially when compiling for maximum performance at high
-optimization levels.  Please see the file ``lib/kokkos/README`` for a
-list of compilers and their respective platforms, that are known to
-work.
+optimization levels.  Please see the `Kokkos requirements page
+<https://kokkos.org/kokkos-core-wiki/get-started/requirements.html>`_
+for the minimum and the tested compiler versions.
 
 **Authors:** The KOKKOS package was created primarily by Christian Trott
 and Stan Moore (Sandia), with contributions from other folks as well.
@@ -1485,7 +1480,7 @@ This package has :ref:`specific installation instructions <kokkos>` on the :doc:
 
 * ``src/KOKKOS``: filenames -> commands
 * ``src/KOKKOS/README``
-* ``lib/kokkos/README``
+* ``lib/kokkos/README.md``
 * :doc:`Accelerator packages <Speed_packages>`
 * :doc:`KOKKOS package <Speed_kokkos>`
 * :doc:`Section 4.2 -k on ... <Run_options>`
@@ -1595,7 +1590,7 @@ the :doc:`Build extras <Build_extras>` page.
 **Supporting info:**
 
 * ``src/LEPTON``: filenames -> commands
-* ``lib/lepton/README``.md
+* ``lib/lepton/README.md``
 * :doc:`pair_style lepton <pair_lepton>`
 * :doc:`bond_style lepton <bond_lepton>`
 * :doc:`angle_style lepton <angle_lepton>`
@@ -1790,7 +1785,6 @@ the :doc:`Build extras <Build_extras>` page.
 **Supporting info:**
 
 * ``src/MDI/README``
-* ``lib/mdi/README``
 * :doc:`Howto MDI <Howto_mdi>`
 * :doc:`mdi <mdi>`
 * :doc:`fix mdi/qm <fix_mdi_qm>`
@@ -1917,11 +1911,6 @@ A variety of compute, fix, pair, bond styles with specialized
 capabilities that don't align with other packages.  Do a directory
 listing, ``ls src/MISC``, to see the list of commands.
 
-.. note::
-
-   the MISC package contains styles that require using the
-   -restrict flag, when compiling with Intel compilers.
-
 **Supporting info:**
 
 * ``src/MISC``: filenames -> commands
@@ -1966,7 +1955,6 @@ This package has :ref:`specific installation instructions <ml-hdnnp>` on the
 
 * ``src/ML-HDNNP``: filenames -> commands
 * ``src/ML-HDNNP/README``
-* ``lib/hdnnp/README``
 * :doc:`pair_style hdnnp <pair_hdnnp>`
 * ``examples/PACKAGES/hdnnp``
 
@@ -1985,9 +1973,9 @@ A general interface for machine-learning interatomic potentials, including PyTor
 
 To use this package, also the :ref:`ML-SNAP <PKG-ML-SNAP>` package needs
 to be installed.  To make the *mliappy* model available, also the
-:ref:`PYTHON <PKG-PYTHON>` package needs to be installed, the version
-of Python must be 3.6 or later, and the `cython <https://cython.org/>`_ software
-must be installed.
+:ref:`PYTHON <PKG-PYTHON>` package needs to be installed, the version of
+Python must be 3.9 or later, and the `cython <https://cython.org/>`_
+software must be installed.
 
 **Author:** Aidan Thompson (Sandia), Nicholas Lubbers (LANL).
 
@@ -2049,6 +2037,8 @@ as a plugin to avoid licensing conflicts when distributing binaries.
 
 * ``src/ML-PACE``: filenames -> commands
 * :doc:`pair_style pace <pair_pace>`
+* :doc:`compute pace <compute_pace>`
+* :doc:`compute pace/atom <compute_pace>`
 * ``examples/PACKAGES/pace``
 
 ----------
@@ -2345,7 +2335,6 @@ This package has :ref:`specific installation instructions <netcdf>` on the :doc:
 
 * ``src/NETCDF``: filenames -> commands
 * ``src/NETCDF/README``
-* ``lib/netcdf/README``
 * :doc:`dump netcdf <dump_netcdf>`
 
 ----------
@@ -2572,7 +2561,6 @@ as a plugin to avoid licensing conflicts when distributing binaries.
 **Supporting info:**
 
 * ``src/PLUMED/README``
-* ``lib/plumed/README``
 * :doc:`fix plumed <fix_plumed>`
 * ``examples/PACKAGES/plumed``
 
@@ -2619,7 +2607,7 @@ ways to use LAMMPS and Python together.
 
    Building with the PYTHON package assumes you have a Python development
    environment (headers and libraries) available on your system, which needs
-   to be Python version 3.6 or later.
+   to be Python version 3.9 or later.
 
 **Install:**
 
@@ -2629,7 +2617,6 @@ This package has :ref:`specific installation instructions <python>` on the :doc:
 
 * ``src/PYTHON``: filenames -> commands
 * :doc:`Python call <Python_head>`
-* ``lib/python/README``
 * ``examples/python``
 
 ----------
@@ -3051,7 +3038,10 @@ SPIN package
 **Contents:**
 
 Model atomic magnetic spins classically, coupled to atoms moving in
-the usual manner via MD.  Various pair, fix, and compute styles.
+the usual manner via MD.  Various pair, fix, and compute styles.  Both
+fixed-modulus Landau-Lifshitz spin dynamics and inertial spin dynamics,
+in which the spin modulus is a dynamical degree of freedom, are
+supported.
 
 **Author:** Julien Tranchida (Sandia).
 
@@ -3069,7 +3059,15 @@ the usual manner via MD.  Various pair, fix, and compute styles.
 * :doc:`fix nve/spin <fix_nve_spin>`
 * :doc:`fix langevin/spin <fix_langevin_spin>`
 * :doc:`fix precession/spin <fix_precession_spin>`
+* :doc:`fix nve/tspin <fix_nve_tspin>`
+* :doc:`fix nvt/tspin <fix_nvt_tspin>`
+* :doc:`fix npt/tspin <fix_nvt_tspin>`
+* :doc:`fix nph/tspin <fix_nvt_tspin>`
+* :doc:`fix langevin/tspin <fix_langevin_tspin>`
+* :doc:`fix spring/tspin <fix_spring_tspin>`
 * :doc:`compute spin <compute_spin>`
+* :doc:`compute temp/tspin <compute_temp_tspin>`
+* :doc:`velocity/tspin <velocity_tspin>`
 * :doc:`neb/spin <neb_spin>`
 * ``examples/SPIN``
 
@@ -3174,7 +3172,6 @@ This package has :ref:`specific installation instructions <voronoi>` on the :doc
 
 * ``src/VORONOI``: filenames -> commands
 * ``src/VORONOI/README``
-* ``lib/voronoi/README``
 * :doc:`compute voronoi/atom <compute_voronoi_atom>`
 * ``examples/voronoi``
 

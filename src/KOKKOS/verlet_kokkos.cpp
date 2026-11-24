@@ -13,6 +13,7 @@
 ------------------------------------------------------------------------- */
 
 #include "verlet_kokkos.h"
+#include "fix.h"
 #include "neighbor.h"
 #include "domain.h"
 #include "comm.h"
@@ -135,14 +136,14 @@ void VerletKokkos::check_force_clear_fix()
   if (!torqueflag || extraflag || external_force_clear || (neighbor->includegroup != 0)) return;
   if (host_force_styles()) return;
 
-  for (int i = 0; i < modify->nfix; i++) {
-    if (!(modify->fmask[i] & FixConst::PRE_FORCE)) continue;
-    if (modify->fix[i] == force_clear_fix) {
+  for (auto *ifix : modify->get_fix_list()) {
+    if (!(modify->get_fix_mask(ifix) & FixConst::PRE_FORCE)) continue;
+    if (ifix == force_clear_fix) {
       force_clear_fused = 1;
       return;
     }
     // the internal oxDNA helper fixes do not touch forces
-    if (!utils::strmatch(modify->fix[i]->style, "^OXDNA/")) return;
+    if (!utils::strmatch(ifix->style, "^OXDNA/")) return;
   }
 }
 
@@ -363,15 +364,6 @@ void VerletKokkos::run(int n)
   bigint ntimestep;
   int nflag,sortflag;
 
-  int n_post_integrate = modify->n_post_integrate;
-  int n_pre_exchange = modify->n_pre_exchange;
-  int n_pre_neighbor = modify->n_pre_neighbor;
-  int n_post_neighbor = modify->n_post_neighbor;
-  int n_pre_force = modify->n_pre_force;
-  int n_pre_reverse = modify->n_pre_reverse;
-  int n_post_force = modify->n_post_force_any;
-  int n_end_of_step = modify->n_end_of_step;
-
   lmp->kokkos->auto_sync = 0;
 
   fuse_integrate = 0;
@@ -399,7 +391,7 @@ void VerletKokkos::run(int n)
     timer->stamp();
     if (!fuse_integrate)
       modify->initial_integrate(vflag);
-    if (n_post_integrate) modify->post_integrate();
+    if (modify->has_fixes(FixConst::POST_INTEGRATE)) modify->post_integrate();
     timer->stamp(Timer::MODIFY);
 
     // regular communication vs neighbor list rebuild
@@ -411,7 +403,7 @@ void VerletKokkos::run(int n)
       comm->forward_comm();
       timer->stamp(Timer::COMM);
     } else {
-      if (n_pre_exchange) {
+      if (modify->has_fixes(FixConst::PRE_EXCHANGE)) {
         timer->stamp();
         modify->pre_exchange();
         timer->stamp(Timer::MODIFY);
@@ -432,13 +424,13 @@ void VerletKokkos::run(int n)
       if (triclinic) domain->lamda2x(atomKK->nlocal+atomKK->nghost);
 
       timer->stamp(Timer::COMM);
-      if (n_pre_neighbor) {
+      if (modify->has_fixes(FixConst::PRE_NEIGHBOR)) {
         modify->pre_neighbor();
         timer->stamp(Timer::MODIFY);
       }
       neighbor->build(1);
       timer->stamp(Timer::NEIGH);
-      if (n_post_neighbor) {
+      if (modify->has_fixes(FixConst::POST_NEIGHBOR)) {
         modify->post_neighbor();
         timer->stamp(Timer::MODIFY);
       }
@@ -458,7 +450,7 @@ void VerletKokkos::run(int n)
 
     timer->stamp();
 
-    if (n_pre_force) {
+    if (modify->has_fixes(FixConst::PRE_FORCE)) {
       modify->pre_force(vflag);
       timer->stamp(Timer::MODIFY);
     }
@@ -604,7 +596,7 @@ void VerletKokkos::run(int n)
 
     exclude_guard.release();
 
-    if (n_pre_reverse) {
+    if (modify->has_fixes(FixConst::PRE_REVERSE)) {
       modify->pre_reverse(eflag,vflag);
       timer->stamp(Timer::MODIFY);
     }
@@ -620,12 +612,12 @@ void VerletKokkos::run(int n)
 
     // force modifications, final time integration, diagnostics
 
-    if (n_post_force) modify->post_force(vflag);
+    if (modify->has_fixes(FixConst::POST_FORCE_ANY)) modify->post_force(vflag);
 
     if (fuse_integrate) modify->fused_integrate(vflag);
     else modify->final_integrate();
 
-    if (n_end_of_step) modify->end_of_step();
+    if (modify->has_fixes(FixConst::END_OF_STEP)) modify->end_of_step();
     timer->stamp(Timer::MODIFY);
 
     // all output
@@ -836,7 +828,7 @@ int VerletKokkos::host_force_styles(uint64_t *datamask_read_host)
 void VerletKokkos::fuse_check(int i, int n)
 {
   fuse_force_clear = 1;
-  if (modify->n_pre_force) fuse_force_clear = 0;
+  if (modify->has_fixes(FixConst::PRE_FORCE)) fuse_force_clear = 0;
   else if (torqueflag || extraflag || neighbor->includegroup) fuse_force_clear = 0;
   else if (!force->pair || !pair_compute_flag) fuse_force_clear = 0;
   else if (!force->pair->fuse_force_clear_flag) fuse_force_clear = 0;
@@ -844,7 +836,8 @@ void VerletKokkos::fuse_check(int i, int n)
   fuse_integrate = 1;
   // fusing moves the next initial integrate before end_of_step(), so it is
   // only possible on steps on which no end-of-step fix is invoked
-  if (modify->n_end_of_step && ((ModifyKokkos*)modify)->end_of_step_fires(update->ntimestep))
+  if (modify->has_fixes(FixConst::END_OF_STEP) &&
+      ((ModifyKokkos*)modify)->end_of_step_fires(update->ntimestep))
     fuse_integrate = 0;
   if (i == n-1) fuse_integrate = 0;
   else if (update->ntimestep == output->next) fuse_integrate = 0;
