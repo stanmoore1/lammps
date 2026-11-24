@@ -788,6 +788,23 @@ void FixGCMC::init()
   delete irregular;
   irregular = nullptr;
   if (full_flag && (comm->nprocs > 1)) irregular = new Irregular(lmp);
+
+  // without full energy, the trial energy of a translated atom or molecule
+  // is computed from the owned and ghost atoms of its processor.  they cover
+  // all interactions only if the displacement stays within the ghost atom
+  // cutoff minus the pair cutoff (comm->setup() uses the larger of the
+  // neighbor cutoff and the cutoff set with comm_modify)
+
+  if (!full_flag && force->pair && (nmcmoves > 0) && ((patomtrans > 0.0) || (pmoltrans > 0.0))) {
+    double skin = neighbor->skin;
+    if ((comm->mode == Comm::SINGLE) && (comm->cutghostuser > force->pair->cutforce + skin))
+      skin = comm->cutghostuser - force->pair->cutforce;
+    if ((displace > skin) && (comm->me == 0))
+      error->warning(FLERR,"Fix gcmc displace value {} is larger than the ghost atom cutoff "
+                     "minus the pair cutoff {}, so translations can miss interactions; "
+                     "increase the neighbor skin, use comm_modify cutoff, or use full_energy",
+                     displace, skin);
+  }
 }
 
 /* ----------------------------------------------------------------------

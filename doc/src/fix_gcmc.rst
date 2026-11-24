@@ -499,6 +499,16 @@ scale well in parallel.
 Molecule translations and rotations are supported with more than one
 MPI process, also when the *full_energy* option is used.
 
+Without the *full_energy* option, the energy of a translated atom or
+molecule at its trial position is computed from the atoms stored on
+its processor, which include the atoms within the ghost atom cutoff of
+its subdomain.  This covers all interactions only if the *displace*
+distance (and, for rotations, the distance an atom moves when its
+molecule rotates) is not larger than the ghost atom cutoff minus the
+pair cutoff, which is the neighbor skin (see :doc:`neighbor <neighbor>`)
+unless a larger cutoff is set with :doc:`comm_modify cutoff
+<comm_modify>`.  The fix prints a warning if *displace* is larger.
+
 When using *fix gcmc* in combination with :doc:`fix shake <fix_shake>`
 or :doc:`fix rigid <fix_rigid>`, only GCMC exchange moves are supported,
 so the argument *M* must be zero.
