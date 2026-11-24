@@ -145,28 +145,58 @@ cdef create_array(device, void *pointer, shape,is_int):
 
 
 
-cdef exchange_pointers(copy_from, copy_to):
-    """Return the data pointers of copy_from and copy_to for forward_exchange()
-    and reverse_exchange(), and whether they hold 32-bit floats.  Only this lookup
-    falls back from PyTorch tensors to CuPy arrays, so that errors raised by the
-    exchange itself are not mistaken for an unknown array type."""
-    try:
-        # PyTorch tensors
-        copy_from_ptr = copy_from.data_ptr()
-        copy_to_ptr = copy_to.data_ptr()
+cdef exchange_pointer(arr, name, int minsize):
+    """Return the data pointer of a PyTorch tensor, CuPy array or NumPy array passed
+    to forward_exchange() or reverse_exchange(), and whether it holds 32-bit floats.
+    The array must be contiguous and hold at least minsize elements.
+    The array type is detected without catching errors, so that errors raised by
+    the exchange itself are never mistaken for an unknown array type."""
+    if hasattr(arr, "data_ptr"):
+        # PyTorch tensor
+        contiguous = arr.is_contiguous()
+        size = arr.numel()
         float32, float64 = torch.float32, torch.float64
-    except (AttributeError, NameError):
-        # CuPy arrays
-        copy_from_ptr = copy_from.data.ptr
-        copy_to_ptr = copy_to.data.ptr
+        ptr = arr.data_ptr()
+    elif isinstance(arr, np.ndarray):
+        contiguous = arr.flags["C_CONTIGUOUS"]
+        size = arr.size
         float32, float64 = np.float32, np.float64
-
-    if copy_from.dtype == float32:
-        return copy_from_ptr, copy_to_ptr, True
-    elif copy_from.dtype == float64:
-        return copy_from_ptr, copy_to_ptr, False
+        ptr = arr.ctypes.data
+    elif hasattr(arr, "data") and hasattr(arr.data, "ptr"):
+        # CuPy array
+        contiguous = arr.flags.c_contiguous
+        size = arr.size
+        float32, float64 = np.float32, np.float64
+        ptr = arr.data.ptr
     else:
-        raise TypeError(f"Unsupported comms type: ({copy_from.dtype})")
+        raise TypeError(f"{name} must be a PyTorch tensor, CuPy array or NumPy array, "
+                        f"not {type(arr).__name__}")
+
+    if not contiguous:
+        raise ValueError(f"{name} must be contiguous")
+    if size < minsize:
+        raise ValueError(f"{name} has {size} elements, but the exchange needs at least "
+                         f"{minsize} (number of local and ghost atoms times vec_len)")
+
+    if arr.dtype == float32:
+        return ptr, True
+    elif arr.dtype == float64:
+        return ptr, False
+    else:
+        raise TypeError(f"Unsupported comms type: ({arr.dtype})")
+
+
+cdef exchange_pointers(copy_from, copy_to, int ntotal, vec_len):
+    """Check the arguments of forward_exchange() and reverse_exchange() and return
+    the data pointers of copy_from and copy_to and whether they hold 32-bit floats."""
+    if vec_len < 0:
+        raise ValueError(f"vec_len must not be negative: {vec_len}")
+    minsize = ntotal * vec_len
+    copy_from_ptr, is_float32 = exchange_pointer(copy_from, "copy_from", minsize)
+    copy_to_ptr, to_float32 = exchange_pointer(copy_to, "copy_to", minsize)
+    if is_float32 != to_float32:
+        raise TypeError(f"Types of ({copy_from.dtype})copy_from and ({copy_to.dtype})copy_to mismatch")
+    return copy_from_ptr, copy_to_ptr, is_float32
 
 
 # Cython implementation of MLIAPData
@@ -218,33 +248,25 @@ cdef class MLIAPDataPy:
             self.update_pair_forces_gpu(fij)
 
     def forward_exchange(self, copy_from, copy_to, vec_len):
-        cdef uintptr_t copy_from_ptr, copy_to_ptr;
+        cdef uintptr_t copy_from_ptr, copy_to_ptr
 
-        copy_from_dtype = copy_from.dtype
-        copy_to_dtype = copy_to.dtype
-        if copy_from_dtype != copy_to_dtype:
-            raise TypeError(f"Types of ({copy_from_dtype})copy_from and ({copy_to_dtype})copy_to mismatch")
-
-        copy_from_ptr, copy_to_ptr, is_float32 = exchange_pointers(copy_from, copy_to)
+        copy_from_ptr, copy_to_ptr, is_float32 = exchange_pointers(
+            copy_from, copy_to, self.data.ntotal, vec_len)
         if is_float32:
             self.data.forward_exchange( <float*>copy_from_ptr, <float*>copy_to_ptr, vec_len)
         else:
             self.data.forward_exchange( <double*>copy_from_ptr, <double*>copy_to_ptr, vec_len)
 
     def reverse_exchange(self, copy_from, copy_to, vec_len):
-        cdef uintptr_t copy_from_ptr, copy_to_ptr;
+        cdef uintptr_t copy_from_ptr, copy_to_ptr
 
-        copy_from_dtype = copy_from.dtype
-        copy_to_dtype = copy_to.dtype
-        if copy_from_dtype != copy_to_dtype:
-            raise TypeError(f"Types of ({copy_from_dtype})copy_from and ({copy_to_dtype})copy_to mismatch")
-
-        copy_from_ptr, copy_to_ptr, is_float32 = exchange_pointers(copy_from, copy_to)
+        copy_from_ptr, copy_to_ptr, is_float32 = exchange_pointers(
+            copy_from, copy_to, self.data.ntotal, vec_len)
         if is_float32:
             self.data.reverse_exchange( <float*>copy_from_ptr, <float*>copy_to_ptr, vec_len)
         else:
             self.data.reverse_exchange( <double*>copy_from_ptr, <double*>copy_to_ptr, vec_len)
-        
+
     @property
     def f(self):
         if self.data.f is NULL:
