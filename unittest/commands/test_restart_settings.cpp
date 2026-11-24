@@ -20,8 +20,10 @@
 #include "lammps.h"
 
 #include "atom.h"
+#include "fix.h"
 #include "info.h"
 #include "library.h"
+#include "modify.h"
 #include "utils.h"
 
 #include "../testing/core.h"
@@ -176,6 +178,94 @@ TEST_F(RestartSettingsTest, eff_cut_settings)
     command("pair_coeff * *");
     END_HIDE_OUTPUT();
     roundtrip_check();
+}
+
+// the global state of a fix must be restored when the restart file was written
+// with an accelerated variant of the fix style and read with the plain name, and
+// the other way around.  An explicit accelerated style name (e.g. "nvt/kk" with
+// suffixes off, or "nvt/omp") is stored in the restart file as is.
+
+TEST_F(RestartSettingsTest, fix_state_accelerator_variant)
+{
+    // an explicit "nvt/kk" is only stored as is with suffixes off, which the test
+    // switches temporarily when running with "-sf kk"
+
+    std::string accel;
+    if (lmp->kokkos)
+        accel = "nvt/kk";
+    else if (info->has_style("fix", "nvt/omp"))
+        accel = "nvt/omp";
+    else
+        GTEST_SKIP() << "no accelerated variant of fix nvt available";
+
+    // suffixes are only toggled when a suffix was given on the command line
+    const bool has_suffix = (lmp->suffix != nullptr);
+
+    auto setup = [&]() {
+        command("units lj");
+        command("atom_style atomic");
+        command("lattice fcc 0.8442");
+        command("region box block 0 3 0 3 0 3");
+        command("create_box 1 box");
+        command("create_atoms 1 box");
+        command("mass 1 1.0");
+        command("velocity all create 3.0 87287 loop geom");
+        command("pair_style lj/cut 2.5");
+        command("pair_coeff * * 1.0 1.0");
+    };
+    auto restored_scalar = [&](const std::string &style, bool suffix_on) {
+        BEGIN_HIDE_OUTPUT();
+        // the run style is created by "clear", so suffixes must be on before it
+        if (has_suffix) command("suffix on");
+        command("clear");
+        command("read_restart accel_variant.restart");
+        command("pair_style lj/cut 2.5");
+        command("pair_coeff * * 1.0 1.0");
+        if (has_suffix && !suffix_on) command("suffix off");
+        END_HIDE_OUTPUT();
+        auto out = CAPTURE_OUTPUT([&]() {
+            command("fix 1 all " + style + " temp 1.0 1.0 0.5");
+        });
+        EXPECT_THAT(out, testing::HasSubstr("Resetting global fix info from restart file"));
+        BEGIN_HIDE_OUTPUT();
+        command("run 0 post no");
+        END_HIDE_OUTPUT();
+        return lmp->modify->get_fix_by_id("1")->compute_scalar();
+    };
+
+    // written with the explicit accelerated name, read with the plain name
+
+    BEGIN_HIDE_OUTPUT();
+    setup();
+    if (has_suffix) command("suffix off");
+    command("fix 1 all " + accel + " temp 1.0 1.0 0.5");
+    command("run 20 post no");
+    command("write_restart accel_variant.restart");
+    END_HIDE_OUTPUT();
+    double ref = lmp->modify->get_fix_by_id("1")->compute_scalar();
+    ASSERT_NE(ref, 0.0);
+    EXPECT_DOUBLE_EQ(restored_scalar("nvt", true), ref);
+
+    // written with the plain name, read with the explicit accelerated name
+
+    BEGIN_HIDE_OUTPUT();
+    if (has_suffix) command("suffix on");
+    command("clear");
+    setup();
+    command("fix 1 all nvt temp 1.0 1.0 0.5");
+    command("run 20 post no");
+    command("write_restart accel_variant.restart");
+    END_HIDE_OUTPUT();
+    ref = lmp->modify->get_fix_by_id("1")->compute_scalar();
+    ASSERT_NE(ref, 0.0);
+    EXPECT_DOUBLE_EQ(restored_scalar(accel, false), ref);
+
+    if (has_suffix) {
+        BEGIN_HIDE_OUTPUT();
+        command("suffix on");
+        END_HIDE_OUTPUT();
+    }
+    delete_file("accel_variant.restart");
 }
 
 int main(int argc, char **argv)

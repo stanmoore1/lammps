@@ -41,20 +41,20 @@ static constexpr double BIG = 1.0e20;
 static constexpr int INTERNAL_MASK = POST_FORCE_GROUP | ENERGY_COUPLE | ENERGY_GLOBAL | ENERGY_ATOM;
 
 namespace {
-// true if stored == canonical + "/kk/host", "/kk/device" or "/kk"
-// (exact terminal match, one suffix only)
-bool restart_style_kokkos_compat(const std::string &stored, const std::string &canonical)
+// remove one terminal accelerator suffix ("/kk/host", "/kk", "/omp", ...) from a style name.
+// used to match global fix restart entries independent of the accelerator variant,
+// since accelerated fixes share the restart data layout of their base style.
+// longer suffixes are listed first, so "nvt/kk/host" becomes "nvt" and not "nvt/kk".
+std::string strip_accelerator_suffix(const std::string &style)
 {
-  static const char *const kksuffix[3] = {"/kk/host", "/kk/device", "/kk"};
-  if (canonical.empty()) return false;
-  for (const char *sfx : kksuffix) {
+  static const char *const accel_suffix[] = {"/kk/device", "/kk/host", "/kk",  "/gpu",
+                                             "/intel",     "/omp",     "/opt"};
+  for (const char *sfx : accel_suffix) {
     const std::size_t n = strlen(sfx);
-    if ((stored.size() == canonical.size() + n) &&
-        (stored.compare(0, canonical.size(), canonical) == 0) &&
-        (stored.compare(canonical.size(), n, sfx) == 0))
-      return true;
+    if ((style.size() > n) && (style.compare(style.size() - n, n, sfx) == 0))
+      return style.substr(0, style.size() - n);
   }
-  return false;
+  return style;
 }
 }    // namespace
 
@@ -929,20 +929,19 @@ Fix *Modify::add_fix(int narg, char **arg, int trysuffix)
   // check if Fix is in restart_global list
   // if yes, pass state info to the Fix so it can reset itself
 
-  // a restart file written by an older version from a "-sf kk -pk kokkos pair/only on"
-  //   run stores the non-pair style with its suffix (e.g. "nvt/kk/host"); accept such
-  //   an entry only for the same fix ID, when KOKKOS is active, and when the stored
-  //   style is the same base style plus one KOKKOS suffix
+  // the stored style has the active accelerator suffix removed, but it may still carry
+  //   a different one: an explicit accelerated style name like "nvt/omp" or "nvt/kk" is
+  //   stored as is, and older versions stored "nvt/kk/host" for "-sf kk" with
+  //   "-pk kokkos pair/only on".  Accept an entry with the same fix ID whose style
+  //   differs from the new fix style only by an accelerator suffix.
 
   for (int i = 0; i < nfix_restart_global; i++) {
     if (strcmp(id_restart_global[i], newfix->id) != 0) continue;
     const std::string canonical = utils::strip_style_suffix(newfix->style, lmp);
-    bool compat = false;
-    if (canonical != style_restart_global[i]) {
-      if (!lmp->kokkos || !restart_style_kokkos_compat(style_restart_global[i], canonical))
-        continue;
-      compat = true;
-    }
+    const bool same = (canonical == style_restart_global[i]);
+    if (!same &&
+        (strip_accelerator_suffix(canonical) != strip_accelerator_suffix(style_restart_global[i])))
+      continue;
     newfix->restart(state_restart_global[i]);
     used_restart_global[i] = 1;
     newfix->restart_reset = 1;
@@ -951,11 +950,11 @@ Fix *Modify::add_fix(int narg, char **arg, int trysuffix)
                      "Resetting global fix info from restart file:\n"
                      "  fix style: {}, fix ID: {}\n",
                      newfix->style, newfix->id);
-      if (compat)
+      if (!same)
         utils::logmesg(lmp,
-                       "  (restart file fix style {} accepted as {}: same fix ID and base style,"
-                       " written with the KOKKOS non-pair suffix)\n",
-                       style_restart_global[i], canonical);
+                       "  (fix style {} in restart file is a variant of the same style "
+                       "with a different accelerator suffix)\n",
+                       style_restart_global[i]);
     }
   }
 
