@@ -47,6 +47,11 @@ static constexpr double MAXENERGYTEST = 1.0e50;
 static constexpr int NMOLDATA = 10;
 static constexpr int NMOLINFO = 8;
 
+// image flags of an atom that has not crossed any periodic boundary
+
+static constexpr imageint IMAGEZERO =
+    ((imageint) IMGMAX << IMG2BITS) | ((imageint) IMGMAX << IMGBITS) | IMGMAX;
+
 /* ----------------------------------------------------------------------
   Shrink one box and expand the other one by the same volume
 ------------------------------------------------------------------------- */
@@ -58,6 +63,7 @@ void FixGEMC::attempt_volume_change_full()
   // all owned atoms must be in the atom arrays
 
   flush_pending();
+  double energy_before = current_energy();
 
   // random walk in logvolratio = log(V1/V2), identical in both boxes
   // V1 = Vtotal/(1+exp(-logvolratio)), V2 = Vtotal/(1+exp(logvolratio))
@@ -92,7 +98,7 @@ void FixGEMC::attempt_volume_change_full()
   // each box contributes dU - (N+1)*kT*log(Vnew/Vold)
 
   double energy_after = energy_full();
-  double dU = energy_after - energy_stored - (nunits + 1) * force->boltz * box_temp * log(fvolume);
+  double dU = energy_after - energy_before - (nunits + 1) * force->boltz * box_temp * log(fvolume);
   int overflow = !(energy_after < MAXENERGYTEST);
 
   if (accept_both(dU, overflow)) {
@@ -137,7 +143,9 @@ void FixGEMC::attempt_atomic_exchange_full()
 
   int local = use_local();
 
-  double energy_before = energy_stored;
+  // energy differences suffice with single-atom energies
+
+  double energy_before = local ? energy_stored : current_energy();
   double volume = box_volume();
   bigint nold = natom_total;
   double denergy = 0.0;
@@ -372,7 +380,7 @@ void FixGEMC::attempt_atomic_translation_full()
   ntranslation_attempts += 1.0;
 
   int local = use_local();
-  double energy_before = energy_stored;
+  double energy_before = local ? energy_stored : current_energy();
   double dmax = local ? MIN(displace, move_limit) : max_translation();
 
   int i = pick_random_gas_atom();
@@ -589,6 +597,40 @@ tagint FixGEMC::gather_molecule(tagint molid, std::vector<double> &data)
 }
 
 /* ----------------------------------------------------------------------
+   center of mass of a molecule from the data of gather_molecule()
+------------------------------------------------------------------------- */
+
+void FixGEMC::molecule_com(const std::vector<double> &data, double *com)
+{
+  double mtotal = 0.0;
+  com[0] = com[1] = com[2] = 0.0;
+  for (int k = 0; k < natoms_per_molecule; k++) {
+    double m = data[NMOLDATA * k + 6];
+    com[0] += m * data[NMOLDATA * k + 1];
+    com[1] += m * data[NMOLDATA * k + 2];
+    com[2] += m * data[NMOLDATA * k + 3];
+    mtotal += m;
+  }
+  com[0] /= mtotal;
+  com[1] /= mtotal;
+  com[2] /= mtotal;
+}
+
+/* ----------------------------------------------------------------------
+   add (sign = 1) or remove (sign = -1) the atoms and the bonds, angles,
+   dihedrals, and impropers of one molecule to/from the global counts
+------------------------------------------------------------------------- */
+
+void FixGEMC::add_molecule_counts(int sign)
+{
+  atom->natoms += sign * natoms_per_molecule;
+  atom->nbonds += sign * onemol->nbonds;
+  atom->nangles += sign * onemol->nangles;
+  atom->ndihedrals += sign * onemol->ndihedrals;
+  atom->nimpropers += sign * onemol->nimpropers;
+}
+
+/* ----------------------------------------------------------------------
    Displace a randomly chosen molecule within a box
 ------------------------------------------------------------------------- */
 
@@ -602,7 +644,7 @@ void FixGEMC::attempt_molecule_translation_full()
 
   ntranslation_attempts += 1.0;
 
-  double energy_before = energy_stored;
+  double energy_before = current_energy();
   tagint molid = pick_random_molecule();
 
   double d[3];
@@ -664,7 +706,7 @@ void FixGEMC::attempt_molecule_rotation_full()
 
   nrotation_attempts += 1.0;
 
-  double energy_before = energy_stored;
+  double energy_before = current_energy();
   tagint molid = pick_random_molecule();
 
   // center of mass from unwrapped coordinates
@@ -672,18 +714,8 @@ void FixGEMC::attempt_molecule_rotation_full()
   std::vector<double> data;
   tagint first = gather_molecule(molid, data);
   const int n = natoms_per_molecule;
-  double com[3] = {0.0, 0.0, 0.0};
-  double mtotal = 0.0;
-  for (int k = 0; k < n; k++) {
-    double m = data[NMOLDATA * k + 6];
-    com[0] += m * data[NMOLDATA * k + 1];
-    com[1] += m * data[NMOLDATA * k + 2];
-    com[2] += m * data[NMOLDATA * k + 3];
-    mtotal += m;
-  }
-  com[0] /= mtotal;
-  com[1] /= mtotal;
-  com[2] /= mtotal;
+  double com[3];
+  molecule_com(data, com);
 
   // random axis and angle in [-maxangle,maxangle], a symmetric proposal
 
@@ -717,8 +749,6 @@ void FixGEMC::attempt_molecule_rotation_full()
 
   // save old positions and image flags, apply rotation to unwrapped coordinates
 
-  const imageint imagezero =
-      ((imageint) IMGMAX << IMG2BITS) | ((imageint) IMGMAX << IMGBITS) | IMGMAX;
   std::vector<double> xsaved(3 * n, 0.0);
   std::vector<imageint> imagesaved(n, 0);
   double **x = atom->x;
@@ -739,7 +769,7 @@ void FixGEMC::attempt_molecule_rotation_full()
     x[i][0] += com[0];
     x[i][1] += com[1];
     x[i][2] += com[2];
-    image[i] = imagezero;
+    image[i] = IMAGEZERO;
     domain->remap(x[i], image[i]);
   }
 
@@ -796,7 +826,7 @@ void FixGEMC::attempt_molecule_exchange_full()
   int donor = (random_universe->uniform() < 0.5) ? 0 : 1;
   int sender = (myworld == donor) ? 1 : 0;
 
-  double energy_before = energy_stored;
+  double energy_before = current_energy();
   double volume = box_volume();
   bigint nold = natom_total / n;
 
@@ -813,16 +843,8 @@ void FixGEMC::attempt_molecule_exchange_full()
       tagint molid = pick_random_molecule();
       std::vector<double> data;
       gather_molecule(molid, data);
-      double com[3] = {0.0, 0.0, 0.0};
-      double mtotal = 0.0;
-      for (int k = 0; k < n; k++) {
-        double m = data[NMOLDATA * k + 6];
-        com[0] += m * data[NMOLDATA * k + 1];
-        com[1] += m * data[NMOLDATA * k + 2];
-        com[2] += m * data[NMOLDATA * k + 3];
-        mtotal += m;
-      }
-      for (int j = 0; j < 3; j++) com[j] /= mtotal;
+      double com[3];
+      molecule_com(data, com);
       for (int k = 0; k < n; k++) {
         double *info = &molinfo[1 + NMOLINFO * k];
         info[0] = data[NMOLDATA * k + 1] - com[0];
@@ -854,11 +876,7 @@ void FixGEMC::attempt_molecule_exchange_full()
           i++;
         }
       }
-      atom->natoms -= n;
-      atom->nbonds -= onemol->nbonds;
-      atom->nangles -= onemol->nangles;
-      atom->ndihedrals -= onemol->ndihedrals;
-      atom->nimpropers -= onemol->nimpropers;
+      add_molecule_counts(-1);
       changed_atoms();
     }
   }
@@ -882,11 +900,7 @@ void FixGEMC::attempt_molecule_exchange_full()
   auto restore_donor = [&]() {
     size_t pos = 0;
     for (int k = 0; k < nremoved; k++) pos += atom->avec->unpack_exchange(&exchange_buf[pos]);
-    atom->natoms += n;
-    atom->nbonds += onemol->nbonds;
-    atom->nangles += onemol->nangles;
-    atom->ndihedrals += onemol->ndihedrals;
-    atom->nimpropers += onemol->nimpropers;
+    add_molecule_counts(1);
     changed_atoms();
   };
 
@@ -931,8 +945,6 @@ void FixGEMC::attempt_molecule_exchange_full()
     double rotmat[3][3];
     MathExtra::quat_to_mat(quat, rotmat);
 
-    const imageint imagezero =
-        ((imageint) IMGMAX << IMG2BITS) | ((imageint) IMGMAX << IMGBITS) | IMGMAX;
     int ncreated = 0;
     for (int k = 0; k < n; k++) {
       double xnew[3];
@@ -941,7 +953,7 @@ void FixGEMC::attempt_molecule_exchange_full()
       xnew[0] += com[0];
       xnew[1] += com[1];
       xnew[2] += com[2];
-      imageint imagenew = imagezero;
+      imageint imagenew = IMAGEZERO;
       domain->remap(xnew, imagenew);
       if (!owns(xnew)) continue;
       ncreated++;
@@ -962,11 +974,7 @@ void FixGEMC::attempt_molecule_exchange_full()
     MPI_Allreduce(&ncreated, &ncreated_all, 1, MPI_INT, MPI_SUM, world);
     if (ncreated_all != n)
       error->all(FLERR, "Fix gemc inserted {} instead of {} atoms of a molecule", ncreated_all, n);
-    atom->natoms += n;
-    atom->nbonds += onemol->nbonds;
-    atom->nangles += onemol->nangles;
-    atom->ndihedrals += onemol->ndihedrals;
-    atom->nimpropers += onemol->nimpropers;
+    add_molecule_counts(1);
     changed_atoms();
   }
 
@@ -1001,11 +1009,7 @@ void FixGEMC::attempt_molecule_exchange_full()
           i++;
         }
       }
-      atom->natoms -= n;
-      atom->nbonds -= onemol->nbonds;
-      atom->nangles -= onemol->nangles;
-      atom->ndihedrals -= onemol->ndihedrals;
-      atom->nimpropers -= onemol->nimpropers;
+      add_molecule_counts(-1);
       changed_atoms();
     }
     energy_stored = energy_before;

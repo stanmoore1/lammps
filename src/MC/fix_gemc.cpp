@@ -216,6 +216,8 @@ FixGEMC::FixGEMC(LAMMPS *lmp, int narg, char **arg) :
   maxtag_box = 0;
   pending_changes = 0;
   local_warned = 0;
+  energy_stored = 0.0;
+  energy_valid = 0;
   rvous_count = 0;
   rvous_bad = rvous_charged = 0;
   logvolratio = voltot = 0.0;
@@ -734,10 +736,19 @@ void FixGEMC::pre_exchange()
 
   next_reneighbor = update->ntimestep + nevery;
 
+  // the total energy is computed when the first move needs it, since moves
+  // with single-atom energies only need energy differences.  atoms may have
+  // moved to other ranks since the last call, so the list of local group
+  // atoms is regenerated and the ghost atoms are rebuilt before they are used
+
+  energy_valid = 0;
+  energy_stored = 0.0;
+  ghosts_stale = 1;
+  grid_valid = 0;
+  update_gas_atoms_list();
+
   // the move type sequence comes from the synchronized RNG,
   // so both boxes always attempt the same type of move
-
-  energy_stored = energy_full();
 
   for (int i = 0; i < nmoves; i++) {
     double imove = random_universe->uniform();
@@ -1516,6 +1527,22 @@ void FixGEMC::flush_pending()
   nstored = 0;
   changed_atoms();
   update_gas_atoms_list();
+}
+
+/* ----------------------------------------------------------------------
+   total potential energy of my box, computed if not known yet.
+   moves with single-atom energies add their energy change to energy_stored,
+   so it remains the total energy once it is known.
+   must be called by all ranks of the box.
+------------------------------------------------------------------------- */
+
+double FixGEMC::current_energy()
+{
+  if (!energy_valid) {
+    energy_stored = energy_full();
+    energy_valid = 1;
+  }
+  return energy_stored;
 }
 
 /* ----------------------------------------------------------------------

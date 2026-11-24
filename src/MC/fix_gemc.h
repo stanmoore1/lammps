@@ -73,7 +73,8 @@ class FixGEMC : public Fix {
   // for evaluating probability
 
   double beta;             // 1 / kT
-  double energy_stored;    // current potential energy
+  double energy_stored;    // current potential energy, or its change if energy_valid = 0
+  int energy_valid;        // 1 if energy_stored is the total potential energy
   class Compute *c_pe;     // compute to get full potential energy
 
   // for determining which move to make
@@ -187,6 +188,7 @@ class FixGEMC : public Fix {
   void reset_comm();               // re-distribute atoms and rebuild ghosts and neighbor lists
   void refresh_ghosts();           // re-distribute atoms and rebuild ghost atoms
   double energy_full();            // computes full potential energy
+  double current_energy();         // total potential energy, computed if not known
   double energy_local(int, int, tagint, double *);    // pair energy of one atom
   int use_local();        // 1 if the next move in my box may use energy_local()
   double local_skin();    // distance an atom may move before ghost atoms must be rebuilt
@@ -198,7 +200,9 @@ class FixGEMC : public Fix {
   int pick_random_gas_atom();       // picks random group atom
   tagint pick_random_molecule();    // picks random molecule of the group
   tagint first_atom(tagint);        // first atom ID of a molecule with consecutive IDs
-  tagint gather_molecule(tagint, std::vector<double> &);    // gather atoms of one molecule
+  tagint gather_molecule(tagint, std::vector<double> &);       // gather atoms of one molecule
+  void molecule_com(const std::vector<double> &, double *);    // center of mass of gathered data
+  void add_molecule_counts(int);    // update global atom and topology counts by one molecule
 
   void build_grid();                  // sort owned and ghost atoms into bins
   void bin_index(double *, int *);    // bin indices of a point
