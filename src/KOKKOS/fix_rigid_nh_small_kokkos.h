@@ -113,7 +113,7 @@ template <class DeviceType> class FixRigidNHSmallKokkos : public FixRigidSmallKo
   using FixRigidSmallKokkos<DeviceType>::setupflag;
 
   // device machinery from FixRigidSmallKokkos
-  using FixRigidSmallKokkos<DeviceType>::commKK;
+  using FixRigidSmallKokkos<DeviceType>::forward_comm_device_kk;
   using FixRigidSmallKokkos<DeviceType>::d_body;
   using FixRigidSmallKokkos<DeviceType>::k_body;
   using FixRigidSmallKokkos<DeviceType>::set_xv_kokkos;

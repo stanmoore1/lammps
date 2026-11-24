@@ -26,17 +26,32 @@ class CommBrickDirectKokkos : public CommBrickDirect {
   ~CommBrickDirectKokkos() override;
   void setup() override;                        // setup direct comm data structs
 
-  using CommBrick::forward_comm;
-  using CommBrick::reverse_comm;
+  using CommBrickDirect::forward_comm;
+  using CommBrickDirect::reverse_comm;
   void forward_comm(int dummy = 0) override;    // forward comm of atom coords
   void reverse_comm() override;                 // reverse comm of forces
   void exchange() override;                     // move atoms to new procs
   void borders() override;                      // setup list of atoms to comm
 
+  void forward_comm(class Pair *, int size = 0) override;
+  void reverse_comm(class Pair *, int size = 0) override;
+  void forward_comm(class Fix *, int size = 0) override;
+  void reverse_comm(class Fix *, int size = 0) override;
+  void forward_comm(class Compute *, int size = 0) override;
+
   template<class DeviceType> void forward_comm_device();
   template<class DeviceType> void reverse_comm_device();
   template<class DeviceType> void build_lists_device();
   template<class DeviceType> void borders_comm_device();
+
+  // device comm for Kokkos styles; same entry points as CommBrickKokkos so
+  //   styles that call them directly (fix rigid/small/kk) work with either
+
+  template<class DeviceType> void forward_comm_device(Pair *pair, int size=0);
+  template<class DeviceType> void reverse_comm_device(Pair *pair, int size=0);
+  template<class DeviceType> void forward_comm_device(Fix *fix, int size=0);
+  template<class DeviceType> void reverse_comm_device(Fix *fix, int size=0);
+  template<class DeviceType> void forward_comm_device(Compute *compute, int size=0);
 
  private:
   DAT::tdual_double_2d_lr k_buf_send_direct,k_buf_recv_direct;
@@ -51,7 +66,12 @@ class CommBrickDirectKokkos : public CommBrickDirect {
   DAT::tdual_int_1d k_firstrecv_direct;
   DAT::tdual_int_1d k_sendnum_scan_direct;
   DAT::tdual_int_1d k_self_flag;
+  DAT::tdual_double_1d k_buf_send_obj,k_buf_recv_obj;
   int totalsend;
+
+  template<class DeviceType> void forward_comm_object(class KokkosBase *, int);
+  template<class DeviceType> void reverse_comm_object(class KokkosBase *, int);
+  void grow_buf_obj(int);
 
   void grow_send_direct(int, int) override;
   void grow_recv_direct(int) override;

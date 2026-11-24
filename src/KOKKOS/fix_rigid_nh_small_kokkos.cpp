@@ -470,7 +470,7 @@ void FixRigidNHSmallKokkos<DeviceType>::initial_integrate(int vflag)
   // forward communicate updated info of all bodies
 
   commflag = INITIAL;
-  commKK->template forward_comm_device<DeviceType>(this,29);
+  forward_comm_device_kk(29);
 
   // accumulate translational and rotational kinetic energies
 
@@ -540,7 +540,7 @@ void FixRigidNHSmallKokkos<DeviceType>::final_integrate()
   // forward communicate updated info of all bodies
 
   commflag = FINAL;
-  commKK->template forward_comm_device<DeviceType>(this,10);
+  forward_comm_device_kk(10);
 
   // accumulate translational and rotational kinetic energies
 

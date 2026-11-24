@@ -642,8 +642,18 @@ struct AtomVecKokkos_PackCommDirect {
   KOKKOS_INLINE_FUNCTION
   void operator() (const int& ii) const {
 
-    int iswap = 0;
-    while (ii >= _sendnum_scan[iswap]) iswap++;
+    // swap of row ii = first swap whose inclusive send scan exceeds ii
+    // binary search: the stencil can hold hundreds of swaps when the ghost
+    //   cutoff spans several subdomains, and a linear walk costs that per atom
+
+    int lo = 0;
+    int hi = _sendnum_scan.extent(0) - 1;
+    while (lo < hi) {
+      const int mid = (lo + hi) / 2;
+      if (_sendnum_scan[mid] > ii) hi = mid;
+      else lo = mid + 1;
+    }
+    const int iswap = lo;
 
     int i = ii;
     if (iswap > 0) i = ii - _sendnum_scan[iswap-1];

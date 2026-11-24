@@ -25,6 +25,7 @@ FixStyle(rigid/small/kk/host,FixRigidSmallKokkos<LMPHostType>);
 #include "Kokkos_Random.hpp"
 #include "atom_masks.h"
 #include "atom_vec_ellipsoid_kokkos.h"
+#include "comm_brick_direct_kokkos.h"
 #include "comm_brick_kokkos.h"
 #include "fix_rigid_small.h"
 #include "kokkos_base.h"
@@ -279,7 +280,9 @@ template <class DeviceType> class FixRigidSmallKokkos : public FixRigidSmall, pu
   typename AT::t_double_1d_um d_buf;
   int first;
 
-  CommBrickKokkos *commKK;
+  void forward_comm_device_kk(int);
+  void reverse_comm_device_kk(int);
+  bool device_exchange_active();
 
   // body DualView (struct array); not tied to base `body` (different allocator),
   // bridged by copy_body_host()/copy_body_device()

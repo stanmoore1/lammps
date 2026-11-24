@@ -59,7 +59,6 @@ FixRigidSmallKokkos<DeviceType>::FixRigidSmallKokkos(LAMMPS *lmp, int narg, char
 {
   kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
-  commKK = (CommBrickKokkos *) comm;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | V_MASK | VIRIAL_MASK | TYPE_MASK | TAG_MASK;
   datamask_modify = X_MASK | V_MASK | VIRIAL_MASK;
@@ -133,10 +132,52 @@ FixRigidSmallKokkos<DeviceType>::~FixRigidSmallKokkos()
 
 /* ---------------------------------------------------------------------- */
 
+/* ----------------------------------------------------------------------
+   device forward/reverse comm of this fix through the current comm class
+   comm is looked up on every call: a comm_style command replaces it
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+void FixRigidSmallKokkos<DeviceType>::forward_comm_device_kk(int size)
+{
+  if (comm->style == Comm::BRICK_DIRECT)
+    ((CommBrickDirectKokkos *) comm)->forward_comm_device<DeviceType>(this,size);
+  else
+    ((CommBrickKokkos *) comm)->forward_comm_device<DeviceType>(this,size);
+}
+
+template<class DeviceType>
+void FixRigidSmallKokkos<DeviceType>::reverse_comm_device_kk(int size)
+{
+  if (comm->style == Comm::BRICK_DIRECT)
+    ((CommBrickDirectKokkos *) comm)->reverse_comm_device<DeviceType>(this,size);
+  else
+    ((CommBrickKokkos *) comm)->reverse_comm_device<DeviceType>(this,size);
+}
+
+/* ----------------------------------------------------------------------
+   true when atom exchange runs on the device
+   comm_style brick/direct always exchanges atoms on the host
+------------------------------------------------------------------------- */
+
+template<class DeviceType>
+bool FixRigidSmallKokkos<DeviceType>::device_exchange_active()
+{
+  if (comm->style != Comm::BRICK) return false;
+  return !((CommBrickKokkos *) comm)->exchange_comm_legacy;
+}
+
+/* ---------------------------------------------------------------------- */
+
 template<class DeviceType>
 void FixRigidSmallKokkos<DeviceType>::init()
 {
   FixRigidSmall::init();
+
+  // the device comm calls below are made on the comm class directly
+
+  if (comm->style == Comm::TILED)
+    error->all(FLERR,"Fix {} does not support comm_style tiled", style);
   if (utils::strmatch(update->integrate_style,"^respa"))
     error->all(FLERR,"Cannot yet use respa with Kokkos");
 
@@ -232,7 +273,7 @@ void FixRigidSmallKokkos<DeviceType>::pre_exchange()
   // default is exchange_comm_legacy=1 even though we set exchange_comm_device=1,
   // so CommBrick::exchange() is called and the base-class pack_exchange() reads
   // from the host arrays -- we must not skip the flush in that case.
-  if (exchange_comm_device && !commKK->exchange_comm_legacy) return;
+  if (exchange_comm_device && device_exchange_active()) return;
 
   // Host exchange path: flush device→host so the base-class
   // pack_exchange/copy_arrays/unpack_exchange see valid data.
@@ -626,9 +667,9 @@ void FixRigidSmallKokkos<DeviceType>::setup_device_push()
   retire_body_sends();
 
   commflag = BODY_SENDLIST;
-  commKK->forward_comm_device<DeviceType>(this, 1);
+  forward_comm_device_kk(1);
   commflag = FULL_BODY;
-  commKK->forward_comm_device<DeviceType>(this, bodysize);
+  forward_comm_device_kk(bodysize);
 }
 
 template<class DeviceType>
@@ -654,7 +695,7 @@ void FixRigidSmallKokkos<DeviceType>::pre_neighbor(){
   // For OpenMP/Serial, exchange_comm_legacy defaults to 1 so CommBrick::exchange()
   // runs host pack/unpack even though exchange_comm_device=1; for GPU builds
   // with exchange_comm_legacy=0 the device path is used.
-  bool using_device_exchange = exchange_comm_device && !commKK->exchange_comm_legacy;
+  bool using_device_exchange = exchange_comm_device && device_exchange_active();
 
   if (!using_device_exchange) {
     // Host exchange path: Comm::exchange migrated atoms and bodies on the host;
@@ -776,9 +817,9 @@ void FixRigidSmallKokkos<DeviceType>::pre_neighbor(){
   retire_body_sends();
 
   commflag = BODY_SENDLIST;
-  commKK->forward_comm_device<DeviceType>(this, 1);
+  forward_comm_device_kk(1);
   commflag = FULL_BODY;
-  commKK->forward_comm_device<DeviceType>(this, bodysize);
+  forward_comm_device_kk(bodysize);
   reset_atom2body();
 
   image_shift();
@@ -804,7 +845,7 @@ void FixRigidSmallKokkos<DeviceType>::initial_integrate(int vflag)
   // forward communicate updated info of all bodies
 
   commflag = INITIAL;
-  commKK->forward_comm_device<DeviceType>(this,29);
+  forward_comm_device_kk(29);
 
   // set coords/orient and velocity/rotation of atoms in rigid bodies
 
@@ -1057,7 +1098,7 @@ void FixRigidSmallKokkos<DeviceType>::compute_forces_and_torques_kokkos()
 
   Kokkos::Profiling::pushRegion("reverse communicate");
   commflag = FORCE_TORQUE;
-  commKK->reverse_comm_device<DeviceType>(this,6);
+  reverse_comm_device_kk(6);
   Kokkos::Profiling::popRegion();
 
   // include Langevin thermostat forces and torques (computed on the device)
@@ -1150,7 +1191,7 @@ void FixRigidSmallKokkos<DeviceType>::final_integrate()
   // forward communicate updated info of all bodies
 
   commflag = FINAL;
-  commKK->forward_comm_device<DeviceType>(this,10);
+  forward_comm_device_kk(10);
 
   // set velocity/rotation of atoms in rigid bodies
   // virial is already setup from initial_integrate
@@ -2828,7 +2869,7 @@ void FixRigidSmallKokkos<DeviceType>::zero_momentum()
   // forward communicate vcm to all ghost copies
 
   commflag = FINAL;
-  commKK->forward_comm_device<DeviceType>(this,10);
+  forward_comm_device_kk(10);
 
   // set velocity of atoms in rigid bodues
 
@@ -2863,7 +2904,7 @@ void FixRigidSmallKokkos<DeviceType>::zero_rotation()
   // forward communicate of omega to all ghost copies
 
   commflag = FINAL;
-  commKK->forward_comm_device<DeviceType>(this,10);
+  forward_comm_device_kk(10);
 
   // set velocity of atoms in rigid bodues
 
