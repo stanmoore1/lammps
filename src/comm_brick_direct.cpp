@@ -64,6 +64,15 @@ CommBrickDirect::~CommBrickDirect()
 
 void CommBrickDirect::init_pointers()
 {
+  // the destructor frees these, and init() is not guaranteed to run
+  //   before it (e.g. another comm_style command before the first run)
+
+  buf_send_direct = nullptr;
+  buf_recv_direct = nullptr;
+  maxsend_direct = maxrecv_direct = 0;
+  ndirect = maxdirect = maxlist = nself_direct = 0;
+  maxtag_mpi = -1;
+
   swaporder = nullptr;
   proc_direct = nullptr;
   pbc_flag_direct = nullptr;
@@ -107,12 +116,11 @@ void CommBrickDirect::init_pointers()
 
 CommBrickDirect::CommBrickDirect(LAMMPS *lmp, Comm *oldcomm) : CommBrick(lmp, oldcomm)
 {
-  if (oldcomm->layout == Comm::LAYOUT_TILED)
-    error->all(FLERR,"Cannot change to comm_style brick/direct from tiled layout");
+  // CommBrick(lmp,oldcomm) has already rejected a tiled layout, set the
+  //   layout, and deep-copied the Comm arrays with Comm::copy_arrays();
+  //   copying them a second time here would leak the first copies
 
   style = Comm::BRICK_DIRECT;
-  layout = oldcomm->layout;
-  Comm::copy_arrays(oldcomm);
   init_pointers();
 }
 
@@ -225,13 +233,16 @@ void CommBrickDirect::setup()
   // calculate max stencil extent in each dim for any proc
   // max stencil extents are used for MPI tag calculations
 
-  int stencil_half_local[3];
-  stencil_half_local[0] = MAX(-ilo,ihi);
-  stencil_half_local[1] = MAX(-jlo,jhi);
-  stencil_half_local[2] = MAX(-klo,khi);
+  // maxneed from CommBrick::setup() is already that global max: for a uniform
+  //   layout it is computed identically on every proc, for a non-uniform one
+  //   CommBrick::setup() reduces it over all procs.  every proc's recvneed is
+  //   bounded by it, so no extra global reduction is needed here, which matters
+  //   because setup() runs on every reneighbor when the box changes
 
   int stencil_half[3];
-  MPI_Allreduce(&stencil_half_local,&stencil_half,3,MPI_INT,MPI_MAX,world);
+  stencil_half[0] = maxneed[0];
+  stencil_half[1] = maxneed[1];
+  stencil_half[2] = maxneed[2];
 
   int stencil_full[3];
   stencil_full[0] = 2*stencil_half[0] + 1;
@@ -242,10 +253,15 @@ void CommBrickDirect::setup()
 
   bigint maxtag = (bigint) stencil_full[0] * stencil_full[1] * stencil_full[2];
 
-  void *maxtag_mpi_ptr;
-  int tmp;
-  MPI_Comm_get_attr(world,MPI_TAG_UB,&maxtag_mpi_ptr,&tmp);
-  int maxtag_mpi = *((int *) maxtag_mpi_ptr);
+  // query the MPI tag limit once; it cannot change for a communicator
+
+  if (maxtag_mpi < 0) {
+    void *maxtag_mpi_ptr;
+    int flag;
+    MPI_Comm_get_attr(world,MPI_TAG_UB,&maxtag_mpi_ptr,&flag);
+    if (flag) maxtag_mpi = *((int *) maxtag_mpi_ptr);
+    else maxtag_mpi = 32767;    // minimum value the MPI standard guarantees
+  }
 
   if (maxtag > maxtag_mpi)
     error->all(FLERR,"Comm brick/direct stencil is too large");
@@ -591,11 +607,9 @@ void CommBrickDirect::forward_comm(int /*dummy*/)
                           &buf_send_direct[send_offset],
                           pbc_flag_direct[iswap],pbc_direct[iswap]);
     }
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -683,22 +697,22 @@ void CommBrickDirect::reverse_comm()
   int nsendpost = 0;
   int send_offset = 0;
 
+  // the receiver posts a receive for every swap with a non-zero atom count,
+  //   so send exactly when recvnum_direct is non-zero, even an empty message
+
   for (int iswap = 0; iswap < ndirect; iswap++) {
     if (proc_direct[iswap] == me) continue;
+    if (recvnum_direct[iswap] == 0) continue;
     if (comm_f_only) {
-      if (size_reverse_send_direct[iswap]) {
-        buf = f[firstrecv_direct[iswap]];
-        MPI_Isend(buf,size_reverse_send_direct[iswap],MPI_DOUBLE,
-                  proc_direct[iswap],recvtag[iswap],world,&send_requests[nsendpost++]);
-      }
+      buf = f[firstrecv_direct[iswap]];
+      MPI_Isend(buf,size_reverse_send_direct[iswap],MPI_DOUBLE,
+                proc_direct[iswap],recvtag[iswap],world,&send_requests[nsendpost++]);
     } else {
       n = avec->pack_reverse(recvnum_direct[iswap],firstrecv_direct[iswap],
                              &buf_send_direct[send_offset]);
-      if (n) {
-        MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                  recvtag[iswap],world,&send_requests[nsendpost++]);
-        send_offset += n;
-      }
+      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+                recvtag[iswap],world,&send_requests[nsendpost++]);
+      send_offset += n;
     }
   }
 
@@ -874,11 +888,9 @@ void CommBrickDirect::borders_comm()
                             &buf_send_direct[send_offset],
                             pbc_flag_direct[iswap],pbc_direct[iswap]);
     }
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   if (npost) {
@@ -1098,11 +1110,9 @@ void CommBrickDirect::forward_comm(Pair *pair, int size)
     n = pair->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                 &buf_send_direct[send_offset],
                                 pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1133,7 +1143,9 @@ void CommBrickDirect::reverse_comm(Pair *pair, int size)
   int n,iswap,irecv;
   double *buf;
 
-  int nsize = MAX(pair->comm_reverse,pair->comm_reverse_off);
+  int nsize;
+  if (size) nsize = size;
+  else nsize = MAX(pair->comm_reverse,pair->comm_reverse_off);
 
   // post all receives for owned atoms
   // except for self copy/sums
@@ -1174,11 +1186,9 @@ void CommBrickDirect::reverse_comm(Pair *pair, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = pair->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                 &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1280,11 +1290,9 @@ void CommBrickDirect::forward_comm(Fix *fix, int size)
     n = fix->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                &buf_send_direct[send_offset],
                                pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1362,11 +1370,9 @@ void CommBrickDirect::reverse_comm(Fix *fix, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = fix->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1454,11 +1460,9 @@ void CommBrickDirect::forward_comm(Compute *compute, int size)
     n = compute->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                    &buf_send_direct[send_offset],
                                    pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1532,11 +1536,9 @@ void CommBrickDirect::reverse_comm(Compute *compute, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = compute->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                    &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1612,11 +1614,9 @@ void CommBrickDirect::forward_comm(Dump *dump, int size)
     n = dump->pack_forward_comm(sendnum_direct[iswap],sendlist_direct[iswap],
                                 &buf_send_direct[send_offset],
                                 pbc_flag_direct[iswap],pbc_direct[iswap]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with ghost atoms
@@ -1690,11 +1690,9 @@ void CommBrickDirect::reverse_comm(Dump *dump, int size)
     if (recvnum_direct[iswap] == 0) continue;
     n = dump->pack_reverse_comm(recvnum_direct[iswap],firstrecv_direct[iswap],
                                 &buf_send_direct[send_offset]);
-    if (n) {
-      MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
-                recvtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset += n;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],n,MPI_DOUBLE,proc_direct[iswap],
+              recvtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset += n;
   }
 
   // wait on incoming messages with owned atoms
@@ -1778,11 +1776,9 @@ void CommBrickDirect::forward_comm_array(int nsize, double **array)
       for (k = 0; k < nsize; k++)
         buf_send_direct[m++] = array[j][k];
     }
-    if (m > send_offset) {
-      MPI_Isend(&buf_send_direct[send_offset],m-send_offset,MPI_DOUBLE,
-                proc_direct[iswap],sendtag[iswap],world,&send_requests[nsendpost++]);
-      send_offset = m;
-    }
+    MPI_Isend(&buf_send_direct[send_offset],m-send_offset,MPI_DOUBLE,
+              proc_direct[iswap],sendtag[iswap],world,&send_requests[nsendpost++]);
+    send_offset = m;
   }
 
   // wait on incoming messages with ghost atoms

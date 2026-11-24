@@ -25,10 +25,10 @@ class CommBrickDirect : public CommBrick {
   ~CommBrickDirect() override;
 
   void init() override;                         // init error checks
-  virtual void setup() override;                        // setup direct comm data structs
-  virtual void forward_comm(int dummy = 0) override;    // forward comm of atom coords
+  void setup() override;                        // setup direct comm data structs
+  void forward_comm(int dummy = 0) override;    // forward comm of atom coords
   void reverse_comm() override;                 // reverse comm of forces
-  virtual void borders() override;                      // setup list of atoms to comm                      // setup list of atoms to comm
+  void borders() override;                      // setup list of atoms to comm
 
   void forward_comm(class Pair *, int size = 0) override;                 // forward comm from a Pair
   void reverse_comm(class Pair *, int size = 0) override;                 // reverse comm from a Pair
@@ -51,6 +51,7 @@ class CommBrickDirect : public CommBrick {
   int ndirect;                            // # of direct swaps with nearby procs, including self
   int maxdirect;                          // max size which all swap-length data is allocated for
   int nself_direct;                       // # of swaps with self, non-empty or empty
+  int maxtag_mpi;                         // MPI_TAG_UB of world, -1 until queried
 
   int **swaporder;                        // ordering (ijk indices) of swaps within 3d stencil
 
